@@ -8,10 +8,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // Browser extensions (e.g. screen recorders) add attributes to <html>
-    // before React loads; don't report those as hydration errors.
+    // Browser extensions (Grammarly, screen recorders, …) add attributes to
+    // <html> and <body> before React loads; don't report those as errors.
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
