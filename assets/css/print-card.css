@@ -1,0 +1,464 @@
+﻿/* ==========================================================================
+   NIS RESIDENCE CARD ISSUANCE SYSTEM (NIS-RCIS)
+   Print Stylesheet for Official Booklet (Pages 1-5), PVC Card & Certificate
+   ========================================================================== */
+
+/* Screen Preview Styling */
+.print-preview-wrapper {
+    background: #525659;
+    padding: 30px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+}
+
+.print-toolbar {
+    background: #ffffff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 900px;
+}
+
+/* --------------------------------------------------------------------------
+   Booklet Sheet (Mimicking the Uploaded Template)
+   Sheet 1: Pages 1 & 2 (Cover / Legal Backing)
+   Sheet 2: Pages 3, 4 & 5 (Biometrics, Contacts, Validity & Renewals)
+   -------------------------------------------------------------------------- */
+.booklet-page-sheet {
+    background: #fffdfa; /* Warm paper vintage texture */
+    width: 280mm;
+    min-height: 180mm;
+    padding: 15mm 12mm;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    position: relative;
+    border: 1px solid #e0dacf;
+    box-sizing: border-box;
+    display: grid;
+    color: #1a202c;
+    font-family: 'Times New Roman', Times, Georgia, serif;
+}
+
+/* 2-Column Booklet Layout (e.g. Page 1 & Page 2) */
+.booklet-grid-2col {
+    grid-template-columns: 1fr 1fr;
+    gap: 15mm;
+}
+
+/* 3-Column Booklet Layout (e.g. Pages 3, 4 & 5) */
+.booklet-grid-3col {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10mm;
+}
+
+.booklet-column {
+    border-right: 1px dashed #d1c7b7;
+    padding: 5mm 8mm;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.booklet-column:last-child {
+    border-right: none;
+}
+
+.booklet-page-number {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13pt;
+    font-weight: bold;
+    color: #4a5568;
+}
+
+/* NSPMC Security Margin Text */
+.nspmc-watermark-margin {
+    position: absolute;
+    top: 50%;
+    left: 2mm;
+    transform: translateY(-50%) rotate(-90deg);
+    transform-origin: center center;
+    font-size: 7pt;
+    letter-spacing: 1px;
+    color: #8c857b;
+    font-family: Arial, sans-serif;
+    white-space: nowrap;
+}
+
+/* Page 1 (Cover) Elements */
+.cover-emblem-box {
+    text-align: center;
+    margin-top: 15mm;
+    margin-bottom: 12mm;
+}
+
+.ecowas-emblem {
+    width: 65px;
+    height: 65px;
+    margin: 0 auto;
+}
+
+.residence-card-title-box {
+    border: 2px solid #1a202c;
+    padding: 8px 18px;
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin: 0 auto 15mm;
+    max-width: 80%;
+    background: rgba(255,255,255,0.8);
+}
+
+.issuing-country-row {
+    margin-bottom: 15mm;
+    font-size: 11pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.card-serial-row {
+    display: flex;
+    align-items: baseline;
+    font-size: 13pt;
+    margin-top: 20mm;
+    font-weight: bold;
+}
+
+.card-serial-number {
+    font-size: 20pt;
+    letter-spacing: 3px;
+    color: #1a5c2e;
+    margin: 0 10px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Page 2 (Legal Backing) Elements */
+.protocol-heading {
+    text-align: right;
+    font-size: 10pt;
+    font-weight: bold;
+    margin-top: 5mm;
+    margin-bottom: 25mm;
+    color: #2d3748;
+}
+
+.decision-block {
+    margin-top: 20mm;
+    font-size: 11pt;
+}
+
+.dotted-line-field {
+    border-bottom: 1px dotted #4a5568;
+    min-height: 24px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-end;
+    font-weight: bold;
+    font-size: 10.5pt;
+    text-transform: uppercase;
+}
+
+/* Page 3 (Biometrics & Applicant Profile) */
+.page3-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.applicant-photo-box {
+    width: 35mm;
+    height: 45mm;
+    border: 1px solid #1a202c;
+    position: absolute;
+    top: 5mm;
+    right: 5mm;
+    background: #f7fafc;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.applicant-photo-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bio-field-row {
+    margin-bottom: 7px;
+    font-size: 9.5pt;
+    line-height: 1.3;
+}
+
+.bio-label {
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.bio-value {
+    border-bottom: 1px dotted #4a5568;
+    display: inline-block;
+    width: 100%;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #000000;
+}
+
+/* Page 4 (Contact & Issuing Endorsement) */
+.page4-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between;
+}
+
+.endorsement-note {
+    font-style: italic;
+    text-align: center;
+    margin: 15mm 0;
+    font-size: 9pt;
+    color: #4a5568;
+}
+
+.officer-signature-area {
+    margin-top: auto;
+    border-top: 1px solid #1a202c;
+    padding-top: 5mm;
+    text-align: center;
+    font-size: 9pt;
+    font-weight: bold;
+}
+
+/* Page 5 (Validity, Renewals & Authority Stamp) */
+.validity-block {
+    margin-bottom: 10mm;
+}
+
+.renewals-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8mm 0;
+    font-size: 8.5pt;
+}
+
+.renewals-table th, .renewals-table td {
+    border: 1px solid #718096;
+    padding: 4px;
+    text-align: center;
+}
+
+.authority-stamp-box {
+    width: 35mm;
+    height: 35mm;
+    border: 2px dashed #a0aec0;
+    margin: 10mm auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 7pt;
+    color: #718096;
+    padding: 4px;
+}
+
+.verification-qr-box {
+    text-align: center;
+    margin-top: 5mm;
+}
+
+.verification-qr-box img {
+    width: 70px;
+    height: 70px;
+}
+
+/* --------------------------------------------------------------------------
+   PVC Smart Card (CR80 Standard: 85.6mm x 53.98mm)
+   -------------------------------------------------------------------------- */
+.pvc-card-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+    justify-content: center;
+}
+
+.pvc-card {
+    width: 85.6mm;
+    height: 53.98mm;
+    border-radius: 4mm;
+    background: linear-gradient(135deg, #ffffff 0%, #eefbf3 100%);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border: 1px solid #d1d5db;
+    position: relative;
+    overflow: hidden;
+    padding: 3mm 4mm;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1f2937;
+}
+
+.pvc-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3.5mm;
+    background: linear-gradient(90deg, #113f1f 33.3%, #ffffff 33.3%, #ffffff 66.6%, #113f1f 66.6%);
+}
+
+.pvc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2mm;
+    margin-bottom: 2mm;
+}
+
+.pvc-header-text h3 {
+    font-size: 6.5pt;
+    font-weight: 800;
+    color: #113f1f;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.pvc-header-text h4 {
+    font-size: 5pt;
+    font-weight: 700;
+    color: #d4af37;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.pvc-body {
+    display: flex;
+    gap: 3mm;
+    margin-top: 1mm;
+}
+
+.pvc-photo {
+    width: 22mm;
+    height: 27mm;
+    border-radius: 2mm;
+    border: 1px solid #1a5c2e;
+    overflow: hidden;
+    background: #e5e7eb;
+}
+
+.pvc-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pvc-details {
+    flex: 1;
+    font-size: 5.5pt;
+    line-height: 1.35;
+}
+
+.pvc-details .detail-row {
+    margin-bottom: 1.5px;
+}
+
+.pvc-details .label {
+    color: #6b7280;
+    font-weight: 700;
+    font-size: 4.8pt;
+    text-transform: uppercase;
+}
+
+.pvc-details .val {
+    font-weight: 800;
+    color: #111827;
+    text-transform: uppercase;
+}
+
+.pvc-card-back {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.pvc-magstripe {
+    background: #1f2937;
+    height: 8mm;
+    margin: -3mm -4mm 2mm;
+}
+
+.pvc-mrz-zone {
+    font-family: 'Courier New', monospace;
+    font-size: 6pt;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    line-height: 1.2;
+    color: #111827;
+    background: rgba(0,0,0,0.03);
+    padding: 1.5mm;
+    border-radius: 1mm;
+}
+
+/* --------------------------------------------------------------------------
+   Print Media Rules (@media print)
+   -------------------------------------------------------------------------- */
+@media print {
+    @page {
+        size: A4 landscape;
+        margin: 5mm;
+    }
+
+    body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .app-header,
+    .app-sidebar,
+    .sidebar-overlay,
+    .print-toolbar,
+    .no-print {
+        display: none !important;
+    }
+
+    .main-wrapper {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .content-container {
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .print-preview-wrapper {
+        background: transparent !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .booklet-page-sheet {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        page-break-after: always;
+        break-after: page;
+        margin: 0 auto;
+    }
+
+    .pvc-card {
+        box-shadow: none !important;
+        border: 1px solid #bbb !important;
+        page-break-inside: avoid;
+    }
+}

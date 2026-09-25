@@ -1,0 +1,16 @@
+RewriteEngine On
+RewriteBase /nis-rcis/
+
+# 1. Prevent loop: If already internally rewritten, do not redirect
+RewriteCond %{ENV:REDIRECT_STATUS} 200
+RewriteRule ^ - [L]
+
+# 2. External redirect: redirect browser from /nis-rcis/foo.php to /nis-rcis/foo (GET only)
+RewriteCond %{REQUEST_METHOD} !POST
+RewriteCond %{THE_REQUEST} \s/nis-rcis/([^\s?]+)\.php[\s?] [NC]
+RewriteRule ^([^\s?]+)\.php$ /nis-rcis/%1 [R=301,L]
+
+# 3. Internal rewrite: resolve /nis-rcis/foo to foo.php if file exists
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L,QSA]
