@@ -69,6 +69,7 @@ function ApplicationDetail() {
   return (
     <div className="space-y-6">
       <PageTitle
+        eyebrow="Applicant console"
         title={<>Application {app.application_number}</>}
         subtitle={<>Reference {app.reference_number} · {app.type === "RENEWAL" ? `Renewal of card ${app.renewal_of_card_number ?? ""}` : "New residence card"}</>}
         actions={

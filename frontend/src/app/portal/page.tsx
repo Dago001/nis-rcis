@@ -30,6 +30,7 @@ export default function PortalHome() {
   return (
     <div className="space-y-6">
       <PageTitle
+        eyebrow="Applicant console"
         title={`Welcome, ${me.forenames}`}
         subtitle={me.email}
         actions={
