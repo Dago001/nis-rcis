@@ -1,5 +1,8 @@
 @extends('layout')
 @section('title', 'Change password')
+@section('image', 'hq-reception.jpg')
+@section('headline')Secure your <span>account</span>@endsection
+@section('tagline', 'Replace your temporary password with one only you know.')
 @section('content')
     <h1>Set a new password</h1>
     <p class="sub">You must replace your temporary password before continuing.</p>

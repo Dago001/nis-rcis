@@ -7,6 +7,12 @@
   --color-nis-green-light: #e8f3ec;
   --color-nis-gold: #c9a227;
   --color-nis-gold-light: #fbf5e1;
+  /* Public site palette (aligned with the official NIS e-services pages) */
+  --color-nis-primary: #2b892b;
+  --color-nis-primary-dark: #1f6b1f;
+  --color-nis-mint: #eef7f1;
+  --color-nis-orange: #ea7317;
+  --color-nis-red: #dc2626;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 

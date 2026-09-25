@@ -1,5 +1,8 @@
 @extends('layout')
 @section('title', 'Applicant sign in')
+@section('image', 'hq-entrance.jpg')
+@section('headline')Obtain your <span>Residence Card</span>@endsection
+@section('tagline', 'Apply, pay, book your biometrics appointment and track your application online.')
 @section('content')
     <h1>Applicant sign in</h1>
     <p class="sub">Sign in to apply for, track or renew your residence card.</p>

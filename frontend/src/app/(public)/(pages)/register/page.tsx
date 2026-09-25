@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
@@ -72,10 +73,20 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <div className="mx-auto max-w-lg">
-      <h1 className="mb-1 text-2xl font-bold">Create your applicant account</h1>
-      <p className="mb-6 text-sm text-slate-600">We will e-mail you a link to verify your address before you can sign in.</p>
-      <Suspense><RegisterForm /></Suspense>
+    <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-2">
+      <div className="relative hidden min-h-[560px] md:block">
+        <Image src="/images/hq-entrance.jpg" alt="" fill priority sizes="50vw" className="object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-nis-primary-dark/90 via-nis-primary-dark/40 to-transparent" />
+        <div className="absolute bottom-0 p-8 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-white/80">Residence Card Portal</p>
+          <p className="mt-2 text-2xl font-semibold leading-snug">One account to apply, pay, book biometrics and track your residence card.</p>
+        </div>
+      </div>
+      <div className="p-8 sm:p-10">
+        <h1 className="mb-1 text-2xl font-bold">Create your applicant account</h1>
+        <p className="mb-6 text-sm text-slate-600">Use an e-mail address you can access: status updates are sent there.</p>
+        <Suspense><RegisterForm /></Suspense>
+      </div>
     </div>
   );
 }
