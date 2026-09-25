@@ -10,6 +10,12 @@ if (-not (Test-Path (Join-Path $Frontend '.env.local')) -or -not (Test-Path (Joi
     Fail 'The application is not set up yet. Run setup.bat first.'
 }
 
+# A half-finished npm install (network drop) leaves 'next' missing.
+if (-not (Test-Path (Join-Path $Frontend 'node_modules\.bin\next.cmd')) -and -not (Test-Path (Join-Path $Frontend 'node_modules/.bin/next'))) {
+    Write-Step 'Website packages are missing or incomplete - installing them first'
+    Invoke-NpmInstall $Frontend
+}
+
 function Test-Port([int]$port) {
     $client = New-Object System.Net.Sockets.TcpClient
     try { $client.Connect('127.0.0.1', $port); return $true } catch { return $false } finally { $client.Close() }
