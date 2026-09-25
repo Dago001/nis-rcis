@@ -143,7 +143,7 @@ Invoke-Native 'php' @('artisan', 'config:clear') $Backend
 Invoke-Native 'php' @('artisan', 'migrate', '--force') $Backend
 
 Write-Step 'Updating frontend dependencies'
-Invoke-Native 'npm' @('install', '--no-audit', '--no-fund') $Frontend
+Invoke-NpmInstall $Frontend
 
 Write-Host ''
 Write-Host 'Update complete.' -ForegroundColor Green

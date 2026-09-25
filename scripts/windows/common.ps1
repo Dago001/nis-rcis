@@ -45,6 +45,26 @@ function Invoke-Capture([string]$exe, [string[]]$arguments) {
     }
 }
 
+# npm install with retries: home connections often drop during the large
+# first download (ECONNRESET), and antivirus can briefly lock files (EPERM).
+function Invoke-NpmInstall([string]$workDir) {
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Push-Location $workDir
+        try {
+            & npm install --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+            $code = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($code -eq 0) { return }
+        if ($attempt -lt 3) {
+            Write-Warn "npm install failed (attempt $attempt of 3), probably a network drop. Retrying in 10 seconds..."
+            Start-Sleep -Seconds 10
+        }
+    }
+    Fail "npm install failed 3 times. Check your internet connection, then run: cd `"$workDir`"; npm install"
+}
+
 function New-Secret([int]$bytes = 32) {
     $buffer = New-Object byte[] $bytes
     [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($buffer)

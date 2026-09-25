@@ -229,7 +229,7 @@ if ($clientExists -and -not $Reset) {
 
 # --------------------------------------------------------------- 6. Frontend
 Write-Step 'Installing the Next.js frontend (this can take a few minutes the first time)'
-Invoke-Native 'npm' @('install', '--no-audit', '--no-fund') $Frontend
+Invoke-NpmInstall $Frontend
 
 # ------------------------------------------------------------------- Done
 Write-Host ''
