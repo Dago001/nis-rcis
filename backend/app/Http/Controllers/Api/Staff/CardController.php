@@ -9,6 +9,7 @@ use App\Models\ResidenceCard;
 use App\Services\CardIssuance;
 use App\Services\DocumentStorage;
 use App\Support\ApplicationRules;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -46,8 +47,8 @@ class CardController
             $query->where(fn ($q) => $q->where('card_number', $term)
                 ->orWhere('booklet_number', $term)
                 ->orWhere('passport_number', $term)
-                ->orWhere('surname', 'ilike', "%{$term}%")
-                ->orWhere('forenames', 'ilike', "%{$term}%"));
+                ->orWhere('surname', 'ilike', Like::contains($term))
+                ->orWhere('forenames', 'ilike', Like::contains($term)));
         }
 
         return CardResource::collection($query->paginate(25));

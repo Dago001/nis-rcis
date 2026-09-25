@@ -12,6 +12,7 @@ use App\Services\ApplicationWorkflow;
 use App\Services\CardIssuance;
 use App\Services\DocumentStorage;
 use App\Support\ApplicationRules;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -50,8 +51,8 @@ class ApplicationController
                     ->orWhere('reference_number', $term)
                     ->orWhere('passport_number', $term)
                     ->orWhereRaw("replace(application_number, '-', '') = ?", [preg_replace('/[^A-Z0-9]/', '', $term)])
-                    ->orWhere('surname', 'ilike', "%{$term}%")
-                    ->orWhere('forenames', 'ilike', "%{$term}%");
+                    ->orWhere('surname', 'ilike', Like::contains($term))
+                    ->orWhere('forenames', 'ilike', Like::contains($term));
             });
         }
 

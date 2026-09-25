@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\EnsureActiveStaff;
 use App\Http\Middleware\EnsureStaffRole;
+use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Nginx (and Cloudflare in front of it) terminate TLS.
         $middleware->trustProxies(at: env('TRUSTED_PROXIES', '127.0.0.1'));
 
+        $middleware->append(SecurityHeaders::class);
+
         $middleware->alias([
             'scopes' => CheckToken::class,
             'scope' => CheckTokenForAnyScope::class,
@@ -43,4 +47,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // Database errors never reach a client, even with APP_DEBUG on:
+        // they can contain SQL, table and column names. They are still logged.
+        $exceptions->render(fn (QueryException $e, Request $request) => $request->is('api/*', 'oauth/*')
+            ? response()->json(['message' => 'A server error occurred. Please try again later.'], 500)
+            : null);
     })->create();

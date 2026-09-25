@@ -15,6 +15,8 @@ use Illuminate\Validation\ValidationException;
  *
  * - The real content type is detected from the bytes (finfo), never trusted
  *   from the file name or the browser.
+ * - Every file passes the MalwareScanner (active PDF content, polyglot
+ *   images, EICAR, optional ClamAV); images are re-encoded.
  * - Files get random names; nothing is web-served directly. Access is only
  *   through short-lived signed URLs issued after an authorization check.
  */
@@ -25,6 +27,8 @@ class DocumentStorage
         'image/png' => 'png',
         'application/pdf' => 'pdf',
     ];
+
+    public function __construct(private readonly MalwareScanner $scanner) {}
 
     public function disk(): string
     {
@@ -73,6 +77,9 @@ class DocumentStorage
         if (str_starts_with($mime, 'image/') && @getimagesizefromstring($bytes) === false) {
             throw ValidationException::withMessages([$type->value => "{$type->label()}: the image is corrupted."]);
         }
+
+        $bytes = $this->scanner->inspect($bytes, $mime, $type->value);
+        $size = strlen($bytes);
 
         $path = sprintf('%s/%s/%s.%s', $type->value, now()->format('Y/m'), Str::uuid(), self::EXTENSIONS[$mime]);
         Storage::disk($this->disk())->put($path, $bytes, ['visibility' => 'private']);

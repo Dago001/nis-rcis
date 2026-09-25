@@ -36,6 +36,13 @@ return [
     'max_upload_kb' => 5120,
 
     /*
+    | Optional ClamAV daemon for upload scanning, e.g.
+    | unix:///var/run/clamav/clamd.ctl or tcp://127.0.0.1:3310.
+    | When set, uploads are refused if the scanner cannot be reached.
+    */
+    'clamav_socket' => env('CLAMAV_SOCKET'),
+
+    /*
     | Paystack. Payments are only trusted after server-side verification
     | (transaction verify API or signed webhook). The secret key never
     | leaves the backend.
@@ -46,6 +53,16 @@ return [
         'base_url' => env('PAYSTACK_BASE_URL', 'https://api.paystack.co'),
         // Development only: simulate successful payments. Ignored in production.
         'fake' => (bool) env('PAYMENTS_FAKE', false),
+    ],
+
+    /*
+    | Chat assistant. Without an API key it answers from the built-in
+    | knowledge base only. The key never leaves the backend.
+    */
+    'assistant' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ASSISTANT_MODEL', 'claude-opus-5'),
+        'effort' => env('ASSISTANT_EFFORT', 'low'),
     ],
 
     /*

@@ -14,19 +14,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
-use Laravel\Passport\Passport;
-
-function asApplicant(Applicant $applicant): void
-{
-    app('auth')->forgetGuards();
-    Passport::actingAs($applicant, ['applicant'], 'applicant-api');
-}
-
-function asStaff(User $user): void
-{
-    app('auth')->forgetGuards();
-    Passport::actingAs($user, ['staff'], 'api');
-}
 
 function particulars(array $overrides = []): array
 {

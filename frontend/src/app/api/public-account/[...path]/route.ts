@@ -27,6 +27,11 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/public-
     cache: "no-store",
   });
 
+  if (upstream.status >= 500) {
+    await upstream.body?.cancel();
+    return NextResponse.json({ message: "The service is temporarily unavailable. Please try again." }, { status: 502 });
+  }
+
   return new NextResponse(upstream.body, {
     status: upstream.status,
     headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Applicant\AccountController;
 use App\Http\Controllers\Api\Applicant\ApplicationController as ApplicantApplications;
 use App\Http\Controllers\Api\Applicant\DraftController;
 use App\Http\Controllers\Api\Applicant\PaymentController;
+use App\Http\Controllers\Api\AssistantController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Public\PartnerController;
 use App\Http\Controllers\Api\Public\PaystackWebhookController;
@@ -42,6 +43,8 @@ Route::prefix('v1')->group(function () {
             Route::get('track', [PublicController::class, 'track']);
             Route::get('verify-card', [PublicController::class, 'verifyCard']);
         });
+
+        Route::post('assistant', [AssistantController::class, 'guest'])->middleware('throttle:assistant');
     });
 
     Route::post('webhooks/paystack', PaystackWebhookController::class);
@@ -82,6 +85,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read', [NotificationController::class, 'markRead']);
+
+        Route::post('assistant', [AssistantController::class, 'applicant'])->middleware('throttle:assistant');
     });
 
     // ------------------------------------------------------- Staff console

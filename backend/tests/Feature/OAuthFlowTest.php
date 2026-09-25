@@ -4,6 +4,8 @@ use App\Enums\StaffRole;
 use App\Models\Applicant;
 use App\Models\User;
 use App\Support\OAuthClients;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
@@ -211,8 +213,8 @@ it('never skips e-mail verification in production', function () {
     app()->detectEnvironment(fn () => 'production');
     // Outside the "testing" environment Laravel enforces CSRF; not under test here.
     $this->withoutMiddleware([
-        Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
-        Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        PreventRequestForgery::class,
+        ValidateCsrfToken::class,
     ]);
 
     $this->post('/login/applicant', ['identifier' => 'new@example.com', 'password' => 'Applicant-Pass-123'])

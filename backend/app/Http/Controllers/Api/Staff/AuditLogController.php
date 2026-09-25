@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Staff;
 
 use App\Models\AuditLog;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +20,7 @@ class AuditLogController
 
         $logs = AuditLog::query()
             ->when($data['action'] ?? null, fn ($q, $a) => $q->where('action', $a))
-            ->when($data['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('actor_label', 'ilike', "%{$s}%")->orWhere('description', 'ilike', "%{$s}%")))
+            ->when($data['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('actor_label', 'ilike', Like::contains($s))->orWhere('description', 'ilike', Like::contains($s))))
             ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
             ->when($data['to'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
             ->latest('id')

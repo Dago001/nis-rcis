@@ -171,6 +171,19 @@ Legacy findings and how the new stack resolves them:
 | No rate limiting | Login, registration, token, tracking and verification endpoints are rate-limited |
 | Audit log editable | PostgreSQL trigger makes `audit_logs` append-only |
 | Watchlist reason shown publicly | Public verification shows only "refer to NIS"; details go to authorised staff and partner agencies |
+| SQL built by string concatenation | Eloquent / bound parameters only; search wildcards escaped (`App\Support\Like`); SQL-injection tests on every public lookup and staff search |
+| PHP errors (with SQL) shown to users | Database errors are never rendered to API clients, even with `APP_DEBUG=true`; the BFF replaces every 5xx body with a generic message |
+| No malware checks on uploads | `MalwareScanner`: PDFs with JavaScript/launch actions/attachments refused (including `#xx`-obfuscated names), images with embedded code refused and all images re-encoded (strips hidden payloads and GPS metadata), EICAR refused, optional ClamAV (`CLAMAV_SOCKET`, fails closed) |
+| No browser security headers | CSP, `X-Frame-Options: DENY`, `nosniff`, COOP, Permissions-Policy and HSTS on both the website and the API/sign-in pages; sign-in pages run no JavaScript at all |
+
+### Help assistant (chatbot)
+
+A chat button at the bottom-right of the public site and the applicant portal (it replaces the Next.js development "N" button).
+
+* **General questions** are answered from a curated knowledge base (`backend/app/Assistant/KnowledgeBase.php`). With `ANTHROPIC_API_KEY` set in `backend/.env`, Claude (`ASSISTANT_MODEL`, default `claude-opus-5`) phrases the answers from that knowledge base only; without a key the assistant still works, using keyword matching.
+* **"My application" questions** (status, appointment, query, collection, card) are answered only for the signed-in applicant, from their **own** latest application, with fixed templates. Personal data is never sent to the language model. Guests are pointed to sign in or the Track page.
+* **No database access for the model**: it receives only the public knowledge base and the visitor's question; the conversation history is kept server-side, bound to the visitor.
+* **Guards**: SQL-injection, script, path-traversal and prompt-injection messages and requests for secrets or other people's records are refused before any processing, and recorded in the audit trail as `SECURITY_ASSISTANT_BLOCKED`. Model replies are scrubbed of HTML, external links, e-mail addresses, long numbers, passport-like codes, SQL and server paths. Replies render as plain text; only internal links are clickable. Rate-limited to 12 messages a minute.
 
 **Action required:** the removed personal data (photos, passports, visas, database dumps) is still in this repository's git history. If the repository was ever shared, treat that data as exposed. Purge it with `git filter-repo`, force-push, and ask GitHub support to clear cached views. This is not done automatically because it rewrites history for everyone.
 

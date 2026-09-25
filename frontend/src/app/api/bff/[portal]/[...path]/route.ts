@@ -74,6 +74,16 @@ async function handle(request: NextRequest, ctx: RouteContext<"/api/bff/[portal]
     if (value) responseHeaders.set(name, value);
   }
 
+  // Server errors never reach the browser verbatim: they could carry SQL,
+  // file paths or stack traces from the API when debugging is switched on.
+  if (upstream.status >= 500) {
+    await upstream.body?.cancel();
+    return NextResponse.json(
+      { message: "The service is temporarily unavailable. Please try again." },
+      { status: upstream.status === 503 ? 503 : 502 },
+    );
+  }
+
   const response = new NextResponse(upstream.status === 204 ? null : upstream.body, {
     status: upstream.status,
     headers: responseHeaders,

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Assistant\ClaudeLanguageModel;
+use App\Assistant\LanguageModel;
 use App\Models\OAuthClient;
 use App\OAuth\StrictScopeRepository;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -22,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
         Passport::ignoreRoutes();
 
         $this->app->bind(ScopeRepository::class, StrictScopeRepository::class);
+        $this->app->bind(LanguageModel::class, ClaudeLanguageModel::class);
     }
 
     public function boot(): void
@@ -68,6 +71,12 @@ class AppServiceProvider extends ServiceProvider
 
         // Public, unauthenticated lookups (tracking, card verification)
         RateLimiter::for('public-lookup', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+
+        // Chat assistant: generous for people, useless for scripted abuse.
+        RateLimiter::for('assistant', fn (Request $request) => [
+            Limit::perMinute(12)->by('assistant-min|'.($request->user()?->getAuthIdentifier() ?? $request->ip())),
+            Limit::perDay(300)->by('assistant-day|'.$request->ip()),
+        ]);
 
         RateLimiter::for('registration', fn (Request $request) => Limit::perHour(10)->by($request->ip()));
     }
