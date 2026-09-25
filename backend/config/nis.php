@@ -21,6 +21,13 @@ return [
     'card_validity_years' => (int) env('CARD_VALIDITY_YEARS', 2),
 
     /*
+    | Local testing only: let applicants sign in without clicking the e-mail
+    | verification link. On by default when APP_ENV=local; always ignored in
+    | production (see App\Support\Features::skipEmailVerification()).
+    */
+    'skip_email_verification' => (bool) env('SKIP_EMAIL_VERIFICATION', env('APP_ENV') === 'local'),
+
+    /*
     | Private document storage. "s3" in production (any S3-compatible
     | service); "local" is a private, non-web-served disk for development.
     */

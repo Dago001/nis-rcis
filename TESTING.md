@@ -117,7 +117,7 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 
 ### E. A completely new application (applicant)
 - [ ] **E1.** Open http://localhost:3000/register and create an account with a new e-mail address.
-- [ ] **E2.** E-mails are not really sent in test mode. Open `backend\storage\logs\laravel.log` in Notepad, search for **`email/verify`**, copy the whole link (it starts with `http://127.0.0.1:8000/api/v1/applicant/email/verify/`) and paste it into your browser. You should see *"Your e-mail address has been verified."*
+- [ ] **E2.** *(Optional: e-mail verification is switched off in local test mode, so you can sign in straight after registering. To test the real verification link, set `SKIP_EMAIL_VERIFICATION=false` in `backend\.env`.)* E-mails are not really sent in test mode. Open `backend\storage\logs\laravel.log` in Notepad, search for **`email/verify`**, copy the whole link (it starts with `http://127.0.0.1:8000/api/v1/applicant/email/verify/`) and paste it into your browser. You should see *"Your e-mail address has been verified."*
   If the copied link contains `&amp;`, change it to `&`. (The log holds the e-mail in both text and HTML form.)
 - [ ] **E3.** Sign in and click **New application**. Complete the 7 steps:
   1. personal details

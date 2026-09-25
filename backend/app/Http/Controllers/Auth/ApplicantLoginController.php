@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Models\Applicant;
 use App\Support\Audit;
+use App\Support\Features;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,11 @@ class ApplicantLoginController
 
         if (! $applicant || ! Hash::check($data['password'], $applicant->password)) {
             throw ValidationException::withMessages(['identifier' => 'Invalid e-mail address or password.']);
+        }
+
+        if (! $applicant->hasVerifiedEmail() && Features::skipEmailVerification()) {
+            $applicant->markEmailAsVerified();
+            Audit::log('APPLICANT_EMAIL_VERIFICATION_SKIPPED', 'E-mail verification skipped (local test mode)', $applicant, actor: $applicant);
         }
 
         if (! $applicant->hasVerifiedEmail()) {

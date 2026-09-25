@@ -195,3 +195,26 @@ it('serves the token endpoint without session/CSRF middleware (server-to-server)
 
     expect($middleware)->not->toContain('web');
 });
+
+it('lets unverified applicants sign in only when local test mode skips verification', function () {
+    Applicant::factory()->unverified()->create(['email' => 'new@example.com']);
+
+    config(['nis.skip_email_verification' => true]);
+    $this->post('/login/applicant', ['identifier' => 'new@example.com', 'password' => 'Applicant-Pass-123'])
+        ->assertSessionHasNoErrors();
+    expect(Applicant::where('email', 'new@example.com')->first()->hasVerifiedEmail())->toBeTrue();
+});
+
+it('never skips e-mail verification in production', function () {
+    Applicant::factory()->unverified()->create(['email' => 'new@example.com']);
+    config(['nis.skip_email_verification' => true]);
+    app()->detectEnvironment(fn () => 'production');
+    // Outside the "testing" environment Laravel enforces CSRF; not under test here.
+    $this->withoutMiddleware([
+        Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ]);
+
+    $this->post('/login/applicant', ['identifier' => 'new@example.com', 'password' => 'Applicant-Pass-123'])
+        ->assertSessionHasErrors('identifier');
+});

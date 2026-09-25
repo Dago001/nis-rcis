@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Applicant;
 
 use App\Models\Applicant;
 use App\Support\Audit;
+use App\Support\Features;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -36,12 +37,18 @@ class AccountController
                 'forenames' => mb_strtoupper($data['forenames']),
                 'phone' => $data['phone'],
             ]);
-            $applicant->sendEmailVerificationNotification();
+            if (Features::skipEmailVerification()) {
+                $applicant->markEmailAsVerified();
+            } else {
+                $applicant->sendEmailVerificationNotification();
+            }
             Audit::log('APPLICANT_REGISTERED', 'Applicant account created', $applicant, actor: $applicant);
         }
 
         return response()->json([
-            'message' => 'If this e-mail address can be used, a verification link has been sent to it. Verify your e-mail, then sign in.',
+            'message' => Features::skipEmailVerification()
+                ? 'Test mode: e-mail verification is switched off. If this e-mail address was not already registered, your account is ready - you can sign in now.'
+                : 'If this e-mail address can be used, a verification link has been sent to it. Verify your e-mail, then sign in.',
         ], 202);
     }
 

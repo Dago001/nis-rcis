@@ -168,6 +168,8 @@ $envContent = Set-EnvValues $envContent @{
     'MAIL_MAILER' = 'log'
     'DOCUMENTS_DISK' = 'local'
     'PAYMENTS_FAKE' = 'true'
+    # Testing convenience: applicants can sign in without the e-mail link
+    'SKIP_EMAIL_VERIFICATION' = 'true'
 }
 Write-Utf8File $backendEnvPath $envContent
 Write-Ok 'backend\.env written (local settings)'
