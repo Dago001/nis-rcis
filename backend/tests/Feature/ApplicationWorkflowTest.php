@@ -27,7 +27,9 @@ function particulars(array $overrides = []): array
         'type' => 'NEW',
         'surname' => 'Okafor', 'forenames' => 'Jean Pierre', 'nationality' => 'CAMEROON',
         'date_of_birth' => '1985-04-12', 'place_of_birth' => 'Douala', 'sex' => 'MALE',
-        'profession' => 'Civil Engineer', 'domicile' => '12 Adeola Odeku Street, Victoria Island, Lagos',
+        'profession' => 'Civil Engineer', 'domicile' => '12 Adeola Odeku Street, Victoria Island',
+        'domicile_state' => 'Lagos', 'domicile_lga' => 'Eti Osa',
+        'emergency_contact_state' => 'Federal Capital Territory', 'emergency_contact_lga' => 'Bwari',
         'passport_number' => 'CM1234567', 'passport_expiry' => now()->addYears(3)->toDateString(),
         'emergency_contact_name' => 'Marie Okafor', 'emergency_contact_relation' => 'Spouse',
         'emergency_contact_phone' => '+2348011111111', 'emergency_contact_address' => '12 Adeola Odeku Street, Lagos',
@@ -137,8 +139,10 @@ it('runs the complete legacy workflow from online application to card collection
 
     $card = ResidenceCard::findOrFail($captured['card']['id']);
     expect($card->status->value)->toBe('APPROVED')
-        ->and($card->card_number)->toBe('389108')
-        ->and($card->booklet_number)->toBe('RC-389108/'.now()->format('y'))
+        // Numbers come from a PostgreSQL sequence (legacy series starting at 389108),
+        // which other tests may already have advanced.
+        ->and((int) $card->card_number)->toBeGreaterThanOrEqual(389108)
+        ->and($card->booklet_number)->toBe("RC-{$card->card_number}/".now()->format('y'))
         ->and($card->applicant_id)->toBe($applicant->id);
 
     // Cannot mark ready before final approval; issuer cannot approve the card.
@@ -163,7 +167,7 @@ it('runs the complete legacy workflow from online application to card collection
     // --- Public verification by QR token
     $this->app['auth']->forgetGuards();
     $this->getJson('/api/v1/public/verify-card?token='.$card->verification_token)
-        ->assertOk()->assertJsonPath('status', 'VALID')->assertJsonPath('card_number', '389108');
+        ->assertOk()->assertJsonPath('status', 'VALID')->assertJsonPath('card_number', $card->card_number);
 });
 
 it('keeps applicants inside their own records', function () {

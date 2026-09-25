@@ -11,15 +11,17 @@ class EnrollmentCenterSeeder extends Seeder
     {
         $slots = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00'];
 
-        $centers = [
-            ['code' => 'ABJ-HQ', 'name' => 'NIS Headquarters, Abuja', 'state' => 'FCT', 'address' => 'Sauka, Airport Road, Abuja'],
-            ['code' => 'LAG-ALA', 'name' => 'Alagbon Passport & Residence Office, Lagos', 'state' => 'Lagos', 'address' => 'Alagbon Close, Ikoyi, Lagos'],
-            ['code' => 'PHC', 'name' => 'Port Harcourt Zonal Office', 'state' => 'Rivers', 'address' => 'Port Harcourt, Rivers State'],
-            ['code' => 'KAN', 'name' => 'Kano State Command', 'state' => 'Kano', 'address' => 'Kano, Kano State'],
-        ];
+        // Residence card biometrics are captured only at NIS Headquarters.
+        EnrollmentCenter::updateOrCreate(['code' => 'ABJ-HQ'], [
+            'name' => 'NIS Headquarters, Abuja',
+            'state' => 'FCT',
+            'address' => 'Nigeria Immigration Service Headquarters, Sauka, Airport Road, Abuja',
+            'daily_capacity' => 60,
+            'time_slots' => $slots,
+            'is_active' => true,
+        ]);
 
-        foreach ($centers as $center) {
-            EnrollmentCenter::updateOrCreate(['code' => $center['code']], $center + ['daily_capacity' => 60, 'time_slots' => $slots]);
-        }
+        // Any other centre (from earlier versions) stays for old records but cannot be booked.
+        EnrollmentCenter::where('code', '!=', 'ABJ-HQ')->update(['is_active' => false]);
     }
 }

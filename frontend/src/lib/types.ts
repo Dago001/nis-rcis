@@ -35,6 +35,8 @@ export type Particulars = {
   blood_group?: string | null;
   profession: string;
   domicile: string;
+  domicile_state?: string | null;
+  domicile_lga?: string | null;
   change_of_address?: string | null;
   passport_number: string;
   passport_issue_date?: string | null;
@@ -45,6 +47,8 @@ export type Particulars = {
   emergency_contact_relation: string;
   emergency_contact_phone: string;
   emergency_contact_address: string;
+  emergency_contact_state?: string | null;
+  emergency_contact_lga?: string | null;
 };
 
 export type EnrollmentCenter = {

@@ -18,9 +18,38 @@ class PaystackGateway
 {
     public function __construct(private NumberGenerator $numbers) {}
 
+    /**
+     * Simulated payments: development only, and only while no Paystack
+     * secret key is configured. As soon as PAYSTACK_SECRET_KEY is set, real
+     * Paystack checkout is used (test keys sk_test_... in development).
+     */
     public function isFake(): bool
     {
-        return config('nis.paystack.fake') && ! app()->isProduction();
+        return config('nis.paystack.fake') && ! app()->isProduction() && blank(config('nis.paystack.secret_key'));
+    }
+
+    /**
+     * Receipt details for slips: never the reusable authorization code.
+     *
+     * @return array{date: ?string, gateway: string, mode: ?string, gateway_reference: ?string, pan: ?string}
+     */
+    public static function receipt(Payment $payment): array
+    {
+        $data = $payment->gateway_response ?? [];
+        $auth = $data['authorization'] ?? [];
+        $pan = isset($auth['last4']) ? ($auth['bin'] ?? '').'XXXXXX'.$auth['last4'] : null;
+
+        return [
+            'date' => $payment->paid_at?->toIso8601String(),
+            'gateway' => $payment->channel === 'fake' ? 'Paystack (test simulation)' : 'Paystack',
+            'mode' => match ($payment->channel) {
+                null => null,
+                'fake' => 'Test simulation',
+                default => ucwords(str_replace('_', ' ', $payment->channel)),
+            },
+            'gateway_reference' => isset($data['id']) ? (string) $data['id'] : null,
+            'pan' => $pan,
+        ];
     }
 
     /**

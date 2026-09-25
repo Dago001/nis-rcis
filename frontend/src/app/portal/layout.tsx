@@ -10,7 +10,7 @@ export default function PortalLayout({ children }: LayoutProps<"/portal">) {
       <SiteHeader
         right={
           <nav className="flex items-center gap-4 text-sm">
-            <Link href="/portal" className="hover:underline">My applications</Link>
+            <Link href="/portal" className="font-medium text-slate-700 transition-colors hover:text-nis-primary">My applications</Link>
             <LogoutButton portal="applicant" />
           </nav>
         }

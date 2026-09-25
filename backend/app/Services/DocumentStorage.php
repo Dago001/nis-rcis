@@ -66,7 +66,7 @@ class DocumentStorage
     {
         $size = strlen($bytes);
         if ($size === 0 || $size > config('nis.max_upload_kb') * 1024) {
-            throw ValidationException::withMessages([$type->value => 'File must be between 1 byte and '.(config('nis.max_upload_kb') / 1024).' MB.']);
+            throw ValidationException::withMessages([$type->value => "{$type->label()}: the file must be smaller than ".(config('nis.max_upload_kb') / 1024).' MB.']);
         }
 
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes) ?: 'application/octet-stream';

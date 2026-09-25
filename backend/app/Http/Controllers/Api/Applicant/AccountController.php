@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Applicant;
 
 use App\Models\Applicant;
+use App\Support\ApplicationRules;
 use App\Support\Audit;
 use App\Support\Features;
 use Illuminate\Auth\Events\PasswordReset;
@@ -19,11 +20,11 @@ class AccountController
     public function register(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'surname' => ['required', 'string', 'max:100'],
-            'forenames' => ['required', 'string', 'max:150'],
+            'surname' => ['required', 'string', 'max:100', 'regex:'.ApplicationRules::NAME],
+            'forenames' => ['required', 'string', 'max:150', 'regex:'.ApplicationRules::NAME],
             'email' => ['required', 'email:rfc', 'max:255'],
-            'phone' => ['required', 'string', 'regex:/^\+?[0-9 ()-]{7,20}$/'],
-            'password' => ['required', 'confirmed', PasswordRule::min(10)->letters()->numbers()->uncompromised()],
+            'phone' => ['required', 'string', 'regex:'.ApplicationRules::PHONE],
+            'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()->uncompromised()],
         ]);
 
         $email = strtolower($data['email']);
@@ -33,8 +34,8 @@ class AccountController
             $applicant = Applicant::create([
                 'email' => $email,
                 'password' => $data['password'],
-                'surname' => mb_strtoupper($data['surname']),
-                'forenames' => mb_strtoupper($data['forenames']),
+                'surname' => mb_strtoupper(trim($data['surname'])),
+                'forenames' => mb_strtoupper(trim($data['forenames'])),
                 'phone' => $data['phone'],
             ]);
             if (Features::skipEmailVerification()) {
@@ -97,7 +98,7 @@ class AccountController
         $data = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', PasswordRule::min(10)->letters()->numbers()->uncompromised()],
+            'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()->uncompromised()],
         ]);
 
         $status = Password::broker('applicants')->reset(

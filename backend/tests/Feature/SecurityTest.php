@@ -55,7 +55,7 @@ it('sends security headers on API responses and sign-in pages', function () {
     expect($api->headers->has('X-Powered-By'))->toBeFalse();
 
     $page = $this->get('/login/applicant')->assertOk();
-    expect($page->headers->get('Content-Security-Policy'))->toContain("default-src 'none'")->not->toContain('script-src');
+    expect($page->headers->get('Content-Security-Policy'))->toContain("default-src 'none'")->toContain("script-src 'self';")->not->toContain('unsafe-eval')->not->toContain("script-src 'self' 'unsafe-inline'");
 });
 
 it('escapes script injected into sign-in pages', function () {

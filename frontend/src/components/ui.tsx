@@ -3,18 +3,18 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 type Variant = "primary" | "secondary" | "danger" | "gold" | "ghost";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-nis-green text-white hover:bg-nis-green-dark",
-  secondary: "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
-  danger: "bg-red-700 text-white hover:bg-red-800",
-  gold: "bg-nis-gold text-slate-900 hover:brightness-95",
-  ghost: "text-nis-green hover:bg-nis-green-light",
+  primary: "bg-nis-primary text-white shadow-sm hover:bg-nis-primary-dark",
+  secondary: "border border-slate-300 bg-white text-slate-800 hover:border-nis-primary hover:text-nis-primary",
+  danger: "bg-nis-red text-white shadow-sm hover:bg-red-700",
+  gold: "bg-nis-orange text-white shadow-sm hover:brightness-95",
+  ghost: "text-nis-primary hover:bg-nis-mint",
 };
 
 export function Button({ variant = "primary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
     />
   );
 }
@@ -33,7 +33,7 @@ export function Field({ label, error, hint, required, children }: { label: strin
   );
 }
 
-const control = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-nis-green focus:outline-2 focus:outline-nis-green/30";
+const control = "w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20 disabled:bg-slate-100";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${control} ${props.className ?? ""}`} />;
@@ -49,10 +49,10 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 
 export function Panel({ title, actions, children, className = "" }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+    <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-nis-mint/60 px-5 py-3.5">
+          <h2 className="text-base font-semibold text-nis-primary-dark">{title}</h2>
           {actions}
         </header>
       )}
@@ -87,7 +87,7 @@ export function Dl({ items }: { items: [string, ReactNode][] }) {
 export function Spinner({ label = "Loading…" }: { label?: string }) {
   return (
     <div className="flex items-center gap-3 py-10 text-sm text-slate-500" role="status">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-green" />
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
       {label}
     </div>
   );

@@ -13,8 +13,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-slate-900">Login</h1>
-        <p className="mt-2 text-slate-600">Choose how you want to sign in. You will be taken to the secure NIS sign-in page.</p>
+        <h1 className="text-3xl font-bold text-white">Login</h1>
+        <p className="mt-2 text-white/85">Choose how you want to sign in. You will be taken to the secure NIS sign-in page.</p>
       </div>
 
       <div className="mx-auto mt-6 max-w-xl space-y-3">
@@ -23,7 +23,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <a href="/api/auth/login/applicant" className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-nis-primary hover:shadow-lg">
+        <a href="/api/auth/login/applicant" className="group overflow-hidden rounded-2xl bg-white shadow-2xl transition hover:-translate-y-0.5 hover:shadow-black/40">
           <div className="relative h-40">
             <Image src="/images/hq-entrance.jpg" alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           </div>
         </a>
 
-        <a href="/api/auth/login/staff" className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-nis-primary hover:shadow-lg">
+        <a href="/api/auth/login/staff" className="group overflow-hidden rounded-2xl bg-white shadow-2xl transition hover:-translate-y-0.5 hover:shadow-black/40">
           <div className="relative h-40">
             <Image src="/images/hq-reception.jpg" alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -48,9 +48,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </a>
       </div>
 
-      <p className="mt-8 text-center text-sm text-slate-600">
-        New applicant? <Link href="/register" className="font-medium text-nis-primary underline">Create an account</Link> ·{" "}
-        <Link href="/forgot-password" className="font-medium text-nis-primary underline">Forgot password?</Link>
+      <p className="mt-8 text-center text-sm text-white/90">
+        New applicant? <Link href="/register" className="font-medium text-white underline">Create an account</Link> ·{" "}
+        <Link href="/forgot-password" className="font-medium text-white underline">Forgot password?</Link>
       </p>
     </div>
   );

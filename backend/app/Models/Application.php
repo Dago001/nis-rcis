@@ -17,9 +17,9 @@ class Application extends Model
     public const PARTICULARS = [
         'surname', 'forenames', 'nationality', 'date_of_birth', 'place_of_birth', 'sex', 'height',
         'complexion', 'eye_color', 'hair_color', 'distinguished_features', 'blood_group', 'profession',
-        'domicile', 'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
+        'domicile', 'domicile_state', 'domicile_lga', 'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
         'national_id_number', 'tax_id_number', 'emergency_contact_name', 'emergency_contact_relation',
-        'emergency_contact_phone', 'emergency_contact_address',
+        'emergency_contact_phone', 'emergency_contact_address', 'emergency_contact_state', 'emergency_contact_lga',
     ];
 
     protected $guarded = ['id', 'status', 'application_number', 'reference_number'];

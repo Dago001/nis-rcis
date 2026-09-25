@@ -120,13 +120,15 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **E2.** *(Optional: e-mail verification is switched off in local test mode, so you can sign in straight after registering. To test the real verification link, set `SKIP_EMAIL_VERIFICATION=false` in `backend\.env`.)* E-mails are not really sent in test mode. Open `backend\storage\logs\laravel.log` in Notepad, search for **`email/verify`**, copy the whole link (it starts with `http://127.0.0.1:8000/api/v1/applicant/email/verify/`) and paste it into your browser. You should see *"Your e-mail address has been verified."*
   If the copied link contains `&amp;`, change it to `&`. (The log holds the e-mail in both text and HTML form.)
 - [ ] **E3.** Sign in and click **New application**. Complete the 7 steps:
-  1. personal details
+  1. personal details and passport photograph (choose **OTHER** under Nationality to type a country that is not listed)
   2. passport (expiry at least 6 months away)
-  3. address and emergency contact
-  4. documents: upload a photo (JPG or PNG), your passport page and visa
-  5. payment: click **Pay securely with Paystack** (simulated in test mode)
-  6. appointment: pick a center, a **weekday** and a time slot
-  7. tick the declaration and submit
+  3. address and emergency contact: pick the **State**, then the **Local government area**, then type the street. Your phone and e-mail come from your account and cannot be changed here
+  4. documents: your passport page and visa (each **smaller than 2 MB**); click **View** to check an upload. (The passport photograph is uploaded in step 1.)
+  5. payment: click **Pay securely with Paystack**. If `PAYSTACK_SECRET_KEY` and `PAYSTACK_PUBLIC_KEY` are set in `backend\.env`, you are taken to Paystack's real checkout and returned automatically; without keys the payment is simulated. **Use your Paystack *test* keys (`sk_test_…`/`pk_test_…`) on your PC**: live keys charge real money. With test keys, pay with Paystack's test card `4084 0840 8408 4081`, any future expiry, CVV `408`, PIN `0000`, OTP `123456`. You cannot continue until the payment is confirmed.
+  6. appointment: the center is always **NIS Headquarters, Abuja**; pick a **weekday** and a time slot
+  7. check the full summary (every detail, the fee and the payment reference), tick the declaration and submit
+
+  Mistakes are shown in red as soon as you leave a field, with *"Please correct the highlighted details."* at the top: names accept letters only and phone numbers digits only.
 - [ ] **E4.** Half-way through, click **Save & exit**, then come back. Your answers and documents are restored.
 - [ ] **E5.** After submitting, open **Application slip** and print it (or print to PDF).
 - [ ] **E6.** Sign out, then open http://localhost:3000/track and enter your application number and passport number. The status is shown, and the name is partly hidden.

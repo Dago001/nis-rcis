@@ -11,3 +11,6 @@
 *.key
 *.pem
 .DS_Store
+
+# Redis snapshots
+dump.rdb

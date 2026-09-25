@@ -71,6 +71,7 @@ Route::prefix('v1')->group(function () {
         Route::put('draft', [DraftController::class, 'save']);
         Route::delete('draft', [DraftController::class, 'destroy']);
         Route::post('draft/documents', [DraftController::class, 'uploadDocument']);
+        Route::get('draft/documents/{document}', [DraftController::class, 'document'])->whereNumber('document');
 
         Route::post('payments', [PaymentController::class, 'initialize']);
         Route::post('payments/{reference}/verify', [PaymentController::class, 'verify']);

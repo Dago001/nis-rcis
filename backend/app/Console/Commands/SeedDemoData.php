@@ -54,7 +54,7 @@ class SeedDemoData extends Command
             return self::SUCCESS;
         }
 
-        $center = EnrollmentCenter::orderBy('id')->firstOrFail();
+        $center = EnrollmentCenter::where('code', 'ABJ-HQ')->firstOrFail();
 
         DB::transaction(function () use ($center) {
             $staff = $this->createStaff();
@@ -156,14 +156,18 @@ class SeedDemoData extends Command
             'distinguished_features' => 'NONE',
             'blood_group' => 'O+',
             'profession' => 'PETROLEUM ENGINEER',
-            'domicile' => '12 Adeola Odeku Street, Victoria Island, Lagos',
+            'domicile' => '12 Adeola Odeku Street, Victoria Island',
+            'domicile_state' => 'Lagos',
+            'domicile_lga' => 'Eti Osa',
             'passport_number' => $passport,
             'passport_issue_date' => '2022-01-10',
             'passport_expiry' => '2032-01-09',
             'emergency_contact_name' => 'ADAEZE OKAFOR',
             'emergency_contact_relation' => 'COLLEAGUE',
             'emergency_contact_phone' => '+2348031111111',
-            'emergency_contact_address' => '5 Awolowo Road, Ikoyi, Lagos',
+            'emergency_contact_address' => '5 Awolowo Road, Ikoyi',
+            'emergency_contact_state' => 'Lagos',
+            'emergency_contact_lga' => 'Eti Osa',
             'phone' => $applicant->phone,
             'email' => $applicant->email,
             'enrollment_center_id' => $center->id,

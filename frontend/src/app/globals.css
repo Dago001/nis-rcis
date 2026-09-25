@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
-/* NIS brand tokens (legacy green & gold). */
+/* NIS brand tokens. One palette for the whole application: the landing
+   page's green, mint and orange (the older "green/gold" names map onto it). */
 @theme {
-  --color-nis-green: #0b5d2a;
-  --color-nis-green-dark: #073f1c;
-  --color-nis-green-light: #e8f3ec;
-  --color-nis-gold: #c9a227;
-  --color-nis-gold-light: #fbf5e1;
+  --color-nis-green: #2b892b;
+  --color-nis-green-dark: #1f6b1f;
+  --color-nis-green-light: #eef7f1;
+  --color-nis-gold: #ea7317;
+  --color-nis-gold-light: #fff4ea;
   /* Public site palette (aligned with the official NIS e-services pages) */
   --color-nis-primary: #2b892b;
   --color-nis-primary-dark: #1f6b1f;
@@ -25,3 +26,12 @@ body {
   .no-print { display: none !important; }
   body { background: #fff; }
 }
+
+/* Staff console tables: landing-page mint header and green accents. */
+.staff-area table { border-collapse: separate; border-spacing: 0; }
+.staff-area table thead { background-color: var(--color-nis-mint); color: var(--color-nis-primary-dark); }
+.staff-area table thead th { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.staff-area table tbody tr { transition: background-color 0.15s; }
+.staff-area table tbody tr:hover { background-color: #f7fbf8; }
+.staff-area table tbody td { border-top: 1px solid #eef2f0; }
+.staff-area a:not([class]) { color: var(--color-nis-primary); }

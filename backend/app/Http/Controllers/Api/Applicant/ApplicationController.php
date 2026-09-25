@@ -10,6 +10,7 @@ use App\Models\Application;
 use App\Services\ApplicationSubmission;
 use App\Services\ApplicationWorkflow;
 use App\Services\DocumentStorage;
+use App\Services\PaystackGateway;
 use App\Support\ApplicationRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,7 +42,10 @@ class ApplicationController
      */
     public function store(Request $request, ApplicationSubmission $submission): JsonResponse
     {
-        $request->merge(ApplicationRules::normalise($request->all()));
+        // Phone and e-mail always come from the registered account; they
+        // cannot be changed in the application form.
+        $applicant = $this->applicant($request);
+        $request->merge(ApplicationRules::normalise([...$request->all(), 'phone' => $applicant->phone, 'email' => $applicant->email]));
 
         $data = $request->validate([
             ...ApplicationRules::particulars(),
@@ -108,10 +112,16 @@ class ApplicationController
      */
     public function slip(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
-        $application = $this->owned($request, $id)->load('enrollmentCenter');
+        $application = $this->owned($request, $id)->load(['enrollmentCenter', 'documents']);
+        $payment = $application->payments()->where('status', 'SUCCESS')->latest('id')->first();
 
         return response()->json([
             'application' => new ApplicationResource($application),
+            'payment' => $payment ? ['reference' => $payment->reference, 'amount_naira' => $payment->amount_kobo / 100, ...PaystackGateway::receipt($payment)] : null,
+            'documents' => $application->documents
+                ->reject(fn ($d) => $d->type === DocumentType::Signature)
+                ->map(fn ($d) => ['type' => $d->type->value, 'label' => $d->type->label()])->values(),
+            'submitted_at' => $application->submitted_at?->toIso8601String(),
             'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
             'qr_payload' => "NIS-RCIS|APP:{$application->application_number}|REF:{$application->reference_number}",
             'appointment_slip_available' => ! in_array($application->status, [

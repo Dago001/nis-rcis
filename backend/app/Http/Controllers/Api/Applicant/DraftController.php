@@ -52,7 +52,7 @@ class DraftController
         $data = $request->validate([
             'type' => ['required', Rule::enum(DocumentType::class)->only(DocumentType::applicantUploadable())],
             'file' => ['required', 'file', 'max:'.config('nis.max_upload_kb')],
-        ]);
+        ], ['file.max' => 'The file must be smaller than '.(config('nis.max_upload_kb') / 1024).' MB.']);
 
         $applicant = $this->applicant($request);
         $draft = ApplicationDraft::firstOrCreate(['applicant_id' => $applicant->id], ['type' => 'NEW', 'current_step' => 1, 'data' => []]);
@@ -60,6 +60,17 @@ class DraftController
         $storage->storeUpload($request->file('file'), DocumentType::from($data['type']), ['draft_id' => $draft->id], $applicant);
 
         return response()->json(['draft' => $this->present($draft->load('documents'))], 201);
+    }
+
+    /**
+     * Short-lived link to view one of the applicant's own draft documents.
+     */
+    public function document(Request $request, int $document, DocumentStorage $storage): JsonResponse
+    {
+        $draft = $this->applicant($request)->draft()->firstOrFail();
+        $file = $draft->documents()->findOrFail($document);
+
+        return response()->json(['url' => $storage->temporaryUrl($file), 'mime_type' => $file->mime_type]);
     }
 
     private function present(ApplicationDraft $draft): array
@@ -70,7 +81,7 @@ class DraftController
             'data' => $draft->data,
             'documents' => $draft->documents->map(fn ($d) => [
                 'id' => $d->id, 'type' => $d->type->value, 'label' => $d->type->label(),
-                'original_name' => $d->original_name, 'size_bytes' => $d->size_bytes,
+                'original_name' => $d->original_name, 'size_bytes' => $d->size_bytes, 'mime_type' => $d->mime_type,
             ])->values(),
             'saved_at' => $draft->updated_at,
         ];

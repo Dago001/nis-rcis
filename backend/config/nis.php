@@ -33,7 +33,7 @@ return [
     */
     'documents_disk' => env('DOCUMENTS_DISK', 's3'),
     'document_url_ttl_minutes' => 10,
-    'max_upload_kb' => 5120,
+    'max_upload_kb' => 2048,
 
     /*
     | Optional ClamAV daemon for upload scanning, e.g.

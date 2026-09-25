@@ -19,11 +19,18 @@ type Summary = {
 };
 
 function Stat({ label, value, href, tone = "slate" }: { label: string; value: number; href?: string; tone?: "slate" | "amber" | "red" | "green" }) {
-  const tones = { slate: "text-slate-900", amber: "text-amber-700", red: "text-red-700", green: "text-nis-green" };
+  const tones = {
+    slate: ["text-slate-900", "bg-slate-300"],
+    amber: ["text-nis-orange", "bg-nis-orange"],
+    red: ["text-nis-red", "bg-nis-red"],
+    green: ["text-nis-primary", "bg-nis-primary"],
+  };
   const body = (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-nis-green">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 text-3xl font-bold tabular-nums ${tones[tone]}`}>{value}</div>
+    <div className="relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-nis-primary/40 hover:shadow-md">
+      <span className={`absolute inset-x-0 top-0 h-1 ${tones[tone][1]}`} aria-hidden />
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`mt-2 text-4xl font-bold tabular-nums ${tones[tone][0]}`}>{value}</div>
+      {href && <div className="mt-2 text-xs font-medium text-nis-primary">View ›</div>}
     </div>
   );
   return href ? <Link href={href}>{body}</Link> : body;
@@ -44,7 +51,7 @@ export default function StaffDashboard() {
     <div className="space-y-6">
       <PageTitle title="Dashboard" subtitle={`${user.command} · ${user.role_label}`} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat label="Awaiting approval" value={s.queue.PENDING_APPROVAL} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
         <Stat label="Queried" value={s.queue.QUERIED} href="/staff/applications?status=QUERIED" />
         <Stat label="Biometrics today" value={s.todays_appointments} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />

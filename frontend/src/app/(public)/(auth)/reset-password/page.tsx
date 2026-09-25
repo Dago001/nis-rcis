@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
-import { Alert, Button, Field, Input } from "@/components/ui";
+import { PasswordInput } from "@/components/inputs";
+import { Alert, Button, Field } from "@/components/ui";
 
 function ResetForm() {
   const params = useSearchParams();
@@ -30,10 +31,10 @@ function ResetForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       {errors.email && <Alert tone="danger">{errors.email[0]}</Alert>}
-      <Field label="New password" required error={errors.password?.[0]} hint="At least 10 characters with letters and numbers.">
-        <Input name="password" type="password" required autoComplete="new-password" />
+      <Field label="New password" required error={errors.password?.[0]} hint="At least 6 characters, with letters and numbers.">
+        <PasswordInput name="password" required minLength={6} autoComplete="new-password" />
       </Field>
-      <Field label="Confirm new password" required><Input name="password_confirmation" type="password" required autoComplete="new-password" /></Field>
+      <Field label="Confirm new password" required><PasswordInput name="password_confirmation" required autoComplete="new-password" /></Field>
       <Button type="submit" className="w-full">Set new password</Button>
     </form>
   );
@@ -41,7 +42,7 @@ function ResetForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="mx-auto max-w-md space-y-5">
+    <div className="mx-auto max-w-md space-y-5 rounded-2xl bg-white p-8 shadow-2xl">
       <h1 className="text-2xl font-bold">Choose a new password</h1>
       <Suspense><ResetForm /></Suspense>
     </div>

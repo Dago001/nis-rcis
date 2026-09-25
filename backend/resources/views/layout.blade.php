@@ -15,22 +15,40 @@
         html, body { height:100%; }
         body { margin:0; color:var(--ink); background:#fff;
                font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; }
-        .split { display:grid; grid-template-columns: 1.1fr 1fr; min-height:100vh; }
-        .visual { position:relative; overflow:hidden; background:var(--deep); }
-        .visual img.bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-        .visual::after { content:""; position:absolute; inset:0;
-            background:linear-gradient(to top, rgba(7,63,28,.92) 0%, rgba(7,63,28,.55) 45%, rgba(0,0,0,.25) 100%); }
-        .visual .caption { position:absolute; z-index:1; left:0; right:0; bottom:0; padding:48px; color:#fff; }
-        .visual .eyebrow { font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.8); font-weight:600; }
-        .visual h2 { margin:.6rem 0 0; font-size:2rem; line-height:1.25; font-weight:600; max-width:30rem; }
-        .visual h2 span { color:#fbbf6b; }
-        .visual p { margin:.8rem 0 0; color:rgba(255,255,255,.85); max-width:30rem; line-height:1.55; }
-        .panel { display:flex; flex-direction:column; justify-content:center; padding:48px clamp(24px,6vw,88px); background:#fff; }
-        .brand { display:flex; align-items:center; gap:12px; margin-bottom:36px; text-decoration:none; }
-        .brand img { width:52px; height:52px; }
-        .brand strong { display:block; font-size:.82rem; letter-spacing:.04em; color:var(--primary-dark); }
+        /* Header: same as the website's landing page header */
+        .site-header { position:sticky; top:0; z-index:5; background:#f6f6f6; border-bottom:1px solid var(--line); box-shadow:0 1px 3px rgba(15,23,42,.08); }
+        .site-header .inner { display:flex; align-items:center; justify-content:space-between; gap:16px; height:80px; padding:0 5%; }
+        .brand { display:flex; align-items:center; gap:12px; text-decoration:none; }
+        .brand img { width:48px; height:48px; }
+        .brand strong { display:block; font-size:.9rem; letter-spacing:.02em; color:var(--primary-dark); }
         .brand span { display:block; font-size:.78rem; color:var(--muted); }
-        .form-wrap { width:100%; max-width:400px; }
+        .site-header nav { display:flex; gap:10px; align-items:center; }
+        .site-header nav a { text-decoration:none; font-size:.92rem; color:#334155; padding:8px 12px; border-radius:6px; }
+        .site-header nav a:hover { color:var(--primary); }
+        .site-header nav a.cta { background:var(--primary); color:#fff; padding:9px 20px; }
+        .site-header nav a.cta:hover { background:var(--primary-dark); color:#fff; }
+
+        /* Full-page background photograph behind the sign-in card */
+        .stage { position:relative; min-height:calc(100vh - 80px); display:flex; align-items:center; justify-content:center; gap:56px;
+                 padding:48px 5%; overflow:hidden; background:var(--deep); }
+        .stage img.bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+        .stage::after { content:""; position:absolute; inset:0; background:linear-gradient(120deg, rgba(0,0,0,.72) 0%, rgba(7,63,28,.55) 55%, rgba(0,0,0,.45) 100%); }
+        .caption { position:relative; z-index:1; color:#fff; max-width:30rem; }
+        .caption .eyebrow { font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.8); font-weight:600; }
+        .caption h2 { margin:.6rem 0 0; font-size:2.4rem; line-height:1.2; font-weight:600; }
+        .caption h2 span { color:var(--orange); }
+        .caption p { margin:1rem 0 0; color:rgba(255,255,255,.88); line-height:1.6; }
+        .panel { position:relative; z-index:1; width:100%; max-width:460px; background:#fff; border-radius:16px; padding:36px 36px 28px;
+                 box-shadow:0 25px 50px -12px rgba(0,0,0,.45); }
+        .pw { position:relative; }
+        .pw input { padding-right:48px; }
+        .pw .eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:38px; height:38px; margin:0; padding:0;
+                   display:flex; align-items:center; justify-content:center; background:transparent; color:var(--muted); border-radius:6px; }
+        .pw .eye:hover { background:var(--mint); color:var(--primary); }
+        .pw .eye svg { width:20px; height:20px; }
+        .pw .eye .off { display:none; }
+        .pw .eye[aria-pressed="true"] .on { display:none; }
+        .pw .eye[aria-pressed="true"] .off { display:block; }
         h1 { font-size:1.6rem; margin:0 0 6px; color:#0f172a; }
         .sub { color:var(--muted); font-size:.92rem; margin:0 0 26px; line-height:1.5; }
         label { display:block; font-size:.85rem; font-weight:600; margin:18px 0 6px; color:#334155; }
@@ -51,35 +69,40 @@
         .back a:hover { color:var(--primary); }
         ul.scopes { padding-left:18px; font-size:.92rem; }
         @media (max-width: 900px) {
-            .split { grid-template-columns: 1fr; }
-            .visual { min-height:220px; }
-            .visual .caption { padding:24px; }
-            .visual h2 { font-size:1.4rem; }
-            .visual p { display:none; }
-            .panel { padding:32px 20px 48px; }
+            .caption { display:none; }
+            .stage { padding:28px 16px; }
+            .panel { padding:28px 22px 22px; }
+            .site-header nav a:not(.cta) { display:none; }
         }
     </style>
 </head>
 <body>
-<div class="split">
-    <aside class="visual" aria-hidden="true">
-        <img class="bg" src="/images/@yield('image', 'hq-dusk.jpg')" alt="">
-        <div class="caption">
-            <div class="eyebrow">Nigeria Immigration Service</div>
-            <h2>@yield('headline', 'Residence Card Issuance System')</h2>
-            <p>@yield('tagline', 'Directorate of Visa and Residency.')</p>
-        </div>
-    </aside>
-    <main class="panel">
-        <div class="form-wrap">
-            <a class="brand" href="{{ config('nis.frontend_url') }}">
-                <img src="/images/nis-logo.png" alt="">
-                <div><strong>NIGERIA IMMIGRATION SERVICE</strong><span>Residence Card Portal</span></div>
-            </a>
-            @yield('content')
-            <div class="back"><a href="{{ config('nis.frontend_url') }}">← Back to the Residence Card Portal</a></div>
-        </div>
-    </main>
-</div>
+<header class="site-header">
+    <div class="inner">
+        <a class="brand" href="{{ config('nis.frontend_url') }}">
+            <img src="/images/nis-logo.png" alt="">
+            <div><strong>NIGERIA IMMIGRATION SERVICE</strong><span>Residence Card Portal</span></div>
+        </a>
+        <nav>
+            <a href="{{ config('nis.frontend_url') }}">Home</a>
+            <a href="{{ config('nis.frontend_url') }}/faq">FAQ</a>
+            <a href="{{ config('nis.frontend_url') }}/track">Track</a>
+            <a class="cta" href="{{ config('nis.frontend_url') }}/register">Create account</a>
+        </nav>
+    </div>
+</header>
+<main class="stage">
+    <img class="bg" src="/images/@yield('image', 'hq-dusk.jpg')" alt="">
+    <div class="caption" aria-hidden="true">
+        <div class="eyebrow">Nigeria Immigration Service</div>
+        <h2>@yield('headline', 'Residence Card Issuance System')</h2>
+        <p>@yield('tagline', 'Directorate of Visa and Residency.')</p>
+    </div>
+    <section class="panel">
+        @yield('content')
+        <div class="back"><a href="{{ config('nis.frontend_url') }}">← Back to the Residence Card Portal</a></div>
+    </section>
+</main>
+<script src="/js/password-toggle.js" defer></script>
 </body>
 </html>
