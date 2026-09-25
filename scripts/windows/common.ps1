@@ -31,6 +31,20 @@ function Invoke-Native([string]$exe, [string[]]$arguments, [string]$workDir) {
     }
 }
 
+# Run a native command and capture stdout+stderr as text. Windows PowerShell
+# 5.1 turns captured stderr into terminating errors under
+# ErrorActionPreference=Stop (e.g. Xdebug warnings), so relax it locally.
+function Invoke-Capture([string]$exe, [string[]]$arguments) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $exe @arguments 2>&1 | ForEach-Object { "$_" }
+        return @{ Code = $LASTEXITCODE; Lines = @($out); Text = (($out | Out-String).Trim()) }
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
 function New-Secret([int]$bytes = 32) {
     $buffer = New-Object byte[] $bytes
     [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($buffer)

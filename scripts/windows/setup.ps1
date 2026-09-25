@@ -42,11 +42,13 @@ if ($missing.Count -gt 0) {
     exit 1
 }
 
-$phpVersion = (& php -r 'echo PHP_VERSION;')
+$phpRun = Invoke-Capture 'php' @('-r', 'echo ''NISVER='' . PHP_VERSION;')
+$phpVersion = ($phpRun.Lines | Where-Object { $_ -match '^NISVER=' } | Select-Object -First 1) -replace '^NISVER=', ''
+if (-not $phpVersion) { Fail "Could not run PHP: $($phpRun.Text)" }
 if ([version]($phpVersion -replace '[^0-9.].*$', '') -lt [version]'8.3') { Fail "PHP $phpVersion found; PHP 8.3 or newer is required." }
 Write-Ok "PHP $phpVersion"
 
-$nodeVersion = (& node -v).TrimStart('v')
+$nodeVersion = ((Invoke-Capture 'node' @('-v')).Lines | Where-Object { $_ -match '^v\d' } | Select-Object -First 1).TrimStart('v')
 if ([version]$nodeVersion -lt [version]'20.9') { Fail "Node.js $nodeVersion found; Node.js 20.9 or newer (22 LTS recommended) is required." }
 Write-Ok "Node.js $nodeVersion"
 Write-Ok "Composer ($((Get-Command composer).Source))"
@@ -57,7 +59,7 @@ Write-Step 'Checking PHP extensions'
 
 $required = @('pdo_pgsql', 'pgsql', 'fileinfo', 'mbstring', 'openssl', 'curl', 'zip')
 function Get-MissingExtensions {
-    $loaded = (& php -m) | ForEach-Object { $_.Trim().ToLower() }
+    $loaded = (Invoke-Capture 'php' @('-m')).Lines | ForEach-Object { $_.Trim().ToLower() }
     return @($required | Where-Object { $loaded -notcontains $_ })
 }
 
@@ -66,7 +68,7 @@ if ($missingExt.Count -gt 0) {
     Write-Warn ("Missing PHP extensions: " + ($missingExt -join ', '))
 
     $phpDir = Split-Path -Parent (Get-Command php).Source
-    $ini = (& php -r 'echo php_ini_loaded_file();')
+    $ini = ((Invoke-Capture 'php' @('-r', 'echo ''NISINI='' . php_ini_loaded_file();')).Lines | Where-Object { $_ -match '^NISINI=' } | Select-Object -First 1) -replace '^NISINI=', ''
     if (-not $ini) {
         $template = Join-Path $phpDir 'php.ini-development'
         if (-not (Test-Path $template)) { Fail "No php.ini found. Enable these extensions in your php.ini: $($missingExt -join ', ')" }
@@ -118,9 +120,9 @@ if (-not $pgPassword) {
 $env:PGPASSWORD = $pgPassword
 
 function Invoke-Psql([string]$sql, [string]$database = 'postgres') {
-    $out = & $psql -h 127.0.0.1 -U postgres -d $database -v ON_ERROR_STOP=1 -tAc $sql 2>&1
-    if ($LASTEXITCODE -ne 0) { Fail "PostgreSQL command failed: $out`n       Is PostgreSQL running, and is the postgres password correct?" }
-    return ($out | Out-String).Trim()
+    $run = Invoke-Capture $psql @('-h', '127.0.0.1', '-U', 'postgres', '-d', $database, '-v', 'ON_ERROR_STOP=1', '-tAc', $sql)
+    if ($run.Code -ne 0) { Fail "PostgreSQL command failed: $($run.Text)`n       Is PostgreSQL running, and is the postgres password correct?" }
+    return (($run.Lines | Where-Object { $_ -notmatch '^(WARNING|NOTICE|Xdebug)' }) -join "`n").Trim()
 }
 
 Invoke-Psql 'SELECT 1' | Out-Null
@@ -190,8 +192,8 @@ $frontendEnv = Read-EnvFile $frontendEnvPath
 Push-Location $Backend
 $clientExists = $false
 if ($frontendEnv['OAUTH_STAFF_CLIENT_ID']) {
-    $check = & php artisan tinker --execute "echo App\Models\OAuthClient::whereKey('$($frontendEnv['OAUTH_STAFF_CLIENT_ID'])')->exists() ? 'yes' : 'no';" 2>$null
-    $clientExists = (($check | Out-String).Trim() -eq 'yes')
+    $check = Invoke-Capture 'php' @('artisan', 'tinker', '--execute', "echo 'NISCLIENT=' . (App\Models\OAuthClient::whereKey('$($frontendEnv['OAUTH_STAFF_CLIENT_ID'])')->exists() ? 'yes' : 'no');")
+    $clientExists = [bool]($check.Lines | Where-Object { $_ -eq 'NISCLIENT=yes' })
 }
 Pop-Location
 
@@ -199,10 +201,10 @@ if ($clientExists -and -not $Reset) {
     Write-Ok 'Existing OAuth2 clients kept (frontend\.env.local)'
 } else {
     Push-Location $Backend
-    $output = & php artisan nis:oauth-clients --frontend=http://localhost:3000
-    $code = $LASTEXITCODE
+    $run = Invoke-Capture 'php' @('artisan', 'nis:oauth-clients', '--frontend=http://localhost:3000')
+    $output = $run.Lines
     Pop-Location
-    if ($code -ne 0) { Fail 'Could not create the OAuth2 clients.' }
+    if ($run.Code -ne 0) { Fail "Could not create the OAuth2 clients: $($run.Text)" }
 
     $clients = @{}
     foreach ($line in $output) {

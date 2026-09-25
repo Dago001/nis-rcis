@@ -48,6 +48,16 @@ Double-click **`start.bat`**. Two windows open, **NIS-RCIS API** (port 8000) and
 * Keep both windows open while testing. **Close them to stop** the application.
 * The first time you open each page it takes a few seconds, because the website is compiled on demand in test mode.
 
+## 4b. Getting the latest changes
+
+Whenever new changes are published, double-click **`update.bat`** in `C:\nis-rcis-new`. It:
+
+* downloads the latest version from GitHub (with Git if installed, otherwise as a ZIP)
+* **keeps** your settings (`backend\.env`, `frontend\.env.local`), keys, uploads, installed packages and database
+* updates the dependencies and applies any new database changes
+
+If the application is running, close the two server windows first, then run `start.bat` again after the update.
+
 ## 5. Demo accounts
 
 **Every demo account uses the password `NisDemo-2026!`**
