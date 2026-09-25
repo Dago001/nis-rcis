@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* NIS brand tokens (legacy green & gold). */
+@theme {
+  --color-nis-green: #0b5d2a;
+  --color-nis-green-dark: #073f1c;
+  --color-nis-green-light: #e8f3ec;
+  --color-nis-gold: #c9a227;
+  --color-nis-gold-light: #fbf5e1;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  background: #f4f6f5;
+  color: #1e293b;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

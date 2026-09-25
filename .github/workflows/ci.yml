@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nis_rcis
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: nis_rcis_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nis_rcis" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: pgsql, pdo_pgsql, redis, gd, intl, mbstring
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate && php artisan passport:keys
+      - run: vendor/bin/pint --test
+      - run: vendor/bin/pest
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USERNAME: nis_rcis
+          DB_PASSWORD: secret
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx next typegen && npx tsc --noEmit
+      - run: npx eslint src
+      - run: npm run build
+        env:
+          APP_URL: http://localhost:3000
+          API_URL: http://127.0.0.1:8000
+          SESSION_SECRET: build-time-placeholder-secret-not-used-at-runtime

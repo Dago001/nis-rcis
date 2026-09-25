@@ -1,0 +1,13 @@
+# Never commit personal data, uploads, database dumps or secrets.
+/uploads/
+*.sql
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.DS_Store

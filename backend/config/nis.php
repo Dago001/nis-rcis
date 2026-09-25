@@ -1,0 +1,53 @@
+<?php
+
+return [
+
+    'organization' => 'Nigeria Immigration Service',
+    'directorate' => 'Directorate of Visa and Residency',
+    'issuing_country' => 'FEDERAL REPUBLIC OF NIGERIA',
+    'approving_authority' => 'COMPTROLLER GENERAL OF IMMIGRATION',
+
+    /*
+    | Public URLs of the Next.js frontend. Used for links in e-mails
+    | (verification, password reset, application notifications) and as
+    | the "create account" target on the applicant login page.
+    */
+    'frontend_url' => rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/'),
+
+    /*
+    | Residence card fee and validity.
+    */
+    'fee_naira' => (int) env('RESIDENCE_CARD_FEE_NAIRA', 35000),
+    'card_validity_years' => (int) env('CARD_VALIDITY_YEARS', 2),
+
+    /*
+    | Private document storage. "s3" in production (any S3-compatible
+    | service); "local" is a private, non-web-served disk for development.
+    */
+    'documents_disk' => env('DOCUMENTS_DISK', 's3'),
+    'document_url_ttl_minutes' => 10,
+    'max_upload_kb' => 5120,
+
+    /*
+    | Paystack. Payments are only trusted after server-side verification
+    | (transaction verify API or signed webhook). The secret key never
+    | leaves the backend.
+    */
+    'paystack' => [
+        'secret_key' => env('PAYSTACK_SECRET_KEY'),
+        'public_key' => env('PAYSTACK_PUBLIC_KEY'),
+        'base_url' => env('PAYSTACK_BASE_URL', 'https://api.paystack.co'),
+        // Development only: simulate successful payments. Ignored in production.
+        'fake' => (bool) env('PAYMENTS_FAKE', false),
+    ],
+
+    /*
+    | OAuth2 scopes. Each OAuth client row carries the subset it may request.
+    */
+    'scopes' => [
+        'applicant' => 'Applicant portal: manage your own residence card applications',
+        'staff' => 'Staff console: NIS officer operations (further limited by role)',
+        'cards:verify' => 'Partner integration: verify residence card validity',
+    ],
+
+];
