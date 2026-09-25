@@ -11,6 +11,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Agent guidance lives in the repository root CLAUDE.md.
+  agentRules: false,
   output: "standalone",
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

@@ -342,3 +342,16 @@ it('builds e-mail links from APP_URL even when called on an internal host', func
         return parse_url($n->toMail($notifiable)->actionUrl, PHP_URL_HOST) === 'api.rcis.example';
     });
 });
+
+it('loads demo data once and never in production', function () {
+    $this->artisan('nis:demo')->assertSuccessful();
+    $this->artisan('nis:demo')->expectsOutputToContain('already loaded')->assertSuccessful();
+
+    expect(Application::pluck('status')->map->value->sort()->values()->all())->toBe([
+        'APPROVED_FOR_BIOMETRICS', 'BIOMETRICS_CAPTURED', 'ISSUED', 'PENDING_APPROVAL', 'QUERIED',
+    ]);
+    expect(ResidenceCard::count())->toBe(2);
+
+    app()->detectEnvironment(fn () => 'production');
+    $this->artisan('nis:demo')->assertFailed();
+});
