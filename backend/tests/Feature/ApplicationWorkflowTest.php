@@ -412,3 +412,59 @@ it('shows staff a paid applicant straight away, before the application is submit
     asApplicant($applicant);
     $this->getJson('/api/v1/staff/payments')->assertUnauthorized();
 });
+
+it('lets one account apply for a spouse and children linked to the principal application', function () {
+    Notification::fake();
+    $applicant = Applicant::factory()->create(['email' => 'jp@example.com']);
+    asApplicant($applicant);
+
+    uploadDraftDocs();
+    $principal = $this->postJson('/api/v1/applicant/applications', particulars(['payment_reference' => paidReference()]))
+        ->assertCreated()->json('data.id');
+
+    // A child of any age, on their own passport, while the principal's application is still open.
+    uploadDraftDocs();
+    $child = particulars(['forenames' => 'Emma', 'date_of_birth' => now()->subYears(6)->toDateString(), 'passport_number' => 'CM7777777',
+        'profession' => 'Pupil', 'principal_application_id' => $principal, 'dependant_relationship' => 'CHILD']);
+
+    $this->postJson('/api/v1/applicant/applications', [...$child, 'payment_reference' => paidReference(), 'passport_number' => 'CM1234567'])
+        ->assertUnprocessable()->assertJsonValidationErrors('passport_number');
+    $this->postJson('/api/v1/applicant/applications', [...$child, 'payment_reference' => paidReference(), 'dependant_relationship' => 'SPOUSE'])
+        ->assertUnprocessable()->assertJsonValidationErrors('date_of_birth'); // a spouse must be an adult
+
+    $id = $this->postJson('/api/v1/applicant/applications', [...$child, 'payment_reference' => paidReference()])
+        ->assertCreated()->assertJsonPath('data.dependant_relationship', 'CHILD')->json('data.id');
+
+    $this->getJson("/api/v1/applicant/applications/{$principal}")->assertOk()
+        ->assertJsonPath('data.dependants.0.id', $id)->assertJsonPath('data.dependants.0.relationship', 'CHILD');
+    $this->getJson("/api/v1/applicant/applications/{$id}")->assertJsonPath('data.principal.id', $principal);
+
+    // Another person's application cannot be used as the principal.
+    asApplicant(Applicant::factory()->create());
+    uploadDraftDocs();
+    $this->postJson('/api/v1/applicant/applications', [...$child, 'passport_number' => 'CM8888888', 'payment_reference' => paidReference()])
+        ->assertUnprocessable()->assertJsonValidationErrors('principal_application_id');
+});
+
+it('replaces a card reported lost and withdraws the old card when the new one is produced', function () {
+    Notification::fake();
+    $applicant = Applicant::factory()->create(['email' => 'jp@example.com']);
+    $old = ResidenceCard::factory()->issued()->create(['applicant_id' => $applicant->id, 'passport_number' => 'CM1234567']);
+    asApplicant($applicant);
+    uploadDraftDocs();
+
+    $replace = particulars(['type' => 'REPLACE', 'renewal_card_number' => $old->card_number, 'payment_reference' => paidReference()]);
+    $this->postJson('/api/v1/applicant/applications', $replace)->assertUnprocessable()->assertJsonValidationErrors('renewal_card_number');
+
+    $this->postJson("/api/v1/applicant/cards/{$old->id}/report-lost", ['type' => 'LOST', 'details' => 'Lost on the way to work.'])->assertOk();
+    $this->postJson('/api/v1/applicant/applications', [...$replace, 'type' => 'RENEWAL'])->assertUnprocessable();
+    $id = $this->postJson('/api/v1/applicant/applications', $replace)->assertCreated()->assertJsonPath('data.type', 'REPLACE')->json('data.id');
+
+    $approver = User::factory()->role(StaffRole::ApprovingOfficer)->create();
+    asStaff($approver);
+    $this->postJson("/api/v1/staff/applications/{$id}/decision", ['decision' => 'APPROVE'])->assertOk();
+    $this->postJson("/api/v1/staff/applications/{$id}/biometrics", ['photo' => $this->pngDataUrl(), 'signature' => $this->pngDataUrl()])->assertOk();
+
+    expect($old->fresh()->status->value)->toBe('REVOKED')
+        ->and($old->fresh()->revocation_reason)->toStartWith('REPLACED BY');
+});

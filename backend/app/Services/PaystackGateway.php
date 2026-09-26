@@ -104,6 +104,27 @@ class PaystackGateway
     }
 
     /**
+     * Refund a confirmed payment in full through Paystack.
+     *
+     * @return array{ok: bool, reference: ?string, message: string}
+     */
+    public function refund(Payment $payment): array
+    {
+        if ($this->isFake() || $payment->channel === 'fake') {
+            return ['ok' => true, 'reference' => 'TEST-REFUND-'.$payment->reference, 'message' => 'Test mode: refund simulated.'];
+        }
+
+        $response = $this->client()->post('/refund', ['transaction' => $payment->reference]);
+        $data = $response->json('data') ?? [];
+
+        return [
+            'ok' => $response->successful() && (bool) $response->json('status'),
+            'reference' => isset($data['id']) ? (string) $data['id'] : null,
+            'message' => (string) ($response->json('message') ?? 'No response from Paystack.'),
+        ];
+    }
+
+    /**
      * Handle a webhook. Returns false if the signature is invalid.
      */
     public function handleWebhook(string $rawBody, ?string $signature): bool

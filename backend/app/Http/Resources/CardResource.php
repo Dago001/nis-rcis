@@ -38,6 +38,10 @@ class CardResource extends JsonResource
             'watchlist_reason' => $this->watchlist_reason,
             'watchlisted_at' => $this->watchlisted_at,
             'approved_at' => $this->approved_at,
+            'reported_lost_at' => $this->reported_lost_at,
+            'lost_report_type' => $this->lost_report_type,
+            'lost_report_details' => $this->lost_report_details,
+            'police_report_number' => $this->police_report_number,
             'application_id' => $this->whenLoaded('application', fn () => $this->application?->id),
             'renewals' => $this->whenLoaded('renewals', fn () => $this->renewals->map(fn ($r) => [
                 'renewal_number' => $r->renewal_number,

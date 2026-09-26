@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Barcode } from "@/components/Barcode";
 import { Alert, Button, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
-import { naira } from "@/lib/format";
+import { naira, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 
 type Payment = {
@@ -140,7 +140,7 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
                 <Barcode value={a.application_number} height={40} moduleWidth={1.1} />
                 <div className="text-[15px] tracking-wide">{a.application_number}</div>
               </div>
-              <div className="self-center text-lg">{a.type === "RENEWAL" ? "Residence Card Renewal" : "Residence Card Application"}</div>
+              <div className="self-center text-lg">{a.type === "RENEWAL" ? "Residence Card Renewal" : a.type === "REPLACE" ? "Residence Card Replacement" : "Residence Card Application"}</div>
             </div>
             <div className="grid grid-cols-5 gap-2 px-3 py-2 text-[13px]">
               <div><div className="font-medium">Reference Number</div><div>{a.reference_number}</div></div>
@@ -160,7 +160,7 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
         <Box title="Residence Card Details">
           <Pairs
             rows={[
-              ["Type of Application", a.type === "RENEWAL" ? `Renewal${a.renewal_of_card_number ? ` of card ${a.renewal_of_card_number}` : ""}` : "New Residence Card", "Applying For", "Residence Card (Expatriate)"],
+              ["Type of Application", applicationType(a, true), "Applying For", "Residence Card (Expatriate)"],
               ["Card Validity", "2 Years", "Processing Office", center ? `${center.name}` : "NIS Headquarters, Abuja"],
             ]}
           />

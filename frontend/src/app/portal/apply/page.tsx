@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } f
 import { AppointmentPicker } from "@/components/AppointmentPicker";
 import { ContactFields, PassportFields, PersonalFields } from "@/components/ParticularsFields";
 import { Alert, Button, Field, Input, Panel, Spinner } from "@/components/ui";
+import { useI18n } from "@/components/I18nProvider";
 import { api, ApiError, upload } from "@/lib/api-client";
 import { naira, nisDate } from "@/lib/format";
 import type { Application, EnrollmentCenter } from "@/lib/types";
@@ -31,7 +32,7 @@ const DOCUMENTS: DocSpec[] = [
 /** Which step each field lives on (to jump back when the API rejects one). */
 const FIELD_STEP: Record<string, number> = {
   ...Object.fromEntries(PERSONAL_FIELDS.map((f) => [f, 1])),
-  blood_group: 1, renewal_card_number: 1, photo: 1,
+  blood_group: 1, renewal_card_number: 1, photo: 1, principal_application_id: 1, dependant_relationship: 1,
   ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 2])),
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
   documents: 4, declaration: 5, payment_reference: 6,
@@ -39,7 +40,8 @@ const FIELD_STEP: Record<string, number> = {
 };
 
 type DraftDoc = { id: number; type: string; label: string; original_name: string; size_bytes: number; mime_type: string };
-type Draft = { type: "NEW" | "RENEWAL"; current_step: number; data: Record<string, string>; documents: DraftDoc[]; saved_at: string };
+type AppType = "NEW" | "RENEWAL" | "REPLACE";
+type Draft = { type: AppType; current_step: number; data: Record<string, string>; documents: DraftDoc[]; saved_at: string };
 
 function kb(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -54,9 +56,13 @@ async function documentUrl(id: number): Promise<string> {
 function Wizard() {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useI18n();
   const [loaded, setLoaded] = useState(false);
   const [step, setStep] = useState(1);
-  const [type, setType] = useState<"NEW" | "RENEWAL">(params.get("type") === "renewal" ? "RENEWAL" : "NEW");
+  const [type, setType] = useState<AppType>(() => {
+    const t = (params.get("type") ?? "").toUpperCase();
+    return t === "RENEWAL" || t === "REPLACE" ? t : "NEW";
+  });
   const [data, setData] = useState<Record<string, string>>({});
   const [documents, setDocuments] = useState<DraftDoc[]>([]);
   const [touched, setTouched] = useState<Set<string>>(new Set());
@@ -81,7 +87,7 @@ function Wizard() {
   /** Fields validated on each step. */
   const stepFields = useCallback(
     (n: number) =>
-      n === 1 ? [...(type === "RENEWAL" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS]
+      n === 1 ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS]
         : n === 2 ? PASSPORT_FIELDS
           // Phone and e-mail are locked (taken from the account), so they are not re-checked here.
           : n === 3 ? CONTACT_FIELDS.filter((f) => f !== "phone" && f !== "email")
@@ -139,7 +145,13 @@ function Wizard() {
       ]);
       setFee(centerList.fee_naira);
 
-      let restored: Record<string, string> = { surname: me.surname, forenames: me.forenames };
+      // A new application for a spouse or child (from the portal home page).
+      const relationship = (params.get("for") ?? "").toUpperCase();
+      const dependant = !draft && params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship)
+        ? { principal_application_id: params.get("principal") as string, dependant_relationship: relationship }
+        : null;
+      let restored: Record<string, string> = dependant ?? { surname: me.surname, forenames: me.forenames };
+      if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
       if (draft) {
         restored = { ...restored, ...draft.data };
         setType(draft.type);
@@ -242,7 +254,8 @@ function Wizard() {
       const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
       setDocuments(result.draft.documents);
     } catch (e) {
-      if (e instanceof ApiError) setStepError({ [key]: Object.values(e.fieldErrors())[0] ?? e.message });
+      // The photograph check can report several problems at once; show them all.
+      if (e instanceof ApiError) setStepError({ [key]: e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message });
     } finally {
       setBusy(false);
     }
@@ -310,31 +323,41 @@ function Wizard() {
     }
   }
 
-  if (!loaded) return <Spinner />;
+  if (!loaded) return <Spinner label={t("Loading…")} />;
 
   const props = { data, errors, set, touch };
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">{type === "RENEWAL" ? "Residence card renewal" : "Residence card application"}</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Step {step} of 7 — {STEPS[step - 1]}</h1>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">
+          {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
+          {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}</h1>
         <ol className="mt-4 grid grid-cols-7 gap-1.5" aria-label="Progress">
           {STEPS.map((label, i) => (
-            <li key={label} title={label} className={`h-2 rounded-full ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`} />
+            <li key={label} title={t(label)} aria-current={i + 1 === step ? "step" : undefined} className={`h-2 rounded-full ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`} />
           ))}
         </ol>
       </div>
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
-      {currentStepHasErrors && <Alert tone="danger">Please correct the highlighted details.</Alert>}
+      {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
 
-      <Panel title={STEPS[step - 1]}>
+      <Panel title={t(STEPS[step - 1])}>
         {step === 1 && (
           <div className="space-y-6">
             <PhotoUpload photo={photo} url={photoUrl} error={errors.photo} busy={busy} onUpload={(f) => uploadDocument(PHOTO, f)} onView={() => photo && view(photo)} />
-            {type === "RENEWAL" && (
-              <Field label="Residence card number being renewed" required error={errors.renewal_card_number}>
+            {data.dependant_relationship && (
+              <Alert tone="info">
+                This application is for your <strong>{data.dependant_relationship === "CHILD" ? "child" : "spouse"}</strong> and is linked to your own application.
+                Enter <strong>their</strong> details, photograph and passport. {data.dependant_relationship === "CHILD" && "A child may be any age."}
+              </Alert>
+            )}
+            {type !== "NEW" && (
+              <Field label={type === "REPLACE" ? "Number of the lost or stolen card" : "Residence card number being renewed"} required error={errors.renewal_card_number}
+                hint={type === "REPLACE" ? "The card must first be reported lost or stolen under “My cards”." : undefined}>
                 <Input value={data.renewal_card_number ?? ""} inputMode="numeric" maxLength={12} onChange={(e) => set("renewal_card_number", e.target.value.replace(/\D/g, ""))} onBlur={() => touch("renewal_card_number")} />
               </Field>
             )}
@@ -377,7 +400,8 @@ function Wizard() {
                 )}
                 <ReviewGrid
                   items={[
-                    ...(type === "RENEWAL" ? [["Card being renewed", data.renewal_card_number] as [string, string | undefined]] : []),
+                    ...(type !== "NEW" ? [[type === "REPLACE" ? "Card being replaced" : "Card being renewed", data.renewal_card_number] as [string, string | undefined]] : []),
+                    ...(data.dependant_relationship ? [["Applying for", `Your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`] as [string, string | undefined]] : []),
                     ["Surname", data.surname], ["Other names", data.forenames], ["Nationality", data.nationality], ["Sex", data.sex],
                     ["Date of birth", nisDate(data.date_of_birth)], ["Place of birth", data.place_of_birth], ["Profession", data.profession],
                     ["Blood group", data.blood_group || "UNKNOWN"], ["Height", data.height], ["Complexion", data.complexion],
@@ -450,7 +474,7 @@ function Wizard() {
             ) : (
               <>
                 {errors.payment_reference && <Alert tone="danger">{errors.payment_reference}</Alert>}
-                <Button onClick={pay} disabled={busy} className="!bg-nis-orange hover:!brightness-95">{busy ? "Opening Paystack…" : "Pay securely with Paystack"}</Button>
+                <Button onClick={pay} disabled={busy} className="!bg-nis-orange hover:!brightness-95">{busy ? "Opening Paystack…" : t("Pay securely with Paystack")}</Button>
                 <p className="text-xs text-slate-500">You pay on Paystack&apos;s secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.</p>
               </>
             )}
@@ -471,14 +495,14 @@ function Wizard() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2">
-          {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy}>Back</Button>}
-          <Button variant="ghost" onClick={saveAndExit} disabled={busy}>Save &amp; exit</Button>
-          <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">Discard</Button>
+          {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy}>{t("Back")}</Button>}
+          <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
+          <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">{t("Discard")}</Button>
         </div>
         {step < 7 ? (
-          <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? "Saving…" : "Save & continue"}</Button>
+          <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
         ) : (
-          <Button onClick={submit} disabled={busy}>{busy ? "Submitting…" : "Submit application"}</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
         )}
       </div>
       <p className="text-xs text-slate-500">Need help? <Link href="/track" className="underline">Track an existing application</Link>.</p>

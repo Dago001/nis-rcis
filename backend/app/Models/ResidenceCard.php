@@ -31,6 +31,7 @@ class ResidenceCard extends Model
             'revoked_at' => 'datetime',
             'watchlisted_at' => 'datetime',
             'approved_at' => 'datetime',
+            'reported_lost_at' => 'datetime',
         ];
     }
 
@@ -41,12 +42,13 @@ class ResidenceCard extends Model
 
     /**
      * Status shown to the public / partner verifiers.
-     * VALID | EXPIRED | REVOKED | WATCHLISTED | NOT_ISSUED
+     * VALID | EXPIRED | REVOKED | REPORTED_LOST | REPORTED_STOLEN | WATCHLISTED | NOT_ISSUED
      */
     public function verificationStatus(): string
     {
         return match (true) {
             $this->status === CardStatus::Revoked => 'REVOKED',
+            $this->reported_lost_at !== null => 'REPORTED_'.($this->lost_report_type ?: 'LOST'),
             $this->is_watchlisted => 'WATCHLISTED',
             ! $this->status->isActive() => 'NOT_ISSUED',
             $this->isExpired() => 'EXPIRED',

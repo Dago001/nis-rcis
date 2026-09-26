@@ -37,6 +37,12 @@ if (Test-Port 3000) {
         "`$Host.UI.RawUI.WindowTitle = 'NIS-RCIS Frontend (close to stop)'; Set-Location '$Frontend'; npm run dev")
 }
 
+# Daily jobs: e-mail reminders (appointments, card expiry), data retention
+# and backups. Runs minimised; closing it only stops these jobs.
+Write-Step 'Starting the scheduler (daily e-mail reminders, retention, backups)'
+Start-Process powershell -WindowStyle Minimized -ArgumentList @('-NoExit', '-Command',
+    "`$Host.UI.RawUI.WindowTitle = 'NIS-RCIS Scheduler (close to stop)'; Set-Location '$Backend'; php artisan schedule:work")
+
 Write-Step 'Waiting for both servers to be ready'
 $deadline = (Get-Date).AddMinutes(3)
 while ((Get-Date) -lt $deadline) {
@@ -54,4 +60,4 @@ try { Start-Process 'http://localhost:3000' } catch { Write-Warn 'Open http://lo
 Write-Host ''
 Write-Host 'Demo password for every account: NisDemo-2026!' -ForegroundColor Green
 Write-Host 'E-mails (verification links etc.) are written to backend\storage\logs\laravel.log'
-Write-Host 'To stop: close the two server windows.'
+Write-Host 'To stop: close the server windows (API, Frontend and the minimised Scheduler).'

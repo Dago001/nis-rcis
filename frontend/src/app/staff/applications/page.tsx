@@ -7,7 +7,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button, Input, Spinner } from "@/components/ui";
 import { useFetch } from "@/lib/use-fetch";
-import { nisDate } from "@/lib/format";
+import { nisDate, applicationType } from "@/lib/format";
 import type { Application, Paginated } from "@/lib/types";
 
 const TABS: [string, string][] = [
@@ -79,7 +79,7 @@ function Queue() {
                   <td className="px-4 py-3">
                     <Link href={`/staff/applications/${a.id}`} className="font-semibold text-nis-green hover:underline">{a.application_number}</Link>
                     {(a.risk_flags?.length ?? 0) > 0 && <span className="ml-2 rounded bg-nis-red px-1.5 text-[11px] font-semibold text-white" title={a.risk_flags!.map((f) => f.message).join("\n")}>⚠ {a.risk_flags!.length}</span>}
-                    <div className="text-xs text-slate-500">{a.channel === "ASSISTED" ? "Assisted" : "Online"} · {a.type === "RENEWAL" ? "Renewal" : "New"}</div>
+                    <div className="text-xs text-slate-500">{a.channel === "ASSISTED" ? "Assisted" : "Online"} · {applicationType(a)}</div>
                   </td>
                   <td className="px-4 py-3">{a.surname}, {a.forenames}<div className="text-xs text-slate-500">{a.passport_number}</div></td>
                   <td className="px-4 py-3">{a.nationality}</td>

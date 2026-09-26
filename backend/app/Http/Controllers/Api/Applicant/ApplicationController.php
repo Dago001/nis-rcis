@@ -11,6 +11,7 @@ use App\Services\ApplicationSubmission;
 use App\Services\ApplicationWorkflow;
 use App\Services\DocumentStorage;
 use App\Services\PaystackGateway;
+use App\Services\PhotoQuality;
 use App\Support\ApplicationRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,7 @@ class ApplicationController
     public function show(Request $request, int $id): ApplicationResource
     {
         return new ApplicationResource(
-            $this->owned($request, $id)->load(['enrollmentCenter', 'card', 'renewalOfCard', 'documents', 'statusHistory'])
+            $this->owned($request, $id)->load(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory'])
         );
     }
 
@@ -45,11 +46,19 @@ class ApplicationController
         $applicant = $this->applicant($request);
         $request->merge(ApplicationRules::normalise($request->except(['phone', 'email'])));
 
+        $rules = ApplicationRules::particulars();
+        // A dependent child may be any age; everyone else must be an adult.
+        if ($request->filled('principal_application_id') && $request->input('dependant_relationship') === 'CHILD') {
+            $rules['date_of_birth'] = ['required', 'date', 'before:today', 'after:1900-01-01'];
+        }
+
         $data = $request->validate([
-            ...ApplicationRules::particulars(),
+            ...$rules,
             ...ApplicationRules::appointment(),
-            'type' => ['required', Rule::in(['NEW', 'RENEWAL'])],
-            'renewal_card_number' => ['required_if:type,RENEWAL', 'nullable', 'string', 'max:20'],
+            'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
+            'renewal_card_number' => ['required_if:type,RENEWAL,REPLACE', 'nullable', 'string', 'max:20'],
+            'principal_application_id' => ['nullable', 'integer'],
+            'dependant_relationship' => ['required_with:principal_application_id', 'nullable', Rule::in(['SPOUSE', 'CHILD'])],
             'payment_reference' => ['required', 'string', 'max:64'],
             'declaration' => ['accepted'],
         ]);
@@ -78,6 +87,10 @@ class ApplicationController
             'type' => ['required', Rule::enum(DocumentType::class)->only(DocumentType::applicantUploadable())],
             'file' => ['required', 'file', 'max:'.config('nis.max_upload_kb')],
         ]);
+
+        if ($data['type'] === DocumentType::Photo->value && ($problems = app(PhotoQuality::class)->problems((string) $request->file('file')->get()))) {
+            throw ValidationException::withMessages(['file' => $problems]);
+        }
 
         $document = $storage->storeUpload($request->file('file'), DocumentType::from($data['type']), ['application_id' => $application->id], $this->applicant($request));
         if ($document->type === DocumentType::Photo) {
@@ -115,7 +128,7 @@ class ApplicationController
      */
     public function slip(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
-        $application = $this->owned($request, $id)->load(['enrollmentCenter', 'documents']);
+        $application = $this->owned($request, $id)->load(['enrollmentCenter', 'documents', 'principal']);
         $payment = $application->payments()->where('status', 'SUCCESS')->latest('id')->first();
 
         return response()->json([

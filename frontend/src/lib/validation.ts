@@ -44,7 +44,11 @@ export const RULES: Record<string, Check> = {
     (v) => (/^NIGERIA(N)?$/i.test(v.trim()) ? "Nigerian citizens do not need a residence card." : undefined),
   ),
   sex: required("Sex"),
-  date_of_birth: all(required("Date of birth"), (v) => (v > addYears(-18) ? "You must be at least 18 years old." : v < "1900-01-01" ? "Enter a valid date." : undefined)),
+  // A dependent child may be any age; everyone else must be an adult.
+  date_of_birth: all(required("Date of birth"), (v, d) =>
+    d.dependant_relationship === "CHILD"
+      ? (v >= today() ? "Enter a date in the past." : v < "1900-01-01" ? "Enter a valid date." : undefined)
+      : v > addYears(-18) ? "You must be at least 18 years old." : v < "1900-01-01" ? "Enter a valid date." : undefined),
   place_of_birth: all(required("Place of birth"), pattern(TEXT, "Use letters only.")),
   profession: all(required("Profession"), pattern(TEXT, "Use letters only.")),
   height: pattern(/^[0-9]+(\.[0-9]{1,2})?\s?(m|cm)?$/i, "Use a number, e.g. 1.75m or 175cm."),

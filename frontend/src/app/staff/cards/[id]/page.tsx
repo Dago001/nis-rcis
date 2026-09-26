@@ -8,7 +8,7 @@ import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Button, Dl, Field, Input, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
-import { nisDate } from "@/lib/format";
+import { dateTime, nisDate } from "@/lib/format";
 import type { Card } from "@/lib/types";
 
 type Detail = { data: Card; photo_url: string | null; signature_url: string | null };
@@ -80,6 +80,18 @@ export default function CardDetailPage() {
       {notice && <Alert tone="success">{notice}</Alert>}
       {c.is_watchlisted && <Alert tone="danger"><strong>WATCHLIST:</strong> {c.watchlist_reason}</Alert>}
       {c.status === "REVOKED" && <Alert tone="danger"><strong>Revoked:</strong> {c.revocation_reason}</Alert>}
+      {c.reported_lost_at && c.status !== "REVOKED" && (
+        <Alert tone="danger">
+          <strong>Reported {c.lost_report_type?.toLowerCase()} by the holder</strong> on {dateTime(c.reported_lost_at)}: {c.lost_report_details}
+          {c.police_report_number && <> · Police report {c.police_report_number}</>}
+          {issuer && (
+            <span className="mt-2 flex flex-wrap items-center gap-2">
+              <Input className="!w-72" placeholder="Notes, e.g. holder brought the card to HQ" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Notes for withdrawing the report" />
+              <Button variant="secondary" disabled={busy || !reason.trim()} onClick={() => act("clear-lost-report", { notes: reason }, "Report withdrawn: the card is valid again.")}>Card found — withdraw report</Button>
+            </span>
+          )}
+        </Alert>
+      )}
       {c.status === "QUERIED" && <Alert tone="warning"><strong>Queried:</strong> {c.query_reason} — correct the particulars, then resubmit for approval.</Alert>}
 
       {c.status === "APPROVED" && approver && (

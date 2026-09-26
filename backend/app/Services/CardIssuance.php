@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ApplicationStatus;
 use App\Enums\CardStatus;
 use App\Enums\DocumentType;
+use App\Models\Applicant;
 use App\Models\Application;
 use App\Models\CardRenewal;
 use App\Models\ResidenceCard;
@@ -82,6 +83,21 @@ class CardIssuance
                 ]);
 
                 Audit::log('CARD_CREATED', "Card {$card->card_number} created from application {$locked->application_number}", $card, actor: $officer);
+
+                // A replacement for a lost or stolen card: the old card is
+                // withdrawn for good once the new one exists.
+                if ($locked->type === 'REPLACE' && $locked->renewal_of_card_id) {
+                    $old = ResidenceCard::whereKey($locked->renewal_of_card_id)->lockForUpdate()->first();
+                    if ($old && $old->status !== CardStatus::Revoked) {
+                        $old->forceFill([
+                            'status' => CardStatus::Revoked,
+                            'revocation_reason' => "REPLACED BY {$card->card_number} ({$old->lost_report_type} CARD)",
+                            'revoked_by' => $officer->id,
+                            'revoked_at' => now(),
+                        ])->save();
+                        Audit::log('CARD_REPLACED', "Card {$old->card_number} replaced by {$card->card_number}", $old, actor: $officer);
+                    }
+                }
             },
         );
     }
@@ -169,6 +185,7 @@ class CardIssuance
             ]);
 
             $c->expires_on = $input['to_date'];
+            $c->expiry_reminder_days = null;
             $c->status = CardStatus::Renewed;
         }, 'CARD_RENEWED', "Card renewed until {$input['to_date']}", $officer);
     }
@@ -204,6 +221,55 @@ class CardIssuance
 
             Audit::log($watchlisted ? 'CARD_WATCHLISTED' : 'CARD_WATCHLIST_CLEARED',
                 $watchlisted ? "Watchlisted: {$reason}" : 'Removed from watchlist', $c, actor: $officer);
+
+            return $c;
+        });
+    }
+
+    /**
+     * The holder reports the card lost or stolen online. Verification then
+     * shows it as invalid straight away; a replacement can be applied for.
+     */
+    public function reportLost(ResidenceCard $card, Applicant $holder, string $type, string $details, ?string $policeReport): ResidenceCard
+    {
+        return DB::transaction(function () use ($card, $holder, $type, $details, $policeReport) {
+            $c = ResidenceCard::whereKey($card->id)->lockForUpdate()->firstOrFail();
+            if ($c->applicant_id !== $holder->id) {
+                abort(404);
+            }
+            if (! $c->status->isActive() && $c->status !== CardStatus::Approved) {
+                throw ValidationException::withMessages(['card' => "Card {$c->card_number} is {$c->status->value} and cannot be reported."]);
+            }
+            if ($c->reported_lost_at) {
+                throw ValidationException::withMessages(['card' => 'This card has already been reported '.strtolower((string) $c->lost_report_type).'.']);
+            }
+
+            $c->forceFill([
+                'reported_lost_at' => now(),
+                'lost_report_type' => $type,
+                'lost_report_details' => $details,
+                'police_report_number' => $policeReport,
+            ])->save();
+            Audit::log('CARD_REPORTED_'.$type, "Card {$c->card_number} reported {$type} by the holder", $c, ['police_report_number' => $policeReport], $holder);
+
+            return $c;
+        });
+    }
+
+    /** The card was found and handed back: the report is withdrawn. */
+    public function clearLostReport(ResidenceCard $card, User $officer, string $notes): ResidenceCard
+    {
+        return DB::transaction(function () use ($card, $officer, $notes) {
+            $c = ResidenceCard::whereKey($card->id)->lockForUpdate()->firstOrFail();
+            if (! $c->reported_lost_at) {
+                throw ValidationException::withMessages(['card' => 'This card has not been reported lost or stolen.']);
+            }
+            if ($c->status === CardStatus::Revoked) {
+                throw ValidationException::withMessages(['card' => 'This card has already been replaced or revoked.']);
+            }
+            $type = $c->lost_report_type;
+            $c->forceFill(['reported_lost_at' => null, 'lost_report_type' => null, 'lost_report_details' => null, 'police_report_number' => null])->save();
+            Audit::log('CARD_LOST_REPORT_CLEARED', "Card {$c->card_number}: {$type} report withdrawn — {$notes}", $c, actor: $officer);
 
             return $c;
         });

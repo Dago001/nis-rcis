@@ -59,6 +59,17 @@ class Application extends Model
         return $this->belongsTo(ResidenceCard::class, 'card_id');
     }
 
+    /** The account holder's own application, when this one is for a spouse or child. */
+    public function principal(): BelongsTo
+    {
+        return $this->belongsTo(Application::class, 'principal_application_id');
+    }
+
+    public function dependants(): HasMany
+    {
+        return $this->hasMany(Application::class, 'principal_application_id');
+    }
+
     public function renewalOfCard(): BelongsTo
     {
         return $this->belongsTo(ResidenceCard::class, 'renewal_of_card_id');

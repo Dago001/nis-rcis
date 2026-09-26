@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 // Official NIS social media accounts
 const socials: { href: string; label: string; icon: ReactNode }[] = [
@@ -11,6 +14,7 @@ const socials: { href: string; label: string; icon: ReactNode }[] = [
 ];
 
 export function PublicFooter() {
+  const { t } = useI18n();
   return (
     <footer className="no-print mt-auto bg-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-10 px-[5%] py-12 text-sm xl:px-8">
@@ -20,33 +24,33 @@ export function PublicFooter() {
             <span className="text-[13px] font-bold leading-tight text-nis-primary-dark">NIGERIA<br />IMMIGRATION SERVICE</span>
           </Link>
           <div>
-            <h2 className="font-semibold text-slate-900">NIS Headquarters</h2>
+            <h2 className="font-semibold text-slate-900">{t("NIS Headquarters")}</h2>
             <p className="mt-1 text-slate-600">Umar Musa Yar&apos;Adua Express Way, Airport Road, Sauka, Abuja, FCT, Nigeria.</p>
           </div>
           <p className="flex items-center gap-2 text-slate-600">
             <svg className="h-4 w-4 text-nis-orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-            Monday – Friday, 08:00 – 16:00 (WAT)
+            {t("Monday – Friday, 08:00 – 16:00 (WAT)")}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-10">
           <div>
-            <h2 className="font-semibold text-slate-900">Services</h2>
+            <h2 className="font-semibold text-slate-900">{t("Services")}</h2>
             <ul className="mt-3 space-y-2 text-slate-600">
-              <li><Link href="/portal/apply" className="hover:text-nis-primary">Apply for a residence card</Link></li>
-              <li><Link href="/portal/apply?type=renewal" className="hover:text-nis-primary">Renew a residence card</Link></li>
-              <li><Link href="/track" className="hover:text-nis-primary">Track an application</Link></li>
-              <li><Link href="/verify" className="hover:text-nis-primary">Verify a residence card</Link></li>
+              <li><Link prefetch={false} href="/portal/apply" className="hover:text-nis-primary">{t("Apply for a residence card")}</Link></li>
+              <li><Link prefetch={false} href="/portal/apply?type=renewal" className="hover:text-nis-primary">{t("Renew a residence card")}</Link></li>
+              <li><Link href="/track" className="hover:text-nis-primary">{t("Track an application")}</Link></li>
+              <li><Link href="/verify" className="hover:text-nis-primary">{t("Verify a residence card")}</Link></li>
             </ul>
           </div>
           <div>
-            <h2 className="font-semibold text-slate-900">Complaints and Enquiries</h2>
+            <h2 className="font-semibold text-slate-900">{t("Complaints and Enquiries")}</h2>
             <ul className="mt-3 space-y-2 text-slate-600">
-              <li><Link href="/about" className="hover:text-nis-primary">About Us</Link></li>
-              <li><Link href="/contact" className="hover:text-nis-primary">Contact</Link></li>
-              <li><Link href="/faq" className="hover:text-nis-primary">FAQs</Link></li>
-              <li><Link href="/privacy" className="hover:text-nis-primary">Privacy notice</Link></li>
-              <li><Link href="/staff" className="hover:text-nis-primary">NIS staff sign in</Link></li>
+              <li><Link href="/about" className="hover:text-nis-primary">{t("About Us")}</Link></li>
+              <li><Link href="/contact" className="hover:text-nis-primary">{t("Contact")}</Link></li>
+              <li><Link href="/faq" className="hover:text-nis-primary">{t("FAQs")}</Link></li>
+              <li><Link href="/privacy" className="hover:text-nis-primary">{t("Privacy notice")}</Link></li>
+              <li><Link prefetch={false} href="/staff" className="hover:text-nis-primary">{t("NIS staff sign in")}</Link></li>
             </ul>
           </div>
         </div>
@@ -54,7 +58,7 @@ export function PublicFooter() {
 
       <div className="bg-nis-mint">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-[5%] py-4 text-xs text-slate-600 xl:px-8">
-          <p>Nigeria Immigration Service · Directorate of Visa and Residency. All rights reserved © {new Date().getFullYear()}</p>
+          <p>{t("Nigeria Immigration Service · Directorate of Visa and Residency. All rights reserved © {year}", { year: new Date().getFullYear() })}</p>
           <ul className="flex items-center gap-4">
             {socials.map((s) => (
               <li key={s.href}>

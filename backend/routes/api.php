@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Api\Applicant\AccountController;
 use App\Http\Controllers\Api\Applicant\ApplicationController as ApplicantApplications;
+use App\Http\Controllers\Api\Applicant\CardController as ApplicantCards;
 use App\Http\Controllers\Api\Applicant\DraftController;
 use App\Http\Controllers\Api\Applicant\PaymentController;
+use App\Http\Controllers\Api\Applicant\PaymentRecordsController;
 use App\Http\Controllers\Api\AssistantController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Public\PartnerController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Api\Staff\CardController;
 use App\Http\Controllers\Api\Staff\DashboardController;
 use App\Http\Controllers\Api\Staff\DataBreachController;
 use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
+use App\Http\Controllers\Api\Staff\RefundController;
 use App\Http\Controllers\Api\Staff\ReportController;
 use App\Http\Controllers\Api\Staff\UserController;
 use App\Http\Controllers\OAuth\RevokeTokenController;
@@ -91,6 +94,15 @@ Route::prefix('v1')->group(function () {
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read', [NotificationController::class, 'markRead']);
 
+        // The holder's cards: report lost or stolen
+        Route::get('cards', [ApplicantCards::class, 'index']);
+        Route::post('cards/{id}/report-lost', [ApplicantCards::class, 'reportLost'])->whereNumber('id')->middleware('throttle:10,1');
+
+        // Receipts and refunds
+        Route::get('payment-records', [PaymentRecordsController::class, 'index']);
+        Route::get('payment-records/{reference}/receipt', [PaymentRecordsController::class, 'receipt'])->where('reference', '[A-Za-z0-9-]{6,64}');
+        Route::post('refunds', [PaymentRecordsController::class, 'requestRefund'])->middleware('throttle:10,1');
+
         Route::post('assistant', [AssistantController::class, 'applicant'])->middleware('throttle:assistant');
     });
 
@@ -134,6 +146,7 @@ Route::prefix('v1')->group(function () {
             Route::put('cards/{id}', [CardController::class, 'update'])->whereNumber('id');
             Route::post('cards/{id}/ready-for-collection', [CardController::class, 'readyForCollection'])->whereNumber('id');
             Route::post('cards/{id}/renew', [CardController::class, 'renew'])->whereNumber('id');
+            Route::post('cards/{id}/clear-lost-report', [CardController::class, 'clearLostReport'])->whereNumber('id');
         });
 
         Route::middleware('role:ApprovingOfficer')->group(function () {
@@ -150,6 +163,13 @@ Route::prefix('v1')->group(function () {
         Route::post('approvals/{id}/approve', [ApprovalController::class, 'approve'])->whereNumber('id');
         Route::post('approvals/{id}/reject', [ApprovalController::class, 'reject'])->whereNumber('id');
         Route::post('approvals/{id}/cancel', [ApprovalController::class, 'cancel'])->whereNumber('id');
+
+        // Fee refunds (Super Administrators decide)
+        Route::middleware('role:SuperAdmin')->group(function () {
+            Route::get('refunds', [RefundController::class, 'index']);
+            Route::post('refunds/{id}/approve', [RefundController::class, 'approve'])->whereNumber('id');
+            Route::post('refunds/{id}/reject', [RefundController::class, 'reject'])->whereNumber('id');
+        });
 
         // Reports
         Route::get('reports/summary', [ReportController::class, 'summary']);

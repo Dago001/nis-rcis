@@ -21,3 +21,10 @@ export function dateTime(value?: string | null): string {
 export function naira(amount: number): string {
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(amount);
 }
+
+/** "Renewal", "Replacement (lost/stolen card)" or "New card", plus "for spouse/child" on dependants' applications. */
+export function applicationType(a: { type: string; renewal_of_card_number?: string | null; dependant_relationship?: string | null }, withCard = false): string {
+  const card = withCard && a.renewal_of_card_number ? ` of card ${a.renewal_of_card_number}` : "";
+  const base = a.type === "RENEWAL" ? `Renewal${card}` : a.type === "REPLACE" ? `Replacement${card} (lost/stolen card)` : "New residence card";
+  return a.dependant_relationship ? `${base} · for ${a.dependant_relationship === "CHILD" ? "child" : "spouse"}` : base;
+}

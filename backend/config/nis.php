@@ -36,6 +36,13 @@ return [
     'max_upload_kb' => 2048,
 
     /*
+    | Automatic passport photograph checks (size, exposure, sharpness,
+    | background) on applicant uploads.
+    */
+    'photo_quality_check' => (bool) env('PHOTO_QUALITY_CHECK', true),
+    'photo_min_sharpness' => (float) env('PHOTO_MIN_SHARPNESS', 25),
+
+    /*
     | Optional ClamAV daemon for upload scanning, e.g.
     | unix:///var/run/clamav/clamd.ctl or tcp://127.0.0.1:3310.
     | When set, uploads are refused if the scanner cannot be reached.

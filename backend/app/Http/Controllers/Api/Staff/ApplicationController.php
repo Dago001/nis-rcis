@@ -73,7 +73,7 @@ class ApplicationController
 
     public function show(int $id, DocumentStorage $storage): JsonResponse
     {
-        $application = Application::with(['enrollmentCenter', 'card', 'renewalOfCard', 'documents', 'statusHistory', 'payments'])->findOrFail($id);
+        $application = Application::with(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory', 'payments'])->findOrFail($id);
 
         return response()->json([
             'data' => new ApplicationResource($application),

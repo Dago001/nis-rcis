@@ -6,10 +6,12 @@ use App\Enums\DocumentType;
 use App\Models\Applicant;
 use App\Models\ApplicationDraft;
 use App\Services\DocumentStorage;
+use App\Services\PhotoQuality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * "Save & exit" for the 7-step application wizard.
@@ -26,7 +28,7 @@ class DraftController
     public function save(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'type' => ['required', Rule::in(['NEW', 'RENEWAL'])],
+            'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
             'current_step' => ['required', 'integer', 'between:1,7'],
             'data' => ['required', 'array'],
             'data.*' => ['nullable'],
@@ -56,6 +58,10 @@ class DraftController
 
         $applicant = $this->applicant($request);
         $draft = ApplicationDraft::firstOrCreate(['applicant_id' => $applicant->id], ['type' => 'NEW', 'current_step' => 1, 'data' => []]);
+
+        if ($data['type'] === DocumentType::Photo->value && ($problems = app(PhotoQuality::class)->problems((string) $request->file('file')->get()))) {
+            throw ValidationException::withMessages(['file' => $problems]);
+        }
 
         $storage->storeUpload($request->file('file'), DocumentType::from($data['type']), ['draft_id' => $draft->id], $applicant);
 

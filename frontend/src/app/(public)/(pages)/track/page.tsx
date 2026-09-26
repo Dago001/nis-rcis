@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Tracker } from "@/components/Tracker";
 import { Alert, Button, Dl, Field, Input, Panel } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
-import { nisDate } from "@/lib/format";
+import { nisDate, applicationType } from "@/lib/format";
 
 type TrackResult = {
   application_number: string;
@@ -56,7 +56,7 @@ export default function TrackPage() {
             <Dl
               items={[
                 ["Holder", result.holder],
-                ["Type", result.type === "RENEWAL" ? "Renewal" : "New application"],
+                ["Type", applicationType(result)],
                 ["Submitted", nisDate(result.submitted_at)],
                 ["Biometrics appointment", result.appointment_date ? `${nisDate(result.appointment_date)} at ${result.appointment_time}` : "—"],
                 ["Enrollment center", result.enrollment_center],

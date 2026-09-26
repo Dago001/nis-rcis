@@ -182,4 +182,12 @@ class CardController
 
         return new CardResource($issuance->setWatchlist(ResidenceCard::findOrFail($id), $request->user(), (bool) $data['watchlisted'], $data['reason'] ?? null));
     }
+
+    /** The holder found the card: withdraw the lost/stolen report. */
+    public function clearLostReport(Request $request, int $id, CardIssuance $issuance): CardResource
+    {
+        $data = $request->validate(['notes' => ['required', 'string', 'max:255']]);
+
+        return new CardResource($issuance->clearLostReport(ResidenceCard::findOrFail($id), $request->user(), $data['notes']));
+    }
 }

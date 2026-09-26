@@ -23,6 +23,8 @@ const explain: Record<string, [string, "success" | "warning" | "danger" | "info"
   VALID: ["This residence card is genuine and currently valid.", "success"],
   EXPIRED: ["This residence card has expired. The holder must regularise their status.", "warning"],
   REVOKED: ["This residence card has been REVOKED and is no longer valid.", "danger"],
+  REPORTED_LOST: ["This card has been reported LOST by its holder and is not valid. Do not accept it.", "danger"],
+  REPORTED_STOLEN: ["This card has been reported STOLEN and is not valid. Do not accept it; refer the bearer to the police or the nearest NIS office.", "danger"],
   REFER_TO_NIS: ["Do not accept this card. Refer the holder to the nearest NIS office.", "danger"],
   NOT_ISSUED: ["This card has not been issued yet.", "warning"],
 };

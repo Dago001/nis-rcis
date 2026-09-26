@@ -171,6 +171,15 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **K6.** As **10001**, open **Data breach register** and record a test breach; the 72-hour NDPC deadline is shown.
 - [ ] **K7.** Close the server windows and double-click **`backup.bat`**: an encrypted backup is written to `backend\storage\backups` and checked. Keep a copy of `BACKUP_KEY` from `backend\.env` somewhere safe.
 
+### L. Applicant services
+- [ ] **L1.** Sign in as **john.smith@example.com**. Open **My cards** → **Report lost or stolen** → choose *stolen*, describe what happened and give a police report number. Check the card at http://localhost:3000/verify: it shows **REPORTED STOLEN**. The confirmation e-mail is in `backend\storage\logs\laravel.log`.
+- [ ] **L2.** Click **Apply for a replacement**: the wizard opens with the card number filled in. (Staff can withdraw a report on the card page with **Card found — withdraw report**; when a replacement card is produced the old card is revoked automatically.)
+- [ ] **L3.** Open **Payments**: download the **PDF receipt**. For a payment that was never used, or whose application was rejected, click **Request refund**. Sign in as **10001** → **Fee refunds** → **Approve refund** (in test mode the Paystack refund is simulated).
+- [ ] **L4.** Open one of your applications → **Family members** → **Apply for my child**: the wizard is for the child (any age, their own passport) and is linked to your application; staff see the link on both applications.
+- [ ] **L5.** In step 1 upload a blurred, very small or dark photograph: it is refused with the reasons (sharpness, size, lighting, background).
+- [ ] **L6.** Choose **FR · Français** at the top of the page: the public pages, sign-up and the applicant portal switch to French. Press **Tab** once on any page: a **Skip to main content** link appears.
+- [ ] **L7.** Reminders are sent **by e-mail only** (no SMS): the day before a biometrics appointment, and 90, 30 and 7 days before a card expires. To send them now: `php artisan nis:reminders` in the `backend` folder.
+
 ### I. Sign-out
 - [ ] **I1.** Click **Sign out**, then open http://localhost:3000/staff (or `/portal`). You must sign in again.
 

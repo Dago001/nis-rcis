@@ -74,7 +74,7 @@ export type Application = Particulars & {
   id: number;
   application_number: string;
   reference_number: string;
-  type: "NEW" | "RENEWAL";
+  type: "NEW" | "RENEWAL" | "REPLACE";
   channel: "ONLINE" | "ASSISTED";
   status: ApplicationStatus;
   status_label: string;
@@ -94,6 +94,9 @@ export type Application = Particulars & {
   collected_at: string | null;
   card?: { id: number; card_number: string; booklet_number: string; expires_on: string } | null;
   renewal_of_card_number?: string | null;
+  dependant_relationship?: "SPOUSE" | "CHILD" | null;
+  principal?: { id: number; application_number: string; surname: string; forenames: string } | null;
+  dependants?: { id: number; application_number: string; surname: string; forenames: string; relationship: "SPOUSE" | "CHILD"; status: ApplicationStatus }[];
   documents?: ApplicationDocument[];
   risk_flags?: { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] }[];
   history?: { from: string | null; to: ApplicationStatus; label: string; notes: string | null; at: string }[];
@@ -105,7 +108,7 @@ export type Card = Particulars & {
   card_number: string;
   booklet_number: string;
   status: CardStatus;
-  verification_status: "VALID" | "EXPIRED" | "REVOKED" | "WATCHLISTED" | "NOT_ISSUED";
+  verification_status: "VALID" | "EXPIRED" | "REVOKED" | "REPORTED_LOST" | "REPORTED_STOLEN" | "WATCHLISTED" | "NOT_ISSUED";
   issuing_country: string;
   statutory_protocol: string;
   decision_reference: string;
@@ -125,6 +128,10 @@ export type Card = Particulars & {
   watchlist_reason: string | null;
   watchlisted_at: string | null;
   approved_at: string | null;
+  reported_lost_at: string | null;
+  lost_report_type: "LOST" | "STOLEN" | null;
+  lost_report_details: string | null;
+  police_report_number: string | null;
   application_id?: number | null;
   renewals?: {
     renewal_number: number;

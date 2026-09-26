@@ -38,6 +38,12 @@ class ApplicationResource extends JsonResource
             'ready_at' => $this->ready_at,
             'collected_at' => $this->collected_at,
             'card' => $this->whenLoaded('card', fn () => $this->card?->only(['id', 'card_number', 'booklet_number', 'expires_on'])),
+            'dependant_relationship' => $this->dependant_relationship,
+            'principal' => $this->whenLoaded('principal', fn () => $this->principal?->only(['id', 'application_number', 'surname', 'forenames'])),
+            'dependants' => $this->whenLoaded('dependants', fn () => $this->dependants->map(fn ($d) => [
+                'id' => $d->id, 'application_number' => $d->application_number, 'surname' => $d->surname,
+                'forenames' => $d->forenames, 'relationship' => $d->dependant_relationship, 'status' => $d->status->value,
+            ])->values()),
             'renewal_of_card_number' => $this->whenLoaded('renewalOfCard', fn () => $this->renewalOfCard?->card_number),
             'documents' => $this->whenLoaded('documents', fn () => $this->documents->map(fn ($d) => [
                 'id' => $d->id,

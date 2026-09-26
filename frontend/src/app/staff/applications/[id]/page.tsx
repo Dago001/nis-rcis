@@ -9,7 +9,7 @@ import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Button, Dl, Field, Panel, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
-import { dateTime, naira, nisDate } from "@/lib/format";
+import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 
 type Detail = { data: Application; photo_url: string | null; payments: { reference: string; status: string; amount_kobo: number; verified_at: string | null }[] };
@@ -51,7 +51,7 @@ export default function StaffApplicationPage() {
     <div className="space-y-6">
       <PageTitle
         title={<>{a.application_number} <StatusBadge status={a.status} label={a.status_label} /></>}
-        subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${a.type === "RENEWAL" ? `renewal of card ${a.renewal_of_card_number}` : "application"} · submitted ${dateTime(a.submitted_at)}`}
+        subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex gap-2">
             {canCapture && <Link href={`/staff/applications/${a.id}/biometrics`} className="rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white">Open biometrics desk</Link>}
@@ -63,6 +63,24 @@ export default function StaffApplicationPage() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
+
+      {a.principal && (
+        <Alert tone="info">
+          Dependant ({a.dependant_relationship === "CHILD" ? "child" : "spouse"}) of{" "}
+          <Link href={`/staff/applications/${a.principal.id}`} className="font-semibold underline">{a.principal.application_number}</Link> — {a.principal.surname}, {a.principal.forenames}.
+        </Alert>
+      )}
+      {a.dependants && a.dependants.length > 0 && (
+        <Alert tone="info">
+          Dependants on this application:{" "}
+          {a.dependants.map((d, i) => (
+            <span key={d.id}>
+              {i > 0 && ", "}
+              <Link href={`/staff/applications/${d.id}`} className="font-semibold underline">{d.application_number}</Link> ({d.surname}, {d.forenames}, {d.relationship === "CHILD" ? "child" : "spouse"})
+            </span>
+          ))}
+        </Alert>
+      )}
 
       {canDecide && (
         <Panel title="Decision">

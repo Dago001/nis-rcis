@@ -31,6 +31,7 @@ const nav: { href: string; label: string; icon: ReactNode; roles?: StaffRole[] }
   { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
   { href: "/staff/applications", label: "Approval queue", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
   { href: "/staff/payments", label: "Fee payments", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM2 10h20M6 15h4") },
+  { href: "/staff/refunds", label: "Fee refunds", icon: icon("M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"), roles: ["SuperAdmin"] },
   { href: "/staff/cards", label: "Residence card register", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6") },
   { href: "/staff/applications/new", label: "Assisted application", icon: icon("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"), roles: ["SuperAdmin"] },
   { href: "/staff/approvals", label: "Approvals", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"), roles: ["ApprovingOfficer", "IssuingOfficer"] },
@@ -101,7 +102,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                 })}
           </ul>
         </nav>
-        <main className="min-w-0 flex-1">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1">
           {error ? (
             <p className="text-sm text-red-700">{error}</p>
           ) : user ? (

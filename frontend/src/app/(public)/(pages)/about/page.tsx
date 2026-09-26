@@ -39,7 +39,7 @@ export default function AboutPage() {
       </div>
 
       <p className="text-center">
-        <Link href="/portal/apply" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white hover:bg-nis-primary-dark">Start an application</Link>
+        <Link prefetch={false} href="/portal/apply" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white hover:bg-nis-primary-dark">Start an application</Link>
       </p>
     </div>
   );

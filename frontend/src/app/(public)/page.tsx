@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { getI18n } from "@/lib/i18n-server";
 
 const steps: { title: string; body: string; icon: ReactNode }[] = [
   {
@@ -62,47 +63,48 @@ function Icon({ children, className = "h-6 w-6" }: { children: ReactNode; classN
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const { t } = await getI18n();
   return (
-    <main className="flex-1">
+    <main id="main" tabIndex={-1} className="flex-1">
       {/* Hero */}
       <section className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden px-[5%] py-20 text-center">
         <Image src="/images/hq-dusk.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/75" aria-hidden />
 
         <div className="relative z-10 max-w-4xl text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">Directorate of Visa and Residency</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">{t("Directorate of Visa and Residency")}</p>
           <h1 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
-            Obtain your Residence Card
-            <span className="block text-nis-orange">Apply Now!</span>
+            {t("Obtain your Residence Card")}
+            <span className="block text-nis-orange">{t("Apply Now!")}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-white/85 sm:text-lg">
-            Foreign nationals resident in Nigeria can apply for, renew and track their Residence Card online.
+            {t("Foreign nationals resident in Nigeria can apply for, renew and track their Residence Card online.")}
           </p>
 
           <div className="mt-10 flex flex-wrap items-end justify-center gap-6 sm:gap-8">
             <div className="flex flex-col items-center gap-2">
-              <span className="text-sm text-white/90">New to Nigeria?</span>
-              <Link href="/portal/apply" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-nis-primary-dark">
-                Apply for Residence Card
+              <span className="text-sm text-white/90">{t("New to Nigeria?")}</span>
+              <Link prefetch={false} href="/portal/apply" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-nis-primary-dark">
+                {t("Apply for Residence Card")}
               </Link>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <span className="text-sm text-white/90">Card expiring?</span>
-              <Link href="/portal/apply?type=renewal" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
-                Renew Residence Card
+              <span className="text-sm text-white/90">{t("Card expiring?")}</span>
+              <Link prefetch={false} href="/portal/apply?type=renewal" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
+                {t("Renew Residence Card")}
               </Link>
             </div>
           </div>
 
           <div className="mt-10 flex flex-col items-center gap-2">
-            <span className="text-sm text-white/90">Already applied?</span>
+            <span className="text-sm text-white/90">{t("Already applied?")}</span>
             <div className="flex flex-wrap justify-center gap-3">
               <Link href="/track" className="inline-flex items-center gap-2 rounded-md border-2 border-white/80 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10">
-                Track Application <span aria-hidden>›</span>
+                {t("Track Application")} <span aria-hidden>›</span>
               </Link>
               <Link href="/verify" className="inline-flex items-center gap-2 rounded-md border-2 border-white/80 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10">
-                Verify a Card <span aria-hidden>›</span>
+                {t("Verify a Card")} <span aria-hidden>›</span>
               </Link>
             </div>
           </div>
@@ -112,7 +114,7 @@ export default function Home() {
       {/* Steps to apply */}
       <section className="bg-white px-[5%] py-24" aria-labelledby="steps-heading">
         <div className="mx-auto max-w-7xl">
-          <h2 id="steps-heading" className="text-center text-3xl font-bold text-slate-900">Steps to Apply</h2>
+          <h2 id="steps-heading" className="text-center text-3xl font-bold text-slate-900">{t("Steps to Apply")}</h2>
           <ol className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((s, i) => (
               <li key={s.title} className="rounded-xl border border-slate-200 bg-white p-6 transition hover:border-nis-primary/40 hover:shadow-md">
@@ -120,8 +122,8 @@ export default function Home() {
                   <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-nis-mint text-nis-primary"><Icon>{s.icon}</Icon></span>
                   <span className="text-3xl font-bold text-slate-100">{i + 1}</span>
                 </div>
-                <h3 className="mt-5 font-semibold text-nis-primary-dark">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.body}</p>
+                <h3 className="mt-5 font-semibold text-nis-primary-dark">{t(s.title)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(s.body)}</p>
               </li>
             ))}
           </ol>
@@ -131,14 +133,14 @@ export default function Home() {
       {/* Requirements */}
       <section className="bg-nis-mint px-[5%] py-24" aria-labelledby="req-heading">
         <div className="mx-auto max-w-7xl">
-          <h2 id="req-heading" className="text-center text-3xl font-bold text-slate-900">Requirements</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">Have these ready before you start. Documents can be JPG, PNG or PDF, up to 5 MB each.</p>
+          <h2 id="req-heading" className="text-center text-3xl font-bold text-slate-900">{t("Requirements")}</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">{t("Have these ready before you start. Documents can be JPG, PNG or PDF, smaller than 2 MB each.")}</p>
           <ul className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
             {requirements.map((r) => (
               <li key={r.title} className="text-center">
                 <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-nis-primary shadow-sm"><Icon className="h-8 w-8">{r.icon}</Icon></span>
-                <h3 className="mt-5 font-semibold text-nis-primary-dark">{r.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{r.body}</p>
+                <h3 className="mt-5 font-semibold text-nis-primary-dark">{t(r.title)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(r.body)}</p>
               </li>
             ))}
           </ul>
@@ -148,9 +150,9 @@ export default function Home() {
       {/* Eligibility */}
       <section className="bg-white px-[5%] py-24" aria-labelledby="elig-heading">
         <div className="mx-auto max-w-7xl">
-          <h2 id="elig-heading" className="text-center text-3xl font-bold text-slate-900">Eligibility Criteria</h2>
+          <h2 id="elig-heading" className="text-center text-3xl font-bold text-slate-900">{t("Eligibility Criteria")}</h2>
           <p className="mt-3 text-center text-slate-600">
-            <strong className="text-slate-900">Note:</strong> ensure all information provided matches your travel and residence documents to avoid delays.
+            <strong className="text-slate-900">{t("Note:")}</strong> {t("ensure all information provided matches your travel and residence documents to avoid delays.")}
           </p>
           <ul className="mt-12 grid gap-6 md:grid-cols-3">
             {eligibility.map((e) => (
@@ -158,7 +160,7 @@ export default function Home() {
                 <div className="relative aspect-[16/10] overflow-hidden rounded-lg">
                   <Image src={e.image} alt={e.alt} fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover transition duration-500 hover:scale-105" />
                 </div>
-                <p className="mt-4 px-1 pb-2 font-semibold leading-snug text-nis-primary-dark">{e.text}</p>
+                <p className="mt-4 px-1 pb-2 font-semibold leading-snug text-nis-primary-dark">{t(e.text)}</p>
               </li>
             ))}
           </ul>
@@ -169,12 +171,12 @@ export default function Home() {
       <section className="bg-nis-primary-dark px-[5%] py-16 text-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
           <div>
-            <h2 className="text-2xl font-bold">Ready to apply?</h2>
-            <p className="mt-1 text-white/80">Create your account in minutes and track every step of your application online.</p>
+            <h2 className="text-2xl font-bold">{t("Ready to apply?")}</h2>
+            <p className="mt-1 text-white/80">{t("Create your account in minutes and track every step of your application online.")}</p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/register" className="rounded-md bg-white px-6 py-3 font-medium text-nis-primary-dark hover:bg-nis-mint">Create an account</Link>
-            <Link href="/login" className="rounded-md border-2 border-white/80 px-6 py-3 font-medium hover:bg-white/10">Login</Link>
+            <Link href="/register" className="rounded-md bg-white px-6 py-3 font-medium text-nis-primary-dark hover:bg-nis-mint">{t("Create an account")}</Link>
+            <Link href="/login" className="rounded-md border-2 border-white/80 px-6 py-3 font-medium hover:bg-white/10">{t("Login")}</Link>
           </div>
         </div>
       </section>

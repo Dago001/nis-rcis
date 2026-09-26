@@ -40,8 +40,9 @@ class ApplicationSubmission
             throw ValidationException::withMessages(['documents' => 'Please upload: '.$missing->implode(', ').'.']);
         }
 
-        $this->assertNoOpenApplication($applicant, $data['passport_number']);
-        $renewalCard = $data['type'] === 'RENEWAL' ? $this->claimRenewalCard($applicant, $data) : null;
+        $principal = ! empty($data['principal_application_id']) ? $this->principal($applicant, $data) : null;
+        $this->assertNoOpenApplication($applicant, $data['passport_number'], $principal !== null);
+        $renewalCard = in_array($data['type'], ['RENEWAL', 'REPLACE'], true) ? $this->claimRenewalCard($applicant, $data) : null;
 
         return $this->screen(DB::transaction(function () use ($applicant, $data, $draft, $documents, $renewalCard) {
             $payment = Payment::where('reference', $data['payment_reference'])->lockForUpdate()->first();
@@ -104,8 +105,10 @@ class ApplicationSubmission
         $application = new Application([
             ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time'])->all(),
             'applicant_id' => $applicant?->id,
-            'type' => $renewalCard ? 'RENEWAL' : 'NEW',
+            'type' => $renewalCard ? $data['type'] : 'NEW',
             'renewal_of_card_id' => $renewalCard?->id,
+            'principal_application_id' => $data['principal_application_id'] ?? null,
+            'dependant_relationship' => ! empty($data['principal_application_id']) ? $data['dependant_relationship'] : null,
             'channel' => $channel,
             'created_by' => $officer?->id,
             'fee_amount_kobo' => $this->feeKobo(),
@@ -120,10 +123,17 @@ class ApplicationSubmission
         return $application->setRelation('applicant', $applicant);
     }
 
-    private function assertNoOpenApplication(Applicant $applicant, string $passport): void
+    /**
+     * One open application per person: the account holder's own, or a
+     * dependant's (checked by passport, since one account may apply for a
+     * spouse and children at the same time).
+     */
+    private function assertNoOpenApplication(Applicant $applicant, string $passport, bool $forDependant = false): void
     {
         $open = Application::query()
-            ->where(fn ($q) => $q->where('applicant_id', $applicant->id)->orWhere('passport_number', $passport))
+            ->where(fn ($q) => $forDependant
+                ? $q->where('passport_number', $passport)
+                : $q->where(fn ($own) => $own->where('applicant_id', $applicant->id)->whereNull('principal_application_id'))->orWhere('passport_number', $passport))
             ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued])
             ->first();
 
@@ -132,6 +142,25 @@ class ApplicationSubmission
                 'passport_number' => "Application {$open->application_number} for this passport is still being processed.",
             ]);
         }
+    }
+
+    /**
+     * A dependant (spouse or child) is linked to the account holder's own
+     * application, which must not have been rejected.
+     */
+    private function principal(Applicant $applicant, array $data): Application
+    {
+        $principal = Application::whereKey($data['principal_application_id'])
+            ->where('applicant_id', $applicant->id)->whereNull('principal_application_id')->first();
+
+        if (! $principal || $principal->status === ApplicationStatus::Rejected) {
+            throw ValidationException::withMessages(['principal_application_id' => 'Choose one of your own applications that has not been rejected.']);
+        }
+        if ($principal->passport_number === $data['passport_number']) {
+            throw ValidationException::withMessages(['passport_number' => 'A dependant must apply with their own passport.']);
+        }
+
+        return $principal;
     }
 
     /**
@@ -151,6 +180,12 @@ class ApplicationSubmission
         }
         if ($card->status === CardStatus::Revoked || $card->is_watchlisted) {
             throw ValidationException::withMessages(['renewal_card_number' => 'This card cannot be renewed online. Please visit an NIS office.']);
+        }
+        if ($data['type'] === 'REPLACE' && ! $card->reported_lost_at) {
+            throw ValidationException::withMessages(['renewal_card_number' => 'Report this card lost or stolen before applying for a replacement.']);
+        }
+        if ($data['type'] === 'RENEWAL' && $card->reported_lost_at) {
+            throw ValidationException::withMessages(['renewal_card_number' => 'This card was reported lost or stolen. Apply for a replacement instead.']);
         }
 
         if ($card->applicant_id === null) {
