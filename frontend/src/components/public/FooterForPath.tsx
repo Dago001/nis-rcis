@@ -4,7 +4,10 @@ import { usePathname } from "next/navigation";
 import { SiteFooter } from "../SiteHeader";
 import { PublicFooter } from "./PublicFooter";
 
-/** The comprehensive footer only on the landing page; the one-line footer elsewhere. */
+/** Public information pages that carry the comprehensive footer. */
+const FULL_FOOTER = ["/", "/about", "/faq", "/track", "/verify", "/contact"];
+
+/** The comprehensive footer on the landing and information pages; the one-line footer elsewhere. */
 export function FooterForPath() {
-  return usePathname() === "/" ? <PublicFooter /> : <SiteFooter />;
+  return FULL_FOOTER.includes(usePathname()) ? <PublicFooter /> : <SiteFooter />;
 }
