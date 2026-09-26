@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { QrCode } from "@/components/QrCode";
@@ -35,12 +34,15 @@ export default function PrintCardPage() {
       </div>
       <div className="flex flex-wrap gap-6">
         <div className={face} style={{ width: "85.6mm", height: "54mm" }}>
-          <div className="flex items-center gap-[1.5mm] bg-nis-green-dark px-[2mm] py-[1mm] text-white">
-            <Image src="/nis-crest.png" alt="" width={22} height={22} />
-            <div>
+          <div className="flex items-center gap-[1.5mm] bg-nis-green-dark px-[2mm] py-[0.8mm] text-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/nigeria-coat-of-arms.png" alt="Coat of arms of Nigeria" style={{ height: "8mm", width: "auto" }} />
+            <div className="min-w-0 flex-1">
               <div className="text-[2.4mm] font-bold">FEDERAL REPUBLIC OF NIGERIA</div>
               <div className="text-[1.9mm]">NIGERIA IMMIGRATION SERVICE · RESIDENCE CARD</div>
             </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/ecowas-logo.png" alt="ECOWAS" style={{ height: "8mm", width: "8mm" }} />
           </div>
           <div className="flex gap-[2mm] p-[2mm]">
             {p.photo_url && (
