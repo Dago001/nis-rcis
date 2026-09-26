@@ -6,6 +6,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Panel, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
+import { dateTime, naira } from "@/lib/format";
 
 type Summary = {
   queue: Record<string, number>;
@@ -13,6 +14,8 @@ type Summary = {
   cards_expired: number;
   cards_expiring_30_days: number;
   watchlisted: number;
+  paid_awaiting_submission: number;
+  recent_payments: { id: number; reference: string; amount_naira: number; paid_at: string | null; name: string | null; submitted: boolean }[];
   todays_appointments: number;
   by_nationality: { nationality: string; total: number }[];
   my_activity: { decided: number; captured: number; cards_approved: number };
@@ -46,6 +49,7 @@ export default function StaffDashboard() {
       <PageTitle title="Dashboard" subtitle={`${user.command} · ${user.role_label}`} />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Stat label="Paid – not yet submitted" value={s.paid_awaiting_submission} href="/staff/payments?filter=awaiting_submission" tone="amber" />
         <Stat label="Awaiting approval" value={s.queue.PENDING_APPROVAL} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
         <Stat label="Queried" value={s.queue.QUERIED} href="/staff/applications?status=QUERIED" />
         <Stat label="Biometrics today" value={s.todays_appointments} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
@@ -53,8 +57,25 @@ export default function StaffDashboard() {
         <Stat label="Ready for collection" value={s.queue.READY_FOR_COLLECTION} href="/staff/applications?status=READY_FOR_COLLECTION" tone="green" />
         <Stat label="Active cards" value={s.cards.ISSUED + s.cards.RENEWED} href="/staff/cards" tone="green" />
         <Stat label="Expiring in 30 days" value={s.cards_expiring_30_days} />
+        <Stat label="Cards expired" value={s.cards_expired} />
         <Stat label="Watchlisted" value={s.watchlisted} href="/staff/cards?watchlisted=1" tone="red" />
       </div>
+
+      <Panel title="Latest fee payments" actions={<Link href="/staff/payments?filter=all" className="text-sm font-medium text-nis-primary hover:underline">All payments ›</Link>}>
+        {s.recent_payments.length === 0 ? (
+          <p className="text-sm text-slate-600">No payments yet.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 text-sm">
+            {s.recent_payments.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                <Link href={`/staff/payments/${p.id}`} className="font-medium text-nis-primary hover:underline">{p.name ?? p.reference}</Link>
+                <span className="text-slate-600">{naira(p.amount_naira)} · {dateTime(p.paid_at)}</span>
+                <span className={p.submitted ? "text-nis-primary" : "text-nis-orange"}>{p.submitted ? "Application submitted" : "Not yet submitted"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Cards by nationality">

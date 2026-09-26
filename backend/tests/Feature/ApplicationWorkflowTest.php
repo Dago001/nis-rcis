@@ -358,3 +358,38 @@ it('loads demo data once and never in production', function () {
     app()->detectEnvironment(fn () => 'production');
     $this->artisan('nis:demo')->assertFailed();
 });
+
+it('shows staff a paid applicant straight away, before the application is submitted', function () {
+    $applicant = Applicant::factory()->create(['surname' => 'PAIDEARLY', 'forenames' => 'JO']);
+    asApplicant($applicant);
+    uploadDraftDocs();
+    $this->putJson('/api/v1/applicant/draft', ['type' => 'NEW', 'current_step' => 6, 'data' => ['surname' => 'PAIDEARLY', 'passport_number' => 'PX1234567']])->assertOk();
+    $reference = paidReference();
+
+    asStaff(User::factory()->role(StaffRole::Inspector)->create());
+    $list = $this->getJson('/api/v1/staff/payments?filter=awaiting_submission')->assertOk();
+    $row = collect($list->json('data'))->firstWhere('reference', $reference);
+    expect($row)->not->toBeNull()
+        ->and($row['status'])->toBe('PAID')
+        ->and($row['application'])->toBeNull()
+        ->and($row['progress']['current_step'])->toBe(6)
+        ->and($row['progress']['passport_number'])->toBe('PX1234567');
+
+    $this->getJson("/api/v1/staff/payments/{$row['id']}")->assertOk()
+        ->assertJsonPath('draft_data.surname', 'PAIDEARLY')
+        ->assertJsonCount(3, 'draft_documents')
+        ->assertJsonMissingPath('receipt.authorization_code');
+    $this->getJson('/api/v1/staff/dashboard')->assertOk()->assertJsonPath('paid_awaiting_submission', 1);
+
+    // After submission it moves to "submitted" and links to the application.
+    asApplicant($applicant);
+    $appId = $this->postJson('/api/v1/applicant/applications', particulars(['payment_reference' => $reference]))->assertCreated()->json('data.id');
+    asStaff(User::factory()->role(StaffRole::Inspector)->create());
+    $row = collect($this->getJson('/api/v1/staff/payments?filter=submitted')->json('data'))->firstWhere('reference', $reference);
+    expect($row['application']['id'])->toBe($appId);
+    $this->getJson('/api/v1/staff/payments')->assertJsonMissing(['reference' => $reference]);
+
+    // Applicants cannot reach the staff endpoint.
+    asApplicant($applicant);
+    $this->getJson('/api/v1/staff/payments')->assertUnauthorized();
+});

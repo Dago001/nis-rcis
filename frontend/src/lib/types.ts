@@ -167,3 +167,15 @@ export type AppNotification = {
   read_at: string | null;
   created_at: string;
 };
+
+export type StaffPayment = {
+  id: number;
+  reference: string;
+  amount_naira: number;
+  status: "PAID" | "FAILED" | "INITIALIZED" | "SUCCESS";
+  channel: string | null;
+  paid_at: string | null;
+  applicant: { name: string; email: string; phone: string } | null;
+  application: { id: number; application_number: string; status: ApplicationStatus; status_label: string } | null;
+  progress: { current_step: number; step_label: string | null; nationality: string | null; passport_number: string | null; saved_at: string | null } | null;
+};

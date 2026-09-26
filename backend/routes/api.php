@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Staff\ApplicationController as StaffApplications;
 use App\Http\Controllers\Api\Staff\AuditLogController;
 use App\Http\Controllers\Api\Staff\CardController;
 use App\Http\Controllers\Api\Staff\DashboardController;
+use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
 use App\Http\Controllers\Api\Staff\ReportController;
 use App\Http\Controllers\Api\Staff\UserController;
 use App\Http\Controllers\OAuth\RevokeTokenController;
@@ -115,6 +116,10 @@ Route::prefix('v1')->group(function () {
             Route::post('applications/{id}/biometrics', [StaffApplications::class, 'captureBiometrics'])->whereNumber('id');
             Route::post('applications/{id}/collect', [StaffApplications::class, 'collect'])->whereNumber('id');
         });
+
+        // Fee payments (visible as soon as Paystack confirms them)
+        Route::get('payments', [StaffPayments::class, 'index']);
+        Route::get('payments/{id}', [StaffPayments::class, 'show'])->whereNumber('id');
 
         // Residence card register
         Route::get('cards', [CardController::class, 'index']);
