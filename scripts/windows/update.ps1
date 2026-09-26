@@ -182,6 +182,7 @@ if (-not (Test-Path (Join-Path $Backend '.env'))) {
 }
 
 Write-Step 'Updating backend dependencies and database'
+Repair-EnvFile (Join-Path $Backend '.env')
 Invoke-Native 'composer' @('install', '--no-interaction', '--no-progress') $Backend
 Push-Location $Backend; Set-BackupSettings (Join-Path $Backend '.env'); Pop-Location
 Invoke-Native 'php' @('artisan', 'optimize:clear') $Backend

@@ -146,6 +146,7 @@ Remove-Item Env:\PGPASSWORD
 # ---------------------------------------------------------------- 4. Backend
 Write-Step 'Installing the Laravel backend (this can take a few minutes the first time)'
 
+Repair-EnvFile $backendEnvPath
 Invoke-Native 'composer' @('install', '--no-interaction', '--no-progress') $Backend
 
 $envContent = if (Test-Path $backendEnvPath) { [System.IO.File]::ReadAllText($backendEnvPath) } else { [System.IO.File]::ReadAllText((Join-Path $Backend '.env.example')) }

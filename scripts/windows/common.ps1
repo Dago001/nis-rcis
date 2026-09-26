@@ -84,16 +84,43 @@ function Read-EnvFile([string]$path) {
     $values = @{}
     if (Test-Path $path) {
         foreach ($line in [System.IO.File]::ReadAllLines($path)) {
-            if ($line -match '^\s*([A-Z0-9_]+)\s*=\s*(.*)$') { $values[$Matches[1]] = $Matches[2].Trim('"') }
+            if ($line -match '^\s*([A-Z0-9_]+)\s*=\s*(.*)$') { $values[$Matches[1]] = $Matches[2].Trim().Trim([char[]]@('"', "'")) }
         }
     }
     return $values
 }
 
+# Quote a .env value when it needs it. Laravel's .env parser rejects spaces in
+# unquoted values (C:\Program Files\...) and treats backslashes in "..." as
+# escapes, so such values go in single quotes, which it reads literally.
+function Format-EnvValue([string]$value) {
+    if ($value -notmatch '[\s#"''$]') { return $value }
+    if ($value -notmatch "'") { return "'$value'" }
+    return '"' + ($value -replace '\\', '\\' -replace '"', '\"' -replace '\$', '\$$') + '"'
+}
+
+# Quote unquoted values containing spaces (written by earlier versions of
+# these scripts), so an existing backend\.env loads again.
+function Repair-EnvFile([string]$path) {
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $lines = [System.IO.File]::ReadAllLines($path)
+    $changed = $false
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i] -match '^(\s*[A-Z0-9_]+\s*=\s*)([^''"\s].*\s.*?)\s*$' -and $Matches[2] -notmatch '\s#') {
+            $lines[$i] = $Matches[1] + (Format-EnvValue $Matches[2])
+            $changed = $true
+        }
+    }
+    if ($changed) {
+        Write-Utf8File $path (($lines -join "`n") + "`n")
+        Write-Ok "Fixed unquoted values in $path"
+    }
+}
+
 # Set (or add) KEY=value lines in .env content.
 function Set-EnvValues([string]$content, [hashtable]$values) {
     foreach ($key in $values.Keys) {
-        $line = "$key=$($values[$key])"
+        $line = "$key=$(Format-EnvValue ([string]$values[$key]))"
         $pattern = "(?m)^#?\s*$key=.*$"
         if ($content -match $pattern) {
             $content = [regex]::Replace($content, $pattern, [System.Text.RegularExpressions.MatchEvaluator] { param($m) $line }, 1)

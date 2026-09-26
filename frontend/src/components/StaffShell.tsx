@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/lib/api-client";
 import type { StaffRole, StaffUser } from "@/lib/types";
 import { LogoutButton, SiteFooter, SiteHeader } from "./SiteHeader";
@@ -48,10 +48,38 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StaffUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
+  const area = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLUListElement>(null);
+  const firstPath = useRef(pathname);
 
   useEffect(() => {
     api<StaffUser>("staff", "me").then(setUser).catch((e) => setError(e.message));
   }, []);
+
+  // Sidebar links don't reset the window scroll (the menu stays exactly where it
+  // is); if the page was scrolled past the top of the content, bring the new
+  // page's top up to just under the header instead of jumping to the very top.
+  useEffect(() => {
+    if (pathname === firstPath.current || !area.current || !menu.current) return;
+    firstPath.current = pathname;
+    const header = document.querySelector("header")?.offsetHeight ?? 0;
+    const sticky = getComputedStyle(menu.current).position === "sticky" ? parseFloat(getComputedStyle(menu.current).top) : header + 8;
+    const target = area.current.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(area.current).paddingTop) - sticky;
+    if (window.scrollY > target) window.scrollTo({ top: target });
+  }, [pathname]);
+
+  // Keep the current page's menu item in view inside the menu's own scroll area.
+  useEffect(() => {
+    const list = menu.current;
+    const item = list?.querySelector<HTMLElement>("[aria-current=page]");
+    if (!list || !item) return;
+    const vertical = list.scrollHeight > list.clientHeight;
+    if (vertical && (item.offsetTop < list.scrollTop || item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight)) {
+      list.scrollTop = item.offsetTop - list.clientHeight / 2 + item.offsetHeight / 2;
+    } else if (!vertical && (item.offsetLeft < list.scrollLeft || item.offsetLeft + item.offsetWidth > list.scrollLeft + list.clientWidth)) {
+      list.scrollLeft = item.offsetLeft - list.clientWidth / 2 + item.offsetWidth / 2;
+    }
+  }, [pathname, user]);
 
   return (
     <>
@@ -78,9 +106,9 @@ export function StaffShell({ children }: { children: ReactNode }) {
           {user && <p className="text-sm text-white/85">Welcome, <span className="font-semibold text-white">{user.fullname}</span></p>}
         </div>
       </div>
-      <div className="staff-area mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-[5%] py-8 lg:flex-row xl:px-8">
+      <div ref={area} className="staff-area mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-[5%] py-8 lg:flex-row xl:px-8">
         <nav className="no-print lg:w-64 lg:shrink-0" aria-label="Staff console">
-          <ul className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm lg:sticky lg:top-24 lg:flex-col">
+          <ul ref={menu} className="relative flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7.5rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain">
             {user &&
               nav
                 .filter((item) => !item.roles || hasRole(user, ...item.roles))
@@ -95,6 +123,8 @@ export function StaffShell({ children }: { children: ReactNode }) {
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        scroll={false}
+                        aria-current={active ? "page" : undefined}
                         className={`flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm transition-colors ${active ? "bg-nis-primary font-medium text-white shadow-sm" : "text-slate-700 hover:bg-nis-mint hover:text-nis-primary"}`}
                       >
                         {item.icon}
