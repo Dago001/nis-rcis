@@ -124,9 +124,9 @@ Tick each item as you go. If something doesn't behave as described, note the tes
   2. passport (expiry at least 6 months away)
   3. address and emergency contact: pick the **State**, then the **Local government area**, then type the street. Your phone and e-mail come from your account and cannot be changed here
   4. documents: your passport page and visa (each **smaller than 2 MB**); click **View** to check an upload. (The passport photograph is uploaded in step 1.)
-  5. payment: click **Pay securely with Paystack**. If `PAYSTACK_SECRET_KEY` and `PAYSTACK_PUBLIC_KEY` are set in `backend\.env`, you are taken to Paystack's real checkout and returned automatically; without keys the payment is simulated. **Use your Paystack *test* keys (`sk_test_…`/`pk_test_…`) on your PC**: live keys charge real money. With test keys, pay with Paystack's test card `4084 0840 8408 4081`, any future expiry, CVV `408`, PIN `0000`, OTP `123456`. You cannot continue until the payment is confirmed.
-  6. appointment: the center is always **NIS Headquarters, Abuja**; pick a **weekday** and a time slot
-  7. check the full summary (every detail, the fee and the payment reference), tick the declaration and submit
+  5. review: check the full summary of steps 1–4 and the fee, and tick the declaration
+  6. payment: click **Pay securely with Paystack**. If `PAYSTACK_SECRET_KEY` and `PAYSTACK_PUBLIC_KEY` are set in `backend\.env`, you are taken to Paystack's real checkout and returned automatically; without keys the payment is simulated. **Use your Paystack *test* keys (`sk_test_…`/`pk_test_…`) on your PC**: live keys charge real money. With test keys, pay with Paystack's test card `4084 0840 8408 4081`, any future expiry, CVV `408`, PIN `0000`, OTP `123456`. You cannot continue until the payment is confirmed.
+  7. appointment: the center is always **NIS Headquarters, Abuja**; pick a **weekday** and a time slot, then click **Submit application**
 
   Mistakes are shown in red as soon as you leave a field, with *"Please correct the highlighted details."* at the top: names accept letters only and phone numbers digits only.
 - [ ] **E4.** Half-way through, click **Save & exit**, then come back. Your answers and documents are restored.

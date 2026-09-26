@@ -11,7 +11,8 @@ import { naira, nisDate } from "@/lib/format";
 import type { Application, EnrollmentCenter } from "@/lib/types";
 import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
 
-const STEPS = ["Personal details", "Passport", "Residence & contacts", "Documents", "Fee payment", "Biometrics appointment", "Review & declaration"];
+// Review & declaration come before payment; the appointment is booked last, then the application is submitted.
+const STEPS = ["Personal details", "Passport", "Residence & contacts", "Documents", "Review & declaration", "Fee payment", "Biometrics appointment"];
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
@@ -33,9 +34,8 @@ const FIELD_STEP: Record<string, number> = {
   blood_group: 1, renewal_card_number: 1, photo: 1,
   ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 2])),
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
-  documents: 4, payment_reference: 5,
-  ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 6])),
-  declaration: 7,
+  documents: 4, declaration: 5, payment_reference: 6,
+  ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
 };
 
 type DraftDoc = { id: number; type: string; label: string; original_name: string; size_bytes: number; mime_type: string };
@@ -66,7 +66,6 @@ function Wizard() {
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(false);
   const [fee, setFee] = useState<number | null>(null);
-  const [centers, setCenters] = useState<EnrollmentCenter[]>([]);
   const [photoLink, setPhotoLink] = useState<{ id: number; url: string } | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
 
@@ -86,7 +85,7 @@ function Wizard() {
         : n === 2 ? PASSPORT_FIELDS
           // Phone and e-mail are locked (taken from the account), so they are not re-checked here.
           : n === 3 ? CONTACT_FIELDS.filter((f) => f !== "phone" && f !== "email")
-            : n === 6 ? APPOINTMENT_FIELDS
+            : n === 7 ? APPOINTMENT_FIELDS
               : [],
     [type],
   );
@@ -100,8 +99,8 @@ function Wizard() {
         const absent = DOCUMENTS.filter((d) => d.required && !documents.some((x) => x.type === d.type));
         if (absent.length) e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
       }
-      if (n === 5 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
-      if (n === 7 && data.declaration !== "1") e.declaration = "You must accept the declaration.";
+      if (n === 5 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
+      if (n === 6 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
     [photo, documents, paid, data.declaration],
@@ -139,7 +138,6 @@ function Wizard() {
         api<{ data: EnrollmentCenter[]; fee_naira: number }>("public", "enrollment-centers"),
       ]);
       setFee(centerList.fee_naira);
-      setCenters(centerList.data);
 
       let restored: Record<string, string> = { surname: me.surname, forenames: me.forenames };
       if (draft) {
@@ -160,11 +158,11 @@ function Wizard() {
           restored.payment_reference = reference;
           setPaid(true);
           if (params.get("payment") === "callback") {
-            setStep(5);
+            setStep(6);
             setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
           }
         } else if (params.get("payment") === "callback") {
-          setStep(5);
+          setStep(6);
           setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
         }
       }
@@ -264,7 +262,7 @@ function Wizard() {
     setBusy(true);
     try {
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
-      await saveDraft(5, { payment_reference: payment.reference });
+      await saveDraft(6, { payment_reference: payment.reference });
       if (payment.fake) {
         const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
         setData((d) => ({ ...d, payment_reference: payment.reference }));
@@ -283,6 +281,14 @@ function Wizard() {
 
   async function submit() {
     if (!checkStep(7)) return;
+    // The declaration (step 5) and payment (step 6) must both be complete.
+    for (const n of [5, 6]) {
+      if (Object.keys(extraErrors(n)).length) {
+        goTo(n);
+        setStepError(extraErrors(n));
+        return;
+      }
+    }
     setBusy(true);
     try {
       const { data: application } = await api<{ data: Application }>("applicant", "applications", {
@@ -307,7 +313,6 @@ function Wizard() {
   if (!loaded) return <Spinner />;
 
   const props = { data, errors, set, touch };
-  const center = centers.find((c) => String(c.id) === data.enrollment_center_id);
 
   return (
     <div className="space-y-6">
@@ -362,26 +367,8 @@ function Wizard() {
           </div>
         )}
         {step === 5 && (
-          <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
-              <Summary label="Payment reference" value={data.payment_reference ?? "Created when you pay"} />
-            </div>
-            {paid ? (
-              <Alert tone="success">Payment confirmed. Click “Save &amp; continue” to book your biometrics appointment.</Alert>
-            ) : (
-              <>
-                {errors.payment_reference && <Alert tone="danger">{errors.payment_reference}</Alert>}
-                <Button onClick={pay} disabled={busy} className="!bg-nis-orange hover:!brightness-95">{busy ? "Opening Paystack…" : "Pay securely with Paystack"}</Button>
-                <p className="text-xs text-slate-500">You pay on Paystack&apos;s secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.</p>
-              </>
-            )}
-          </div>
-        )}
-        {step === 6 && <AppointmentPicker {...props} />}
-        {step === 7 && (
           <div className="space-y-6">
-            <p className="text-sm text-slate-600">Check every detail carefully. Use <strong>Edit</strong> to change a section.</p>
+            <p className="text-sm text-slate-600">Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</p>
             <ReviewSection title="Personal details" onEdit={() => goTo(1)}>
               <div className="flex flex-col gap-5 sm:flex-row">
                 {photoUrl && (
@@ -432,11 +419,14 @@ function Wizard() {
                 })}
               </ul>
             </ReviewSection>
-            <ReviewSection title="Fee payment" onEdit={() => goTo(5)}>
-              <ReviewGrid items={[["Residence card fee", fee !== null ? naira(fee) : "—"], ["Payment reference", data.payment_reference], ["Payment status", paid ? "PAID — confirmed by Paystack" : "NOT PAID"]]} />
-            </ReviewSection>
-            <ReviewSection title="Biometrics appointment" onEdit={() => goTo(6)}>
-              <ReviewGrid items={[["Enrollment center", center?.name], ["Address", center?.address], ["Date", nisDate(data.appointment_date)], ["Time", data.appointment_time]]} />
+            <ReviewSection title="Residence card fee" onEdit={() => goTo(6)}>
+              <ReviewGrid
+                items={[
+                  ["Amount", fee !== null ? naira(fee) : "—"],
+                  ["Payment reference", data.payment_reference ?? "Created when you pay (next step)"],
+                  ["Payment status", paid ? "PAID — confirmed by Paystack" : "Not paid yet: you pay in the next step"],
+                ]}
+              />
             </ReviewSection>
 
             <label className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${errors.declaration ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}>
@@ -449,6 +439,34 @@ function Wizard() {
             {errors.declaration && <p className="text-sm text-red-700">{errors.declaration}</p>}
           </div>
         )}
+        {step === 6 && (
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
+              <Summary label="Payment reference" value={data.payment_reference ?? "Created when you pay"} />
+            </div>
+            {paid ? (
+              <Alert tone="success">Payment confirmed. Click “Save &amp; continue” to book your biometrics appointment.</Alert>
+            ) : (
+              <>
+                {errors.payment_reference && <Alert tone="danger">{errors.payment_reference}</Alert>}
+                <Button onClick={pay} disabled={busy} className="!bg-nis-orange hover:!brightness-95">{busy ? "Opening Paystack…" : "Pay securely with Paystack"}</Button>
+                <p className="text-xs text-slate-500">You pay on Paystack&apos;s secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.</p>
+              </>
+            )}
+          </div>
+        )}
+        {step === 7 && (
+          <div className="space-y-6">
+            <AppointmentPicker {...props} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Summary label="Declaration" value={data.declaration === "1" ? "Accepted" : "Not accepted"} />
+              <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
+              <Summary label="Payment reference" value={paid ? data.payment_reference ?? "—" : "Not paid"} />
+            </div>
+            <p className="text-sm text-slate-600">Choose your appointment, then click <strong>Submit application</strong>.</p>
+          </div>
+        )}
       </Panel>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -458,7 +476,7 @@ function Wizard() {
           <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">Discard</Button>
         </div>
         {step < 7 ? (
-          <Button onClick={next} disabled={busy || (step === 5 && !paid)}>{busy ? "Saving…" : "Save & continue"}</Button>
+          <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? "Saving…" : "Save & continue"}</Button>
         ) : (
           <Button onClick={submit} disabled={busy}>{busy ? "Submitting…" : "Submit application"}</Button>
         )}

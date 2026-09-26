@@ -38,7 +38,7 @@ class KnowledgeBase
             [
                 'id' => 'steps',
                 'question' => 'How do I apply?',
-                'answer' => "1. Create an account and sign in to the applicant portal.\n2. Complete the 7-step form: personal details, passport, address and emergency contact, documents, payment, appointment and declaration.\n3. Pay the fee online and book a biometrics appointment.\n4. An Approving Officer reviews your application.\n5. Attend your biometrics appointment.\n6. Collect your card when you are told it is ready.",
+                'answer' => "1. Create an account and sign in to the applicant portal.\n2. Complete the 7-step form: personal details, passport, address and emergency contact, documents, then review everything and sign the declaration.\n3. Pay the fee online, book a biometrics appointment and submit.\n4. An Approving Officer reviews your application.\n5. Attend your biometrics appointment.\n6. Collect your card when you are told it is ready.",
                 'keywords' => ['apply', 'application', 'how', 'start', 'process', 'steps', 'register', 'new', 'form'],
                 'links' => [['label' => 'Create an account', 'href' => '/register'], ['label' => 'Apply now', 'href' => '/portal/apply']],
             ],

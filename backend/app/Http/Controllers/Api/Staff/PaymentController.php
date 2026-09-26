@@ -32,7 +32,7 @@ class PaymentController
 
     private const STEPS = [
         1 => 'Personal details', 2 => 'Passport', 3 => 'Residence & contacts', 4 => 'Documents',
-        5 => 'Fee payment', 6 => 'Biometrics appointment', 7 => 'Review & declaration',
+        5 => 'Review & declaration', 6 => 'Fee payment', 7 => 'Biometrics appointment',
     ];
 
     public function index(Request $request): JsonResponse
