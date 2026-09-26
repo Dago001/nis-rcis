@@ -42,7 +42,7 @@ export default function TrackPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Track your application</h1>
+      <h1 className="text-xl font-semibold">Track your application</h1>
       <form onSubmit={submit} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <Field label="Application or reference number"><Input name="application_number" required placeholder="RC-2026-100001" /></Field>
         <Field label="Passport number"><Input name="passport_number" required /></Field>

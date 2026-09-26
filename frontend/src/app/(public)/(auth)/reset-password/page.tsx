@@ -43,7 +43,7 @@ function ResetForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="mx-auto max-w-md space-y-5 rounded-2xl bg-white p-8 shadow-2xl">
-      <h1 className="text-2xl font-bold">Choose a new password</h1>
+      <h1 className="text-xl font-semibold">Choose a new password</h1>
       <Suspense><ResetForm /></Suspense>
     </div>
   );

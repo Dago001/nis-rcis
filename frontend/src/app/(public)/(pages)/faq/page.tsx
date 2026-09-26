@@ -17,7 +17,7 @@ const faqs: [string, React.ReactNode][] = [
 export default function FaqPage() {
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-center text-3xl font-bold text-slate-900">Frequently Asked Questions</h1>
+      <h1 className="text-center text-2xl font-semibold text-slate-900">Frequently Asked Questions</h1>
       <p className="mt-2 text-center text-slate-600">Can&apos;t find your answer? <Link href="/contact" className="text-nis-primary underline">Contact us</Link>.</p>
       <div className="mt-10 space-y-3">
         {faqs.map(([q, a]) => (

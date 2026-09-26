@@ -5,7 +5,7 @@ export default async function AuthErrorPage({ searchParams }: PageProps<"/auth-e
   const { reason } = await searchParams;
   return (
     <div className="mx-auto max-w-md space-y-4 rounded-2xl bg-white p-8 shadow-2xl">
-      <h1 className="text-2xl font-bold">Sign-in problem</h1>
+      <h1 className="text-xl font-semibold">Sign-in problem</h1>
       <Alert tone="danger">{typeof reason === "string" ? reason : "Sign-in could not be completed."}</Alert>
       <Link href="/" className="text-nis-primary underline">Return to the home page</Link>
     </div>

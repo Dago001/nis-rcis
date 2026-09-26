@@ -42,14 +42,11 @@ class ApplicationController
      */
     public function store(Request $request, ApplicationSubmission $submission): JsonResponse
     {
-        // Phone and e-mail always come from the registered account; they
-        // cannot be changed in the application form.
         $applicant = $this->applicant($request);
-        $request->merge(ApplicationRules::normalise([...$request->all(), 'phone' => $applicant->phone, 'email' => $applicant->email]));
+        $request->merge(ApplicationRules::normalise($request->except(['phone', 'email'])));
 
         $data = $request->validate([
             ...ApplicationRules::particulars(),
-            ...ApplicationRules::contact(),
             ...ApplicationRules::appointment(),
             'type' => ['required', Rule::in(['NEW', 'RENEWAL'])],
             'renewal_card_number' => ['required_if:type,RENEWAL', 'nullable', 'string', 'max:20'],
@@ -57,7 +54,13 @@ class ApplicationController
             'declaration' => ['accepted'],
         ]);
 
-        $application = $submission->submitOnline($this->applicant($request), $data);
+        // Phone and e-mail always come from the registered account; they cannot
+        // be changed in the application form (and accounts created before the
+        // stricter phone format must still be able to apply).
+        $data['phone'] = $applicant->phone;
+        $data['email'] = $applicant->email;
+
+        $application = $submission->submitOnline($applicant, $data);
 
         return (new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory'])))
             ->response()->setStatusCode(201);

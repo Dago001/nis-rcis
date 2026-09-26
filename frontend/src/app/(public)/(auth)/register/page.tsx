@@ -135,7 +135,7 @@ export default function RegisterPage() {
         </div>
       </div>
       <div className="p-8 sm:p-10">
-        <h1 className="mb-1 text-2xl font-bold">Create your applicant account</h1>
+        <h1 className="mb-1 text-xl font-semibold">Create your applicant account</h1>
         <p className="mb-6 text-sm text-slate-600">Use an e-mail address you can access: status updates are sent there.</p>
         <Suspense><RegisterForm /></Suspense>
       </div>

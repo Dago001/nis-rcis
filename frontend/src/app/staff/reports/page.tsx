@@ -41,7 +41,7 @@ export default function ReportsPage() {
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {([["Cards issued", report.total_issued], ["Active", report.active], ["Revoked", report.revoked], ["Renewals", report.renewals], ["Nationalities", report.nationalities]] as const).map(([k, v]) => (
-              <div key={k} className="rounded-xl border border-slate-200 bg-white p-4"><div className="text-xs uppercase text-slate-500">{k}</div><div className="text-2xl font-bold tabular-nums">{v}</div></div>
+              <div key={k} className="rounded-xl border border-slate-200 bg-white p-4"><div className="text-xs uppercase text-slate-500">{k}</div><div className="text-xl font-semibold tabular-nums">{v}</div></div>
             ))}
           </div>
           <div className="grid gap-6 lg:grid-cols-2">

@@ -19,17 +19,11 @@ type Summary = {
 };
 
 function Stat({ label, value, href, tone = "slate" }: { label: string; value: number; href?: string; tone?: "slate" | "amber" | "red" | "green" }) {
-  const tones = {
-    slate: ["text-slate-900", "bg-slate-300"],
-    amber: ["text-nis-orange", "bg-nis-orange"],
-    red: ["text-nis-red", "bg-nis-red"],
-    green: ["text-nis-primary", "bg-nis-primary"],
-  };
+  const tones = { slate: "text-slate-900", amber: "text-nis-orange", red: "text-nis-red", green: "text-nis-primary" };
   const body = (
-    <div className="relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-nis-primary/40 hover:shadow-md">
-      <span className={`absolute inset-x-0 top-0 h-1 ${tones[tone][1]}`} aria-hidden />
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-2 text-4xl font-bold tabular-nums ${tones[tone][0]}`}>{value}</div>
+    <div className="h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-nis-primary/40 hover:shadow-md">
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`mt-1.5 text-2xl font-medium tabular-nums ${tones[tone]}`}>{value}</div>
       {href && <div className="mt-2 text-xs font-medium text-nis-primary">View ›</div>}
     </div>
   );

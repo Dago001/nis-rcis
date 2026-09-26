@@ -53,7 +53,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
           user && (
             <div className="flex items-center gap-4">
               <div className="hidden text-right text-sm sm:block">
-                <div className="font-semibold text-slate-800">{user.fullname}</div>
+                <div className="font-medium text-slate-800">{user.fullname}</div>
                 <div className="text-xs text-slate-500">{user.role_label} · {user.service_number}</div>
               </div>
               <LogoutButton portal="staff" />
@@ -66,7 +66,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
         <div className="relative mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-[5%] py-5 text-white xl:px-8">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">Directorate of Visa and Residency</p>
-            <p className="text-xl font-semibold">Staff Console</p>
+            <p className="text-lg font-medium">Staff Console</p>
           </div>
           {user && <p className="text-sm text-white/85">Welcome, <span className="font-semibold text-white">{user.fullname}</span></p>}
         </div>
@@ -88,7 +88,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-[15px] transition-colors ${active ? "bg-nis-primary font-semibold text-white shadow-sm" : "text-slate-700 hover:bg-nis-mint hover:text-nis-primary"}`}
+                        className={`flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm transition-colors ${active ? "bg-nis-primary font-medium text-white shadow-sm" : "text-slate-700 hover:bg-nis-mint hover:text-nis-primary"}`}
                       >
                         {item.icon}
                         {item.label}

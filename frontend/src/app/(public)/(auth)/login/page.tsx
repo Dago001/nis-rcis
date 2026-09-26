@@ -13,7 +13,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-white">Login</h1>
+        <h1 className="text-2xl font-semibold text-white">Login</h1>
         <p className="mt-2 text-white/85">Choose how you want to sign in. You will be taken to the secure NIS sign-in page.</p>
       </div>
 

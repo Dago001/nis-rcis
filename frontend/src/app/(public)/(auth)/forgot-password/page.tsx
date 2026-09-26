@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="mx-auto max-w-md space-y-5 rounded-2xl bg-white p-8 shadow-2xl">
-      <h1 className="text-2xl font-bold">Reset your password</h1>
+      <h1 className="text-xl font-semibold">Reset your password</h1>
       <p className="text-sm text-slate-600">Enter the e-mail address of your applicant account. We will send you a link to choose a new password.</p>
       {message ? (
         <Alert tone="success">{message}</Alert>

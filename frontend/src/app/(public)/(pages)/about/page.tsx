@@ -9,7 +9,7 @@ export default function AboutPage() {
       <div className="grid items-center gap-10 md:grid-cols-2">
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-nis-orange">About the portal</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">NIS Residence Card Issuance System</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-900">NIS Residence Card Issuance System</h1>
           <p className="mt-4 leading-relaxed text-slate-600">
             The Residence Card Portal is the Nigeria Immigration Service&apos;s online service for foreign nationals who live in Nigeria.
             It replaces paper forms with a single secure process: apply online, upload documents, pay, book a biometrics appointment,

@@ -50,7 +50,7 @@ function Verify() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Verify a residence card</h1>
+      <h1 className="text-xl font-semibold">Verify a residence card</h1>
       {!token && (
         <form onSubmit={submit} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <Field label="Card number"><Input name="card_number" required /></Field>

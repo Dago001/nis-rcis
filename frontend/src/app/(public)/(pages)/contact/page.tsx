@@ -7,7 +7,7 @@ export default function ContactPage() {
   return (
     <div className="grid gap-10 md:grid-cols-2">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Contact Support</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Contact Support</h1>
         <p className="mt-3 text-slate-600">
           For help with an application, have your <strong>application number</strong> and <strong>passport number</strong> ready.
           Many questions are answered in the <Link href="/faq" className="text-nis-primary underline">FAQ</Link>.

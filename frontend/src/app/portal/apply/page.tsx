@@ -84,7 +84,8 @@ function Wizard() {
     (n: number) =>
       n === 1 ? [...(type === "RENEWAL" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS]
         : n === 2 ? PASSPORT_FIELDS
-          : n === 3 ? CONTACT_FIELDS
+          // Phone and e-mail are locked (taken from the account), so they are not re-checked here.
+          : n === 3 ? CONTACT_FIELDS.filter((f) => f !== "phone" && f !== "email")
             : n === 6 ? APPOINTMENT_FIELDS
               : [],
     [type],
@@ -311,8 +312,8 @@ function Wizard() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-nis-primary">{type === "RENEWAL" ? "Residence card renewal" : "Residence card application"}</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900">Step {step} of 7 — {STEPS[step - 1]}</h1>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">{type === "RENEWAL" ? "Residence card renewal" : "Residence card application"}</p>
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Step {step} of 7 — {STEPS[step - 1]}</h1>
         <ol className="mt-4 grid grid-cols-7 gap-1.5" aria-label="Progress">
           {STEPS.map((label, i) => (
             <li key={label} title={label} className={`h-2 rounded-full ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`} />
@@ -485,7 +486,7 @@ function Summary({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-nis-mint px-4 py-3">
       <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-nis-primary-dark">{value}</div>
+      <div className="mt-1 text-base font-medium text-nis-primary-dark">{value}</div>
     </div>
   );
 }

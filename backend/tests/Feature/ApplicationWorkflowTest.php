@@ -170,6 +170,18 @@ it('runs the complete legacy workflow from online application to card collection
         ->assertOk()->assertJsonPath('status', 'VALID')->assertJsonPath('card_number', $card->card_number);
 });
 
+it('uses the account phone and e-mail, even from accounts registered before the stricter phone format', function () {
+    $applicant = Applicant::factory()->create(['phone' => '0803 123 4567', 'email' => 'old.account@example.com']);
+    asApplicant($applicant);
+    uploadDraftDocs();
+
+    $this->postJson('/api/v1/applicant/applications', particulars([
+        'payment_reference' => paidReference(), 'phone' => '+10000000000', 'email' => 'someone.else@example.com',
+    ]))->assertCreated()
+        ->assertJsonPath('data.phone', '0803 123 4567')
+        ->assertJsonPath('data.email', 'old.account@example.com');
+});
+
 it('keeps applicants inside their own records', function () {
     $owner = Applicant::factory()->create();
     $other = Applicant::factory()->create();
