@@ -35,6 +35,8 @@ const all = (...checks: Check[]): Check => (v, d) => {
 const lettersOnly = "Use letters only.";
 
 export const RULES: Record<string, Check> = {
+  quota_reference: pattern(/^[A-Za-z0-9][A-Za-z0-9/ .-]*$/, "Use letters, numbers and / only, as printed on the quota approval."),
+  employer_name: (v, d) => (d.quota_reference?.trim() && !v.trim() ? "Enter the employer named on the quota approval." : v.trim() && !TEXT.test(v.trim()) ? "Use letters only." : undefined),
   renewal_card_number: all(required("The card number"), pattern(/^[0-9]{3,12}$/, "Card numbers contain digits only.")),
   surname: all(required("Surname"), pattern(NAME, lettersOnly)),
   forenames: all(required("Other names"), pattern(NAME, lettersOnly)),

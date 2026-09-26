@@ -54,6 +54,7 @@ class ApplicationController
 
         $data = $request->validate([
             ...$rules,
+            ...ApplicationRules::quota(),
             ...ApplicationRules::appointment(),
             'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
             'renewal_card_number' => ['required_if:type,RENEWAL,REPLACE', 'nullable', 'string', 'max:20'],

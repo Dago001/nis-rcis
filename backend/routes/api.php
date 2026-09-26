@@ -122,6 +122,9 @@ Route::prefix('v1')->group(function () {
         Route::get('applications/{id}', [StaffApplications::class, 'show'])->whereNumber('id');
         Route::get('applications/{id}/documents/{document}', [StaffApplications::class, 'document'])->whereNumber(['id', 'document']);
         Route::post('applications/{id}/risk-check', [StaffApplications::class, 'riskCheck'])->whereNumber('id');
+        Route::get('applications/{id}/integration-checks', [StaffApplications::class, 'integrationChecks'])->whereNumber('id');
+        Route::post('applications/{id}/integration-checks', [StaffApplications::class, 'runIntegrationChecks'])
+            ->middleware(['role:ApprovingOfficer', 'throttle:30,1'])->whereNumber('id');
 
         // Internal notes (staff only) and assignment
         Route::get('applications/{id}/notes', [StaffApplications::class, 'notes'])->whereNumber('id');

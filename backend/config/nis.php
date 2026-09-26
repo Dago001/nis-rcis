@@ -25,6 +25,29 @@ return [
     'sla_working_days' => (int) env('SLA_WORKING_DAYS', 10),
     'public_holidays' => array_filter(explode(',', (string) env('PUBLIC_HOLIDAYS', ''))),
 
+    // Connections to other government systems (need formal agreements).
+    // driver: http (live), simulated (testing only; refused in production)
+    // or none. Until configured, checks are recorded as "not checked".
+    'integrations' => [
+        'interpol_sltd' => [
+            'driver' => env('INTERPOL_SLTD_DRIVER', 'simulated'),
+            'url' => env('INTERPOL_SLTD_URL'),
+            'api_key' => env('INTERPOL_SLTD_API_KEY'),
+            'timeout' => (int) env('INTERPOL_SLTD_TIMEOUT', 10),
+            'test_hits' => array_filter(explode(',', (string) env('INTERPOL_SLTD_TEST_HITS', ''))),
+        ],
+        'moi_quota' => [
+            'driver' => env('MOI_QUOTA_DRIVER', 'simulated'),
+            'url' => env('MOI_QUOTA_URL'),
+            'api_key' => env('MOI_QUOTA_API_KEY'),
+            'timeout' => (int) env('MOI_QUOTA_TIMEOUT', 10),
+        ],
+    ],
+
+    // Require fingerprints from the scanner at the biometrics desk (at least
+    // the two index fingers). Leave off until scanners are installed.
+    'fingerprints_required' => (bool) env('FINGERPRINTS_REQUIRED', false),
+
     // Warn when fewer blank cards than this are left in stock.
     'card_stock_low' => (int) env('CARD_STOCK_LOW', 100),
 

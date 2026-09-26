@@ -57,6 +57,15 @@ class ApplicationRules
         ];
     }
 
+    /** Expatriate quota approval (checked with the Ministry of Interior). */
+    public static function quota(): array
+    {
+        return [
+            'quota_reference' => ['nullable', 'string', 'max:60', 'regex:#^[A-Z0-9][A-Z0-9/ .-]*$#'],
+            'employer_name' => ['nullable', 'required_with:quota_reference', 'string', 'max:150', 'regex:'.self::TEXT],
+        ];
+    }
+
     public static function contact(): array
     {
         return [
@@ -79,7 +88,7 @@ class ApplicationRules
      */
     public static function normalise(array $data): array
     {
-        $upper = ['surname', 'forenames', 'nationality', 'place_of_birth', 'profession', 'passport_number',
+        $upper = ['quota_reference', 'employer_name', 'surname', 'forenames', 'nationality', 'place_of_birth', 'profession', 'passport_number',
             'emergency_contact_name', 'emergency_contact_relation', 'distinguished_features', 'complexion', 'eye_color', 'hair_color'];
 
         // Phone numbers are stored as + and digits only.

@@ -24,7 +24,7 @@ class Application extends Model
 
     protected $guarded = ['id', 'status', 'application_number', 'reference_number'];
 
-    protected $hidden = ['fingerprint_template', 'risk_flags'];
+    protected $hidden = ['fingerprint_template', 'fingerprints', 'risk_flags'];
 
     protected function casts(): array
     {
@@ -40,6 +40,7 @@ class Application extends Model
             'ready_at' => 'datetime',
             'collected_at' => 'datetime',
             'risk_flags' => 'array',
+            'fingerprints' => 'encrypted:array',
             'risk_checked_at' => 'datetime',
         ];
     }

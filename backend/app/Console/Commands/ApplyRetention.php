@@ -55,7 +55,7 @@ class ApplyRetention extends Command
         if (! $dry) {
             $this->deleteFiles($docs);
             ApplicationDocument::whereIn('id', $docs->pluck('id'))->delete();
-            Application::whereIn('id', $rejected)->update(['photo_path' => null, 'signature_path' => null, 'fingerprint_template' => null]);
+            Application::whereIn('id', $rejected)->update(['photo_path' => null, 'signature_path' => null, 'fingerprint_template' => null, 'fingerprints' => null]);
         }
 
         // 4. Payment attempts that were never completed.

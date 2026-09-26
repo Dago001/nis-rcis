@@ -4,6 +4,13 @@ namespace App\Providers;
 
 use App\Assistant\ClaudeLanguageModel;
 use App\Assistant\LanguageModel;
+use App\Integrations\Drivers\InterpolSltdHttp;
+use App\Integrations\Drivers\MoiQuotaHttp;
+use App\Integrations\Drivers\NotConfigured;
+use App\Integrations\Drivers\SimulatedQuota;
+use App\Integrations\Drivers\SimulatedSltd;
+use App\Integrations\PassportRegistry;
+use App\Integrations\QuotaRegistry;
 use App\Models\OAuthClient;
 use App\OAuth\StrictScopeRepository;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -19,6 +26,18 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $driver = function (string $service, string $http, string $simulated) {
+            $config = config("nis.integrations.{$service}");
+
+            return match (true) {
+                $config['driver'] === 'http' && filled($config['url']) => new $http($config),
+                // Simulated answers are never allowed on the live system.
+                $config['driver'] === 'simulated' && ! $this->app->isProduction() => new $simulated,
+                default => new NotConfigured,
+            };
+        };
+        $this->app->bind(PassportRegistry::class, fn () => $driver('interpol_sltd', InterpolSltdHttp::class, SimulatedSltd::class));
+        $this->app->bind(QuotaRegistry::class, fn () => $driver('moi_quota', MoiQuotaHttp::class, SimulatedQuota::class));
         // OAuth routes are registered explicitly in routes/web.php so the
         // authorize endpoint can pick the staff or applicant login guard.
         Passport::ignoreRoutes();

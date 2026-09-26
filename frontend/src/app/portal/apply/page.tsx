@@ -35,7 +35,7 @@ const FIELD_STEP: Record<string, number> = {
   blood_group: 1, renewal_card_number: 1, photo: 1, principal_application_id: 1, dependant_relationship: 1,
   ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 2])),
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
-  documents: 4, declaration: 5, payment_reference: 6,
+  documents: 4, quota_reference: 4, employer_name: 4, declaration: 5, payment_reference: 6,
   ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
 };
 
@@ -91,6 +91,7 @@ function Wizard() {
         : n === 2 ? PASSPORT_FIELDS
           // Phone and e-mail are locked (taken from the account), so they are not re-checked here.
           : n === 3 ? CONTACT_FIELDS.filter((f) => f !== "phone" && f !== "email")
+            : n === 4 ? ["quota_reference", "employer_name"]
             : n === 7 ? APPOINTMENT_FIELDS
               : [],
     [type],
@@ -369,6 +370,14 @@ function Wizard() {
         {step === 4 && (
           <div className="space-y-4">
             <p className="text-sm text-slate-600">Each file must be <strong>smaller than 2 MB</strong>: JPG, PNG or PDF. Your passport photograph was uploaded in step 1.</p>
+            <div className="grid gap-4 rounded-xl border border-slate-200 bg-nis-mint/50 p-4 sm:grid-cols-2">
+              <Field label="Expatriate quota approval number" error={errors.quota_reference} hint="If you are employed in Nigeria. It is checked with the Ministry of Interior.">
+                <Input value={data.quota_reference ?? ""} maxLength={60} onChange={(e) => set("quota_reference", e.target.value.toUpperCase())} onBlur={() => touch("quota_reference")} />
+              </Field>
+              <Field label="Employer" error={errors.employer_name} required={!!data.quota_reference?.trim()}>
+                <Input value={data.employer_name ?? ""} maxLength={150} onChange={(e) => set("employer_name", e.target.value)} onBlur={() => touch("employer_name")} />
+              </Field>
+            </div>
             {errors.documents && <Alert tone="danger">{errors.documents}</Alert>}
             <ul className="divide-y divide-slate-100">
               {DOCUMENTS.map((d) => {
@@ -430,6 +439,7 @@ function Wizard() {
               />
             </ReviewSection>
             <ReviewSection title="Documents" onEdit={() => goTo(4)}>
+              {data.quota_reference && <p className="mb-2 text-sm">Expatriate quota: <strong>{data.quota_reference}</strong> ({data.employer_name})</p>}
               <ul className="divide-y divide-slate-100 text-sm">
                 {[PHOTO, ...DOCUMENTS].map((d) => {
                   const current = documents.find((x) => x.type === d.type);

@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignaturePad, WebcamCapture } from "@/components/CaptureTools";
+import { FingerprintCapture, type Fingerprint } from "@/components/FingerprintCapture";
 import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Alert, Button, Dl, Field, Input, Panel, Spinner } from "@/components/ui";
@@ -11,8 +12,8 @@ import { nisDate } from "@/lib/format";
 import type { Application } from "@/lib/types";
 
 /**
- * Biometrics capturing desk (legacy biometrics-capture.php): live photo and
- * signature. Saving creates the residence card (awaiting final approval).
+ * Biometrics capturing desk (legacy biometrics-capture.php): live photo,
+ * signature and fingerprints. Saving creates the residence card (awaiting final approval).
  */
 export default function BiometricsDesk() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export default function BiometricsDesk() {
   const [app, setApp] = useState<Application | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [fingerprints, setFingerprints] = useState<Fingerprint[]>([]);
   const [issuedAt, setIssuedAt] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,11 @@ export default function BiometricsDesk() {
     try {
       const r = await api<{ data: Application }>("staff", `applications/${id}/biometrics`, {
         method: "POST",
-        json: { photo, signature, issued_at: issuedAt },
+        json: {
+          photo, signature, issued_at: issuedAt,
+          // Images stay on the desk; only the templates are sent.
+          fingerprints: fingerprints.length ? fingerprints.map((f) => ({ finger: f.finger, template: f.template, format: f.format, quality: f.quality, nfiq: f.nfiq, device: f.device })) : undefined,
+        },
       });
       router.push(r.data.card ? `/staff/cards/${r.data.card.id}` : `/staff/applications/${id}`);
     } catch (e) {
@@ -68,11 +74,11 @@ export default function BiometricsDesk() {
 
       <Panel title="2. Live facial photograph"><WebcamCapture onCapture={setPhoto} /></Panel>
       <Panel title="3. Holder's signature"><SignaturePad onChange={setSignature} /></Panel>
+      <Panel title="4. Fingerprints"><FingerprintCapture onChange={setFingerprints} /></Panel>
 
-      <Panel title="4. Issue">
+      <Panel title="5. Issue">
         <div className="space-y-4">
           <Field label="Place of issue"><Input value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} /></Field>
-          <p className="text-xs text-slate-500">Fingerprint capture: connect a supported scanner SDK here; the API already accepts a fingerprint template.</p>
           <Button onClick={save} disabled={busy || !confirmed || !photo || !signature}>{busy ? "Saving…" : "Save biometrics and create card"}</Button>
         </div>
       </Panel>

@@ -17,6 +17,9 @@ function origins(...urls: (string | undefined)[]): string[] {
 // short-lived signed document URLs (local disk or S3-compatible storage).
 const apiOrigins = origins(process.env.API_PUBLIC_URL || process.env.API_URL, process.env.DOCUMENTS_PUBLIC_URL).join(" ");
 
+// The fingerprint scanner's local service on the biometrics desk computer.
+const scannerOrigin = origins(process.env.NEXT_PUBLIC_FINGERPRINT_SERVICE_URL || "https://localhost:8443").join(" ");
+
 // Next.js injects small inline bootstrap scripts, hence 'unsafe-inline' for
 // scripts; everything else is locked to this site. Not applied in
 // development, where hot reloading needs eval().
@@ -27,7 +30,7 @@ const contentSecurityPolicy = [
   `img-src 'self' data: blob: ${apiOrigins}`,
   "font-src 'self'",
   // Link prefetches can follow the sign-in redirect to the authorization server.
-  `connect-src 'self' ${apiOrigins}`,
+  `connect-src 'self' ${apiOrigins} ${scannerOrigin}`,
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

@@ -189,6 +189,11 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **M6.** Open an application → **Case work**: assign it to another officer (they get an e-mail) and add an **internal note**. Sign in as the applicant: the note and the assignment are not visible.
 - [ ] **M7.** As **10001**, **Issuance reports** → **Monthly management report** → **Download PDF** and **Download Excel**. Filter the card register (status, nationality), **Save filters**, pick them again from **Saved filters**, and **Export Excel**.
 
+### N. Connections to other government systems (simulated)
+- [ ] **N1.** Start a new application. In step 4 enter the quota number **MOI/EQ/2026/123** and an employer. Use a passport number starting with **SLTD** (for example SLTD12345). Submit.
+- [ ] **N2.** As **10002**, open the application: **External checks** shows *Interpol: recorded as stolen* and *quota confirmed*, and the fraud panel has a HIGH warning. Click **Run checks again**.
+- [ ] **N3.** At the biometrics desk, tick **Use the simulated scanner** and capture the two index fingers (with a real SecuGen scanner, see `docs/INTEGRATIONS.md`). Save: the application shows which fingers were captured.
+
 ### I. Sign-out
 - [ ] **I1.** Click **Sign out**, then open http://localhost:3000/staff (or `/portal`). You must sign in again.
 

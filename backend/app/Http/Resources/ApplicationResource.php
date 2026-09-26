@@ -34,6 +34,10 @@ class ApplicationResource extends JsonResource
             // Fraud/duplicate flags are for officers only, never the applicant.
             'risk_flags' => $this->when($request->user() instanceof User, fn () => $this->risk_flags ?? []),
             // Internal assignment and the service-level clock are for officers only.
+            'quota_reference' => $this->quota_reference,
+            'employer_name' => $this->employer_name,
+            // Which fingers were captured (never the templates themselves).
+            'fingerprints_captured' => $this->when($request->user() instanceof User, fn () => collect($this->fingerprints ?? [])->pluck('finger')->values()),
             'assigned_to' => $this->when($request->user() instanceof User, fn () => $this->relationLoaded('assignee') ? $this->assignee?->only(['id', 'fullname', 'service_number']) : null),
             'sla' => $this->when($request->user() instanceof User && $this->status === ApplicationStatus::PendingApproval && $this->submitted_at, fn () => [
                 'working_days' => $days = WorkingDays::between($this->submitted_at),

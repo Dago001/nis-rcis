@@ -77,6 +77,7 @@ class CardIssuance
                     'photo_path' => $photo->path,
                     'signature_path' => $signature->path,
                     'fingerprint_template' => $input['fingerprint_template'] ?? null,
+                    'fingerprints' => $input['fingerprints'] ?? null,
                     'biometrics_captured_by' => $officer->id,
                     'biometrics_captured_at' => now(),
                     'card_id' => $card->id,

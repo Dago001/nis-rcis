@@ -8,12 +8,14 @@ use App\Enums\StaffRole;
 use App\Http\Resources\ApplicationResource;
 use App\Models\Application;
 use App\Models\ApplicationNote;
+use App\Models\IntegrationCheck;
 use App\Models\User;
 use App\Notifications\ApplicationAssigned;
 use App\Services\ApplicationSubmission;
 use App\Services\ApplicationWorkflow;
 use App\Services\CardIssuance;
 use App\Services\DocumentStorage;
+use App\Services\IntegrationChecks;
 use App\Services\RiskChecker;
 use App\Support\ApplicationRules;
 use App\Support\Audit;
@@ -30,6 +32,8 @@ use Illuminate\Validation\Rule;
  */
 class ApplicationController
 {
+    public const FINGERS = ['R_THUMB', 'R_INDEX', 'R_MIDDLE', 'R_RING', 'R_LITTLE', 'L_THUMB', 'L_INDEX', 'L_MIDDLE', 'L_RING', 'L_LITTLE'];
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $data = $request->validate([
@@ -144,6 +148,7 @@ class ApplicationController
         return response()->json([
             'data' => new ApplicationResource($application),
             'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
+            'integration_checks' => $this->presentChecks($application),
             'payments' => $application->payments->map->only(['reference', 'status', 'amount_kobo', 'channel', 'paid_at', 'verified_at']),
         ]);
     }
@@ -158,6 +163,7 @@ class ApplicationController
         $data = $request->validate([
             ...ApplicationRules::particulars(),
             ...ApplicationRules::contact(),
+            ...ApplicationRules::quota(),
             ...ApplicationRules::appointment(),
             'payment_status' => ['required', Rule::in(['PAID', 'PENDING'])],
         ]);
@@ -221,12 +227,45 @@ class ApplicationController
             'photo' => ['required', 'string', 'max:8000000'],
             'signature' => ['required', 'string', 'max:2000000'],
             'fingerprint_template' => ['nullable', 'string', 'max:200000'],
+            // From the fingerprint scanner: ISO/IEC 19794-2 (or ANSI 378) templates, base64.
+            'fingerprints' => [config('nis.fingerprints_required') ? 'required' : 'nullable', 'array', config('nis.fingerprints_required') ? 'min:2' : 'min:0', 'max:10'],
+            'fingerprints.*.finger' => ['required', 'distinct', Rule::in(self::FINGERS)],
+            'fingerprints.*.template' => ['required', 'string', 'max:20000', 'regex:/^[A-Za-z0-9+\/=]+$/'],
+            // Simulated prints (testing) are refused on the live system.
+            'fingerprints.*.format' => ['required', Rule::in(app()->isProduction() ? ['ISO_19794_2', 'ANSI_378'] : ['ISO_19794_2', 'ANSI_378', 'SIMULATED'])],
+            'fingerprints.*.quality' => ['nullable', 'integer', 'between:0,100'],
+            'fingerprints.*.nfiq' => ['nullable', 'integer', 'between:1,5'],
+            'fingerprints.*.device' => ['nullable', 'string', 'max:100'],
             'issued_at' => ['nullable', 'string', 'max:150'],
         ]);
 
         $application = $issuance->captureBiometrics(Application::with('enrollmentCenter')->findOrFail($id), $this->officer($request), $data);
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'documents', 'statusHistory']));
+    }
+
+    /** Latest answers from Interpol SLTD and the Ministry of Interior quota register. */
+    public function integrationChecks(int $id): JsonResponse
+    {
+        return response()->json(['data' => $this->presentChecks(Application::findOrFail($id))]);
+    }
+
+    /** Run the external checks again (for example when a connection was down). */
+    public function runIntegrationChecks(Request $request, int $id, IntegrationChecks $checks, RiskChecker $risk): JsonResponse
+    {
+        $application = Application::findOrFail($id);
+        $checks->run($application, $this->officer($request));
+        $risk->check($application);
+
+        return response()->json(['data' => $this->presentChecks($application), 'risk_flags' => $application->risk_flags ?? []]);
+    }
+
+    private function presentChecks(Application $application): array
+    {
+        return IntegrationChecks::latest($application)->map(fn (IntegrationCheck $c) => [
+            'service' => $c->service, 'status' => $c->status, 'summary' => $c->summary, 'reference' => $c->reference,
+            'details' => $c->details, 'checked_at' => $c->created_at?->toIso8601String(), 'checked_by' => $c->checker?->fullname ?? 'Automatic',
+        ])->all();
     }
 
     public function collect(Request $request, int $id, CardIssuance $issuance): ApplicationResource

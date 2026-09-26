@@ -74,9 +74,10 @@ class ApplicationSubmission
         }));
     }
 
-    /** Fraud and duplicate checks, run after the application is saved. */
+    /** Fraud, duplicate and external (Interpol, Ministry of Interior) checks, run after the application is saved. */
     private function screen(Application $application): Application
     {
+        app(IntegrationChecks::class)->run($application);
         app(RiskChecker::class)->check($application);
 
         return $application;
@@ -103,7 +104,7 @@ class ApplicationSubmission
         $this->scheduler->assertBookable($center, $data['appointment_date'], $data['appointment_time']);
 
         $application = new Application([
-            ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time'])->all(),
+            ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time', 'quota_reference', 'employer_name'])->all(),
             'applicant_id' => $applicant?->id,
             'type' => $renewalCard ? $data['type'] : 'NEW',
             'renewal_of_card_id' => $renewalCard?->id,

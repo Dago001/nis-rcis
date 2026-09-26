@@ -98,6 +98,9 @@ export type Application = Particulars & {
   principal?: { id: number; application_number: string; surname: string; forenames: string } | null;
   dependants?: { id: number; application_number: string; surname: string; forenames: string; relationship: "SPOUSE" | "CHILD"; status: ApplicationStatus }[];
   documents?: ApplicationDocument[];
+  quota_reference?: string | null;
+  employer_name?: string | null;
+  fingerprints_captured?: string[];
   assigned_to?: { id: number; fullname: string; service_number: string } | null;
   sla?: { working_days: number; target: number; overdue: boolean };
   risk_flags?: { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] }[];

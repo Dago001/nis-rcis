@@ -13,7 +13,8 @@ import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
 
-type Detail = { data: Application; photo_url: string | null; payments: { reference: string; status: string; amount_kobo: number; verified_at: string | null }[] };
+type ExternalCheck = { service: "INTERPOL_SLTD" | "MOI_QUOTA"; status: string; summary: string; reference: string | null; details: Record<string, unknown> | null; checked_at: string; checked_by: string };
+type Detail = { data: Application; photo_url: string | null; integration_checks: ExternalCheck[]; payments: { reference: string; status: string; amount_kobo: number; verified_at: string | null }[] };
 
 export default function StaffApplicationPage() {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +65,9 @@ export default function StaffApplicationPage() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
+
+      <ExternalChecks checks={detail.integration_checks} quota={a.quota_reference ? `${a.quota_reference} · ${a.employer_name ?? ""}` : null}
+        canRun={hasRole(user, "ApprovingOfficer")} busy={busy} onRun={() => act("integration-checks")} />
 
       {a.sla && (
         <Alert tone={a.sla.overdue ? "danger" : "info"}>
@@ -242,6 +246,36 @@ function WorkPanel({ applicationId, assignedTo, canAssign, onChanged }: { applic
           </ul>
         </div>
       </div>
+    </Panel>
+  );
+}
+
+const SERVICE: Record<ExternalCheck["service"], string> = { INTERPOL_SLTD: "Interpol stolen & lost travel documents", MOI_QUOTA: "Ministry of Interior expatriate quota" };
+const TONE: Record<string, string> = {
+  CLEAR: "text-nis-primary", VALID: "text-nis-primary", HIT: "text-red-700 font-semibold", INVALID: "text-red-700", NOT_FOUND: "text-red-700",
+  ERROR: "text-nis-orange", DISABLED: "text-slate-500",
+};
+
+/** Answers from other government systems. Advisory: the officer decides. */
+function ExternalChecks({ checks, quota, canRun, busy, onRun }: { checks: ExternalCheck[]; quota: string | null; canRun: boolean; busy: boolean; onRun: () => void }) {
+  const rows: ExternalCheck["service"][] = ["INTERPOL_SLTD", ...(quota ? (["MOI_QUOTA"] as const) : [])];
+  return (
+    <Panel title="External checks" actions={canRun && <Button variant="secondary" className="!py-1.5" disabled={busy} onClick={onRun}>Run checks again</Button>}>
+      <ul className="divide-y divide-slate-100 text-sm">
+        {rows.map((service) => {
+          const c = checks.find((x) => x.service === service);
+          return (
+            <li key={service} className="flex flex-wrap items-start justify-between gap-2 py-2">
+              <div>
+                <div className="font-medium">{SERVICE[service]}{service === "MOI_QUOTA" && quota && <span className="font-normal text-slate-500"> · {quota}</span>}</div>
+                <div className={c ? TONE[c.status] ?? "" : "text-slate-500"}>{c ? c.summary : "Not checked yet."}</div>
+              </div>
+              {c && <div className="text-right text-xs text-slate-500">{c.status.replace("_", " ")}{c.reference ? ` · ref ${c.reference}` : ""}<br />{c.checked_by} · {dateTime(c.checked_at)}</div>}
+            </li>
+          );
+        })}
+      </ul>
+      {!quota && <p className="mt-2 text-xs text-slate-500">No expatriate quota number was given, so the quota was not checked.</p>}
     </Panel>
   );
 }

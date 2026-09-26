@@ -187,10 +187,14 @@ A chat button at the bottom-right of the public site and the applicant portal (i
 
 **Action required:** the removed personal data (photos, passports, visas, database dumps) is still in this repository's git history. If the repository was ever shared, treat that data as exposed. Purge it with `git filter-repo`, force-push, and ask GitHub support to clear cached views. This is not done automatically because it rewrites history for everyone.
 
+## Connections to other government systems
+
+Interpol SLTD passport checks, the Ministry of Interior expatriate quota
+register and fingerprint scanners are built as adapters that are switched on
+once the agreements are signed. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
 ## Not yet implemented
 
 * Importing records from the legacy MySQL/SQLite database (write a one-off `artisan` command that maps the old `residence_cards` and `card_renewals` tables)
-* Fingerprint scanner integration (the API already accepts a `fingerprint_template`)
-* SMS notifications (the notifications already send by e-mail and in-app; add an SMS channel)
-* Server-generated PDFs for booklets and certificates (the card and slips currently use print CSS)
-* Two-factor authentication for staff
+* Notifications are sent by e-mail (and in the portal) only; there is deliberately no SMS channel
+* Server-generated PDFs for booklets and certificates (the card and slips use print CSS; receipts and management reports are PDFs)

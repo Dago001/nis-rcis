@@ -6,6 +6,7 @@ use App\Enums\CardStatus;
 use App\Enums\DocumentType;
 use App\Models\Application;
 use App\Models\ApplicationDocument;
+use App\Models\IntegrationCheck;
 use App\Models\ResidenceCard;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -80,6 +81,15 @@ class RiskChecker
             if ($recent > 5) {
                 $flags[] = $this->flag('HIGH_VOLUME_ACCOUNT', self::MEDIUM, "This account submitted {$recent} applications in the last 30 days.", collect());
             }
+        }
+
+        // 6. Answers from other government systems (Interpol SLTD, Ministry of Interior).
+        foreach (IntegrationChecks::latest($application) as $check) {
+            match ([$check->service, $check->status]) {
+                [IntegrationCheck::INTERPOL_SLTD, 'HIT'] => $flags[] = $this->flag('INTERPOL_SLTD_HIT', self::HIGH, 'Interpol SLTD: the passport is recorded as stolen or lost. Hold the applicant and the passport; contact NCB Abuja.', [$check->reference]),
+                [IntegrationCheck::MOI_QUOTA, 'NOT_FOUND'], [IntegrationCheck::MOI_QUOTA, 'INVALID'] => $flags[] = $this->flag('QUOTA_NOT_CONFIRMED', self::MEDIUM, $check->summary, [$check->reference]),
+                default => null,
+            };
         }
 
         $application->forceFill(['risk_flags' => $flags ?: null, 'risk_checked_at' => now()])->saveQuietly();
