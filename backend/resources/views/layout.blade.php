@@ -29,7 +29,7 @@
         .site-header nav a.cta:hover { background:var(--primary-dark); color:#fff; }
 
         /* Full-page background photograph behind the sign-in card */
-        .stage { position:relative; min-height:calc(100vh - 80px); display:flex; align-items:center; justify-content:center; gap:56px;
+        .stage { position:relative; min-height:calc(100vh - 80px - 58px); display:flex; align-items:center; justify-content:center; gap:56px;
                  padding:48px 5%; overflow:hidden; background:var(--deep); }
         .stage img.bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
         .stage::after { content:""; position:absolute; inset:0; background:linear-gradient(120deg, rgba(0,0,0,.72) 0%, rgba(7,63,28,.55) 55%, rgba(0,0,0,.45) 100%); }
@@ -40,6 +40,7 @@
         .caption p { margin:1rem 0 0; color:rgba(255,255,255,.88); line-height:1.6; }
         .panel { position:relative; z-index:1; width:100%; max-width:460px; background:#fff; border-radius:16px; padding:36px 36px 28px;
                  box-shadow:0 25px 50px -12px rgba(0,0,0,.45); }
+        .site-footer { padding:18px 16px; text-align:center; font-size:.875rem; color:#475569; background:#fff; border-top:1px solid var(--line); }
         .pw { position:relative; }
         .pw input { padding-right:48px; }
         .pw .eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:38px; height:38px; margin:0; padding:0;
@@ -103,6 +104,7 @@
         <div class="back"><a href="{{ config('nis.frontend_url') }}">← Back to the Residence Card Portal</a></div>
     </section>
 </main>
+<footer class="site-footer">Nigeria Immigration Service · All rights reserved © {{ date('Y') }}</footer>
 <script src="/js/password-toggle.js" defer></script>
 </body>
 </html>

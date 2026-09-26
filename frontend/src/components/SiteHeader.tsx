@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { PublicFooter } from "./public/PublicFooter";
 
 export function SiteHeader({ right }: { right?: ReactNode }) {
   return (
@@ -20,9 +19,13 @@ export function SiteHeader({ right }: { right?: ReactNode }) {
   );
 }
 
-/** The landing page footer, used on every page of the application. */
+/** One-line footer used on every page except the landing page. */
 export function SiteFooter() {
-  return <PublicFooter />;
+  return (
+    <footer className="no-print mt-auto border-t border-slate-200 bg-white py-5 text-center text-sm text-slate-600">
+      Nigeria Immigration Service · All rights reserved © {new Date().getFullYear()}
+    </footer>
+  );
 }
 
 export function LogoutButton({ portal }: { portal: "staff" | "applicant" }) {

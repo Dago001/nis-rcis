@@ -1,5 +1,5 @@
 import { ChatWidget } from "@/components/ChatWidget";
-import { PublicFooter } from "@/components/public/PublicFooter";
+import { FooterForPath } from "@/components/public/FooterForPath";
 import { PublicHeader } from "@/components/public/PublicHeader";
 
 export default function PublicLayout({ children }: LayoutProps<"/">) {
@@ -7,7 +7,7 @@ export default function PublicLayout({ children }: LayoutProps<"/">) {
     <>
       <PublicHeader />
       {children}
-      <PublicFooter />
+      <FooterForPath />
       <ChatWidget scope="public" />
     </>
   );
