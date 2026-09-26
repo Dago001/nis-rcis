@@ -56,6 +56,11 @@ class ResidenceCard extends Model
         };
     }
 
+    public function printJobs(): HasMany
+    {
+        return $this->hasMany(CardPrintJob::class, 'card_id');
+    }
+
     public function renewals(): HasMany
     {
         return $this->hasMany(CardRenewal::class, 'card_id')->orderBy('renewal_number');

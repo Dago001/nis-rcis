@@ -27,7 +27,12 @@ function Queue() {
   const status = params.get("status") ?? "PENDING_APPROVAL";
   const search = params.get("search") ?? "";
   const page = params.get("page") ?? "1";
-  const query = new URLSearchParams({ page, ...(status && !search ? { status } : {}), ...(search ? { search } : {}) });
+  const assigned = params.get("assigned") ?? "";
+  const overdue = params.get("overdue") === "1";
+  const query = new URLSearchParams({
+    page, ...(status && !search && !overdue ? { status } : {}), ...(search ? { search } : {}),
+    ...(assigned ? { assigned } : {}), ...(overdue ? { overdue: "1" } : {}),
+  });
   const { data: result } = useFetch<Paginated<Application>>("staff", `applications?${query}`);
 
   function onSearch(event: FormEvent<HTMLFormElement>) {
@@ -45,12 +50,21 @@ function Queue() {
         <Button type="submit">Search</Button>
       </form>
 
+      <div className="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Quick filters">
+        {([["me", "Assigned to me"], ["unassigned", "Unassigned"]] as const).map(([v, l]) => (
+          <Link key={v} href={`/staff/applications?${new URLSearchParams({ status, ...(assigned === v ? {} : { assigned: v }) })}`} aria-pressed={assigned === v}
+            className={`rounded-full border px-3 py-1 ${assigned === v ? "border-nis-primary bg-nis-mint text-nis-primary-dark" : "border-slate-300 bg-white text-slate-700"}`}>{l}</Link>
+        ))}
+        <Link href={overdue ? "/staff/applications" : "/staff/applications?overdue=1"} aria-pressed={overdue}
+          className={`rounded-full border px-3 py-1 ${overdue ? "border-red-400 bg-red-50 text-red-800" : "border-slate-300 bg-white text-slate-700"}`}>Past the service-level target</Link>
+      </div>
+
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {TABS.map(([value, label]) => (
           <Link
             key={label}
-            href={`/staff/applications?status=${value}`}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${!search && status === value ? "border-nis-green text-nis-green" : "border-transparent text-slate-600 hover:text-slate-900"}`}
+            href={`/staff/applications?${new URLSearchParams({ status: value, ...(assigned ? { assigned } : {}) })}`}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${!search && !overdue && status === value ? "border-nis-green text-nis-green" : "border-transparent text-slate-600 hover:text-slate-900"}`}
           >
             {label}
           </Link>
@@ -84,7 +98,15 @@ function Queue() {
                   <td className="px-4 py-3">{a.surname}, {a.forenames}<div className="text-xs text-slate-500">{a.passport_number}</div></td>
                   <td className="px-4 py-3">{a.nationality}</td>
                   <td className="px-4 py-3">{nisDate(a.appointment_date)}<div className="text-xs text-slate-500">{a.appointment_time} · {a.enrollment_center?.code}</div></td>
-                  <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={a.status} />
+                    {a.sla && (
+                      <div className={`mt-1 text-xs ${a.sla.overdue ? "font-semibold text-red-700" : "text-slate-500"}`} title={`Target: decision within ${a.sla.target} working days`}>
+                        {a.sla.working_days} working day{a.sla.working_days === 1 ? "" : "s"}{a.sla.overdue ? " · overdue" : ""}
+                      </div>
+                    )}
+                    {a.assigned_to && <div className="text-xs text-slate-500">→ {a.assigned_to.fullname}</div>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -96,8 +118,8 @@ function Queue() {
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-600">Page {result.meta.current_page} of {result.meta.last_page} · {result.meta.total} applications</span>
           <div className="flex gap-2">
-            {result.meta.current_page > 1 && <Link className="underline" href={`?${new URLSearchParams({ status, search, page: String(result.meta.current_page - 1) })}`}>Previous</Link>}
-            {result.meta.current_page < result.meta.last_page && <Link className="underline" href={`?${new URLSearchParams({ status, search, page: String(result.meta.current_page + 1) })}`}>Next</Link>}
+            {result.meta.current_page > 1 && <Link className="underline" href={`?${new URLSearchParams({ status, search, assigned, ...(overdue ? { overdue: "1" } : {}), page: String(result.meta.current_page - 1) })}`}>Previous</Link>}
+            {result.meta.current_page < result.meta.last_page && <Link className="underline" href={`?${new URLSearchParams({ status, search, assigned, ...(overdue ? { overdue: "1" } : {}), page: String(result.meta.current_page + 1) })}`}>Next</Link>}
           </div>
         </div>
       )}

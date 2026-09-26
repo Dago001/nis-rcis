@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Public;
 
 use App\Models\Application;
 use App\Models\EnrollmentCenter;
+use App\Models\QueueTicket;
 use App\Models\ResidenceCard;
 use App\Services\AppointmentScheduler;
 use App\Services\DocumentStorage;
@@ -22,6 +23,24 @@ class PublicController
             'data' => EnrollmentCenter::where('is_active', true)->orderBy('name')
                 ->get(['id', 'code', 'name', 'state', 'address', 'time_slots']),
             'fee_naira' => config('nis.fee_naira'),
+        ]);
+    }
+
+    /**
+     * "Now serving" screen for an enrollment centre's waiting room. Ticket
+     * numbers and desks only: never names.
+     */
+    public function queueDisplay(EnrollmentCenter $center): JsonResponse
+    {
+        abort_unless($center->is_active, 404);
+        $today = QueueTicket::where('enrollment_center_id', $center->id)->whereDate('service_date', today());
+
+        return response()->json([
+            'center' => $center->name,
+            'serving' => (clone $today)->where('status', 'CALLED')->latest('called_at')->limit(8)->get(['ticket_number', 'desk', 'called_at']),
+            'waiting' => (clone $today)->where('status', 'WAITING')->count(),
+            'next' => (clone $today)->where('status', 'WAITING')->orderBy('checked_in_at')->limit(5)->pluck('ticket_number'),
+            'time' => now()->toIso8601String(),
         ]);
     }
 

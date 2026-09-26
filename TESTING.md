@@ -180,6 +180,15 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **L6.** Choose **FR · Français** at the top of the page: the public pages, sign-up and the applicant portal switch to French. Press **Tab** once on any page: a **Skip to main content** link appears.
 - [ ] **L7.** Reminders are sent **by e-mail only** (no SMS): the day before a biometrics appointment, and 90, 30 and 7 days before a card expires. To send them now: `php artisan nis:reminders` in the `backend` folder.
 
+### M. Staff operations
+- [ ] **M1.** Sign in as **10003** (issuing officer) → **Centre queue**. Type or scan the reference number from an appointment slip (for example Li Wei's) and click **Check in**: ticket **A001** is issued. Add a **walk-in**: ticket **W001**.
+- [ ] **M2.** Click **Open “now serving” screen** (put it on the waiting-room TV), then **Call next person**: the ticket and desk appear on the screen with a chime. Only ticket numbers are shown, never names. Mark tickets **Served** or **No-show**.
+- [ ] **M3.** **Card stock & printing** → record a delivery of blank cards (on a fresh demo database 500 are already recorded). Cards cannot be printed when the stock is empty.
+- [ ] **M4.** **Residence card register** → **Cards waiting to be printed**, tick several cards → **Print selected**. After printing, record each card as **Printed correctly** or **Spoiled** (with the reason). The stock and the card's **Print log** update.
+- [ ] **M5.** In the **Approval queue**, use **Assigned to me**, **Unassigned** and **Past the service-level target** (10 working days). Each application shows how many working days it has waited.
+- [ ] **M6.** Open an application → **Case work**: assign it to another officer (they get an e-mail) and add an **internal note**. Sign in as the applicant: the note and the assignment are not visible.
+- [ ] **M7.** As **10001**, **Issuance reports** → **Monthly management report** → **Download PDF** and **Download Excel**. Filter the card register (status, nationality), **Save filters**, pick them again from **Saved filters**, and **Export Excel**.
+
 ### I. Sign-out
 - [ ] **I1.** Click **Sign out**, then open http://localhost:3000/staff (or `/portal`). You must sign in again.
 

@@ -35,6 +35,9 @@ type Summary = {
   watchlisted: number;
   paid_awaiting_submission: number;
   todays_appointments: number;
+  sla: { target_working_days: number; overdue: number; assigned_to_me: number };
+  card_stock: { remaining: number; low: boolean };
+  queue_today: Record<string, number>;
   my_activity: { decided: number; captured: number; cards_approved: number };
   analytics: Analytics;
 };
@@ -138,6 +141,10 @@ export default function StaffDashboard() {
           <Tile label="Expiring in 30 days" value={s.cards_expiring_30_days} />
           <Tile label="Expired cards" value={s.cards_expired} href="/staff/cards?expired=1" />
           <Tile label="Watchlisted" value={s.watchlisted} href="/staff/cards?watchlisted=1" tone="red" />
+          <Tile label={`Past ${s.sla.target_working_days}-day target`} value={s.sla.overdue} href="/staff/applications?overdue=1" tone={s.sla.overdue ? "red" : "slate"} />
+          <Tile label="Assigned to me" value={s.sla.assigned_to_me} href="/staff/applications?assigned=me&status=" />
+          <Tile label="Waiting at the centre" value={s.queue_today.WAITING ?? 0} href="/staff/queue" />
+          <Tile label="Blank cards left" value={s.card_stock.remaining} href="/staff/card-stock" tone={s.card_stock.low ? "red" : "slate"} />
         </div>
       </section>
 

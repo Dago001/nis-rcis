@@ -20,6 +20,14 @@ return [
     'fee_naira' => (int) env('RESIDENCE_CARD_FEE_NAIRA', 35000),
     'card_validity_years' => (int) env('CARD_VALIDITY_YEARS', 2),
 
+    // Service-level target: decide an application within this many working
+    // days of submission. Public holidays (YYYY-MM-DD) are not working days.
+    'sla_working_days' => (int) env('SLA_WORKING_DAYS', 10),
+    'public_holidays' => array_filter(explode(',', (string) env('PUBLIC_HOLIDAYS', ''))),
+
+    // Warn when fewer blank cards than this are left in stock.
+    'card_stock_low' => (int) env('CARD_STOCK_LOW', 100),
+
     /*
     | Local testing only: let applicants sign in without clicking the e-mail
     | verification link. On by default when APP_ENV=local; always ignored in

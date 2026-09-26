@@ -59,6 +59,11 @@ class Application extends Model
         return $this->belongsTo(ResidenceCard::class, 'card_id');
     }
 
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
     /** The account holder's own application, when this one is for a spouse or child. */
     public function principal(): BelongsTo
     {

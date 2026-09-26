@@ -30,10 +30,11 @@ class CardController
             'status' => ['nullable', Rule::enum(CardStatus::class)],
             'watchlisted' => ['nullable', 'boolean'],
             'expired' => ['nullable', 'boolean'],
+            'unprinted' => ['nullable', 'boolean'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $query = ResidenceCard::query()->latest('id');
+        $query = ResidenceCard::query()->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])->latest('id');
 
         if (! empty($data['status'])) {
             $query->where('status', $data['status']);
@@ -43,6 +44,11 @@ class CardController
         }
         if (! empty($data['expired'])) {
             $query->where('expires_on', '<', today());
+        }
+        if (! empty($data['unprinted'])) {
+            // Issued cards with no successful print yet: the batch printing list.
+            $query->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])
+                ->whereDoesntHave('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
         }
         if (! empty($data['search'])) {
             $term = strtoupper(trim($data['search']));
@@ -58,7 +64,7 @@ class CardController
 
     public function show(int $id, DocumentStorage $storage): JsonResponse
     {
-        $card = ResidenceCard::with(['renewals', 'application'])->findOrFail($id);
+        $card = ResidenceCard::with(['renewals', 'application', 'printJobs' => fn ($q) => $q->with('printer:id,fullname')->latest('id')])->findOrFail($id);
 
         return response()->json([
             'data' => new CardResource($card),

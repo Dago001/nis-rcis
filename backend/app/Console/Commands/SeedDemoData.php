@@ -9,6 +9,7 @@ use App\Enums\StaffRole;
 use App\Models\Applicant;
 use App\Models\Application;
 use App\Models\ApplicationStatusHistory;
+use App\Models\CardStockBatch;
 use App\Models\EnrollmentCenter;
 use App\Models\Payment;
 use App\Models\ResidenceCard;
@@ -75,6 +76,13 @@ class SeedDemoData extends Command
 
             // 5. Card issued and collected (applicant: renew; public: verify)
             $this->application($applicants['john'], $center, 'UNITED KINGDOM', 'GB9876543', ApplicationStatus::Issued, $staff);
+
+            // Blank card stock for the card printer.
+            CardStockBatch::create([
+                'batch_number' => 'DEMO-2026-001', 'quantity' => 500, 'serial_from' => 'NRC0000001', 'serial_to' => 'NRC0000500',
+                'received_on' => now()->subMonth()->toDateString(), 'notes' => 'Demonstration stock',
+                'received_by' => User::where('service_number', '10001')->value('id') ?? User::query()->value('id'),
+            ]);
         });
 
         $this->info('Demo data loaded.');

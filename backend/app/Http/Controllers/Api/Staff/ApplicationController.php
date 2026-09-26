@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api\Staff;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\DocumentType;
+use App\Enums\StaffRole;
 use App\Http\Resources\ApplicationResource;
 use App\Models\Application;
+use App\Models\ApplicationNote;
 use App\Models\User;
+use App\Notifications\ApplicationAssigned;
 use App\Services\ApplicationSubmission;
 use App\Services\ApplicationWorkflow;
 use App\Services\CardIssuance;
@@ -15,6 +18,7 @@ use App\Services\RiskChecker;
 use App\Support\ApplicationRules;
 use App\Support\Audit;
 use App\Support\Like;
+use App\Support\WorkingDays;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -33,9 +37,22 @@ class ApplicationController
             'search' => ['nullable', 'string', 'max:200'],
             'appointment_date' => ['nullable', 'date'],
             'enrollment_center_id' => ['nullable', 'integer'],
+            'assigned' => ['nullable', Rule::in(['me', 'unassigned'])],
+            'overdue' => ['nullable', 'boolean'],
         ]);
 
-        $query = Application::query()->with('enrollmentCenter')->latest('id');
+        $query = Application::query()->with(['enrollmentCenter', 'assignee:id,fullname,service_number'])->latest('id');
+
+        if (($data['assigned'] ?? null) === 'me') {
+            $query->where('assigned_to', $request->user()->id);
+        } elseif (($data['assigned'] ?? null) === 'unassigned') {
+            $query->whereNull('assigned_to');
+        }
+        if (! empty($data['overdue'])) {
+            // Waiting for a decision longer than the service-level target.
+            $query->where('status', ApplicationStatus::PendingApproval)
+                ->where('submitted_at', '<', WorkingDays::cutoff(config('nis.sla_working_days')));
+        }
 
         if (! empty($data['status'])) {
             $query->where('status', $data['status']);
@@ -61,6 +78,55 @@ class ApplicationController
         return ApplicationResource::collection($query->paginate(25));
     }
 
+    /** Internal notes: visible to staff only, never to the applicant. */
+    public function notes(int $id): JsonResponse
+    {
+        $notes = ApplicationNote::with('author:id,fullname,service_number')->where('application_id', Application::findOrFail($id)->id)->latest('id')->get();
+
+        return response()->json(['data' => $notes->map(fn (ApplicationNote $n) => [
+            'id' => $n->id, 'body' => $n->body, 'at' => $n->created_at?->toIso8601String(),
+            'author' => $n->author ? "{$n->author->fullname} ({$n->author->service_number})" : null,
+        ])]);
+    }
+
+    public function addNote(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+        $application = Application::findOrFail($id);
+        $note = ApplicationNote::create(['application_id' => $application->id, 'user_id' => $request->user()->id, 'body' => $data['body']]);
+        Audit::log('APPLICATION_NOTE_ADDED', "Internal note added to {$application->application_number}", $application);
+
+        return response()->json(['id' => $note->id], 201);
+    }
+
+    /** Assign the application to an officer (or clear the assignment). */
+    public function assign(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['user_id' => ['nullable', 'integer']]);
+        $application = Application::findOrFail($id);
+        $assignee = null;
+        if (! empty($data['user_id'])) {
+            $assignee = User::where('is_active', true)->findOrFail($data['user_id']);
+            abort_unless($assignee->hasRole(StaffRole::ApprovingOfficer, StaffRole::IssuingOfficer), 422, 'Applications can only be assigned to approving or issuing officers.');
+        }
+
+        $application->forceFill(['assigned_to' => $assignee?->id, 'assigned_at' => $assignee ? now() : null])->saveQuietly();
+        Audit::log('APPLICATION_ASSIGNED', $assignee ? "{$application->application_number} assigned to {$assignee->fullname}" : "{$application->application_number} unassigned", $application);
+        if ($assignee && $assignee->id !== $request->user()->id) {
+            $assignee->notify(new ApplicationAssigned($application, $request->user()));
+        }
+
+        return response()->json(['assigned_to' => $assignee?->only(['id', 'fullname', 'service_number'])]);
+    }
+
+    /** Officers an application can be assigned to. */
+    public function assignees(): JsonResponse
+    {
+        return response()->json(['data' => User::where('is_active', true)
+            ->whereIn('role', [StaffRole::ApprovingOfficer, StaffRole::IssuingOfficer, StaffRole::SuperAdmin])
+            ->orderBy('fullname')->get(['id', 'fullname', 'service_number', 'role'])]);
+    }
+
     /** Re-run the fraud and duplicate checks (e.g. after new documents). */
     public function riskCheck(int $id, RiskChecker $checker): JsonResponse
     {
@@ -73,7 +139,7 @@ class ApplicationController
 
     public function show(int $id, DocumentStorage $storage): JsonResponse
     {
-        $application = Application::with(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory', 'payments'])->findOrFail($id);
+        $application = Application::with(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory', 'payments', 'assignee:id,fullname,service_number'])->findOrFail($id);
 
         return response()->json([
             'data' => new ApplicationResource($application),

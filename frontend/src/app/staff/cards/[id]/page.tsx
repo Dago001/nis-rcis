@@ -166,6 +166,19 @@ export default function CardDetailPage() {
         </div>
       </div>
 
+      {c.print_jobs && c.print_jobs.length > 0 && (
+        <Panel title="Print log">
+          <ul className="divide-y divide-slate-100 text-sm">
+            {c.print_jobs.map((j, i) => (
+              <li key={i} className="flex flex-wrap justify-between gap-2 py-2">
+                <span className={j.outcome === "PRINTED" ? "text-nis-primary" : "text-red-700"}>{j.outcome === "PRINTED" ? "Printed" : `Spoiled: ${j.spoil_reason}`}</span>
+                <span className="text-slate-500">{j.printed_by} · {dateTime(j.at)}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       <Panel title="Renewal endorsements">
         <div className="space-y-5">
           {c.renewals?.length ? (

@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\ApplicationStatus;
 use App\Models\Application;
 use App\Models\User;
+use App\Support\WorkingDays;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -31,6 +33,13 @@ class ApplicationResource extends JsonResource
             'payment_status' => $this->payment_status,
             // Fraud/duplicate flags are for officers only, never the applicant.
             'risk_flags' => $this->when($request->user() instanceof User, fn () => $this->risk_flags ?? []),
+            // Internal assignment and the service-level clock are for officers only.
+            'assigned_to' => $this->when($request->user() instanceof User, fn () => $this->relationLoaded('assignee') ? $this->assignee?->only(['id', 'fullname', 'service_number']) : null),
+            'sla' => $this->when($request->user() instanceof User && $this->status === ApplicationStatus::PendingApproval && $this->submitted_at, fn () => [
+                'working_days' => $days = WorkingDays::between($this->submitted_at),
+                'target' => (int) config('nis.sla_working_days'),
+                'overdue' => $days > config('nis.sla_working_days'),
+            ]),
             'submitted_at' => $this->submitted_at,
             'decided_at' => $this->decided_at,
             'decision_notes' => $this->decision_notes,

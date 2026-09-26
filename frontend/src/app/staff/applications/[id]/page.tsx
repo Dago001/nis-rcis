@@ -7,10 +7,11 @@ import { DocumentList, History } from "@/components/DocumentList";
 import { PageTitle } from "@/components/PageTitle";
 import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Alert, Button, Dl, Field, Panel, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
+import { useFetch } from "@/lib/use-fetch";
 
 type Detail = { data: Application; photo_url: string | null; payments: { reference: string; status: string; amount_kobo: number; verified_at: string | null }[] };
 
@@ -63,6 +64,14 @@ export default function StaffApplicationPage() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
+
+      {a.sla && (
+        <Alert tone={a.sla.overdue ? "danger" : "info"}>
+          Waiting <strong>{a.sla.working_days} working day{a.sla.working_days === 1 ? "" : "s"}</strong> since submission. Target: a decision within {a.sla.target} working days{a.sla.overdue ? " — this application is overdue." : "."}
+        </Alert>
+      )}
+
+      <WorkPanel applicationId={a.id} assignedTo={a.assigned_to ?? null} canAssign={hasRole(user, "ApprovingOfficer", "IssuingOfficer")} onChanged={load} />
 
       {a.principal && (
         <Alert tone="info">
@@ -165,5 +174,74 @@ function RiskPanel({ flags, busy, onRecheck }: { flags: RiskFlag[]; busy: boolea
       )}
       <p className="mt-2 text-xs text-slate-500">Warnings are for the officer&apos;s judgement; verify the documents before deciding.</p>
     </section>
+  );
+}
+
+type Note = { id: number; body: string; at: string; author: string | null };
+type Officer = { id: number; fullname: string; service_number: string; role: string };
+
+/** Assignment and internal notes. Notes are for officers only; the applicant never sees them. */
+function WorkPanel({ applicationId, assignedTo, canAssign, onChanged }: { applicationId: number; assignedTo: Application["assigned_to"] | null; canAssign: boolean; onChanged: () => Promise<unknown> }) {
+  const notes = useFetch<{ data: Note[] }>("staff", `applications/${applicationId}/notes`);
+  const officers = useFetch<{ data: Officer[] }>("staff", canAssign ? "assignees" : null);
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel title="Case work (staff only)">
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+        <div className="space-y-2 text-sm">
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Assigned to</div>
+          {canAssign ? (
+            <Select
+              aria-label="Assign to officer"
+              value={assignedTo?.id ?? ""}
+              disabled={busy || !officers.data}
+              onChange={(e) => run(async () => {
+                await api("staff", `applications/${applicationId}/assign`, { method: "POST", json: { user_id: e.target.value ? Number(e.target.value) : null } });
+                await onChanged();
+              })}
+            >
+              <option value="">Nobody</option>
+              {officers.data?.data.map((o) => <option key={o.id} value={o.id}>{o.fullname} ({o.service_number})</option>)}
+            </Select>
+          ) : (
+            <p>{assignedTo ? `${assignedTo.fullname} (${assignedTo.service_number})` : "Nobody"}</p>
+          )}
+          <p className="text-xs text-slate-500">The officer is told by e-mail.</p>
+        </div>
+        <div className="space-y-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Internal notes</div>
+          {error && <Alert tone="danger">{error}</Alert>}
+          <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Visible to NIS staff only — never to the applicant" rows={2} maxLength={2000} aria-label="New internal note" />
+          <Button variant="secondary" disabled={busy || !body.trim()} onClick={() => run(async () => {
+            await api("staff", `applications/${applicationId}/notes`, { method: "POST", json: { body } });
+            setBody("");
+            notes.reload();
+          })}>Add note</Button>
+          <ul className="space-y-2 text-sm">
+            {notes.data?.data.map((n) => (
+              <li key={n.id} className="rounded-lg bg-slate-50 px-3 py-2">
+                <p className="whitespace-pre-wrap">{n.body}</p>
+                <p className="mt-1 text-xs text-slate-500">{n.author} · {dateTime(n.at)}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </Panel>
   );
 }

@@ -15,9 +15,11 @@ use App\Http\Controllers\Api\Staff\ApplicationController as StaffApplications;
 use App\Http\Controllers\Api\Staff\ApprovalController;
 use App\Http\Controllers\Api\Staff\AuditLogController;
 use App\Http\Controllers\Api\Staff\CardController;
+use App\Http\Controllers\Api\Staff\CardStockController;
 use App\Http\Controllers\Api\Staff\DashboardController;
 use App\Http\Controllers\Api\Staff\DataBreachController;
 use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
+use App\Http\Controllers\Api\Staff\QueueController;
 use App\Http\Controllers\Api\Staff\RefundController;
 use App\Http\Controllers\Api\Staff\ReportController;
 use App\Http\Controllers\Api\Staff\UserController;
@@ -44,6 +46,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('public')->group(function () {
         Route::get('enrollment-centers', [PublicController::class, 'centers']);
         Route::get('enrollment-centers/{center}/availability', [PublicController::class, 'availability']);
+        Route::get('enrollment-centers/{center}/queue', [PublicController::class, 'queueDisplay'])->middleware('throttle:120,1');
 
         Route::middleware('throttle:public-lookup')->group(function () {
             Route::get('track', [PublicController::class, 'track']);
@@ -120,6 +123,22 @@ Route::prefix('v1')->group(function () {
         Route::get('applications/{id}/documents/{document}', [StaffApplications::class, 'document'])->whereNumber(['id', 'document']);
         Route::post('applications/{id}/risk-check', [StaffApplications::class, 'riskCheck'])->whereNumber('id');
 
+        // Internal notes (staff only) and assignment
+        Route::get('applications/{id}/notes', [StaffApplications::class, 'notes'])->whereNumber('id');
+        Route::post('applications/{id}/notes', [StaffApplications::class, 'addNote'])->whereNumber('id');
+        Route::get('assignees', [StaffApplications::class, 'assignees']);
+        Route::post('applications/{id}/assign', [StaffApplications::class, 'assign'])
+            ->middleware('role:ApprovingOfficer,IssuingOfficer')->whereNumber('id');
+
+        // Enrollment-centre queue desk
+        Route::middleware('role:ApprovingOfficer,IssuingOfficer')->prefix('queue')->group(function () {
+            Route::get('/', [QueueController::class, 'index']);
+            Route::post('check-in', [QueueController::class, 'checkIn']);
+            Route::post('walk-in', [QueueController::class, 'walkIn']);
+            Route::post('call', [QueueController::class, 'call']);
+            Route::post('{id}/finish', [QueueController::class, 'finish'])->whereNumber('id');
+        });
+
         Route::middleware('role:SuperAdmin')->group(function () {
             Route::post('applications', [StaffApplications::class, 'store']);
             Route::post('applications/{id}/documents', [StaffApplications::class, 'uploadDocument'])->whereNumber('id');
@@ -143,6 +162,10 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('role:ApprovingOfficer,IssuingOfficer')->group(function () {
             Route::get('cards/{id}/print', [CardController::class, 'print'])->whereNumber('id');
+            Route::get('cards/print-batch', [CardStockController::class, 'batch']);
+            Route::post('cards/{id}/print-jobs', [CardStockController::class, 'record'])->whereNumber('id');
+            Route::get('card-stock', [CardStockController::class, 'index']);
+            Route::post('card-stock/batches', [CardStockController::class, 'receive']);
             Route::put('cards/{id}', [CardController::class, 'update'])->whereNumber('id');
             Route::post('cards/{id}/ready-for-collection', [CardController::class, 'readyForCollection'])->whereNumber('id');
             Route::post('cards/{id}/renew', [CardController::class, 'renew'])->whereNumber('id');
@@ -174,6 +197,10 @@ Route::prefix('v1')->group(function () {
         // Reports
         Route::get('reports/summary', [ReportController::class, 'summary']);
         Route::get('reports/export', [ReportController::class, 'export'])->middleware('role:SuperAdmin');
+        Route::get('reports/management', [ReportController::class, 'management'])->middleware('role:SuperAdmin,Auditor');
+        Route::get('reports/filters', [ReportController::class, 'filters']);
+        Route::post('reports/filters', [ReportController::class, 'saveFilter']);
+        Route::delete('reports/filters/{id}', [ReportController::class, 'deleteFilter'])->whereNumber('id');
 
         // Administration
         Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('role:Auditor');

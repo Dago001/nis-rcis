@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 type Variant = "primary" | "secondary" | "danger" | "gold" | "ghost";
 
@@ -35,7 +35,7 @@ export function Field({ label, error, hint, required, children }: { label: strin
 
 const control = "w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20 disabled:bg-slate-100";
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export function Input(props: ComponentProps<"input">) {
   return <input {...props} className={`${control} ${props.className ?? ""}`} />;
 }
 

@@ -98,6 +98,8 @@ export type Application = Particulars & {
   principal?: { id: number; application_number: string; surname: string; forenames: string } | null;
   dependants?: { id: number; application_number: string; surname: string; forenames: string; relationship: "SPOUSE" | "CHILD"; status: ApplicationStatus }[];
   documents?: ApplicationDocument[];
+  assigned_to?: { id: number; fullname: string; service_number: string } | null;
+  sla?: { working_days: number; target: number; overdue: boolean };
   risk_flags?: { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] }[];
   history?: { from: string | null; to: ApplicationStatus; label: string; notes: string | null; at: string }[];
   created_at: string;
@@ -128,6 +130,8 @@ export type Card = Particulars & {
   watchlist_reason: string | null;
   watchlisted_at: string | null;
   approved_at: string | null;
+  printed_count?: number;
+  print_jobs?: { outcome: "PRINTED" | "SPOILED"; spoil_reason: string | null; printed_by: string | null; at: string }[];
   reported_lost_at: string | null;
   lost_report_type: "LOST" | "STOLEN" | null;
   lost_report_details: string | null;

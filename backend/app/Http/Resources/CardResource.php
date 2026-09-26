@@ -42,6 +42,11 @@ class CardResource extends JsonResource
             'lost_report_type' => $this->lost_report_type,
             'lost_report_details' => $this->lost_report_details,
             'police_report_number' => $this->police_report_number,
+            'printed_count' => $this->whenCounted('printed_count'),
+            'print_jobs' => $this->whenLoaded('printJobs', fn () => $this->printJobs->map(fn ($j) => [
+                'outcome' => $j->outcome, 'spoil_reason' => $j->spoil_reason,
+                'printed_by' => $j->printer?->fullname, 'at' => $j->created_at?->toIso8601String(),
+            ])->values()),
             'application_id' => $this->whenLoaded('application', fn () => $this->application?->id),
             'renewals' => $this->whenLoaded('renewals', fn () => $this->renewals->map(fn ($r) => [
                 'renewal_number' => $r->renewal_number,

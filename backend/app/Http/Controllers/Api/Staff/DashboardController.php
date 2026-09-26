@@ -7,8 +7,11 @@ use App\Enums\CardStatus;
 use App\Models\Application;
 use App\Models\ApplicationStatusHistory;
 use App\Models\Payment;
+use App\Models\QueueTicket;
 use App\Models\ResidenceCard;
 use App\Models\User;
+use App\Services\CardProduction;
+use App\Support\WorkingDays;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +51,15 @@ class DashboardController
             'cards_expiring_30_days' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
             'watchlisted' => ResidenceCard::where('is_watchlisted', true)->count(),
             'paid_awaiting_submission' => Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count(),
+            'sla' => [
+                'target_working_days' => (int) config('nis.sla_working_days'),
+                'overdue' => Application::where('status', ApplicationStatus::PendingApproval)
+                    ->where('submitted_at', '<', WorkingDays::cutoff(config('nis.sla_working_days')))->count(),
+                'assigned_to_me' => Application::where('assigned_to', $user->id)
+                    ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued])->count(),
+            ],
+            'card_stock' => app(CardProduction::class)->stock(),
+            'queue_today' => QueueTicket::whereDate('service_date', today())->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')->map(fn ($v) => (int) $v),
             'todays_appointments' => Application::where('status', ApplicationStatus::ApprovedForBiometrics)->whereDate('appointment_date', today())->count(),
             'analytics' => $this->analytics(),
             'my_activity' => [
