@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Application;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,6 +29,8 @@ class ApplicationResource extends JsonResource
             'appointment_time' => $this->appointment_time,
             'fee_amount_naira' => $this->fee_amount_kobo / 100,
             'payment_status' => $this->payment_status,
+            // Fraud/duplicate flags are for officers only, never the applicant.
+            'risk_flags' => $this->when($request->user() instanceof User, fn () => $this->risk_flags ?? []),
             'submitted_at' => $this->submitted_at,
             'decided_at' => $this->decided_at,
             'decision_notes' => $this->decision_notes,

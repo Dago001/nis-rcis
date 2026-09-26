@@ -62,6 +62,8 @@ export default function StaffApplicationPage() {
 
       {error && <Alert tone="danger">{error}</Alert>}
 
+      <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
+
       {canDecide && (
         <Panel title="Decision">
           <div className="space-y-3">
@@ -120,5 +122,30 @@ export default function StaffApplicationPage() {
 
       <Panel title="Workflow history">{a.history && <History history={a.history} />}</Panel>
     </div>
+  );
+}
+
+type RiskFlag = { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] };
+
+/** Fraud and duplicate checks (advisory; they never decide on their own). */
+function RiskPanel({ flags, busy, onRecheck }: { flags: RiskFlag[]; busy: boolean; onRecheck: () => void }) {
+  return (
+    <section className={`rounded-2xl border p-5 ${flags.length ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"}`} aria-label="Fraud and duplicate checks">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[15px] font-medium text-slate-900">{flags.length ? `⚠ ${flags.length} fraud / duplicate warning${flags.length > 1 ? "s" : ""}` : "✓ No fraud or duplicate warnings"}</h2>
+        <Button variant="secondary" disabled={busy} onClick={onRecheck}>Re-run checks</Button>
+      </div>
+      {flags.length > 0 && (
+        <ul className="mt-3 space-y-2 text-sm">
+          {flags.map((f) => (
+            <li key={f.code} className="flex gap-2">
+              <span className={`mt-0.5 shrink-0 rounded px-1.5 text-[11px] font-semibold ${f.severity === "HIGH" ? "bg-nis-red text-white" : "bg-amber-200 text-amber-900"}`}>{f.severity}</span>
+              <span>{f.message}{f.related.length > 0 && <span className="text-slate-600"> Related: {f.related.join(", ")}</span>}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-xs text-slate-500">Warnings are for the officer&apos;s judgement; verify the documents before deciding.</p>
+    </section>
   );
 }

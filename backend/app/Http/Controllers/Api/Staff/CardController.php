@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\Staff;
 use App\Enums\CardStatus;
 use App\Http\Resources\ApplicationResource;
 use App\Http\Resources\CardResource;
+use App\Models\ApprovalRequest;
 use App\Models\ResidenceCard;
 use App\Services\CardIssuance;
 use App\Services\DocumentStorage;
+use App\Services\TwoPersonRule;
 use App\Support\ApplicationRules;
 use App\Support\Like;
 use Illuminate\Http\JsonResponse;
@@ -82,7 +84,7 @@ class CardController
         ]);
     }
 
-    public function update(Request $request, int $id, CardIssuance $issuance): CardResource
+    public function update(Request $request, int $id, TwoPersonRule $rule): JsonResponse
     {
         $request->merge(ApplicationRules::normalise($request->all()));
         $rules = Arr::except(ApplicationRules::particulars(), ['date_of_birth', 'passport_expiry']);
@@ -94,9 +96,14 @@ class CardController
             'postage_stamp_code' => ['sometimes', 'nullable', 'string', 'max:50'],
         ];
 
-        $data = $request->validate($rules);
+        $data = $request->validate([...$rules, 'change_reason' => ['required', 'string', 'max:255']]);
+        $reason = $data['change_reason'];
+        unset($data['change_reason']);
+        abort_if($data === [], 422, 'No changes to request.');
+        $card = ResidenceCard::findOrFail($id);
+        abort_unless(in_array($card->status, [CardStatus::Approved, CardStatus::Queried], true), 422, 'Only cards that are not yet issued can be corrected.');
 
-        return new CardResource($issuance->update(ResidenceCard::findOrFail($id), $request->user(), $data));
+        return $this->pending($rule->request(ApprovalRequest::UPDATE, $card, $request->user(), $reason, $data));
     }
 
     public function decide(Request $request, int $id, CardIssuance $issuance): CardResource
@@ -135,16 +142,35 @@ class CardController
         return new CardResource($issuance->renew(ResidenceCard::findOrFail($id), $request->user(), $data)->load('renewals'));
     }
 
-    public function revoke(Request $request, int $id, CardIssuance $issuance): CardResource
+    /** Two-person rule: creates a request a second officer must approve. */
+    public function revoke(Request $request, int $id, TwoPersonRule $rule): JsonResponse
     {
         $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
+        $card = ResidenceCard::findOrFail($id);
+        abort_if($card->status === CardStatus::Revoked, 422, 'This card is already revoked.');
+        $approval = $rule->request(ApprovalRequest::REVOKE, $card, $request->user(), $data['reason']);
 
-        return new CardResource($issuance->revoke(ResidenceCard::findOrFail($id), $request->user(), $data['reason']));
+        return $this->pending($approval);
     }
 
-    public function reinstate(Request $request, int $id, CardIssuance $issuance): CardResource
+    /** Two-person rule: creates a request a second Super Administrator must approve. */
+    public function reinstate(Request $request, int $id, TwoPersonRule $rule): JsonResponse
     {
-        return new CardResource($issuance->reinstate(ResidenceCard::findOrFail($id), $request->user()));
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
+        $card = ResidenceCard::findOrFail($id);
+        abort_unless($card->status === CardStatus::Revoked, 422, 'Only a revoked card can be reinstated.');
+        $approval = $rule->request(ApprovalRequest::REINSTATE, $card, $request->user(), $data['reason']);
+
+        return $this->pending($approval);
+    }
+
+    private function pending(ApprovalRequest $approval): JsonResponse
+    {
+        return response()->json([
+            'message' => "{$approval->label()} requested. A second officer must approve it before it takes effect (two-person rule).",
+            'approval_request_id' => $approval->id,
+            'status' => 'PENDING',
+        ], 202);
     }
 
     public function watchlist(Request $request, int $id, CardIssuance $issuance): CardResource

@@ -11,7 +11,9 @@ use App\Services\ApplicationSubmission;
 use App\Services\ApplicationWorkflow;
 use App\Services\CardIssuance;
 use App\Services\DocumentStorage;
+use App\Services\RiskChecker;
 use App\Support\ApplicationRules;
+use App\Support\Audit;
 use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +59,16 @@ class ApplicationController
         }
 
         return ApplicationResource::collection($query->paginate(25));
+    }
+
+    /** Re-run the fraud and duplicate checks (e.g. after new documents). */
+    public function riskCheck(int $id, RiskChecker $checker): JsonResponse
+    {
+        $application = Application::findOrFail($id);
+        $flags = $checker->check($application);
+        Audit::log('APPLICATION_RISK_CHECK', "Fraud and duplicate checks re-run on {$application->application_number}", $application, ['flags' => count($flags)]);
+
+        return response()->json(['risk_flags' => $flags, 'checked_at' => $application->risk_checked_at]);
     }
 
     public function show(int $id, DocumentStorage $storage): JsonResponse

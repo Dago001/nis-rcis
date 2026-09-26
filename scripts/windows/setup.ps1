@@ -176,6 +176,7 @@ Write-Ok 'backend\.env written (local settings)'
 
 if (-not (Read-EnvFile $backendEnvPath)['APP_KEY']) { Invoke-Native 'php' @('artisan', 'key:generate', '--force') $Backend }
 if (-not (Test-Path (Join-Path $Backend 'storage\oauth-private.key'))) { Invoke-Native 'php' @('artisan', 'passport:keys') $Backend }
+Push-Location $Backend; Set-BackupSettings $backendEnvPath; Pop-Location
 Invoke-Native 'php' @('artisan', 'config:clear') $Backend
 
 if ($Reset) {

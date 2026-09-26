@@ -59,7 +59,7 @@ function paidReference(): string
 it('registers an applicant and only verifies through the e-mailed signed link', function () {
     Notification::fake();
 
-    $this->postJson('/api/v1/applicant/register', [
+    $this->postJson('/api/v1/applicant/register', ['privacy_consent' => true,
         'surname' => 'Okafor', 'forenames' => 'Jean', 'email' => 'JP@example.com', 'phone' => '+2348022222222',
         'password' => 'Sufficiently-long-9', 'password_confirmation' => 'Sufficiently-long-9',
     ])->assertAccepted()->assertJsonMissingPath('token');
@@ -69,7 +69,7 @@ it('registers an applicant and only verifies through the e-mailed signed link', 
     Notification::assertSentTo($applicant, VerifyApplicantEmail::class);
 
     // Registering the same address again reveals nothing.
-    $this->postJson('/api/v1/applicant/register', [
+    $this->postJson('/api/v1/applicant/register', ['privacy_consent' => true,
         'surname' => 'X', 'forenames' => 'Y', 'email' => 'jp@example.com', 'phone' => '+2348022222222',
         'password' => 'Sufficiently-long-9', 'password_confirmation' => 'Sufficiently-long-9',
     ])->assertAccepted();
@@ -258,11 +258,23 @@ it('enforces card security roles and keeps watchlist reasons from the public', f
 
     asStaff($approver);
     $this->postJson("/api/v1/staff/cards/{$card->id}/watchlist", ['watchlisted' => true, 'reason' => 'Interpol notice'])->assertOk();
-    $this->postJson("/api/v1/staff/cards/{$card->id}/revoke", ['reason' => 'Fraudulent documents'])->assertOk()->assertJsonPath('data.status', 'REVOKED');
-    $this->postJson("/api/v1/staff/cards/{$card->id}/reinstate")->assertForbidden();
+
+    // Two-person rule: the revocation waits for a second officer.
+    $requestId = $this->postJson("/api/v1/staff/cards/{$card->id}/revoke", ['reason' => 'Fraudulent documents'])
+        ->assertStatus(202)->json('approval_request_id');
+    expect($card->fresh()->status->value)->toBe('ISSUED');
+    $this->postJson("/api/v1/staff/approvals/{$requestId}/approve")->assertForbidden(); // not your own request
+    $this->postJson("/api/v1/staff/cards/{$card->id}/reinstate", ['reason' => 'x'])->assertForbidden();
 
     asStaff($admin);
-    $this->postJson("/api/v1/staff/cards/{$card->id}/reinstate")->assertOk()->assertJsonPath('data.status', 'ISSUED');
+    $this->postJson("/api/v1/staff/approvals/{$requestId}/approve")->assertOk()->assertJsonPath('data.status', 'APPROVED');
+    expect($card->fresh()->status->value)->toBe('REVOKED');
+
+    $reinstate = $this->postJson("/api/v1/staff/cards/{$card->id}/reinstate", ['reason' => 'Documents verified genuine'])->assertStatus(202)->json('approval_request_id');
+    asStaff($approver);
+    $this->getJson('/api/v1/staff/approvals')->assertOk()->assertJsonPath('data.0.can_decide', true);
+    $this->postJson("/api/v1/staff/approvals/{$reinstate}/approve")->assertOk();
+    expect($card->fresh()->status->value)->toBe('ISSUED');
 
     $this->app['auth']->forgetGuards();
     $this->getJson("/api/v1/public/verify-card?card_number={$card->card_number}&passport_number={$card->passport_number}")
@@ -336,7 +348,7 @@ it('builds e-mail links from APP_URL even when called on an internal host', func
     config(['app.url' => 'https://api.rcis.example']);
     URL::forceRootUrl('https://api.rcis.example');
 
-    $this->withServerVariables(['HTTP_HOST' => '127.0.0.1:8000'])->postJson('/api/v1/applicant/register', [
+    $this->withServerVariables(['HTTP_HOST' => '127.0.0.1:8000'])->postJson('/api/v1/applicant/register', ['privacy_consent' => true,
         'surname' => 'A', 'forenames' => 'B', 'email' => 'ab@example.com', 'phone' => '+2348022222222',
         'password' => 'Sufficiently-long-9', 'password_confirmation' => 'Sufficiently-long-9',
     ])->assertAccepted();

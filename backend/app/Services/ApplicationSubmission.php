@@ -43,7 +43,7 @@ class ApplicationSubmission
         $this->assertNoOpenApplication($applicant, $data['passport_number']);
         $renewalCard = $data['type'] === 'RENEWAL' ? $this->claimRenewalCard($applicant, $data) : null;
 
-        return DB::transaction(function () use ($applicant, $data, $draft, $documents, $renewalCard) {
+        return $this->screen(DB::transaction(function () use ($applicant, $data, $draft, $documents, $renewalCard) {
             $payment = Payment::where('reference', $data['payment_reference'])->lockForUpdate()->first();
 
             if (! $payment || $payment->applicant_id !== $applicant->id || ! $payment->isSuccessful()) {
@@ -70,17 +70,25 @@ class ApplicationSubmission
             $this->workflow->recordSubmission($application, $applicant);
 
             return $application;
-        });
+        }));
+    }
+
+    /** Fraud and duplicate checks, run after the application is saved. */
+    private function screen(Application $application): Application
+    {
+        app(RiskChecker::class)->check($application);
+
+        return $application;
     }
 
     public function submitAssisted(User $officer, array $data): Application
     {
-        return DB::transaction(function () use ($officer, $data) {
+        return $this->screen(DB::transaction(function () use ($officer, $data) {
             $application = $this->create($data, 'ASSISTED', null, $officer, null, $data['payment_status']);
             $this->workflow->recordSubmission($application, $officer);
 
             return $application;
-        });
+        }));
     }
 
     public function feeKobo(): int

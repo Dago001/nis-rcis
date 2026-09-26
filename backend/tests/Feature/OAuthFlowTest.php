@@ -4,10 +4,12 @@ use App\Enums\StaffRole;
 use App\Models\Applicant;
 use App\Models\User;
 use App\Support\OAuthClients;
+use App\Support\Totp;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use Laravel\Passport\Passport;
 
 /**
  * Drives the real OAuth2 authorization-code + PKCE flow end to end, exactly
@@ -99,7 +101,7 @@ it('runs the applicant authorization code + PKCE flow and calls the API', functi
     $this->withToken($refreshed['access_token'])->getJson('/api/v1/applicant/me')->assertUnauthorized();
 });
 
-it('runs the staff flow, forcing a temporary password change first', function () {
+it('runs the staff flow: password, authenticator set-up, then a forced password change', function () {
     $redirect = 'http://portal.test/api/auth/callback/staff';
     [$client, $secret] = OAuthClients::staffConsole($redirect);
     User::factory()->role(StaffRole::ApprovingOfficer)->create([
@@ -110,7 +112,18 @@ it('runs the staff flow, forcing a temporary password change first', function ()
 
     $this->get($url)->assertRedirect(route('login.staff'));
     $this->post('/login/staff', ['identifier' => '24820', 'password' => 'Temporary-Pass-1'])
+        ->assertRedirect(route('login.staff.two-factor'));
+
+    // Not signed in yet: the authenticator step comes first.
+    $this->get($url)->assertRedirect(route('login.staff'));
+
+    // First sign-in: set up the authenticator app from the QR code.
+    $this->get(route('login.staff.two-factor'))->assertOk()->assertSee('Set up your authenticator app');
+    $totpSecret = session('staff_2fa_secret');
+    $this->post('/login/staff/two-factor', ['code' => '000000'])->assertSessionHasErrors('code');
+    $this->post('/login/staff/two-factor', ['code' => Totp::code($totpSecret)])
         ->assertRedirect(route('password.change'));
+    expect(User::where('service_number', '24820')->first()->hasTwoFactor())->toBeTrue();
 
     // Cannot obtain a code until the password is changed.
     $this->get($url)->assertRedirect(route('password.change'));
@@ -162,6 +175,39 @@ it('blocks unverified applicants and deactivated staff at login', function () {
     User::factory()->create(['service_number' => '11111', 'is_active' => false]);
     $this->post('/login/staff', ['identifier' => '11111', 'password' => 'Correct-Horse-9-Battery!'])
         ->assertSessionHasErrors('identifier');
+});
+
+it('requires a fresh authenticator code on every staff sign-in and refuses replayed codes', function () {
+    $secret = Totp::generateSecret();
+    $user = User::factory()->create(['service_number' => '22222', 'two_factor_secret' => $secret, 'two_factor_confirmed_at' => now()]);
+
+    $this->post('/login/staff', ['identifier' => '22222', 'password' => 'Correct-Horse-9-Battery!'])
+        ->assertRedirect(route('login.staff.two-factor'));
+    $this->get(route('login.staff.two-factor'))->assertOk()->assertSee('Enter your authenticator code')->assertDontSee($secret);
+
+    $code = Totp::code($secret);
+    $this->post('/login/staff/two-factor', ['code' => $code])->assertRedirect();
+    $this->assertAuthenticatedAs($user, 'staff');
+
+    // The same code cannot be used again.
+    auth('staff')->logout();
+    $this->post('/login/staff', ['identifier' => '22222', 'password' => 'Correct-Horse-9-Battery!']);
+    $this->post('/login/staff/two-factor', ['code' => $code])->assertSessionHasErrors('code');
+    $this->assertGuest('staff');
+});
+
+it('lets a Super Administrator reset an officer\'s authenticator and sign them out, but not their own', function () {
+    $admin = User::factory()->role(StaffRole::SuperAdmin)->create();
+    $officer = User::factory()->role(StaffRole::IssuingOfficer)->create(['two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => now()]);
+    Passport::actingAs($admin, ['staff'], 'api');
+
+    $this->postJson("/api/v1/staff/users/{$officer->id}/reset-two-factor")->assertOk();
+    expect($officer->fresh()->hasTwoFactor())->toBeFalse();
+    $this->postJson("/api/v1/staff/users/{$officer->id}/revoke-sessions")->assertOk();
+    $this->postJson("/api/v1/staff/users/{$admin->id}/reset-two-factor")->assertUnprocessable();
+
+    Passport::actingAs($officer, ['staff'], 'api');
+    $this->postJson("/api/v1/staff/users/{$admin->id}/reset-two-factor")->assertForbidden();
 });
 
 it('issues client_credentials tokens to partners for card verification only', function () {

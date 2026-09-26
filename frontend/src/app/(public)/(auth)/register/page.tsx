@@ -19,7 +19,7 @@ async function post(path: string, body: unknown) {
   return data as { message: string };
 }
 
-type Values = { surname: string; forenames: string; email: string; phone: string; password: string; password_confirmation: string };
+type Values = { surname: string; forenames: string; email: string; phone: string; password: string; password_confirmation: string; privacy_consent: string };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -36,6 +36,7 @@ function check(values: Values, resend: boolean): Record<string, string> {
     if (values.password.length < 6) e.password = "Use at least 6 characters.";
     else if (!/[A-Za-z]/.test(values.password) || !/[0-9]/.test(values.password)) e.password = "Use both letters and numbers.";
     if (values.password_confirmation !== values.password) e.password_confirmation = "The passwords do not match.";
+    if (values.privacy_consent !== "1") e.privacy_consent = "Please read and accept the privacy notice.";
   }
   if (!EMAIL_PATTERN.test(values.email.trim())) e.email = "Enter a valid e-mail address.";
   return e;
@@ -43,7 +44,7 @@ function check(values: Values, resend: boolean): Record<string, string> {
 
 function RegisterForm() {
   const resend = useSearchParams().get("resend") === "1";
-  const [values, setValues] = useState<Values>({ surname: "", forenames: "", email: "", phone: "", password: "", password_confirmation: "" });
+  const [values, setValues] = useState<Values>({ surname: "", forenames: "", email: "", phone: "", password: "", password_confirmation: "", privacy_consent: "" });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -59,12 +60,12 @@ function RegisterForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setTouched({ surname: true, forenames: true, email: true, phone: true, password: true, password_confirmation: true });
+    setTouched({ surname: true, forenames: true, email: true, phone: true, password: true, password_confirmation: true, privacy_consent: true });
     if (Object.keys(clientErrors).length) return;
     setBusy(true);
     setServerErrors({});
     try {
-      const body = resend ? { email: values.email.trim() } : { ...values, surname: values.surname.trim(), forenames: values.forenames.trim(), email: values.email.trim() };
+      const body = resend ? { email: values.email.trim() } : { ...values, privacy_consent: values.privacy_consent === "1", surname: values.surname.trim(), forenames: values.forenames.trim(), email: values.email.trim() };
       const result = await post(resend ? "email/resend" : "register", body);
       setMessage(result.message);
     } catch (e) {
@@ -115,6 +116,21 @@ function RegisterForm() {
           <Field label="Confirm password" required error={errorFor("password_confirmation")}>
             <PasswordInput value={values.password_confirmation} onChange={(e) => set("password_confirmation", e.target.value)} onBlur={touch("password_confirmation")} autoComplete="new-password" />
           </Field>
+          <div>
+            <label className="flex items-start gap-2.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={values.privacy_consent === "1"}
+                onChange={(e) => {
+                  set("privacy_consent", e.target.checked ? "1" : "");
+                  setTouched((t) => ({ ...t, privacy_consent: true }));
+                }}
+              />
+              <span>I have read the <Link href="/privacy" target="_blank" className="text-nis-primary underline">privacy notice</Link> and agree to the Nigeria Immigration Service processing my personal data for my residence card application.</span>
+            </label>
+            {errorFor("privacy_consent") && <span className="mt-1 block text-xs text-red-700">{errorFor("privacy_consent")}</span>}
+          </div>
         </>
       )}
       <Button type="submit" disabled={busy} className="w-full">{busy ? "Please wait…" : resend ? "Resend verification e-mail" : "Create account"}</Button>

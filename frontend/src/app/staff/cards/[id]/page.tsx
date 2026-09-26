@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PageTitle } from "@/components/PageTitle";
 import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Alert, Button, Dl, Field, Input, Panel, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, Dl, Field, Input, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { nisDate } from "@/lib/format";
 import type { Card } from "@/lib/types";
@@ -137,16 +137,20 @@ export default function CardDetailPage() {
                   ) : (
                     <Button variant="gold" disabled={busy || !reason.trim()} onClick={() => act("watchlist", { watchlisted: true, reason }, "Card watchlisted.")}>Watchlist</Button>
                   )}
-                  <Button variant="danger" disabled={busy || !reason.trim()} onClick={() => confirm("Revoke this card?") && act("revoke", { reason }, "Card revoked.")}>Revoke</Button>
+                  <Button variant="danger" disabled={busy || !reason.trim()} onClick={() => confirm("Request revocation of this card? A second officer must approve it.") && act("revoke", { reason }, "Revocation requested. It takes effect when a second officer approves it under Approvals.")}>Request revocation</Button>
                 </div>
               </div>
             </Panel>
           )}
           {c.status === "REVOKED" && hasRole(user, "SuperAdmin") && (
             <Panel title="Reinstate">
-              <Button disabled={busy} onClick={() => act("reinstate", {}, "Card reinstated.")}>Reinstate card</Button>
+              <div className="space-y-3">
+                <Field label="Reason for reinstatement"><Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} /></Field>
+                <Button disabled={busy || !reason.trim()} onClick={() => act("reinstate", { reason }, "Reinstatement requested. It takes effect when a second officer approves it under Approvals.")}>Request reinstatement</Button>
+              </div>
             </Panel>
           )}
+          {(c.status === "APPROVED" || c.status === "QUERIED") && hasRole(user, "ApprovingOfficer", "IssuingOfficer") && <CorrectionPanel cardId={c.id} onDone={(m) => { setNotice(m); void load(); }} />}
         </div>
       </div>
 
@@ -181,5 +185,47 @@ export default function CardDetailPage() {
         </div>
       </Panel>
     </div>
+  );
+}
+
+const CORRECTABLE: [string, string][] = [
+  ["surname", "Surname"], ["forenames", "Other names"], ["place_of_birth", "Place of birth"], ["profession", "Profession"],
+  ["domicile", "Address in Nigeria"], ["passport_number", "Passport number"], ["height", "Height"], ["complexion", "Complexion"],
+];
+
+/** Request a correction to a card not yet issued; a second officer approves it (two-person rule). */
+function CorrectionPanel({ cardId, onDone }: { cardId: number; onDone: (message: string) => void }) {
+  const [field, setField] = useState("surname");
+  const [value, setValue] = useState("");
+  const [why, setWhy] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ message: string }>("staff", `cards/${cardId}`, { method: "PUT", json: { [field]: value.toUpperCase(), change_reason: why } });
+      setValue("");
+      setWhy("");
+      onDone(r.message);
+    } catch (e) {
+      setError(e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel title="Request a correction">
+      <div className="space-y-3">
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Field label="Field"><Select value={field} onChange={(e) => setField(e.target.value)}>{CORRECTABLE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
+        <Field label="Correct value"><Input value={value} onChange={(e) => setValue(e.target.value)} /></Field>
+        <Field label="Reason"><Textarea value={why} onChange={(e) => setWhy(e.target.value)} rows={2} /></Field>
+        <Button variant="secondary" disabled={busy || !value.trim() || !why.trim()} onClick={submit}>Request correction</Button>
+        <p className="text-xs text-slate-500">A second officer must approve the correction before it is applied.</p>
+      </div>
+    </Panel>
   );
 }

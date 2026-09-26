@@ -21,7 +21,7 @@ class User extends Authenticatable implements OAuthenticatable
         'role', 'command', 'is_active', 'must_change_password', 'photo_path',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'two_factor_secret', 'two_factor_last_step'];
 
     protected function casts(): array
     {
@@ -31,6 +31,8 @@ class User extends Authenticatable implements OAuthenticatable
             'is_active' => 'boolean',
             'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -38,6 +40,11 @@ class User extends Authenticatable implements OAuthenticatable
     public function hasRole(StaffRole ...$roles): bool
     {
         return $this->role === StaffRole::SuperAdmin || in_array($this->role, $roles, true);
+    }
+
+    public function hasTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
     }
 
     public function auditLabel(): string

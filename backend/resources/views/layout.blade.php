@@ -41,6 +41,9 @@
         .panel { position:relative; z-index:1; width:100%; max-width:460px; background:#fff; border-radius:16px; padding:36px 36px 28px;
                  box-shadow:0 25px 50px -12px rgba(0,0,0,.45); }
         .site-footer { padding:18px 16px; text-align:center; font-size:.875rem; color:#475569; background:#fff; border-top:1px solid var(--line); }
+        .qr { display:flex; justify-content:center; margin:6px 0 10px; }
+        .qr svg { width:200px; height:200px; }
+        code.secret { display:inline-block; margin-top:6px; padding:6px 10px; background:var(--mint); border-radius:6px; font-size:.95rem; letter-spacing:.08em; word-break:break-all; }
         .pw { position:relative; }
         .pw input { padding-right:48px; }
         .pw .eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:38px; height:38px; margin:0; padding:0;

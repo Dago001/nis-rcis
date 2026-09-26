@@ -45,6 +45,7 @@ export function PublicFooter() {
               <li><Link href="/about" className="hover:text-nis-primary">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-nis-primary">Contact</Link></li>
               <li><Link href="/faq" className="hover:text-nis-primary">FAQs</Link></li>
+              <li><Link href="/privacy" className="hover:text-nis-primary">Privacy notice</Link></li>
               <li><Link href="/staff" className="hover:text-nis-primary">NIS staff sign in</Link></li>
             </ul>
           </div>

@@ -95,6 +95,7 @@ export type Application = Particulars & {
   card?: { id: number; card_number: string; booklet_number: string; expires_on: string } | null;
   renewal_of_card_number?: string | null;
   documents?: ApplicationDocument[];
+  risk_flags?: { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] }[];
   history?: { from: string | null; to: ApplicationStatus; label: string; notes: string | null; at: string }[];
   created_at: string;
 };
@@ -151,6 +152,7 @@ export type StaffUser = {
   must_change_password?: boolean;
   last_login_at?: string | null;
   unread_notifications?: number;
+  two_factor_enabled?: boolean;
 };
 
 export type Paginated<T> = {

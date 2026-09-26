@@ -15,6 +15,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<StaffUser[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [secret, setSecret] = useState<{ who: string; password: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => api<{ data: StaffUser[] }>("staff", "users").then((r) => setUsers(r.data)), []);
   useEffect(() => {
@@ -46,9 +47,35 @@ export default function UsersPage() {
     setSecret({ who: user.fullname, password: r.temporary_password });
   }
 
+  async function resetTwoFactor(user: StaffUser) {
+    if (!confirm(`Reset the authenticator app for ${user.fullname}? They will be signed out and must set it up again at their next sign-in.`)) return;
+    const r = await api<{ message: string }>("staff", `users/${user.id}/reset-two-factor`, { method: "POST" });
+    setNotice(`${user.fullname}: ${r.message}`);
+    await load();
+  }
+
+  async function signOut(user: StaffUser) {
+    if (!confirm(`Sign ${user.fullname} out of every session now?`)) return;
+    const r = await api<{ message: string }>("staff", `users/${user.id}/revoke-sessions`, { method: "POST" });
+    setNotice(`${user.fullname}: ${r.message}`);
+  }
+
+  async function changeRole(user: StaffUser, role: string) {
+    if (role === user.role) return;
+    const label = ROLES.find(([v]) => v === role)?.[1];
+    if (!confirm(`Change ${user.fullname}'s role to ${label}? They will be signed out so the new permissions apply immediately.`)) {
+      await load();
+      return;
+    }
+    await api("staff", `users/${user.id}`, { method: "PATCH", json: { role } });
+    setNotice(`${user.fullname} is now ${label}.`);
+    await load();
+  }
+
   return (
     <div className="space-y-6">
-      <PageTitle title="Staff accounts" />
+      <PageTitle title="Staff accounts" subtitle="Create officers, change or revoke roles, reset passwords and authenticator apps, and sign officers out." />
+      {notice && <Alert tone="success">{notice}</Alert>}
       {secret && (
         <Alert tone="warning">
           Temporary password for <strong>{secret.who}</strong>: <code className="rounded bg-white px-2 py-0.5 font-mono">{secret.password}</code>
@@ -69,18 +96,29 @@ export default function UsersPage() {
       {!users ? <Spinner /> : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Officer</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Command</th><th className="px-4 py-3">Last sign-in</th><th className="px-4 py-3" /></tr></thead>
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Officer</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Authenticator</th><th className="px-4 py-3">Command</th><th className="px-4 py-3">Last sign-in</th><th className="px-4 py-3" /></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {users.map((u) => (
                 <tr key={u.id} className={u.is_active ? "" : "opacity-50"}>
                   <td className="px-4 py-2.5"><div className="font-medium">{u.fullname}</div><div className="text-xs text-slate-500">{u.service_number} · {u.username}</div></td>
-                  <td className="px-4 py-2.5">{ROLES.find(([v]) => v === u.role)?.[1]}</td>
+                  <td className="px-4 py-2.5">
+                    {u.id === me.id ? (
+                      ROLES.find(([v]) => v === u.role)?.[1]
+                    ) : (
+                      <Select aria-label={`Role of ${u.fullname}`} value={u.role} onChange={(e) => void changeRole(u, e.target.value)} className="!w-48 !py-1.5">
+                        {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </Select>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5">{u.two_factor_enabled ? <span className="text-nis-primary">✓ Set up</span> : <span className="text-nis-orange">Not set up</span>}</td>
                   <td className="px-4 py-2.5">{u.command}</td>
                   <td className="px-4 py-2.5">{dateTime(u.last_login_at)}</td>
                   <td className="space-x-3 whitespace-nowrap px-4 py-2.5 text-right">
                     {u.id !== me.id && (
                       <>
-                        <button className="text-nis-green underline" onClick={() => reset(u)}>Reset password</button>
+                        <button className="text-nis-primary underline" onClick={() => reset(u)}>Reset password</button>
+                        {u.two_factor_enabled && <button className="text-nis-primary underline" onClick={() => resetTwoFactor(u)}>Reset authenticator</button>}
+                        <button className="text-nis-primary underline" onClick={() => signOut(u)}>Sign out everywhere</button>
                         <button className="text-red-700 underline" onClick={() => toggle(u)}>{u.is_active ? "Deactivate" : "Activate"}</button>
                       </>
                     )}

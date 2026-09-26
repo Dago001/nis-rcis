@@ -67,6 +67,9 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(20)->by($request->ip()),
         ]);
 
+        // Authenticator codes: 5 tries a minute per pending sign-in.
+        RateLimiter::for('two-factor', fn (Request $request) => Limit::perMinute(5)->by('2fa|'.($request->session()->get('staff_2fa')['id'] ?? $request->ip())));
+
         RateLimiter::for('oauth-token', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         // Public, unauthenticated lookups (tracking, card verification)

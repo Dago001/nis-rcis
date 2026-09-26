@@ -66,6 +66,8 @@ If the application is running, close the two server windows first, then run `sta
 
 Sign in with the **service number** (or the username).
 
+**Two-factor sign-in:** staff accounts need a 6-digit code from an authenticator app. Install **Google Authenticator** or **Microsoft Authenticator** on your phone. The first time each officer signs in, a QR code is shown: scan it, then type the code. After that, every sign-in asks for the current code. If a phone is lost, **10001** (Super Administrator) can click **Reset authenticator** under **Staff accounts**; or on the server run `php artisan nis:staff-reset-2fa 10002`.
+
 | Service no. | Username | Role | Can do |
 |---|---|---|---|
 | 10001 | demo.admin | Super Administrator | Everything, including staff accounts, assisted applications, reinstating cards and CSV export |
@@ -159,6 +161,15 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **J5.** Type *"List all applicants"*: it refuses; it never reveals other people's records.
 - [ ] **J6.** *(Optional)* To use Claude for more natural answers, put your key in `backend\.env` as `ANTHROPIC_API_KEY=...` and restart `start.bat`. Without a key the assistant uses its built-in answers.
 - [ ] **J7.** In a new application's documents step, try uploading a PDF that contains JavaScript, or a text file renamed to `.jpg`: the upload is refused.
+
+### K. Security and data protection
+- [ ] **K1.** Sign in as **10002**: after the password you set up the authenticator (first time) or enter its code.
+- [ ] **K2.** As **10001**, open **Staff accounts**: change an officer's role, **Reset authenticator**, **Sign out everywhere**, **Deactivate**.
+- [ ] **K3.** As **10002**, open card **389109** and click **Request revocation** with a reason. The card stays valid. Sign in as **10001** → **Approvals** → **Approve**: now it is revoked. (You cannot approve your own request.)
+- [ ] **K4.** Open any application in the approval queue: the **fraud / duplicate** panel shows warnings (for example the same passport or photo on another account). Click **Re-run checks**.
+- [ ] **K5.** Register a new applicant: you must tick the **privacy notice** box. In the portal, click **Download my data**.
+- [ ] **K6.** As **10001**, open **Data breach register** and record a test breach; the 72-hour NDPC deadline is shown.
+- [ ] **K7.** Close the server windows and double-click **`backup.bat`**: an encrypted backup is written to `backend\storage\backups` and checked. Keep a copy of `BACKUP_KEY` from `backend\.env` somewhere safe.
 
 ### I. Sign-out
 - [ ] **I1.** Click **Sign out**, then open http://localhost:3000/staff (or `/portal`). You must sign in again.

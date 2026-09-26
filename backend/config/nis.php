@@ -56,6 +56,36 @@ return [
     ],
 
     /*
+    | Nigeria Data Protection Act 2023: privacy notice version shown at
+    | registration, and how long personal data is kept (days).
+    */
+    'privacy_policy_version' => '2026-09',
+    'retention' => [
+        'abandoned_drafts_days' => (int) env('RETENTION_DRAFT_DAYS', 90),
+        'unverified_accounts_days' => (int) env('RETENTION_UNVERIFIED_DAYS', 30),
+        'rejected_documents_days' => (int) env('RETENTION_REJECTED_DOCS_DAYS', 730),
+        'unpaid_payments_days' => (int) env('RETENTION_UNPAID_PAYMENT_DAYS', 30),
+    ],
+
+    /*
+    | Encrypted backups (php artisan nis:backup). BACKUP_KEY is a separate
+    | base64 key (php artisan nis:backup --generate-key); keep a copy of it
+    | somewhere safe: backups cannot be restored without it.
+    */
+    'backup' => [
+        'key' => env('BACKUP_KEY'),
+        'path' => env('BACKUP_PATH', storage_path('backups')),
+        'keep' => (int) env('BACKUP_KEEP', 14),
+        'pg_dump' => env('PG_DUMP_PATH', 'pg_dump'),
+    ],
+
+    /*
+    | Staff two-factor sign-in (authenticator app codes). Always required in
+    | production; STAFF_TWO_FACTOR=false only disables it for local testing.
+    */
+    'staff_two_factor' => (bool) env('STAFF_TWO_FACTOR', true),
+
+    /*
     | Chat assistant. Without an API key it answers from the built-in
     | knowledge base only. The key never leaves the backend.
     */

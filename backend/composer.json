@@ -8,10 +8,14 @@
     "require": {
         "php": "^8.3",
         "anthropic-ai/sdk": "^0.51.0",
+        "bacon/bacon-qr-code": "^3.0",
+        "dompdf/dompdf": "^3.1",
         "laravel/framework": "^13.17",
         "laravel/passport": "^13.0",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.35",
+        "minishlink/web-push": "^11.0",
+        "openspout/openspout": "^5.12",
         "predis/predis": "^3.6"
     },
     "require-dev": {

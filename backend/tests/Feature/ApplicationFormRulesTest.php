@@ -18,12 +18,12 @@ it('has all 36 states plus the FCT and 774 local government areas', function () 
 });
 
 it('validates names as letters and phones as digits at registration, with 6-character passwords', function () {
-    $this->postJson('/api/v1/applicant/register', [
+    $this->postJson('/api/v1/applicant/register', ['privacy_consent' => true,
         'surname' => 'Doe1', 'forenames' => 'Jane<script>', 'email' => 'jane@example.com', 'phone' => '0803-abc',
         'password' => 'Nis2026x', 'password_confirmation' => 'Nis2026x',
     ])->assertUnprocessable()->assertJsonValidationErrors(['surname', 'forenames', 'phone']);
 
-    $this->postJson('/api/v1/applicant/register', [
+    $this->postJson('/api/v1/applicant/register', ['privacy_consent' => true,
         'surname' => "O'Neil-Smith", 'forenames' => 'Zoë Anne', 'email' => 'jane@example.com', 'phone' => '+2348031234567',
         'password' => 'Nis26x', 'password_confirmation' => 'Nis26x',
     ])->assertAccepted();

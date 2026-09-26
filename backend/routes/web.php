@@ -41,6 +41,8 @@ Route::prefix('oauth')->name('passport.')->group(function () {
 Route::middleware('web')->group(function () {
     Route::get('/login/staff', [StaffLoginController::class, 'show'])->name('login.staff');
     Route::post('/login/staff', [StaffLoginController::class, 'login'])->middleware('throttle:login');
+    Route::get('/login/staff/two-factor', [StaffLoginController::class, 'showTwoFactor'])->name('login.staff.two-factor');
+    Route::post('/login/staff/two-factor', [StaffLoginController::class, 'verifyTwoFactor'])->middleware('throttle:two-factor');
 
     Route::middleware('auth:staff')->group(function () {
         Route::get('/password/change', [StaffLoginController::class, 'showChangePassword'])->name('password.change');

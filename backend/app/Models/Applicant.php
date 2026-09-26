@@ -32,6 +32,7 @@ class Applicant extends Authenticatable implements MustVerifyEmail, OAuthenticat
         return [
             'password' => 'hashed',
             'email_verified_at' => 'datetime',
+            'privacy_consent_at' => 'datetime',
         ];
     }
 

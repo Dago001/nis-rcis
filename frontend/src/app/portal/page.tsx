@@ -89,6 +89,14 @@ export default function PortalHome() {
           </ul>
         )}
       </Panel>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm" aria-label="Your personal data">
+        <h2 className="text-[15px] font-medium text-nis-primary-dark">Your personal data</h2>
+        <p className="mt-1 text-slate-600">
+          Under the Nigeria Data Protection Act 2023 you can download everything we hold about you. See the <Link href="/privacy" className="text-nis-primary underline">privacy notice</Link> for how your data is used and kept.
+        </p>
+        {/* Plain link: a file download through the BFF, not a page navigation. */}
+        <a href="/api/bff/applicant/my-data" download="my-nis-rcis-data.json" className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">Download my data</a>
+      </section>
     </div>
   );
 }

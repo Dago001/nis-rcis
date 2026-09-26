@@ -20,7 +20,8 @@ class UserController
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => User::orderBy('fullname')->get(self::FIELDS)]);
+        return response()->json(['data' => User::orderBy('fullname')->get([...self::FIELDS, 'two_factor_confirmed_at'])
+            ->map(fn (User $u) => [...$u->only(self::FIELDS), 'two_factor_enabled' => $u->two_factor_confirmed_at !== null])]);
     }
 
     public function store(Request $request): JsonResponse
@@ -57,13 +58,41 @@ class UserController
 
         $user->fill($data)->save();
 
-        if ($user->wasChanged('is_active') && ! $user->is_active) {
+        // Deactivation or a role change ends every session, so new
+        // permissions apply immediately.
+        if (($user->wasChanged('is_active') && ! $user->is_active) || $user->wasChanged('role')) {
             $user->tokens()->update(['revoked' => true]);
         }
 
         Audit::log('STAFF_UPDATED', "Updated account {$user->auditLabel()}", $user, ['changes' => array_keys($user->getChanges())]);
 
         return response()->json(['data' => $user->only(self::FIELDS)]);
+    }
+
+    /**
+     * Clear an officer's authenticator (lost or new phone). They set it up
+     * again at their next sign-in. All their sessions are ended.
+     */
+    public function resetTwoFactor(Request $request, int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+        abort_if($user->is($request->user()), 422, 'Another Super Administrator must reset your own authenticator.');
+
+        $user->forceFill(['two_factor_secret' => null, 'two_factor_confirmed_at' => null, 'two_factor_last_step' => null])->save();
+        $user->tokens()->update(['revoked' => true]);
+        Audit::log('STAFF_2FA_RESET', "Authenticator reset for {$user->auditLabel()}", $user);
+
+        return response()->json(['message' => 'Authenticator reset. The officer will set it up again at the next sign-in.']);
+    }
+
+    /** Sign an officer out everywhere (revokes every access and refresh token). */
+    public function revokeSessions(Request $request, int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+        $count = $user->tokens()->where('revoked', false)->update(['revoked' => true]);
+        Audit::log('STAFF_SESSIONS_REVOKED', "Signed {$user->auditLabel()} out of all sessions", $user, ['tokens' => $count]);
+
+        return response()->json(['message' => "Signed out of {$count} session(s)."]);
     }
 
     public function resetPassword(Request $request, int $id): JsonResponse

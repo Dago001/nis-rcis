@@ -112,3 +112,28 @@ function Find-Psql {
     if ($candidates.Count -gt 0) { return $candidates[0].FullName }
     return $null
 }
+
+# Backups: make sure backend\.env has a BACKUP_KEY and the pg_dump path.
+function Set-BackupSettings([string]$envPath) {
+    $current = Read-EnvFile $envPath
+    $values = @{}
+    if (-not $current['BACKUP_KEY']) {
+        $gen = Invoke-Capture 'php' @('artisan', 'nis:backup', '--generate-key')
+        $line = @($gen.Lines | Where-Object { $_ -like 'BACKUP_KEY=*' })[0]
+        if ($line) { $values['BACKUP_KEY'] = $line.Substring('BACKUP_KEY='.Length) }
+    }
+    if (-not $current['PG_DUMP_PATH']) {
+        $psql = Find-Psql
+        if ($psql) {
+            $dump = Join-Path (Split-Path -Parent $psql) 'pg_dump.exe'
+            if (Test-Path -LiteralPath $dump) { $values['PG_DUMP_PATH'] = $dump }
+        }
+    }
+    if ($values.Count -gt 0) {
+        $content = [System.IO.File]::ReadAllText($envPath)
+        Write-Utf8File $envPath (Set-EnvValues $content $values)
+        if ($values.ContainsKey('BACKUP_KEY')) {
+            Write-Warn 'A backup encryption key (BACKUP_KEY) was added to backend\.env. Keep a copy of it somewhere safe: backups cannot be restored without it.'
+        }
+    }
+}

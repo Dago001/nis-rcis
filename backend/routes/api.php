@@ -10,9 +10,11 @@ use App\Http\Controllers\Api\Public\PartnerController;
 use App\Http\Controllers\Api\Public\PaystackWebhookController;
 use App\Http\Controllers\Api\Public\PublicController;
 use App\Http\Controllers\Api\Staff\ApplicationController as StaffApplications;
+use App\Http\Controllers\Api\Staff\ApprovalController;
 use App\Http\Controllers\Api\Staff\AuditLogController;
 use App\Http\Controllers\Api\Staff\CardController;
 use App\Http\Controllers\Api\Staff\DashboardController;
+use App\Http\Controllers\Api\Staff\DataBreachController;
 use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
 use App\Http\Controllers\Api\Staff\ReportController;
 use App\Http\Controllers\Api\Staff\UserController;
@@ -66,6 +68,7 @@ Route::prefix('v1')->group(function () {
     // ------------------------------------------------------ Applicant portal
     Route::prefix('applicant')->middleware(['auth:applicant-api', 'scopes:applicant'])->group(function () {
         Route::get('me', [AccountController::class, 'me']);
+        Route::get('my-data', [AccountController::class, 'myData'])->middleware('throttle:6,1');
         Route::post('oauth/revoke', RevokeTokenController::class);
 
         Route::get('draft', [DraftController::class, 'show']);
@@ -103,6 +106,7 @@ Route::prefix('v1')->group(function () {
         Route::get('applications', [StaffApplications::class, 'index']);
         Route::get('applications/{id}', [StaffApplications::class, 'show'])->whereNumber('id');
         Route::get('applications/{id}/documents/{document}', [StaffApplications::class, 'document'])->whereNumber(['id', 'document']);
+        Route::post('applications/{id}/risk-check', [StaffApplications::class, 'riskCheck'])->whereNumber('id');
 
         Route::middleware('role:SuperAdmin')->group(function () {
             Route::post('applications', [StaffApplications::class, 'store']);
@@ -141,6 +145,12 @@ Route::prefix('v1')->group(function () {
         Route::post('cards/{id}/reinstate', [CardController::class, 'reinstate'])
             ->middleware('role:SuperAdmin')->whereNumber('id');
 
+        // Two-person rule: requests waiting for a second officer
+        Route::get('approvals', [ApprovalController::class, 'index']);
+        Route::post('approvals/{id}/approve', [ApprovalController::class, 'approve'])->whereNumber('id');
+        Route::post('approvals/{id}/reject', [ApprovalController::class, 'reject'])->whereNumber('id');
+        Route::post('approvals/{id}/cancel', [ApprovalController::class, 'cancel'])->whereNumber('id');
+
         // Reports
         Route::get('reports/summary', [ReportController::class, 'summary']);
         Route::get('reports/export', [ReportController::class, 'export'])->middleware('role:SuperAdmin');
@@ -148,11 +158,18 @@ Route::prefix('v1')->group(function () {
         // Administration
         Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('role:Auditor');
 
+        // NDPA personal-data breach register
+        Route::get('data-breaches', [DataBreachController::class, 'index'])->middleware('role:Auditor');
+        Route::post('data-breaches', [DataBreachController::class, 'store'])->middleware('role:SuperAdmin');
+        Route::patch('data-breaches/{id}', [DataBreachController::class, 'update'])->middleware('role:SuperAdmin')->whereNumber('id');
+
         Route::middleware('role:SuperAdmin')->group(function () {
             Route::get('users', [UserController::class, 'index']);
             Route::post('users', [UserController::class, 'store']);
             Route::patch('users/{id}', [UserController::class, 'update'])->whereNumber('id');
             Route::post('users/{id}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('id');
+            Route::post('users/{id}/reset-two-factor', [UserController::class, 'resetTwoFactor'])->whereNumber('id');
+            Route::post('users/{id}/revoke-sessions', [UserController::class, 'revokeSessions'])->whereNumber('id');
         });
     });
 
