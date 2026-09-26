@@ -48,6 +48,25 @@ return [
     // the two index fingers). Leave off until scanners are installed.
     'fingerprints_required' => (bool) env('FINGERPRINTS_REQUIRED', false),
 
+    // Monitoring: who is e-mailed when a health check fails or a new
+    // server error appears (comma-separated addresses).
+    'alerts' => [
+        'emails' => array_filter(array_map('trim', explode(',', (string) env('ALERT_EMAILS', '')))),
+        'backup_max_age_hours' => (int) env('ALERT_BACKUP_MAX_AGE_HOURS', 36),
+        'disk_min_free_percent' => (int) env('ALERT_DISK_MIN_FREE_PERCENT', 10),
+        'disk_min_free_gb' => (int) env('ALERT_DISK_MIN_FREE_GB', 20),
+    ],
+
+    // Shown on every page of a non-live copy, e.g. "STAGING". Empty on live.
+    'environment_label' => env('ENVIRONMENT_LABEL', ''),
+
+    // Web push for the installable applicant portal (php artisan nis:vapid-keys).
+    'push' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        'subject' => env('VAPID_SUBJECT', 'mailto:support@immigration.gov.ng'),
+    ],
+
     // Warn when fewer blank cards than this are left in stock.
     'card_stock_low' => (int) env('CARD_STOCK_LOW', 100),
 

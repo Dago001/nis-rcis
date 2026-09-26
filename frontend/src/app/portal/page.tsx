@@ -6,6 +6,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Panel, Spinner } from "@/components/ui";
 import { useI18n } from "@/components/I18nProvider";
+import { PushToggle } from "@/components/PushToggle";
 import { api } from "@/lib/api-client";
 import { dateTime, nisDate, applicationType } from "@/lib/format";
 import type { AppNotification, Application } from "@/lib/types";
@@ -92,6 +93,7 @@ export default function PortalHome() {
           </ul>
         )}
       </Panel>
+      <PushToggle />
       <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm" aria-label="Your personal data">
         <h2 className="text-[15px] font-medium text-nis-primary-dark">{t("Your personal data")}</h2>
         <p className="mt-1 text-slate-600">

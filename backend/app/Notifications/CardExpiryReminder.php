@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Applicant;
 use App\Models\ResidenceCard;
+use App\Notifications\Concerns\PushesToDevices;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -12,13 +13,13 @@ use Illuminate\Notifications\Notification;
 /** E-mailed 90, 30 and 7 days before a residence card expires. */
 class CardExpiryReminder extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use PushesToDevices, Queueable;
 
     public function __construct(public ResidenceCard $card, public int $days) {}
 
     public function via(object $notifiable): array
     {
-        return $notifiable instanceof Applicant ? ['mail', 'database'] : ['mail'];
+        return $this->withPush($notifiable, $notifiable instanceof Applicant ? ['mail', 'database'] : ['mail']);
     }
 
     public function toMail(object $notifiable): MailMessage

@@ -193,6 +193,11 @@ Interpol SLTD passport checks, the Ministry of Interior expatriate quota
 register and fingerprint scanners are built as adapters that are switched on
 once the agreements are signed. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
+## Operations and security
+
+* [docs/OPERATIONS.md](docs/OPERATIONS.md): monitoring and alerts, uptime checks, error tracking, the staging copy, and the automated test pipeline
+* [SECURITY.md](SECURITY.md): reporting vulnerabilities and the yearly independent penetration test
+
 ## Not yet implemented
 
 * Importing records from the legacy MySQL/SQLite database (write a one-off `artisan` command that maps the old `residence_cards` and `card_renewals` tables)

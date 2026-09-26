@@ -194,6 +194,13 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **N2.** As **10002**, open the application: **External checks** shows *Interpol: recorded as stolen* and *quota confirmed*, and the fraud panel has a HIGH warning. Click **Run checks again**.
 - [ ] **N3.** At the biometrics desk, tick **Use the simulated scanner** and capture the two index fingers (with a real SecuGen scanner, see `docs/INTEGRATIONS.md`). Save: the application shows which fingers were captured.
 
+### O. Platform
+- [ ] **O1.** As **10001**, open **System health**: every check with its status, and any server errors (mark them resolved). Put your e-mail in `ALERT_EMAILS` in `backend\.env` to receive alerts; they appear in `backend\storage\logs\laravel.log` locally.
+- [ ] **O2.** Open http://localhost:3000/api/health and http://127.0.0.1:8000/api/v1/health: each shows only `ok`, `warn` or `fail` (what an uptime monitor checks).
+- [ ] **O3.** In Chrome or Edge, sign in to the portal: the address bar offers **Install**; the installed app opens on *My applications*. On the portal home, click **Turn on notifications** and allow them. When an officer approves or queries your application you get a notification on the device as well as the e-mail.
+- [ ] **O4.** Stop the API window and reload a portal page: a friendly *You are offline* page appears instead of a browser error.
+- [ ] **O5.** Set `ENVIRONMENT_LABEL=STAGING` in both `backend\.env` and `frontend\.env.local` and restart: every page shows an orange STAGING banner. Remove it again afterwards.
+
 ### I. Sign-out
 - [ ] **I1.** Click **Sign out**, then open http://localhost:3000/staff (or `/portal`). You must sign in again.
 

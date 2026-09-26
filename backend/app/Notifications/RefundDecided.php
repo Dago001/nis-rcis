@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Refund;
+use App\Notifications\Concerns\PushesToDevices;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,7 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class RefundDecided extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use PushesToDevices, Queueable;
 
     public function __construct(public Refund $refund)
     {
@@ -19,7 +20,7 @@ class RefundDecided extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return $this->withPush($notifiable, ['mail', 'database']);
     }
 
     public function toMail(object $notifiable): MailMessage

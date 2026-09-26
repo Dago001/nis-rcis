@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Enums\ApplicationStatus;
 use App\Models\Application;
+use App\Notifications\Concerns\PushesToDevices;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -15,7 +16,7 @@ use Illuminate\Notifications\Notification;
  */
 class ApplicationStatusChanged extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use PushesToDevices, Queueable;
 
     public ApplicationStatus $status;
 
@@ -27,7 +28,7 @@ class ApplicationStatusChanged extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return $this->withPush($notifiable, ['mail', 'database']);
     }
 
     public function toMail(object $notifiable): MailMessage

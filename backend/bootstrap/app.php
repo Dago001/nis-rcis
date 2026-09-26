@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureActiveStaff;
 use App\Http\Middleware\EnsureStaffRole;
 use App\Http\Middleware\SecurityHeaders;
+use App\Services\ErrorTracker;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -44,6 +45,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Error tracking: group, count and e-mail new server errors. The
+        // normal log entry is still written.
+        $exceptions->report(fn (Throwable $e) => app(ErrorTracker::class)->capture($e));
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

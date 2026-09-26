@@ -78,9 +78,13 @@
             .panel { padding:28px 22px 22px; }
             .site-header nav a:not(.cta) { display:none; }
         }
+        .env-banner { background: #ea7317; color: #fff; text-align: center; font: 600 13px/1.4 system-ui, sans-serif; padding: 6px 12px; letter-spacing: .04em; }
     </style>
 </head>
 <body>
+@if (filled(config('nis.environment_label')))
+    <div class="env-banner" role="note">{{ strtoupper(config('nis.environment_label')) }} — test system, not the live service. Do not enter real personal data.</div>
+@endif
 <header class="site-header">
     <div class="inner">
         <a class="brand" href="{{ config('nis.frontend_url') }}">

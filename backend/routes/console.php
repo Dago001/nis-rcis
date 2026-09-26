@@ -17,3 +17,7 @@ Schedule::command('nis:backup')->dailyAt('01:30')->when(fn () => filled(config('
 
 // E-mail reminders: biometrics appointments (day before) and card expiry (90/30/7 days).
 Schedule::command('nis:reminders')->dailyAt('07:00');
+
+// Monitoring: health checks every 5 minutes (also the scheduler heartbeat),
+// e-mailing ALERT_EMAILS when something fails and when it recovers.
+Schedule::command('nis:health-check')->everyFiveMinutes();

@@ -6,8 +6,10 @@ use App\Http\Controllers\Api\Applicant\CardController as ApplicantCards;
 use App\Http\Controllers\Api\Applicant\DraftController;
 use App\Http\Controllers\Api\Applicant\PaymentController;
 use App\Http\Controllers\Api\Applicant\PaymentRecordsController;
+use App\Http\Controllers\Api\Applicant\PushController;
 use App\Http\Controllers\Api\AssistantController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\Public\HealthController;
 use App\Http\Controllers\Api\Public\PartnerController;
 use App\Http\Controllers\Api\Public\PaystackWebhookController;
 use App\Http\Controllers\Api\Public\PublicController;
@@ -22,6 +24,7 @@ use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
 use App\Http\Controllers\Api\Staff\QueueController;
 use App\Http\Controllers\Api\Staff\RefundController;
 use App\Http\Controllers\Api\Staff\ReportController;
+use App\Http\Controllers\Api\Staff\SystemController;
 use App\Http\Controllers\Api\Staff\UserController;
 use App\Http\Controllers\OAuth\RevokeTokenController;
 use Illuminate\Support\Facades\Route;
@@ -43,7 +46,11 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     // ---------------------------------------------------------------- Public
+    // For external uptime monitors: overall status only.
+    Route::get('health', HealthController::class)->middleware('throttle:60,1');
+
     Route::prefix('public')->group(function () {
+        Route::get('push-key', [PushController::class, 'key']);
         Route::get('enrollment-centers', [PublicController::class, 'centers']);
         Route::get('enrollment-centers/{center}/availability', [PublicController::class, 'availability']);
         Route::get('enrollment-centers/{center}/queue', [PublicController::class, 'queueDisplay'])->middleware('throttle:120,1');
@@ -100,6 +107,10 @@ Route::prefix('v1')->group(function () {
         // The holder's cards: report lost or stolen
         Route::get('cards', [ApplicantCards::class, 'index']);
         Route::post('cards/{id}/report-lost', [ApplicantCards::class, 'reportLost'])->whereNumber('id')->middleware('throttle:10,1');
+
+        // Push notifications on the installed portal (in addition to e-mail)
+        Route::post('push-subscriptions', [PushController::class, 'subscribe'])->middleware('throttle:10,1');
+        Route::delete('push-subscriptions', [PushController::class, 'unsubscribe']);
 
         // Receipts and refunds
         Route::get('payment-records', [PaymentRecordsController::class, 'index']);
@@ -220,6 +231,10 @@ Route::prefix('v1')->group(function () {
             Route::post('users/{id}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('id');
             Route::post('users/{id}/reset-two-factor', [UserController::class, 'resetTwoFactor'])->whereNumber('id');
             Route::post('users/{id}/revoke-sessions', [UserController::class, 'revokeSessions'])->whereNumber('id');
+
+            // Monitoring: system health and tracked server errors
+            Route::get('system/health', [SystemController::class, 'health']);
+            Route::post('system/errors/{id}/resolve', [SystemController::class, 'resolve'])->whereNumber('id');
         });
     });
 

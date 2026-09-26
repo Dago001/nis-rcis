@@ -114,6 +114,7 @@ function Find-Psql {
 }
 
 # Backups: make sure backend\.env has a BACKUP_KEY and the pg_dump path.
+# Backup key, pg_dump location and push-notification keys, added once.
 function Set-BackupSettings([string]$envPath) {
     $current = Read-EnvFile $envPath
     $values = @{}
@@ -127,6 +128,14 @@ function Set-BackupSettings([string]$envPath) {
         if ($psql) {
             $dump = Join-Path (Split-Path -Parent $psql) 'pg_dump.exe'
             if (Test-Path -LiteralPath $dump) { $values['PG_DUMP_PATH'] = $dump }
+        }
+    }
+    # Push notifications for the installable applicant portal
+    if (-not $current['VAPID_PUBLIC_KEY']) {
+        $gen = Invoke-Capture 'php' @('artisan', 'nis:vapid-keys')
+        foreach ($name in @('VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY')) {
+            $line = @($gen.Lines | Where-Object { $_ -like "$name=*" })[0]
+            if ($line) { $values[$name] = $line.Substring($name.Length + 1) }
         }
     }
     if ($values.Count -gt 0) {
