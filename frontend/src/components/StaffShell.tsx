@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "@/lib/api-client";
 import type { StaffRole, StaffUser } from "@/lib/types";
-import { LogoutButton, SiteHeader } from "./SiteHeader";
+import { LogoutButton, SiteFooter, SiteHeader } from "./SiteHeader";
 import { Spinner } from "./ui";
 
 const StaffContext = createContext<StaffUser | null>(null);
@@ -109,6 +109,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
           )}
         </main>
       </div>
+      <SiteFooter />
     </>
   );
 }

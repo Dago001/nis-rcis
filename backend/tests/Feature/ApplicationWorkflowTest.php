@@ -379,7 +379,14 @@ it('shows staff a paid applicant straight away, before the application is submit
         ->assertJsonPath('draft_data.surname', 'PAIDEARLY')
         ->assertJsonCount(3, 'draft_documents')
         ->assertJsonMissingPath('receipt.authorization_code');
-    $this->getJson('/api/v1/staff/dashboard')->assertOk()->assertJsonPath('paid_awaiting_submission', 1);
+    $this->getJson('/api/v1/staff/dashboard')->assertOk()
+        ->assertJsonPath('paid_awaiting_submission', 1)
+        ->assertJsonCount(12, 'analytics.monthly')
+        ->assertJsonPath('analytics.totals.payments', 1)
+        ->assertJsonPath('analytics.totals.revenue_naira', config('nis.fee_naira'))
+        ->assertJsonStructure(['analytics' => ['decisions' => ['approval_rate'], 'processing_days', 'nationalities', 'mix' => ['type', 'channel', 'sex'], 'appointments']])
+        ->assertJsonPath('todays_appointments', 0)
+        ->assertJsonMissingPath('recent_payments');
 
     // After submission it moves to "submitted" and links to the application.
     asApplicant($applicant);
