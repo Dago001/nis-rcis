@@ -103,31 +103,75 @@ if (-not $Zip -and $git) {
             $Zip = $candidates[0].FullName
         }
     }
-    if (-not (Test-Path $Zip)) { Fail "ZIP not found: $Zip" }
+    if (-not (Test-Path -LiteralPath $Zip)) { Fail "ZIP not found: $Zip" }
 
     Write-Step "Applying $Zip"
     $temp = Join-Path ([System.IO.Path]::GetTempPath()) ('nis-rcis-update-' + [guid]::NewGuid().ToString('N'))
-    Expand-Archive -Path $Zip -DestinationPath $temp -Force
+    Expand-Archive -LiteralPath $Zip -DestinationPath $temp -Force
 
     # GitHub ZIPs contain one top-level folder
     $source = $temp
     $top = @(Get-ChildItem $temp)
     if ($top.Count -eq 1 -and $top[0].PSIsContainer) { $source = $top[0].FullName }
-    if (-not (Test-Path (Join-Path $source 'backend\artisan'))) { Fail 'This ZIP does not look like the NIS-RCIS project.' }
+    if (-not [System.IO.File]::Exists((Join-Path $source 'backend\artisan'))) { Fail 'This ZIP does not look like the NIS-RCIS project.' }
 
+    # .NET file APIs are used on purpose: PowerShell treats [ and ] in paths
+    # (e.g. frontend\src\app\staff\cards\[id]) as wildcards.
     $copied = 0
-    foreach ($file in Get-ChildItem -Path $source -Recurse -File -Force) {
-        $relative = $file.FullName.Substring($source.Length).TrimStart('\', '/')
+    $inZip = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($path in [System.IO.Directory]::EnumerateFiles($source, '*', [System.IO.SearchOption]::AllDirectories)) {
+        $relative = $path.Substring($source.Length).TrimStart('\', '/')
+        [void]$inZip.Add(($relative -replace '\\', '/'))
         if (Test-Protected $relative) { continue }
-        $target = Join-Path $Root $relative
-        $dir = Split-Path -Parent $target
-        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+        $target = [System.IO.Path]::Combine($Root, $relative)
+        [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($target))
+        [System.IO.File]::Copy($path, $target, $true)
         $copied++
     }
-    Remove-Item -Recurse -Force $temp
-    Write-Ok "$copied files updated"
+
+    # Remove project source files that no longer exist in the latest version
+    # (for example pages that moved). Only these code folders are cleaned;
+    # settings, keys, uploads and installed packages are never touched.
+    $removed = 0
+    $codeFolders = @('backend/app', 'backend/config', 'backend/database', 'backend/resources',
+        'backend/routes', 'backend/tests', 'frontend/src', 'frontend/public', 'scripts', 'deploy')
+    foreach ($folder in $codeFolders) {
+        $full = [System.IO.Path]::Combine($Root, $folder)
+        if (-not [System.IO.Directory]::Exists($full)) { continue }
+        foreach ($path in [System.IO.Directory]::EnumerateFiles($full, '*', [System.IO.SearchOption]::AllDirectories)) {
+            $relative = ($path.Substring($Root.Length).TrimStart('\', '/')) -replace '\\', '/'
+            if ($relative -like '*.sqlite') { continue }
+            if (-not $inZip.Contains($relative) -and -not (Test-Protected $relative)) {
+                [System.IO.File]::Delete($path)
+                $removed++
+            }
+        }
+    }
+    # Drop folders left empty by the clean-up
+    foreach ($folder in $codeFolders) {
+        $full = [System.IO.Path]::Combine($Root, $folder)
+        if (-not [System.IO.Directory]::Exists($full)) { continue }
+        $dirs = @([System.IO.Directory]::EnumerateDirectories($full, '*', [System.IO.SearchOption]::AllDirectories)) | Sort-Object Length -Descending
+        foreach ($d in $dirs) {
+            if (-not [System.IO.Directory]::EnumerateFileSystemEntries($d).GetEnumerator().MoveNext()) { [System.IO.Directory]::Delete($d) }
+        }
+    }
+    Remove-Item -LiteralPath $temp -Recurse -Force
+    Write-Ok "$copied files updated, $removed old files removed"
     if ($downloadedZip) { Remove-Item -Force $downloadedZip } else { Write-Warn "You can delete $Zip now." }
+}
+
+# The website's build cache can keep serving pages that moved or no longer
+# exist ("404 This page could not be found"); it is rebuilt automatically.
+$nextCache = Join-Path $Frontend '.next'
+if ([System.IO.Directory]::Exists($nextCache)) {
+    Write-Step 'Clearing the website build cache'
+    try {
+        [System.IO.Directory]::Delete($nextCache, $true)
+        Write-Ok 'Cleared'
+    } catch {
+        Write-Warn 'Could not clear frontend\.next (is the website still running?). Close the server windows and run update.bat again.'
+    }
 }
 
 # ------------------------------------------------------ Refresh the app
@@ -139,7 +183,7 @@ if (-not (Test-Path (Join-Path $Backend '.env'))) {
 
 Write-Step 'Updating backend dependencies and database'
 Invoke-Native 'composer' @('install', '--no-interaction', '--no-progress') $Backend
-Invoke-Native 'php' @('artisan', 'config:clear') $Backend
+Invoke-Native 'php' @('artisan', 'optimize:clear') $Backend
 Invoke-Native 'php' @('artisan', 'migrate', '--force') $Backend
 
 Write-Step 'Updating frontend dependencies'
