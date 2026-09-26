@@ -19,7 +19,10 @@
     Apply this specific ZIP file instead of looking for one.
 #>
 param(
-    [string]$Zip
+    [string]$Zip,
+    # Internal: set when the update restarts itself with the freshly
+    # downloaded scripts, so the download is not repeated.
+    [switch]$AfterDownload
 )
 
 . (Join-Path $PSScriptRoot 'common.ps1')
@@ -42,9 +45,11 @@ function Test-Protected([string]$relative) {
     return $false
 }
 
-Write-Host ''
-Write-Host 'NIS-RCIS - update' -ForegroundColor Green
-Write-Host '-----------------'
+if (-not $AfterDownload) {
+    Write-Host ''
+    Write-Host 'NIS-RCIS - update' -ForegroundColor Green
+    Write-Host '-----------------'
+}
 
 $git = Get-Command git -ErrorAction SilentlyContinue
 $before = $null
@@ -53,7 +58,9 @@ if ($git -and (Test-Path (Join-Path $Root '.git'))) {
     if ($run.Code -eq 0) { $before = $run.Text }
 }
 
-if (-not $Zip -and $git) {
+if ($AfterDownload) {
+    Write-Ok 'Continuing with the updated scripts'
+} elseif (-not $Zip -and $git) {
     # ------------------------------------------------------------ Git update
     if (-not (Test-Path (Join-Path $Root '.git'))) {
         Write-Step 'Linking this folder to GitHub (first time only)'
@@ -159,6 +166,15 @@ if (-not $Zip -and $git) {
     Remove-Item -LiteralPath $temp -Recurse -Force
     Write-Ok "$copied files updated, $removed old files removed"
     if ($downloadedZip) { Remove-Item -Force $downloadedZip } else { Write-Warn "You can delete $Zip now." }
+}
+
+# PowerShell has already loaded the old copy of this script, so run the rest
+# of the update with the version that was just downloaded (it may include
+# new steps, such as repairing backend\.env).
+if (-not $AfterDownload) {
+    $shell = (Get-Process -Id $PID).Path
+    & $shell -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -AfterDownload
+    exit $LASTEXITCODE
 }
 
 # The website's build cache can keep serving pages that moved or no longer
