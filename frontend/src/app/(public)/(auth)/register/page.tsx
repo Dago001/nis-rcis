@@ -1,0 +1,164 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { lettersOnly, NAME_PATTERN, PasswordInput, PHONE_PATTERN, PhoneInput } from "@/components/inputs";
+import { Alert, Button, Field, Input } from "@/components/ui";
+import { ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/I18nProvider";
+import type { Translate } from "@/lib/i18n";
+
+async function post(path: string, body: unknown) {
+  const response = await fetch(`/api/public-account/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new ApiError(response.status, data.message ?? "Request failed", data.errors ?? {});
+  return data as { message: string };
+}
+
+type Values = { surname: string; forenames: string; email: string; phone: string; password: string; password_confirmation: string; privacy_consent: string };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Client-side checks, shown as soon as a field is left (the API re-checks everything). */
+function check(values: Values, resend: boolean, t: Translate): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!resend) {
+    if (!values.surname.trim()) e.surname = t("Enter your surname.");
+    else if (!NAME_PATTERN.test(values.surname.trim())) e.surname = t("Use letters only.");
+    if (!values.forenames.trim()) e.forenames = t("Enter your other names.");
+    else if (!NAME_PATTERN.test(values.forenames.trim())) e.forenames = t("Use letters only.");
+    if (!values.phone) e.phone = t("Enter your phone number.");
+    else if (!PHONE_PATTERN.test(values.phone)) e.phone = t("Enter a valid phone number (digits only).");
+    if (values.password.length < 6) e.password = t("Use at least 6 characters.");
+    else if (!/[A-Za-z]/.test(values.password) || !/[0-9]/.test(values.password)) e.password = t("Use both letters and numbers.");
+    if (values.password_confirmation !== values.password) e.password_confirmation = t("The passwords do not match.");
+    if (values.privacy_consent !== "1") e.privacy_consent = t("Please read and accept the privacy notice.");
+  }
+  if (!EMAIL_PATTERN.test(values.email.trim())) e.email = t("Enter a valid e-mail address.");
+  return e;
+}
+
+function RegisterForm() {
+  const resend = useSearchParams().get("resend") === "1";
+  const { t } = useI18n();
+  const [values, setValues] = useState<Values>({ surname: "", forenames: "", email: "", phone: "", password: "", password_confirmation: "", privacy_consent: "" });
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const clientErrors = check(values, resend, t);
+  const errorFor = (field: keyof Values) => (touched[field] ? clientErrors[field] : undefined) ?? serverErrors[field];
+  const set = (field: keyof Values, value: string) => {
+    setValues((v) => ({ ...v, [field]: value }));
+    setServerErrors((e) => ({ ...e, [field]: "" }));
+  };
+  const touch = (field: keyof Values) => () => setTouched((t) => ({ ...t, [field]: true }));
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTouched({ surname: true, forenames: true, email: true, phone: true, password: true, password_confirmation: true, privacy_consent: true });
+    if (Object.keys(clientErrors).length) return;
+    setBusy(true);
+    setServerErrors({});
+    try {
+      const body = resend ? { email: values.email.trim() } : { ...values, privacy_consent: values.privacy_consent === "1", surname: values.surname.trim(), forenames: values.forenames.trim(), email: values.email.trim() };
+      const result = await post(resend ? "email/resend" : "register", body);
+      setMessage(result.message);
+    } catch (e) {
+      if (e instanceof ApiError) setServerErrors({ ...e.fieldErrors(), _: e.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (message) {
+    return (
+      <div className="space-y-4">
+        <Alert tone="success">{message}</Alert>
+        <p className="text-sm text-slate-600">{t("Open the link in the e-mail within 24 hours, then")} <Link href="/login" className="text-nis-primary underline">{t("sign in")}</Link>.</p>
+      </div>
+    );
+  }
+
+  const hasVisibleErrors = Object.keys(values).some((k) => errorFor(k as keyof Values));
+
+  return (
+    <form onSubmit={submit} className="space-y-4" noValidate>
+      {serverErrors._ && !Object.keys(serverErrors).some((k) => k !== "_" && serverErrors[k]) && <Alert tone="danger">{serverErrors._}</Alert>}
+      {hasVisibleErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
+      {!resend && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("Surname")} required error={errorFor("surname")}>
+            <Input value={values.surname} onChange={(e) => set("surname", lettersOnly(e.target.value))} onBlur={touch("surname")} autoComplete="family-name" maxLength={100} />
+          </Field>
+          <Field label={t("Other names")} required error={errorFor("forenames")}>
+            <Input value={values.forenames} onChange={(e) => set("forenames", lettersOnly(e.target.value))} onBlur={touch("forenames")} autoComplete="given-name" maxLength={150} />
+          </Field>
+        </div>
+      )}
+      <Field label={t("E-mail address")} required error={errorFor("email")}>
+        <Input type="email" value={values.email} onChange={(e) => set("email", e.target.value)} onBlur={touch("email")} autoComplete="email" maxLength={255} />
+      </Field>
+      {!resend && (
+        <>
+          <div onBlur={touch("phone")}>
+            <Field label={t("Phone number")} required error={errorFor("phone")} hint={t("Choose your country code, then type the rest of the number (digits only).")}>
+              <PhoneInput value={values.phone} onChange={(v) => set("phone", v)} />
+            </Field>
+          </div>
+          <Field label={t("Password")} required error={errorFor("password")} hint={t("At least 6 characters, with letters and numbers. Common passwords that appear in data leaks are refused.")}>
+            <PasswordInput value={values.password} onChange={(e) => set("password", e.target.value)} onBlur={touch("password")} autoComplete="new-password" />
+          </Field>
+          <Field label={t("Confirm password")} required error={errorFor("password_confirmation")}>
+            <PasswordInput value={values.password_confirmation} onChange={(e) => set("password_confirmation", e.target.value)} onBlur={touch("password_confirmation")} autoComplete="new-password" />
+          </Field>
+          <div>
+            <label className="flex items-start gap-2.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={values.privacy_consent === "1"}
+                onChange={(e) => {
+                  set("privacy_consent", e.target.checked ? "1" : "");
+                  setTouched((t) => ({ ...t, privacy_consent: true }));
+                }}
+              />
+              <span>{t("I have read the")} <Link href="/privacy" target="_blank" className="text-nis-primary underline">{t("privacy notice")}</Link> {t("and agree to the Nigeria Immigration Service processing my personal data for my residence card application.")}</span>
+            </label>
+            {errorFor("privacy_consent") && <span className="mt-1 block text-xs text-red-700">{errorFor("privacy_consent")}</span>}
+          </div>
+        </>
+      )}
+      <Button type="submit" disabled={busy} className="w-full">{busy ? t("Please wait…") : resend ? t("Resend verification e-mail") : t("Create account")}</Button>
+      <p className="text-center text-sm text-slate-600">{t("Already registered?")} <Link href="/login" className="text-nis-primary underline">{t("Sign in")}</Link></p>
+    </form>
+  );
+}
+
+export default function RegisterPage() {
+  const { t } = useI18n();
+  return (
+    <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl md:grid-cols-2">
+      <div className="relative hidden min-h-[560px] md:block">
+        <Image src="/images/hq-entrance.jpg" alt="" fill priority sizes="50vw" className="object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-nis-primary-dark/90 via-nis-primary-dark/40 to-transparent" />
+        <div className="absolute bottom-0 p-8 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-white/80">{t("Residence Card Portal")}</p>
+          <p className="mt-2 text-2xl font-semibold leading-snug">{t("One account to apply, pay, book biometrics and track your residence card.")}</p>
+        </div>
+      </div>
+      <div className="p-8 sm:p-10">
+        <h1 className="mb-1 text-xl font-semibold">{t("Create your applicant account")}</h1>
+        <p className="mb-6 text-sm text-slate-600">{t("Use an e-mail address you can access: status updates are sent there.")}</p>
+        <Suspense><RegisterForm /></Suspense>
+      </div>
+    </div>
+  );
+}
