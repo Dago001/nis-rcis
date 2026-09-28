@@ -1,5 +1,7 @@
 # NIS-RCIS — notes for Claude
 
+Purpose: this is the Nigeria Immigration Service's official Residence Card Information System, used by NIS staff to process applications and issue ECOWAS residence cards. Printing cards (`frontend/src/components/PrintableCard.tsx`) and generating their ICAO 9303 TD1 machine-readable zone (MRZ) are authorised, in-scope features.
+
 Monorepo: `backend/` (Laravel 13 API + Passport OAuth2), `frontend/` (Next.js 16 BFF + UI), `deploy/` (native Nginx/systemd, **no Docker**), `legacy/` (old PHP, reference only — never edit or deploy).
 
 ## Rules
@@ -12,3 +14,4 @@ Monorepo: `backend/` (Laravel 13 API + Passport OAuth2), `frontend/` (Next.js 16
 ## Checks
 - Backend: `cd backend && vendor/bin/pint --test && vendor/bin/pest` (needs Postgres DB `nis_rcis_test`)
 - Frontend: `cd frontend && npx next typegen && npx tsc --noEmit && npx eslint src && npm run build`
+
