@@ -30,6 +30,9 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="DOCUMENTS_DISK" value="local"/>
         <env name="PAYMENTS_FAKE" value="true"/>
+        <!-- A real key in a developer's .env would switch the tests to live Paystack. -->
+        <env name="PAYSTACK_SECRET_KEY" value=""/>
+        <env name="PAYSTACK_PUBLIC_KEY" value=""/>
         <env name="FRONTEND_URL" value="http://portal.test"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
