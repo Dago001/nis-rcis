@@ -1,0 +1,17 @@
+[Unit]
+Description=NIS-RCIS queue worker (e-mails and notifications)
+After=network.target redis-server.service postgresql.service
+
+[Service]
+Type=simple
+User=nis-rcis
+Group=nis-rcis
+WorkingDirectory=/var/www/nis-rcis/current/backend
+ExecStart=/usr/bin/php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

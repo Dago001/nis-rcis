@@ -1,0 +1,9 @@
+[Unit]
+Description=NIS-RCIS Laravel scheduler run
+
+[Service]
+Type=oneshot
+User=nis-rcis
+Group=nis-rcis
+WorkingDirectory=/var/www/nis-rcis/current/backend
+ExecStart=/usr/bin/php artisan schedule:run
