@@ -3,7 +3,7 @@ import Link from "next/link";
 export const metadata = { title: "Privacy notice" };
 
 const sections: [string, React.ReactNode][] = [
-  ["Who we are", "The Nigeria Immigration Service (NIS), Directorate of Visa and Residency, is the data controller for the Residence Card Issuance System. This notice explains how we use your personal data under the Nigeria Data Protection Act 2023 (NDPA)."],
+  ["Who we are", "The Nigeria Immigration Service (NIS), Directorate of Visa and Residency, is the data controller for the Residence Card Issuance Portal. This notice explains how we use your personal data under the Nigeria Data Protection Act 2023 (NDPA)."],
   ["What we collect", "Your account details (name, e-mail, phone), your personal particulars (date and place of birth, nationality, sex, physical description, profession), passport and residence details, address in Nigeria, emergency contact, uploaded documents, photograph, signature and fingerprints captured at biometrics, payment references, and records of how your application was handled."],
   ["Why we use it (lawful basis)", "To process your residence card application, produce and verify your card, and carry out the Service's legal duties under the Immigration Act 2015 (performance of a task in the public interest and legal obligation). Your consent is recorded when you create an account."],
   ["Who can see it", "Only authorised NIS officers, according to their role, and partner government agencies that are allowed to verify cards. Payments are processed by Paystack. We never sell your data."],

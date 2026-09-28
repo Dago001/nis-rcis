@@ -23,7 +23,7 @@
     <div class="head">
         <img src="{{ $logo }}" alt="">
         <div class="org">NIGERIA IMMIGRATION SERVICE</div>
-        <div>Directorate of Visa and Residency · Residence Card Issuance System</div>
+        <div>Directorate of Visa and Residency · Residence Card Issuance Portal</div>
     </div>
     <h1>Payment receipt</h1>
     <div class="paid"><span>{{ $payment->status === 'REFUNDED' ? 'REFUNDED' : 'PAID' }}</span></div>

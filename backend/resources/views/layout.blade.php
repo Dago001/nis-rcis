@@ -103,7 +103,7 @@
     <img class="bg" src="/images/@yield('image', 'hq-dusk.jpg')" alt="">
     <div class="caption" aria-hidden="true">
         <div class="eyebrow">Nigeria Immigration Service</div>
-        <h2>@yield('headline', 'Residence Card Issuance System')</h2>
+        <h2>@yield('headline', 'Residence Card Issuance Portal')</h2>
         <p>@yield('tagline', 'Directorate of Visa and Residency.')</p>
     </div>
     <section class="panel">

@@ -1,4 +1,4 @@
-# Security policy — NIS Residence Card Issuance System
+# Security policy — NIS Residence Card Issuance Portal
 
 ## Reporting a vulnerability
 

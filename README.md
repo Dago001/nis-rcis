@@ -1,4 +1,4 @@
-# NIS-RCIS — Residence Card Issuance System
+# NIS-RCIS — Residence Card Issuance Portal
 
 Nigeria Immigration Service, Directorate of Visa and Residency.
 Online application, approval, biometrics capture, issuance, renewal and verification of residence cards for foreign nationals.
