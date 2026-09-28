@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { PrintableCard, type PrintData } from "@/components/PrintableCard";
+import { CardPrintPages, PrintableCard, type PrintData } from "@/components/PrintableCard";
 import { PrintResult } from "@/components/PrintResult";
 import { Alert, Button, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
@@ -24,10 +24,11 @@ export default function PrintCardPage() {
   return (
     <div className="space-y-6">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-600">Print at 100% scale on CR80 card stock. <Link href={`/staff/cards/${id}`} className="underline">Back to the card</Link></p>
+        <p className="text-sm text-slate-600">Prints two pages, front then back: choose the Fargo HDP5000, CR80 card, 100% scale, no margins. <Link href={`/staff/cards/${id}`} className="underline">Back to the card</Link></p>
         <Button onClick={() => window.print()}>Print</Button>
       </div>
       <PrintableCard p={p} />
+      <CardPrintPages cards={[p]} />
       <div className="no-print max-w-2xl">
         <PrintResult cards={[{ id: p.data.id, card_number: p.data.card_number }]} />
       </div>

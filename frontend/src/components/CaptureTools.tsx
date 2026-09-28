@@ -62,9 +62,8 @@ export function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) 
   const [empty, setEmpty] = useState(true);
 
   useEffect(() => {
+    // No background fill: the saved PNG stays transparent so only the ink shows on the card.
     const ctx = canvas.current!.getContext("2d")!;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.current!.width, canvas.current!.height);
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#0f172a";
@@ -100,9 +99,7 @@ export function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) 
   }
 
   function clear() {
-    const ctx = canvas.current!.getContext("2d")!;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.current!.width, canvas.current!.height);
+    canvas.current!.getContext("2d")!.clearRect(0, 0, canvas.current!.width, canvas.current!.height);
     setEmpty(true);
     onChange(null);
   }

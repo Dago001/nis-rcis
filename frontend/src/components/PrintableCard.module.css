@@ -1,0 +1,95 @@
+@font-face { font-family: NisCardInter; font-weight: 400; font-display: block; src: url("/card/inter-400.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 500; font-display: block; src: url("/card/inter-500.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 600; font-display: block; src: url("/card/inter-600.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 700; font-display: block; src: url("/card/inter-700.woff2") format("woff2"); }
+@font-face { font-family: NisCardCinzel; font-weight: 700; font-display: block; src: url("/card/cinzel-700.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 500; font-display: block; src: url("/card/plex-500.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 600; font-display: block; src: url("/card/plex-600.woff2") format("woff2"); }
+
+/* Designed at 856 × 540 px and scaled to exactly 85.6 × 54 mm (ID-1 / CR80): 1 design px = 0.1 mm. */
+.slot { width: 85.6mm; height: 54mm; flex: none; }
+.card {
+  --g900: #062e1b; --g800: #0a4a2c; --g700: #0e5f38; --g600: #15784a;
+  --gold: #c9a13b; --gold2: #e8cf7a; --ink: #10241a; --paper: #f6f4ea; --red: #b3261e;
+  position: relative; width: 856px; height: 540px; border-radius: 34px; overflow: hidden;
+  background: var(--paper); isolation: isolate; transform: scale(0.3779528); transform-origin: top left;
+  font-family: NisCardInter, system-ui, sans-serif; color: var(--ink); line-height: normal;
+  box-shadow: 0 0 0 1px rgba(6, 46, 27, 0.25);
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.card * { box-sizing: border-box; margin: 0; padding: 0; }
+.bg { position: absolute; inset: 0; z-index: -1; background: radial-gradient(120% 90% at 85% 60%, #e3efe0 0%, rgba(227,239,224,0) 60%), radial-gradient(90% 80% at 0% 100%, #efe8cf 0%, rgba(239,232,207,0) 55%), linear-gradient(180deg, #f8f6ee, #eef1e6); }
+.fill { position: absolute; inset: 0; width: 100%; height: 100%; }
+.watermark { position: absolute; left: 300px; top: 170px; width: 300px; height: 260px; object-fit: contain; opacity: 0.05; }
+
+.hdr { position: absolute; left: 0; right: 0; top: 0; height: 104px; background: linear-gradient(100deg, var(--g900) 0%, var(--g700) 45%, var(--g800) 100%); display: flex; align-items: center; padding: 0 26px; gap: 16px; overflow: hidden; }
+.hdr::after, .bhdr::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, #9c7a22, var(--gold2) 30%, var(--gold) 55%, var(--gold2) 80%, #9c7a22); }
+.bhdr::after { height: 3px; }
+.hw { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.5; }
+.coa { width: 96px; height: 82px; object-fit: contain; position: relative; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.eco { width: 70px; height: 70px; object-fit: contain; position: relative; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.ttl { flex: 1; text-align: center; position: relative; color: #fff; }
+.ttl h1 { font-family: NisCardCinzel, serif; font-weight: 700; font-size: 25px; letter-spacing: .09em; line-height: 1.1; }
+.sub { margin-top: 6px; font-size: 13px; font-weight: 700; letter-spacing: .26em; color: var(--gold2); }
+.fr { margin-top: 3px; font-size: 10.5px; font-weight: 500; letter-spacing: .2em; color: rgba(255,255,255,.72); }
+
+.photo { position: absolute; left: 30px; top: 128px; width: 186px; height: 239px; border-radius: 12px; overflow: hidden; background: linear-gradient(180deg, #dfe7ee, #c9d4de); box-shadow: 0 0 0 3px #fff, 0 0 0 4px rgba(14,95,56,.35); }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.fields { position: absolute; left: 246px; top: 124px; width: 400px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; row-gap: 13px; }
+.f { min-width: 0; }
+.w { grid-column: span 2; }
+.l { font-size: 9.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--g600); line-height: 1.2; white-space: nowrap; }
+.l i { font-style: normal; font-weight: 500; color: #6d8a78; }
+.v { font-size: 18px; font-weight: 600; color: var(--ink); letter-spacing: .02em; margin-top: 3px; line-height: 1.15; white-space: nowrap; overflow: hidden; }
+.big { font-size: 23px; font-weight: 700; letter-spacing: .03em; }
+.v small { font-size: 12px; font-weight: 500; color: #4f6a5b; letter-spacing: .06em; margin-left: 4px; }
+.red { color: var(--red); }
+.rule { grid-column: span 2; height: 1px; background: linear-gradient(90deg, rgba(14,95,56,.35), rgba(14,95,56,0)); }
+
+.cno { position: absolute; right: 28px; top: 124px; text-align: right; }
+.cno .v { font-family: NisCardPlex, monospace; font-weight: 600; font-size: 22px; color: var(--red); letter-spacing: .1em; }
+.ghost { position: absolute; right: 40px; top: 196px; width: 104px; height: 134px; border-radius: 8px; overflow: hidden; border: 1px dashed rgba(14,95,56,.35); background: rgba(255,255,255,.25); }
+.ghost img { width: 100%; height: 100%; object-fit: cover; opacity: .3; filter: grayscale(1); mix-blend-mode: multiply; }
+.holo { position: absolute; right: 30px; top: 318px; width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(from 20deg, #ffd1dc, #fff3b0, #c8f7c5, #b7e9ff, #d9c8ff, #ffd1dc, #fff3b0, #c8f7c5, #b7e9ff, #d9c8ff, #ffd1dc); opacity: .75; mix-blend-mode: multiply; box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 0 22px rgba(255,255,255,.9); }
+.holo img { position: absolute; inset: 18px; width: 84px; height: 84px; object-fit: contain; opacity: .45; filter: grayscale(1) brightness(1.3); mix-blend-mode: luminosity; }
+.holo::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.55) 0 1px, rgba(255,255,255,0) 1px 4px); }
+
+.sig { position: absolute; left: 30px; top: 386px; width: 186px; }
+.ink { height: 46px; display: flex; align-items: flex-end; padding-left: 6px; }
+/* multiply drops any white background left on older signature captures */
+.ink img { max-width: 100%; max-height: 46px; object-fit: contain; mix-blend-mode: multiply; }
+.line { border-top: 1px solid rgba(16,36,26,.55); margin-top: 2px; padding-top: 4px; }
+
+.micro { position: absolute; left: 0; right: 0; bottom: 24px; height: 9px; overflow: hidden; font-size: 5.2px; letter-spacing: .06em; line-height: 9px; color: rgba(14,95,56,.75); white-space: nowrap; font-weight: 600; text-align: center; }
+.flag { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: linear-gradient(100deg, var(--g900), var(--g700) 50%, var(--g800)); border-top: 2px solid var(--gold); }
+
+.bhdr { position: absolute; left: 0; right: 0; top: 0; height: 56px; background: linear-gradient(100deg, var(--g900), var(--g700) 50%, var(--g800)); display: flex; align-items: center; gap: 14px; padding: 0 26px; color: #fff; overflow: hidden; }
+.bhdr .coaSmall { height: 42px; width: auto; position: relative; }
+.t { position: relative; font-size: 12.5px; font-weight: 700; letter-spacing: .2em; }
+.t i { font-style: normal; font-weight: 500; opacity: .7; margin-left: 10px; letter-spacing: .14em; }
+
+.qr { position: absolute; left: 30px; top: 80px; width: 176px; padding: 12px; background: #fff; border-radius: 14px; box-shadow: 0 0 0 1px rgba(14,95,56,.18); }
+.qr img { display: block; width: 152px; height: 152px; }
+.qr p { margin-top: 8px; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: .16em; color: var(--g700); }
+
+.bf { position: absolute; left: 236px; top: 82px; width: 420px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; row-gap: 12px; }
+.bf .v { font-size: 15.5px; }
+.bf .addr { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
+
+.chip { position: absolute; right: 34px; top: 84px; width: 92px; height: 70px; border-radius: 12px; background: linear-gradient(135deg, #f3dc8a, #c9a13b 45%, #e9cf77 60%, #a8822a); box-shadow: inset 0 0 0 1px rgba(90,60,10,.4), 0 2px 4px rgba(0,0,0,.2); }
+.chip svg { width: 100%; height: 100%; }
+.nfc { position: absolute; right: 48px; top: 166px; display: flex; align-items: center; gap: 6px; color: var(--g700); font-size: 9px; font-weight: 700; letter-spacing: .14em; }
+.note { position: absolute; left: 236px; right: 30px; top: 300px; font-size: 9.5px; line-height: 1.5; color: #3f5a4a; }
+.note b { color: var(--g700); }
+.mrz { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; background: #fbfbf7; border-top: 1px solid rgba(14,95,56,.25); display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: NisCardPlex, monospace; font-weight: 500; font-size: 25px; letter-spacing: 11.3px; line-height: 1.4; color: #000; white-space: pre; }
+.mrz div { margin-right: -11.3px; }
+
+/* Print: each side is its own 85.6 × 54 mm page (named page "card", defined in globals.css). */
+.pages { display: none; }
+@media print {
+  .pages { display: block; }
+  .pages .slot { page: card; overflow: hidden; break-after: page; }
+  .pages .slot:last-child { break-after: auto; }
+  .pages .card { box-shadow: none; }
+}

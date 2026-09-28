@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { PrintableCard, type PrintData, type Stock } from "@/components/PrintableCard";
+import { CardPrintPages, PrintableCard, type PrintData, type Stock } from "@/components/PrintableCard";
 import { PrintResult } from "@/components/PrintResult";
 import { Alert, Button, Spinner } from "@/components/ui";
 import { useFetch } from "@/lib/use-fetch";
@@ -20,7 +20,7 @@ function Batch() {
     <div className="space-y-6">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-600">
-          Batch of <strong>{data.data.length}</strong> card(s). Blank cards in stock: <strong>{data.stock.remaining}</strong>. Print at 100% scale on CR80 card stock.
+          Batch of <strong>{data.data.length}</strong> card(s). Blank cards in stock: <strong>{data.stock.remaining}</strong>. Prints front then back for each card: choose the Fargo HDP5000, CR80 card, 100% scale, no margins.
         </p>
         <Button onClick={() => window.print()} disabled={data.stock.remaining < data.data.length}>Print all</Button>
       </div>
@@ -28,6 +28,7 @@ function Batch() {
       <div className="space-y-6">
         {data.data.map((p) => <PrintableCard key={p.data.id} p={p} />)}
       </div>
+      <CardPrintPages cards={data.data} />
       <div className="no-print max-w-2xl">
         <PrintResult cards={data.data.map((p) => ({ id: p.data.id, card_number: p.data.card_number }))} />
       </div>

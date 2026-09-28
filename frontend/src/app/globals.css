@@ -25,7 +25,11 @@ body {
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
+  /* Card printing (CardPrintPages): only the card pages go to the printer. */
+  body:has(> .card-print) > :not(.card-print) { display: none !important; }
 }
+/* CR80 card stock for the Fargo HDP5000, edge to edge. */
+@page card { size: 85.6mm 54mm; margin: 0; }
 
 /* Staff console tables: landing-page mint header and green accents. */
 .staff-area table { border-collapse: separate; border-spacing: 0; }
