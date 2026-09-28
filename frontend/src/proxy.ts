@@ -11,7 +11,10 @@ export function proxy(request: NextRequest) {
   const cookie = `nis_${portal}_session`;
 
   if (!request.cookies.has(cookie)) {
-    const login = new URL(`/api/auth/login/${portal}`, request.url);
+    // A cloned nextUrl keeps the base path (sub-folder); its pathname excludes it.
+    const login = request.nextUrl.clone();
+    login.pathname = `/api/auth/login/${portal}`;
+    login.search = "";
     login.searchParams.set("returnTo", pathname + search);
     return NextResponse.redirect(login);
   }

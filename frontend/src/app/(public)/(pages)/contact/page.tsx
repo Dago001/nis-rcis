@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { withBase } from "@/lib/base-path";
 
 export const metadata = { title: "Contact" };
 
@@ -36,7 +37,7 @@ export default function ContactPage() {
         </dl>
       </div>
       <div className="relative min-h-72 overflow-hidden rounded-2xl shadow-lg">
-        <Image src="/images/hq-reception.jpg" alt="NIS Headquarters reception" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+        <Image src={withBase("/images/hq-reception.jpg")} alt="NIS Headquarters reception" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -46,15 +47,26 @@ return new class extends Migration
             });
         }
 
-        DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+        // Staff search also matches application numbers typed without dashes.
+        DB::statement("CREATE INDEX applications_application_number_nodash_index ON applications ((replace(application_number, '-', '')))");
+
+        // Shared hosting may not let the database user add extensions: search
+        // then still works, only without these indexes. (A savepoint keeps a
+        // refused CREATE EXTENSION from aborting the migration's transaction.)
+        try {
+            DB::transaction(fn () => DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm'));
+        } catch (QueryException) {
+        }
+        if (! DB::table('pg_extension')->where('extname', 'pg_trgm')->exists()) {
+            return;
+        }
+
         foreach (self::TRIGRAM as $table => $columns) {
             foreach ($columns as $column) {
                 DB::statement("CREATE INDEX {$table}_{$column}_trgm_index ON {$table} USING gin ({$column} gin_trgm_ops)");
             }
         }
 
-        // Staff search also matches application numbers typed without dashes.
-        DB::statement("CREATE INDEX applications_application_number_nodash_index ON applications ((replace(application_number, '-', '')))");
     }
 
     public function down(): void

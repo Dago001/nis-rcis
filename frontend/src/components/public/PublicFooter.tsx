@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/I18nProvider";
+import { withBase } from "@/lib/base-path";
 
 // Official NIS social media accounts
 const socials: { href: string; label: string; icon: ReactNode }[] = [
@@ -20,7 +21,7 @@ export function PublicFooter() {
       <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-10 px-[5%] py-12 text-sm xl:px-8">
         <div className="max-w-sm space-y-4">
           <Link href="/" className="flex items-center gap-3">
-            <Image src="/images/nis-logo.png" alt="" width={44} height={44} />
+            <Image src={withBase("/images/nis-logo.png")} alt="" width={44} height={44} />
             <span className="text-[13px] font-bold leading-tight text-nis-primary-dark">NIGERIA<br />IMMIGRATION SERVICE</span>
           </Link>
           <div>

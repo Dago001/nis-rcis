@@ -2,11 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { Alert } from "@/components/ui";
 import { getI18n } from "@/lib/i18n-server";
+import { withBase } from "@/lib/base-path";
 
 export const metadata = { title: "Login" };
 
 /* Full-page navigations into the OAuth2 route handlers (not pages), so plain <a>. */
-/* eslint-disable @next/next/no-html-link-for-pages */
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { verified } = await searchParams;
@@ -25,9 +25,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <a href="/api/auth/login/applicant" className="group overflow-hidden rounded-2xl bg-white shadow-2xl transition hover:-translate-y-0.5 hover:shadow-black/40">
+        <a href={withBase("/api/auth/login/applicant")} className="group overflow-hidden rounded-2xl bg-white shadow-2xl transition hover:-translate-y-0.5 hover:shadow-black/40">
           <div className="relative h-40">
-            <Image src="/images/hq-entrance.jpg" alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-105" />
+            <Image src={withBase("/images/hq-entrance.jpg")} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <span className="absolute bottom-3 left-4 text-lg font-semibold text-white">{t("Applicant")}</span>
           </div>
@@ -37,9 +37,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           </div>
         </a>
 
-        <a href="/api/auth/login/staff" className="group overflow-hidden rounded-2xl bg-white shadow-2xl transition hover:-translate-y-0.5 hover:shadow-black/40">
+        <a href={withBase("/api/auth/login/staff")} className="group overflow-hidden rounded-2xl bg-white shadow-2xl transition hover:-translate-y-0.5 hover:shadow-black/40">
           <div className="relative h-40">
-            <Image src="/images/hq-reception.jpg" alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-105" />
+            <Image src={withBase("/images/hq-reception.jpg")} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <span className="absolute bottom-3 left-4 text-lg font-semibold text-white">{t("NIS Staff")}</span>
           </div>

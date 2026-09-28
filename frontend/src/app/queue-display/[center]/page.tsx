@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api-client";
+import { withBase } from "@/lib/base-path";
 
 type Display = { center: string; serving: { ticket_number: string; desk: string; called_at: string }[]; waiting: number; next: string[]; time: string };
 
@@ -50,7 +51,7 @@ export default function QueueDisplayPage() {
     <main id="main" className="flex min-h-screen flex-col bg-nis-primary-dark text-white">
       <header className="flex items-center justify-between gap-4 bg-black/20 px-8 py-4">
         <div className="flex items-center gap-4">
-          <Image src="/images/nis-logo.png" alt="" width={56} height={56} />
+          <Image src={withBase("/images/nis-logo.png")} alt="" width={56} height={56} />
           <div>
             <div className="text-xl font-semibold">NIGERIA IMMIGRATION SERVICE</div>
             <div className="text-white/80">{data?.center ?? "Enrollment centre"} · Residence cards</div>

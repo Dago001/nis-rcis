@@ -57,6 +57,12 @@ const nextConfig: NextConfig = {
   // Agent guidance lives in the repository root CLAUDE.md.
   agentRules: false,
   output: "standalone",
+  // Sub-folder deployments, e.g. "/nis-rcis" on the cPanel test server. Empty on localhost.
+  // Baked in at build time (see scripts/cpanel/build-frontend.ps1).
+  basePath: (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, ""),
+  // A build made on Windows cannot carry the Linux image optimiser (sharp) to a cPanel host:
+  // serve the images as they are there.
+  images: { unoptimized: process.env.NEXT_IMAGES_UNOPTIMIZED === "1" },
   // In production Nginx compresses (deploy/nginx/performance.conf), leaving Node.js's cores for rendering.
   compress: !isProduction,
   async headers() {

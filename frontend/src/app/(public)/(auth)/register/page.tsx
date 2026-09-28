@@ -9,9 +9,10 @@ import { Alert, Button, Field, Input } from "@/components/ui";
 import { ApiError } from "@/lib/api-client";
 import { useI18n } from "@/components/I18nProvider";
 import type { Translate } from "@/lib/i18n";
+import { withBase } from "@/lib/base-path";
 
 async function post(path: string, body: unknown) {
-  const response = await fetch(`/api/public-account/${path}`, {
+  const response = await fetch(withBase(`/api/public-account/${path}`), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
@@ -147,7 +148,7 @@ export default function RegisterPage() {
   return (
     <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl md:grid-cols-2">
       <div className="relative hidden min-h-[560px] md:block">
-        <Image src="/images/hq-entrance.jpg" alt="" fill priority sizes="50vw" className="object-cover" />
+        <Image src={withBase("/images/hq-entrance.jpg")} alt="" fill priority sizes="50vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-nis-primary-dark/90 via-nis-primary-dark/40 to-transparent" />
         <div className="absolute bottom-0 p-8 text-white">
           <p className="text-sm font-semibold uppercase tracking-widest text-white/80">{t("Residence Card Portal")}</p>

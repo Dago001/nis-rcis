@@ -3,12 +3,13 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { getI18n } from "@/lib/i18n-server";
 import "./globals.css";
+import { withBase } from "@/lib/base-path";
 
 export const metadata: Metadata = {
   title: { default: "NIS Residence Card Portal", template: "%s · NIS-RCIS" },
   description: "Nigeria Immigration Service — Residence Card Issuance Portal",
   appleWebApp: { capable: true, title: "NIS Residence", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
+  icons: { apple: withBase("/icons/apple-touch-icon.png") },
 };
 
 export const viewport: Viewport = { themeColor: "#1f6b1f" };

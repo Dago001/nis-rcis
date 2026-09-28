@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Button, Field, Input, Panel, Select, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
+import { withBase } from "@/lib/base-path";
 
 type Ticket = {
   id: number;
@@ -120,7 +121,7 @@ export default function QueueDeskPage() {
         title="Centre queue"
         subtitle={`${data.center.name} · today: ${data.stats.waiting} waiting, ${data.stats.called} being served, ${data.stats.done} served, ${data.stats.no_show} no-shows, ${data.stats.walk_ins} walk-ins`}
         actions={
-          <a href={`/queue-display/${data.center.id}`} target="_blank" rel="noopener" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium">
+          <a href={withBase(`/queue-display/${data.center.id}`)} target="_blank" rel="noopener" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium">
             Open “now serving” screen ↗
           </a>
         }

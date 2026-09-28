@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LanguageSwitcher, useI18n } from "@/components/I18nProvider";
+import { withBase } from "@/lib/base-path";
 
 export function SiteHeader({ right, languages = false }: { right?: ReactNode; languages?: boolean }) {
   const { t } = useI18n();
@@ -11,7 +12,7 @@ export function SiteHeader({ right, languages = false }: { right?: ReactNode; la
     <header className="no-print sticky top-0 z-40 border-b border-slate-200 bg-[#f6f6f6]">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-[5%] text-sm xl:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <Image src="/images/nis-logo.png" alt="Nigeria Immigration Service" width={48} height={48} priority />
+          <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={48} height={48} priority />
           <span className="leading-tight">
             <span className="block text-[13px] font-bold tracking-wide text-nis-primary-dark">{t("NIGERIA IMMIGRATION SERVICE")}</span>
             <span className="block text-xs text-slate-500">{t("Residence Card Portal")}</span>

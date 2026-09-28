@@ -2,6 +2,7 @@ import "server-only";
 import type { NextResponse } from "next/server";
 import { config, type Portal } from "./config";
 import { seal, unseal } from "./crypto";
+import { basePath, withBase } from "@/lib/base-path";
 
 /**
  * OAuth2 tokens are kept in an encrypted, httpOnly cookie per portal.
@@ -34,13 +35,13 @@ export function writeSession(response: NextResponse, portal: Portal, tokens: Tok
     httpOnly: true,
     secure: config.secureCookies(),
     sameSite: "lax",
-    path: "/",
+    path: basePath || "/",
     maxAge: SESSION_MAX_AGE,
   });
 }
 
 export function clearSession(response: NextResponse, portal: Portal): void {
-  response.cookies.set(sessionCookie(portal), "", { httpOnly: true, path: "/", maxAge: 0 });
+  response.cookies.set(sessionCookie(portal), "", { httpOnly: true, path: basePath || "/", maxAge: 0 });
 }
 
 export function writeTransaction(response: NextResponse, portal: Portal, tx: OAuthTransaction): void {
@@ -48,7 +49,7 @@ export function writeTransaction(response: NextResponse, portal: Portal, tx: OAu
     httpOnly: true,
     secure: config.secureCookies(),
     sameSite: "lax",
-    path: `/api/auth/callback/${portal}`,
+    path: withBase(`/api/auth/callback/${portal}`),
     maxAge: 600,
   });
 }

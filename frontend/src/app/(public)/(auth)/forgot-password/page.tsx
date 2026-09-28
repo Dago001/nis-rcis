@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Alert, Button, Field, Input } from "@/components/ui";
+import { withBase } from "@/lib/base-path";
 
 export default function ForgotPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
@@ -10,7 +11,7 @@ export default function ForgotPasswordPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const response = await fetch("/api/public-account/password/forgot", {
+    const response = await fetch(withBase("/api/public-account/password/forgot"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))),

@@ -14,3 +14,6 @@
 
 # Redis snapshots
 dump.rdb
+
+# cPanel upload packages (cpanel-package.bat)
+/dist/

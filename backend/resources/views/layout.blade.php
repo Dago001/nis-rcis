@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title>@yield('title') — Nigeria Immigration Service</title>
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="{{ asset('favicon.ico') }}">
     <style>
         :root {
             --primary:#2b892b; --primary-dark:#1f6b1f; --deep:#073f1c; --mint:#eef7f1; --orange:#ea7317;
@@ -88,7 +88,7 @@
 <header class="site-header">
     <div class="inner">
         <a class="brand" href="{{ config('nis.frontend_url') }}">
-            <img src="/images/nis-logo.png" alt="">
+            <img src="{{ asset('images/nis-logo.png') }}" alt="">
             <div><strong>NIGERIA IMMIGRATION SERVICE</strong><span>Residence Card Portal</span></div>
         </a>
         <nav>
@@ -100,7 +100,7 @@
     </div>
 </header>
 <main class="stage">
-    <img class="bg" src="/images/@yield('image', 'hq-dusk.jpg')" alt="">
+    <img class="bg" src="{{ asset('images/'.trim($__env->yieldContent('image', 'hq-dusk.jpg'))) }}" alt="">
     <div class="caption" aria-hidden="true">
         <div class="eyebrow">Nigeria Immigration Service</div>
         <h2>@yield('headline', 'Residence Card Issuance Portal')</h2>
@@ -112,6 +112,6 @@
     </section>
 </main>
 <footer class="site-footer">Nigeria Immigration Service · All rights reserved © {{ date('Y') }}</footer>
-<script src="/js/password-toggle.js" defer></script>
+<script src="{{ asset('js/password-toggle.js') }}" defer></script>
 </body>
 </html>
