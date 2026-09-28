@@ -17,8 +17,14 @@ function origins(...urls: (string | undefined)[]): string[] {
 // short-lived signed document URLs (local disk or S3-compatible storage).
 const apiOrigins = origins(process.env.API_PUBLIC_URL || process.env.API_URL, process.env.DOCUMENTS_PUBLIC_URL).join(" ");
 
-// The fingerprint scanner's local service on the biometrics desk computer.
-const scannerOrigin = origins(process.env.NEXT_PUBLIC_FINGERPRINT_SERVICE_URL || "https://localhost:8443").join(" ");
+// Fingerprint scanner services on the biometrics desk computer (src/lib/fingerprint):
+// SecuGen WebAPI, Mantra client service, and the HID DigitalPersona Lite Client
+// (https://127.0.0.1:52181, then a WebSocket on a port it picks).
+const scannerOrigin = [
+  ...origins(process.env.NEXT_PUBLIC_FINGERPRINT_SERVICE_URL || "https://localhost:8443"),
+  "https://localhost:8003 http://localhost:8004",
+  "https://127.0.0.1:* wss://127.0.0.1:* ws://127.0.0.1:*",
+].join(" ");
 
 // Next.js injects small inline bootstrap scripts, hence 'unsafe-inline' for
 // scripts; everything else is locked to this site. Not applied in
@@ -63,6 +69,8 @@ const nextConfig: NextConfig = {
   // A build made on Windows cannot carry the Linux image optimiser (sharp) to a cPanel host:
   // serve the images as they are there.
   images: { unoptimized: process.env.NEXT_IMAGES_UNOPTIMIZED === "1" },
+  // @digitalpersona/devices imports "WebSdk", which HID ships as a browser script (window.WebSdk).
+  turbopack: { resolveAlias: { WebSdk: "./src/lib/fingerprint/websdk-shim.ts" } },
   // In production Nginx compresses (deploy/nginx/performance.conf), leaving Node.js's cores for rendering.
   compress: !isProduction,
   async headers() {

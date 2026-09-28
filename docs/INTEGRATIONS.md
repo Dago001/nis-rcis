@@ -71,32 +71,50 @@ Adapter: `backend/app/Integrations/Drivers/MoiQuotaHttp.php`. Switch on with
 
 ## 3. Fingerprint scanners
 
-The biometrics desk supports **SecuGen** USB scanners (for example Hamster Pro
-20) through the free **SecuGen WebAPI** service, installed on each desk
-computer. The browser talks to the scanner service on the same computer
-(`https://localhost:8443/SGIFPCapture`); the templates (ISO/IEC 19794-2) are
-then sent to NIS-RCIS and stored **encrypted**. Fingerprint images never leave
-the desk computer, and templates are never shown or exported.
+The biometrics desk works with several scanner makes. Each maker supplies a
+small service that runs on the desk computer; the browser talks to it there,
+and only the result is sent to NIS-RCIS, where it is stored **encrypted**.
+Fingerprints are never shown again or exported.
+
+| Scanner | Install on each desk computer | What is stored |
+|---|---|---|
+| **HID DigitalPersona** U.are.U 4500, 5100, 5300 (and other HID readers) | **HID DigitalPersona Lite Client** (also called *Authentication Device Client*), from HID | Lossless PNG finger image (ISO/IEC 19794-4), shown to the officer, because HID's browser software does not produce templates |
+| **Mantra** MFS100, MFS110 | Mantra driver and **MFS100 client service**, from Mantra | ISO/IEC 19794-2 template |
+| **SecuGen** Hamster Pro 20, Hamster IV, ... | SecuGen driver and **SecuGen WebAPI**, from SecuGen | ISO/IEC 19794-2 template |
+
+On the biometrics desk, the **Scanner** list is set to **Automatic**: the page
+asks every service and uses the one with a scanner connected. Officers can pick
+a make instead; the choice is remembered on that computer.
 
 Set up each desk computer:
 
-1. Install the SecuGen device driver and the SecuGen WebAPI (from SecuGen).
-2. Open `https://localhost:8443` once in the browser and accept its certificate.
-3. Plug in the scanner and capture a test print on the biometrics desk.
+1. Install the scanner maker's software from the table (it replaces the Windows
+   Hello driver for that scanner) and plug in the scanner.
+2. Use **Chrome or Edge**. In **Firefox**, first open the service's address once
+   and accept its certificate: `https://127.0.0.1:52181/get_connection`
+   (DigitalPersona), `https://localhost:8003/mfs100/info` (Mantra) or
+   `https://localhost:8443` (SecuGen).
+3. On the live site, Chrome may ask to *allow access to other apps and services
+   on this device*: choose **Allow** (the site needs it to reach the scanner service).
+4. Capture a test print on the biometrics desk.
 
 Settings (frontend `.env.local`, then rebuild):
 
 ```
-NEXT_PUBLIC_FINGERPRINT_SCANNER=secugen          # or off
-NEXT_PUBLIC_FINGERPRINT_SERVICE_URL=https://localhost:8443/SGIFPCapture
+NEXT_PUBLIC_FINGERPRINT_SCANNER=auto             # auto (default), digitalpersona, mantra, secugen, simulated or off
+NEXT_PUBLIC_FINGERPRINT_SERVICE_URL=https://localhost:8443/SGIFPCapture   # SecuGen only
 NEXT_PUBLIC_FINGERPRINT_LICENSE=                  # SecuGen licence string for your domain
 ```
 
 When every desk has a scanner, make fingerprints compulsory (at least two
 fingers) with `FINGERPRINTS_REQUIRED=true` in `backend/.env`.
 
-Other scanner makes can be added as another driver in
-`frontend/src/components/FingerprintCapture.tsx` returning the same fields.
+**Another make** (for example Futronic, Suprema or Integrated Biometrics) can be
+added if its maker provides a browser service: write a driver in
+`frontend/src/lib/fingerprint/` returning the same fields as the others, add it
+to `DRIVERS` in `index.ts`, and allow its address in `connect-src` in
+`frontend/next.config.ts`. Scanners that only work through Windows Hello
+cannot be used: Windows never gives fingerprints to websites.
 
 ## Testing without the real systems
 
@@ -106,7 +124,7 @@ On test computers (`APP_ENV` not `production`) the simulators answer:
   `INTERPOL_SLTD_TEST_HITS`) is a hit; anything else is clear.
 - **Quota:** a number like `MOI/EQ/2026/123` is valid; ending in `000` is not
   found; containing `EXP` is expired.
-- **Fingerprints:** tick *Use the simulated scanner* on the biometrics desk.
+- **Fingerprints:** choose *Simulated scanner* in the **Scanner** list on the biometrics desk.
 
 On the live system the simulators are refused: an unconfigured connection is
 recorded as "Not checked".
