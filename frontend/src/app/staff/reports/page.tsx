@@ -6,6 +6,7 @@ import { hasRole, useStaff } from "@/components/StaffShell";
 import { Alert, Button, Field, Input, Panel, Select, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
+import { withBase } from "@/lib/base-path";
 
 type Report = {
   from: string; to: string; total_issued: number; active: number; revoked: number; renewals: number; nationalities: number;
@@ -63,8 +64,8 @@ export default function ReportsPage() {
         title="Issuance reports"
         actions={canExport && (
           <div className="flex gap-2">
-            <a href={`/api/bff/staff/reports/export?${query}&format=csv`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Export CSV</a>
-            <a href={`/api/bff/staff/reports/export?${query}&format=xlsx`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Export Excel</a>
+            <a href={withBase(`/api/bff/staff/reports/export?${query}&format=csv`)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Export CSV</a>
+            <a href={withBase(`/api/bff/staff/reports/export?${query}&format=xlsx`)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Export Excel</a>
           </div>
         )}
       />
@@ -74,8 +75,8 @@ export default function ReportsPage() {
         <Panel title="Monthly management report">
           <div className="flex flex-wrap items-end gap-3">
             <Field label="Month"><Input type="month" value={month} max={new Date().toISOString().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} /></Field>
-            <a href={`/api/bff/staff/reports/management?month=${month}&format=pdf`} className="rounded-md bg-nis-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-nis-primary-dark">Download PDF</a>
-            <a href={`/api/bff/staff/reports/management?month=${month}&format=xlsx`} className="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:border-nis-primary hover:text-nis-primary">Download Excel</a>
+            <a href={withBase(`/api/bff/staff/reports/management?month=${month}&format=pdf`)} className="rounded-md bg-nis-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-nis-primary-dark">Download PDF</a>
+            <a href={withBase(`/api/bff/staff/reports/management?month=${month}&format=xlsx`)} className="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:border-nis-primary hover:text-nis-primary">Download Excel</a>
             <p className="basis-full text-xs text-slate-500">Applications, service-level performance, cards, fees and refunds, card production and the centre queue for the month.</p>
           </div>
         </Panel>

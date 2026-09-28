@@ -10,6 +10,7 @@ import { PushToggle } from "@/components/PushToggle";
 import { api } from "@/lib/api-client";
 import { dateTime, nisDate, applicationType } from "@/lib/format";
 import type { AppNotification, Application } from "@/lib/types";
+import { withBase } from "@/lib/base-path";
 
 type Me = { forenames: string; surname: string; email: string; has_draft: boolean };
 
@@ -100,7 +101,7 @@ export default function PortalHome() {
           Under the Nigeria Data Protection Act 2023 you can download everything we hold about you. See the <Link href="/privacy" className="text-nis-primary underline">privacy notice</Link> for how your data is used and kept.
         </p>
         {/* Plain link: a file download through the BFF, not a page navigation. */}
-        <a href="/api/bff/applicant/my-data" download="my-nis-rcis-data.json" className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Download my data")}</a>
+        <a href={withBase("/api/bff/applicant/my-data")} download="my-nis-rcis-data.json" className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Download my data")}</a>
       </section>
     </div>
   );

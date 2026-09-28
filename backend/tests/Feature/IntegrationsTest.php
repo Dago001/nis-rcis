@@ -88,3 +88,37 @@ it('stores fingerprint templates from the scanner encrypted and never returns th
         ->and(DB::table('applications')->where('id', $application->id)->value('fingerprints'))->not->toContain($template)
         ->and($application->fresh()->fingerprints[0]['template'])->toBe($template);
 });
+
+it('accepts WSQ finger images from DigitalPersona readers and checks each format', function () {
+    $this->artisan('nis:demo')->assertSuccessful();
+    $application = Application::where('status', ApplicationStatus::ApprovedForBiometrics)->firstOrFail();
+    asStaff(User::where('role', StaffRole::IssuingOfficer)->firstOrFail());
+    app()->detectEnvironment(fn () => 'production');
+
+    // WSQ files start with the SOI marker FF A0; a real image is some tens of kilobytes.
+    $wsq = base64_encode("\xFF\xA0\xFF\xA8".random_bytes(30000));
+    $body = ['photo' => $this->pngDataUrl(), 'signature' => $this->pngDataUrl(), 'fingerprints' => [
+        ['finger' => 'R_INDEX', 'template' => $wsq, 'format' => 'WSQ', 'device' => 'HID DigitalPersona'],
+        ['finger' => 'L_INDEX', 'template' => base64_encode(random_bytes(30000)), 'format' => 'WSQ'],
+    ]];
+    // Not a WSQ image.
+    $this->postJson("/api/v1/staff/applications/{$application->id}/biometrics", $body)
+        ->assertUnprocessable()->assertJsonValidationErrors('fingerprints.1.template')->assertJsonMissingValidationErrors('fingerprints.0.template');
+
+    // A template the size of an image is refused: templates are small.
+    $body['fingerprints'][1] = ['finger' => 'L_INDEX', 'template' => base64_encode(random_bytes(30000)), 'format' => 'ISO_19794_2'];
+    $this->postJson("/api/v1/staff/applications/{$application->id}/biometrics", $body)
+        ->assertUnprocessable()->assertJsonValidationErrors('fingerprints.1.template');
+
+    $body['fingerprints'][1] = ['finger' => 'L_INDEX', 'template' => base64_encode(random_bytes(400)), 'format' => 'ISO_19794_2', 'device' => 'Mantra MFS100'];
+    // Lossless PNG finger image (DigitalPersona): must really be a PNG.
+    $body['fingerprints'][2] = ['finger' => 'R_THUMB', 'template' => $wsq, 'format' => 'PNG'];
+    $this->postJson("/api/v1/staff/applications/{$application->id}/biometrics", $body)
+        ->assertUnprocessable()->assertJsonValidationErrors('fingerprints.2.template');
+
+    $png = substr($this->pngDataUrl(), strlen('data:image/png;base64,'));
+    $body['fingerprints'][2]['template'] = $png;
+    $this->postJson("/api/v1/staff/applications/{$application->id}/biometrics", $body)->assertOk();
+    expect($application->fresh()->fingerprints[0])->toMatchArray(['format' => 'WSQ', 'template' => $wsq])
+        ->and($application->fresh()->fingerprints[2])->toMatchArray(['format' => 'PNG', 'template' => $png]);
+});

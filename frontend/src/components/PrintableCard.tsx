@@ -5,6 +5,7 @@ import { QrCode } from "@/components/QrCode";
 import { td1Mrz } from "@/lib/mrz";
 import type { Card } from "@/lib/types";
 import s from "./PrintableCard.module.css";
+import { withBase } from "@/lib/base-path";
 
 export type PrintData = { data: Card; photo_url: string | null; signature_url: string | null; verification_url: string };
 
@@ -49,17 +50,17 @@ function Front({ p }: { p: PrintData }) {
       <section className={s.card} aria-label="Card front">
         <div className={s.bg}>
           <img className={s.fill} src={bodyPattern} alt="" />
-          <img className={s.watermark} src="/card/coat-of-arms.png" alt="" />
+          <img className={s.watermark} src={withBase("/card/coat-of-arms.png")} alt="" />
         </div>
         <header className={s.hdr}>
           <img className={s.hw} src={frontHeaderPattern} alt="" />
-          <img className={s.coa} src="/card/coat-of-arms.png" alt="Coat of arms of Nigeria" />
+          <img className={s.coa} src={withBase("/card/coat-of-arms.png")} alt="Coat of arms of Nigeria" />
           <div className={s.ttl}>
             <h1>FEDERAL REPUBLIC OF NIGERIA</h1>
             <div className={s.sub}>ECOWAS RESIDENCE CARD</div>
             <div className={s.fr}>CARTE DE RÉSIDENT CEDEAO</div>
           </div>
-          <img className={s.eco} src="/card/ecowas-emblem.png" alt="ECOWAS emblem" />
+          <img className={s.eco} src={withBase("/card/ecowas-emblem.png")} alt="ECOWAS emblem" />
         </header>
 
         <div className={s.photo}>{p.photo_url && <img src={p.photo_url} alt="Holder photograph" />}</div>
@@ -83,7 +84,7 @@ function Front({ p }: { p: PrintData }) {
           <div className={s.v}>{c.card_number}</div>
         </div>
         <div className={s.ghost}>{p.photo_url && <img src={p.photo_url} alt="" />}</div>
-        <div className={s.holo}><img src="/card/coat-of-arms.png" alt="" /></div>
+        <div className={s.holo}><img src={withBase("/card/coat-of-arms.png")} alt="" /></div>
 
         <div className={s.sig}>
           <div className={s.ink}>{p.signature_url && <img src={p.signature_url} alt="Holder's signature" />}</div>
@@ -104,11 +105,11 @@ function Back({ p }: { p: PrintData }) {
       <section className={s.card} aria-label="Card back">
         <div className={s.bg}>
           <img className={s.fill} src={bodyPattern} alt="" />
-          <img className={s.watermark} src="/card/coat-of-arms.png" alt="" />
+          <img className={s.watermark} src={withBase("/card/coat-of-arms.png")} alt="" />
         </div>
         <header className={s.bhdr}>
           <img className={s.hw} src={backHeaderPattern} alt="" />
-          <img className={s.coaSmall} src="/card/coat-of-arms.png" alt="" />
+          <img className={s.coaSmall} src={withBase("/card/coat-of-arms.png")} alt="" />
           <div className={s.t}>NIGERIA IMMIGRATION SERVICE<i>SERVICE DE L&apos;IMMIGRATION DU NIGERIA</i></div>
         </header>
 

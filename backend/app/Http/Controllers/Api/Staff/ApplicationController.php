@@ -34,6 +34,12 @@ class ApplicationController
 {
     public const FINGERS = ['R_THUMB', 'R_INDEX', 'R_MIDDLE', 'R_RING', 'R_LITTLE', 'L_THUMB', 'L_INDEX', 'L_MIDDLE', 'L_RING', 'L_LITTLE'];
 
+    /** Longest base64 accepted per fingerprint format: templates are small, images larger (PNG is lossless). */
+    private const FINGERPRINT_MAX = ['ISO_19794_2' => 20000, 'ANSI_378' => 20000, 'SIMULATED' => 20000, 'WSQ' => 200000, 'PNG' => 400000];
+
+    /** First bytes of each fingerprint image format: WSQ's SOI marker, PNG's signature. */
+    private const FINGERPRINT_IMAGE_START = ['WSQ' => "\xFF\xA0", 'PNG' => "\x89PNG"];
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $data = $request->validate([
@@ -227,12 +233,24 @@ class ApplicationController
             'photo' => ['required', 'string', 'max:8000000'],
             'signature' => ['required', 'string', 'max:2000000'],
             'fingerprint_template' => ['nullable', 'string', 'max:200000'],
-            // From the fingerprint scanner: ISO/IEC 19794-2 (or ANSI 378) templates, base64.
+            // From the fingerprint scanner, base64: an ISO/IEC 19794-2 (or ANSI 378) template,
+            // or a finger image (ISO/IEC 19794-4: WSQ or lossless PNG) from scanners such as
+            // DigitalPersona whose browser software only hands out images.
             'fingerprints' => [config('nis.fingerprints_required') ? 'required' : 'nullable', 'array', config('nis.fingerprints_required') ? 'min:2' : 'min:0', 'max:10'],
             'fingerprints.*.finger' => ['required', 'distinct', Rule::in(self::FINGERS)],
-            'fingerprints.*.template' => ['required', 'string', 'max:20000', 'regex:/^[A-Za-z0-9+\/=]+$/'],
+            'fingerprints.*.template' => ['required', 'string', 'max:'.max(self::FINGERPRINT_MAX), 'regex:/^[A-Za-z0-9+\/=]+$/',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                    $format = $request->input(str_replace('.template', '.format', $attribute));
+                    if (is_string($value) && strlen($value) > (self::FINGERPRINT_MAX[$format] ?? self::FINGERPRINT_MAX['ISO_19794_2'])) {
+                        $fail('The fingerprint data is too large for its format.');
+                    }
+                    $start = self::FINGERPRINT_IMAGE_START[$format] ?? null;
+                    if ($start !== null && is_string($value) && ! str_starts_with((string) base64_decode(substr($value, 0, 8), true), $start)) {
+                        $fail("The fingerprint image is not a {$format} image.");
+                    }
+                }],
             // Simulated prints (testing) are refused on the live system.
-            'fingerprints.*.format' => ['required', Rule::in(app()->isProduction() ? ['ISO_19794_2', 'ANSI_378'] : ['ISO_19794_2', 'ANSI_378', 'SIMULATED'])],
+            'fingerprints.*.format' => ['required', Rule::in(app()->isProduction() ? ['ISO_19794_2', 'ANSI_378', 'WSQ', 'PNG'] : ['ISO_19794_2', 'ANSI_378', 'WSQ', 'PNG', 'SIMULATED'])],
             'fingerprints.*.quality' => ['nullable', 'integer', 'between:0,100'],
             'fingerprints.*.nfiq' => ['nullable', 'integer', 'between:1,5'],
             'fingerprints.*.device' => ['nullable', 'string', 'max:100'],

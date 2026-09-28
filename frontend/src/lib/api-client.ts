@@ -1,5 +1,7 @@
 "use client";
 
+import { withBase, withoutBase } from "@/lib/base-path";
+
 export type ApiScope = "staff" | "applicant" | "public";
 
 export class ApiError extends Error {
@@ -23,7 +25,7 @@ export class ApiError extends Error {
  */
 export async function api<T = unknown>(scope: ApiScope, path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, ...rest } = init;
-  const response = await fetch(`/api/bff/${scope}/${path.replace(/^\//, "")}`, {
+  const response = await fetch(withBase(`/api/bff/${scope}/${path.replace(/^\//, "")}`), {
     ...rest,
     headers: {
       Accept: "application/json",
@@ -35,10 +37,9 @@ export async function api<T = unknown>(scope: ApiScope, path: string, init: Requ
   });
 
   if (response.status === 401 && scope !== "public") {
-    const returnTo = window.location.pathname + window.location.search;
+    const returnTo = withoutBase(window.location.pathname) + window.location.search;
     // Full-page navigation into the OAuth2 route handler is intentional.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = `/api/auth/login/${scope}?returnTo=${encodeURIComponent(returnTo)}`;
+    window.location.href = withBase(`/api/auth/login/${scope}?returnTo=${encodeURIComponent(returnTo)}`);
     throw new ApiError(401, "Your session has expired. Redirecting to sign in…");
   }
 

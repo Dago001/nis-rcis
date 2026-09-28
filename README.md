@@ -91,6 +91,8 @@ The Auditor role now has read access to the audit trail. In the legacy system on
 
 **On Windows, use the one-click scripts:** run `setup.bat` once, then `start.bat`. [TESTING.md](TESTING.md) has the step-by-step guide, the demo accounts and a full test plan.
 
+**Test server on cPanel shared hosting** (e.g. https://niscoreapps.com.ng/nis-rcis, alongside localhost): see [docs/DEPLOY-CPANEL.md](docs/DEPLOY-CPANEL.md) and `cpanel-package.bat`.
+
 Manual setup (any operating system):
 
 Requirements: PHP 8.4+ (8.5 in production) with `pgsql`, `redis`, `gd`, `intl`; Composer; PostgreSQL 16; Redis; Node.js 22.

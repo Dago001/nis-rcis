@@ -192,7 +192,7 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 ### N. Connections to other government systems (simulated)
 - [ ] **N1.** Start a new application. In step 4 enter the quota number **MOI/EQ/2026/123** and an employer. Use a passport number starting with **SLTD** (for example SLTD12345). Submit.
 - [ ] **N2.** As **10002**, open the application: **External checks** shows *Interpol: recorded as stolen* and *quota confirmed*, and the fraud panel has a HIGH warning. Click **Run checks again**.
-- [ ] **N3.** At the biometrics desk, tick **Use the simulated scanner** and capture the two index fingers (with a real SecuGen scanner, see `docs/INTEGRATIONS.md`). Save: the application shows which fingers were captured.
+- [ ] **N3.** At the biometrics desk, choose **Simulated scanner** in the **Scanner** list and capture the two index fingers (with a real DigitalPersona, Mantra or SecuGen scanner, leave it on **Automatic**; see `docs/INTEGRATIONS.md`). Save: the application shows which fingers were captured.
 
 ### O. Platform
 - [ ] **O1.** As **10001**, open **System health**: every check with its status, and any server errors (mark them resolved). Put your e-mail in `ALERT_EMAILS` in `backend\.env` to receive alerts; they appear in `backend\storage\logs\laravel.log` locally.

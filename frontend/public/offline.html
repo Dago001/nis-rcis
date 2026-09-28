@@ -14,10 +14,16 @@
 </head>
 <body>
 <main>
-  <img src="/icons/icon-192.png" alt="">
+  <img id="icon" alt="">
   <h1>You are offline</h1>
   <p>The residence card portal needs an internet connection. Your saved application is kept safely on our servers.</p>
   <button onclick="location.reload()">Try again</button>
 </main>
+<script>
+  // Shown for any address while offline: take the icon from the service worker's folder.
+  navigator.serviceWorker && navigator.serviceWorker.getRegistration().then(function (r) {
+    if (r) document.getElementById("icon").src = r.scope + "icons/icon-192.png";
+  });
+</script>
 </body>
 </html>

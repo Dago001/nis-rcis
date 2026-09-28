@@ -4,11 +4,14 @@
  * - Displays push notifications (sent alongside the e-mails).
  * Personal data is never cached: only the offline page and icons are stored.
  */
-const CACHE = "nis-rcis-v1";
-const OFFLINE = "/offline.html";
+// The folder the app is served from ("" on its own domain, "/nis-rcis" in a sub-folder).
+const BASE = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+const CACHE = "nis-rcis-v2";
+const OFFLINE = BASE + "/offline.html";
+const ICON = BASE + "/icons/icon-192.png";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([OFFLINE, "/icons/icon-192.png"])));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll([OFFLINE, ICON])));
   self.skipWaiting();
 });
 
@@ -20,6 +23,10 @@ self.addEventListener("activate", (event) => {
 
 // Page navigations go to the network; only when it fails is the offline page shown.
 self.addEventListener("fetch", (event) => {
+  if (event.request.url === new URL(ICON, self.location.origin).href) {
+    event.respondWith(caches.match(ICON).then((hit) => hit || fetch(event.request)));
+    return;
+  }
   if (event.request.mode !== "navigate") return;
   event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE)));
 });
@@ -34,17 +41,18 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Nigeria Immigration Service", {
       body: data.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: ICON,
+      badge: ICON,
       tag: data.tag || "nis-rcis",
-      data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/portal" },
+      // The API sends app paths ("/portal/..."); add the folder.
+      data: { url: BASE + (typeof data.url === "string" && data.url.startsWith("/") && !data.url.startsWith("//") ? data.url : "/portal") },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL(event.notification.data?.url || "/portal", self.location.origin).href;
+  const url = new URL(event.notification.data?.url || BASE + "/portal", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       for (const w of windows) {

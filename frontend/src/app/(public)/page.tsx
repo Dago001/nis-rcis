@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { getI18n } from "@/lib/i18n-server";
+import { withBase } from "@/lib/base-path";
 
 const steps: { title: string; body: string; icon: ReactNode }[] = [
   {
@@ -69,7 +70,7 @@ export default async function Home() {
     <main id="main" tabIndex={-1} className="flex-1">
       {/* Hero */}
       <section className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden px-[5%] py-20 text-center">
-        <Image src="/images/hq-dusk.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
+        <Image src={withBase("/images/hq-dusk.jpg")} alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/75" aria-hidden />
 
         <div className="relative z-10 max-w-4xl text-white">

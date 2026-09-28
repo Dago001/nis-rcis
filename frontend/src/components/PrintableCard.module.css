@@ -1,10 +1,10 @@
-@font-face { font-family: NisCardInter; font-weight: 400; font-display: block; src: url("/card/inter-400.woff2") format("woff2"); }
-@font-face { font-family: NisCardInter; font-weight: 500; font-display: block; src: url("/card/inter-500.woff2") format("woff2"); }
-@font-face { font-family: NisCardInter; font-weight: 600; font-display: block; src: url("/card/inter-600.woff2") format("woff2"); }
-@font-face { font-family: NisCardInter; font-weight: 700; font-display: block; src: url("/card/inter-700.woff2") format("woff2"); }
-@font-face { font-family: NisCardCinzel; font-weight: 700; font-display: block; src: url("/card/cinzel-700.woff2") format("woff2"); }
-@font-face { font-family: NisCardPlex; font-weight: 500; font-display: block; src: url("/card/plex-500.woff2") format("woff2"); }
-@font-face { font-family: NisCardPlex; font-weight: 600; font-display: block; src: url("/card/plex-600.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 400; font-display: block; src: url("./card-fonts/inter-400.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 500; font-display: block; src: url("./card-fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 600; font-display: block; src: url("./card-fonts/inter-600.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 700; font-display: block; src: url("./card-fonts/inter-700.woff2") format("woff2"); }
+@font-face { font-family: NisCardCinzel; font-weight: 700; font-display: block; src: url("./card-fonts/cinzel-700.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 500; font-display: block; src: url("./card-fonts/plex-500.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 600; font-display: block; src: url("./card-fonts/plex-600.woff2") format("woff2"); }
 
 /* Designed at 856 × 540 px and scaled to exactly 85.6 × 54 mm (ID-1 / CR80): 1 design px = 0.1 mm. */
 .slot { width: 85.6mm; height: 54mm; flex: none; }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { PasswordInput } from "@/components/inputs";
 import { Alert, Button, Field } from "@/components/ui";
+import { withBase } from "@/lib/base-path";
 
 function ResetForm() {
   const params = useSearchParams();
@@ -14,7 +15,7 @@ function ResetForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = { ...Object.fromEntries(new FormData(event.currentTarget)), token: params.get("token"), email: params.get("email") };
-    const response = await fetch("/api/public-account/password/reset", {
+    const response = await fetch(withBase("/api/public-account/password/reset"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),

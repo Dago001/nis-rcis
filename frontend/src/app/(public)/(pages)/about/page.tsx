@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { withBase } from "@/lib/base-path";
 
 export const metadata = { title: "About" };
 
@@ -21,7 +22,7 @@ export default function AboutPage() {
           </p>
         </div>
         <div className="relative aspect-[16/10] overflow-hidden rounded-2xl shadow-lg">
-          <Image src="/images/hq-entrance.jpg" alt="NIS Headquarters, Abuja" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+          <Image src={withBase("/images/hq-entrance.jpg")} alt="NIS Headquarters, Abuja" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
         </div>
       </div>
 

@@ -1,29 +1,106 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button } from "./ui";
+import { Button, Select } from "./ui";
+
+const CAMERA_KEY = "nis-rcis:camera";
+// Software cameras (screen-sharing apps, OBS, ...) show nothing unless their app is running.
+const VIRTUAL_CAMERA = /ideashare|ideacamera|virtual|obs|manycam|snap camera|droidcam|nvidia broadcast/i;
+
+function savedCamera(): string {
+  try {
+    return localStorage.getItem(CAMERA_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberCamera(id: string) {
+  try {
+    if (id) localStorage.setItem(CAMERA_KEY, id);
+    else localStorage.removeItem(CAMERA_KEY);
+  } catch {
+    // Private window or blocked storage: the choice just is not remembered.
+  }
+}
+
+function cameraError(e: unknown): string {
+  const name = e instanceof DOMException ? e.name : "";
+  if (name === "NotAllowedError" || name === "SecurityError")
+    return "Camera access is blocked for this site. Allow the camera (camera or padlock icon in the address bar), then click Try again.";
+  if (name === "NotReadableError" || name === "AbortError")
+    return "The camera is in use by another program or browser tab (Zoom, Teams, another copy of this page...). Close it, then click Try again.";
+  if (name === "NotFoundError") return "No camera found. Connect the webcam, then click Try again.";
+  return "The camera could not be started. Click Try again.";
+}
 
 /** Live facial photo from the desk webcam (legacy webcam-capture.js). */
 export function WebcamCapture({ onCapture }: { onCapture: (dataUrl: string | null) => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [cameraId, setCameraId] = useState(savedCamera);
+  const [activeId, setActiveId] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    const el = video.current;
+    const media = navigator.mediaDevices;
+    let cancelled = false;
     let stream: MediaStream | null = null;
-    navigator.mediaDevices
-      ?.getUserMedia({ video: { width: 640, height: 800, facingMode: "user" } })
-      .then((s) => {
+    const size = { width: { ideal: 640 }, height: { ideal: 800 } };
+
+    (media?.getUserMedia
+      ? media.getUserMedia({ video: cameraId ? { ...size, deviceId: { exact: cameraId } } : { ...size, facingMode: "user" } })
+      : Promise.reject(new DOMException("No camera API", "NotFoundError"))
+    )
+      .then(async (s) => {
+        // Stopped (or switched camera) before the camera opened: release it, or it stays on.
+        if (cancelled) return s.getTracks().forEach((t) => t.stop());
         stream = s;
-        if (video.current) video.current.srcObject = s;
+        if (el) el.srcObject = s;
+        const active = s.getVideoTracks()[0]?.getSettings().deviceId ?? "";
+        const all = (await media.enumerateDevices()).filter((d) => d.kind === "videoinput");
+        if (cancelled) return;
+        setCameras(all);
+        setActiveId(active);
+        setError(null);
+        setReady(true);
+        // No camera chosen yet and the browser picked a software camera: use a real one.
+        const current = all.find((d) => d.deviceId === active);
+        const real = all.find((d) => !VIRTUAL_CAMERA.test(d.label));
+        if (!cameraId && current && VIRTUAL_CAMERA.test(current.label) && real) setCameraId(real.deviceId);
       })
-      .catch(() => setError("Camera unavailable. Check browser permissions."));
-    return () => stream?.getTracks().forEach((t) => t.stop());
-  }, []);
+      .catch((e) => {
+        if (cancelled) return;
+        setReady(false);
+        // The remembered camera was unplugged: fall back to the default one.
+        if (cameraId && e instanceof DOMException && (e.name === "OverconstrainedError" || e.name === "NotFoundError")) {
+          rememberCamera("");
+          setCameraId("");
+          return;
+        }
+        setError(cameraError(e));
+      });
+
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+      if (el) el.srcObject = null;
+    };
+  }, [cameraId, attempt]);
+
+  function chooseCamera(id: string) {
+    rememberCamera(id);
+    setReady(false);
+    setCameraId(id);
+  }
 
   function capture() {
     const v = video.current;
-    if (!v) return;
+    if (!v || !v.videoWidth) return; // no frame yet
     const canvas = document.createElement("canvas");
     canvas.width = 480;
     canvas.height = 600;
@@ -39,7 +116,20 @@ export function WebcamCapture({ onCapture }: { onCapture: (dataUrl: string | nul
 
   return (
     <div className="space-y-3">
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      {error && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-red-700">{error}</p>
+          <Button type="button" variant="secondary" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
+        </div>
+      )}
+      {cameras.length > 1 && (
+        <label className="flex max-w-md items-center gap-2 text-sm text-slate-700">
+          <span className="shrink-0">Camera</span>
+          <Select value={activeId} onChange={(e) => chooseCamera(e.target.value)}>
+            {cameras.map((c, i) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Camera ${i + 1}`}</option>)}
+          </Select>
+        </label>
+      )}
       <div className="flex gap-4">
         <video ref={video} autoPlay playsInline muted className="h-60 w-48 rounded-lg bg-slate-900 object-cover" />
         {photo && (
@@ -48,7 +138,7 @@ export function WebcamCapture({ onCapture }: { onCapture: (dataUrl: string | nul
         )}
       </div>
       <div className="flex gap-2">
-        <Button type="button" onClick={capture} disabled={!!error}>{photo ? "Retake photo" : "Capture photo"}</Button>
+        <Button type="button" onClick={capture} disabled={!ready}>{photo ? "Retake photo" : "Capture photo"}</Button>
         {photo && <Button type="button" variant="secondary" onClick={() => { setPhoto(null); onCapture(null); }}>Clear</Button>}
       </div>
     </div>

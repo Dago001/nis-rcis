@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { config, isPortal } from "@/lib/config";
 import { exchangeCode } from "@/lib/oauth";
 import { readTransaction, transactionCookie, writeSession } from "@/lib/session";
+import { withBase } from "@/lib/base-path";
 
 /**
  * Step 2: validate state, exchange the code (client secret + PKCE verifier)
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/auth/cal
   const params = request.nextUrl.searchParams;
   const tx = readTransaction(request.cookies.get(transactionCookie(portal))?.value);
   const fail = (reason: string) =>
-    NextResponse.redirect(new URL(`/auth-error?reason=${encodeURIComponent(reason)}`, config.appUrl()));
+    NextResponse.redirect(`${config.appUrl()}/auth-error?reason=${encodeURIComponent(reason)}`);
 
   if (params.get("error")) return fail(params.get("error_description") || params.get("error")!);
   if (!tx) return fail("Your sign-in session expired. Please try again.");
@@ -27,9 +28,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/auth/cal
 
   try {
     const tokens = await exchangeCode(portal, code, tx.verifier);
-    const response = NextResponse.redirect(new URL(tx.returnTo, config.appUrl()));
+    // APP_URL may end in a sub-folder (/nis-rcis): append, do not resolve against it.
+    const response = NextResponse.redirect(`${config.appUrl()}${tx.returnTo}`);
     writeSession(response, portal, tokens);
-    response.cookies.set(transactionCookie(portal), "", { path: `/api/auth/callback/${portal}`, maxAge: 0 });
+    response.cookies.set(transactionCookie(portal), "", { path: withBase(`/api/auth/callback/${portal}`), maxAge: 0 });
     return response;
   } catch (error) {
     console.error("OAuth code exchange failed", error);

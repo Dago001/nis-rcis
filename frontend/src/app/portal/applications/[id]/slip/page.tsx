@@ -8,6 +8,7 @@ import { Alert, Button, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { naira, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
+import { withBase } from "@/lib/base-path";
 
 type Payment = {
   reference: string;
@@ -120,7 +121,7 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
     <article className="mx-auto max-w-[210mm] bg-white p-6 text-slate-900 shadow-sm print:p-0 print:shadow-none">
       {/* Page 1 */}
       <div className="flex justify-center pb-3">
-        <Image src="/images/nis-logo.png" alt="Nigeria Immigration Service" width={56} height={56} />
+        <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={56} height={56} />
         <div className="ml-2 self-center text-[11px] font-bold leading-tight text-nis-primary">NIGERIA<br />IMMIGRATION<br />SERVICE</div>
       </div>
 
@@ -248,7 +249,7 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
     <article className="mx-auto max-w-[210mm] bg-white px-14 py-10 text-[15px] text-slate-800 shadow-sm print:p-6 print:shadow-none">
       <div className="flex flex-col items-center">
         <div className="flex items-center gap-2">
-          <Image src="/images/nis-logo.png" alt="Nigeria Immigration Service" width={84} height={84} />
+          <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={84} height={84} />
           <div className="text-2xl font-extrabold leading-none text-nis-primary">NIGERIA<br />IMMIGRATION<br />SERVICE</div>
         </div>
         <h1 className="mt-3 text-3xl font-light">Appointment Slip</h1>

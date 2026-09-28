@@ -9,6 +9,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { dateTime, naira } from "@/lib/format";
 import { useFetch } from "@/lib/use-fetch";
 import { useI18n } from "@/components/I18nProvider";
+import { withBase } from "@/lib/base-path";
 
 type PaymentRecord = {
   reference: string;
@@ -70,7 +71,7 @@ export default function PaymentsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     {p.status === "REFUNDED" && <StatusBadge status="REFUNDED" label="Refunded" />}
                     {/* Plain link: a PDF download through the BFF. */}
-                    <a href={`/api/bff/applicant/payment-records/${encodeURIComponent(p.reference)}/receipt`} className="rounded-md border border-slate-300 px-3 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">
+                    <a href={withBase(`/api/bff/applicant/payment-records/${encodeURIComponent(p.reference)}/receipt`)} className="rounded-md border border-slate-300 px-3 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">
                       {t("Download receipt (PDF)")}
                     </a>
                     {p.refundable && refunding !== p.reference && (
