@@ -57,6 +57,8 @@ const nextConfig: NextConfig = {
   // Agent guidance lives in the repository root CLAUDE.md.
   agentRules: false,
   output: "standalone",
+  // In production Nginx compresses (deploy/nginx/performance.conf), leaving Node.js's cores for rendering.
+  compress: !isProduction,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

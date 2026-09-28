@@ -138,17 +138,17 @@ The backend suite drives the real OAuth2 authorization-code + PKCE flow for both
 ## Production deployment (Ubuntu 24.04, no Docker)
 
 1. **Provision** (once): `sudo DB_PASSWORD=$(openssl rand -base64 32) deploy/install-ubuntu.sh`
-   This installs Nginx, PHP 8.5-FPM (dedicated pool), PostgreSQL 16, Redis and Node.js 22, creates the `nis-rcis` service user, and installs the Nginx sites, systemd units and Cloudflare real-IP updater.
+   This installs Nginx, PHP 8.5-FPM (dedicated pool), PostgreSQL 16, Redis and Node.js 22, creates the `nis-rcis` service user, and installs the Nginx sites, systemd units and Cloudflare real-IP updater. It sizes the server from its CPU cores and memory: PHP workers (at most 80), one Next.js process per core (2–8), OPcache, gzip and Nginx connection limits. Re-run it after adding CPU or memory, and once on servers set up before this sizing existed.
 2. **TLS / Cloudflare**: install a Cloudflare Origin CA certificate at `/etc/ssl/nis-rcis/origin.{pem,key}`. Set SSL mode to **Full (strict)** and set the `server_name` values in `/etc/nginx/sites-available/nis-rcis-*.conf`. Optionally enable Authenticated Origin Pulls.
 3. **Configuration**
    * `/etc/nis-rcis/backend.env`: based on `backend/.env.example`, with `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://api…`, `FRONTEND_URL=https://…`, `SESSION_SECURE_COOKIE=true`, `DOCUMENTS_DISK=s3` plus `AWS_*`, `PAYSTACK_*`, `MAIL_*`, `PAYMENTS_FAKE=false`
    * `/etc/nis-rcis/frontend.env`: based on `frontend/.env.example`, with `API_URL=http://127.0.0.1:8080` (internal Nginx listener) and `API_PUBLIC_URL=https://api…`
    * Both files: `chmod 640`, `root:nis-rcis`
 4. **Deploy**: `sudo deploy/deploy.sh main`. This clones a release, installs dependencies, generates Passport keys on first run, runs migrations, builds Next.js in standalone mode, switches the `current` symlink and restarts services.
-5. **First run**: `sudo -u nis-rcis php /var/www/nis-rcis/current/backend/artisan nis:create-staff --role=SuperAdmin` and `… nis:oauth-clients --frontend=https://…`. Put the printed client credentials into `frontend.env` and restart `nis-rcis-web`.
+5. **First run**: `sudo -u nis-rcis php /var/www/nis-rcis/current/backend/artisan nis:create-staff --role=SuperAdmin` and `… nis:oauth-clients --frontend=https://…`. Put the printed client credentials into `frontend.env` and restart the website: `sudo systemctl restart 'nis-rcis-web@*'`.
 6. **Partner agencies**: `php artisan nis:partner-client "Agency name"` issues a `client_credentials` client limited to `cards:verify`.
 
-Services: `php8.5-fpm`, `nis-rcis-web` (Next.js), `nis-rcis-queue` (e-mails/notifications), `nis-rcis-scheduler.timer` (token purge).
+Services: `php8.5-fpm`, `nis-rcis-web@3000`, `@3001`, … (Next.js, one per CPU core, listed in `/etc/nginx/snippets/nis-rcis-next-upstream.conf`), `nis-rcis-queue` (e-mails/notifications), `nis-rcis-scheduler.timer` (token purge).
 
 **Data residency:** applicant data is personal data under the Nigeria Data Protection Act 2023. Host PostgreSQL, Redis and the S3-compatible storage in Nigeria. With Cloudflare proxying, TLS is terminated at Cloudflare's edge, so confirm this is acceptable under NIS policy.
 
