@@ -69,13 +69,13 @@ class SeedDemoData extends Command
                 'The residence visa copy is not legible. Please upload a clear scan.');
 
             // 3. Approved for biometrics, appointment today (Issuing Officer: biometrics desk)
-            $this->application($applicants['li'], $center, 'CHINA', 'E12345678', ApplicationStatus::ApprovedForBiometrics, $staff);
+            $this->application($applicants['li'], $center, 'TOGO', 'E12345678', ApplicationStatus::ApprovedForBiometrics, $staff);
 
             // 4. Biometrics captured, card awaiting final approval (Approving Officer)
-            $this->application($applicants['elena'], $center, 'ITALY', 'YA1122334', ApplicationStatus::BiometricsCaptured, $staff);
+            $this->application($applicants['elena'], $center, 'CABO VERDE', 'YA1122334', ApplicationStatus::BiometricsCaptured, $staff);
 
             // 5. Card issued and collected (applicant: renew; public: verify)
-            $this->application($applicants['john'], $center, 'UNITED KINGDOM', 'GB9876543', ApplicationStatus::Issued, $staff);
+            $this->application($applicants['john'], $center, 'LIBERIA', 'GB9876543', ApplicationStatus::Issued, $staff);
 
             // Blank card stock for the card printer.
             CardStockBatch::create([

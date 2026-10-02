@@ -24,7 +24,7 @@ class KnowledgeBase
             [
                 'id' => 'eligibility',
                 'question' => 'Who needs a residence card?',
-                'answer' => 'Foreign nationals who live in Nigeria for employment, business or study and hold a valid residence visa (STR) must obtain a residence card, and renew it before it expires.',
+                'answer' => 'Citizens of ECOWAS member states (Benin, Cabo Verde, Cote d\'Ivoire, The Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Senegal, Sierra Leone and Togo) who live in Nigeria for employment, business or study and hold a valid residence visa (STR) must obtain a residence card, and renew it before it expires.',
                 'keywords' => ['who', 'need', 'eligible', 'eligibility', 'qualify', 'foreigner', 'expatriate', 'student', 'require'],
                 'links' => [['label' => 'About the card', 'href' => '/about']],
             ],

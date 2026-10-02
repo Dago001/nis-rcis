@@ -36,8 +36,8 @@ function particulars(array $overrides = []): array
 
     return array_merge([
         'type' => 'NEW',
-        'surname' => 'Okafor', 'forenames' => 'Jean Pierre', 'nationality' => 'CAMEROON',
-        'date_of_birth' => '1985-04-12', 'place_of_birth' => 'Douala', 'sex' => 'MALE',
+        'surname' => 'Okafor', 'forenames' => 'Jean Pierre', 'nationality' => 'SENEGAL',
+        'date_of_birth' => '1985-04-12', 'place_of_birth' => 'Dakar', 'sex' => 'MALE',
         'profession' => 'Civil Engineer', 'domicile' => '12 Adeola Odeku Street, Victoria Island',
         'domicile_state' => 'Lagos', 'domicile_lga' => 'Eti Osa',
         'emergency_contact_state' => 'Federal Capital Territory', 'emergency_contact_lga' => 'Bwari',

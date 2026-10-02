@@ -26,7 +26,7 @@ class RefundDecided extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $amount = '₦'.number_format($this->refund->amount_kobo / 100, 2);
-        $mail = (new MailMessage)->subject("Residence card fee refund: {$this->refund->status}")
+        $mail = (new MailMessage)->subject("ECOWAS residence card fee refund: {$this->refund->status}")
             ->greeting("Dear {$notifiable->forenames} {$notifiable->surname},");
 
         return match ($this->refund->status) {

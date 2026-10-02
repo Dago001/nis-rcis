@@ -3,7 +3,7 @@ import Link from "next/link";
 export const metadata = { title: "FAQ" };
 
 const faqs: [string, React.ReactNode][] = [
-  ["Who needs a residence card?", "Foreign nationals who live in Nigeria (for employment, business or study) and hold a valid residence visa (STR) must obtain a residence card and renew it before it expires."],
+  ["Who needs a residence card?", "Citizens of ECOWAS member states (Benin, Cabo Verde, Côte d'Ivoire, The Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Senegal, Sierra Leone and Togo) who live in Nigeria (for employment, business or study) and hold a valid residence visa (STR) must obtain a residence card and renew it before it expires."],
   ["What documents do I need?", "Your international passport data page, your residence visa, a recent passport photograph and, if you are employed, your expatriate quota approval. Proof of address is optional but helps processing."],
   ["How much does it cost, and how do I pay?", "The fee is shown before you pay. Payment is made online by card, bank transfer or USSD through Paystack. Your payment is confirmed automatically before your application is submitted."],
   ["Can I stop and continue my application later?", "Yes. Click “Save & exit” at any step. Your answers and uploaded documents are kept, and you can continue from where you stopped after signing in."],

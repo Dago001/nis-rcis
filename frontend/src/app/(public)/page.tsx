@@ -51,7 +51,7 @@ const requirements: { title: string; body: string; icon: ReactNode }[] = [
 ];
 
 const eligibility = [
-  { image: "/images/hq-building.jpg", alt: "NIS Headquarters building", text: "Foreign nationals resident in Nigeria for employment, business or study." },
+  { image: "/images/hq-building.jpg", alt: "NIS Headquarters building", text: "Citizens of ECOWAS member states resident in Nigeria for employment, business or study." },
   { image: "/images/hq-reception.jpg", alt: "NIS Headquarters reception", text: "Expatriates with a valid residence visa (STR) and, for employees, an approved expatriate quota." },
   { image: "/images/card-template.jpg", alt: "Residence document", text: "Current residence card holders renewing a card that is expiring or has expired." },
 ];
@@ -76,11 +76,11 @@ export default async function Home() {
         <div className="relative z-10 max-w-4xl text-white">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">{t("Directorate of Visa and Residency")}</p>
           <h1 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
-            {t("Obtain your Residence Card")}
+            {t("Obtain your ECOWAS Residence Card")}
             <span className="block text-nis-orange">{t("Apply Now!")}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-white/85 sm:text-lg">
-            {t("Foreign nationals resident in Nigeria can apply for, renew and track their Residence Card online.")}
+            {t("Citizens of ECOWAS member states resident in Nigeria can apply for, renew and track their ECOWAS Residence Card online.")}
           </p>
 
           <div className="mt-10 flex flex-wrap items-end justify-center gap-6 sm:gap-8">
@@ -93,7 +93,7 @@ export default async function Home() {
             <div className="flex flex-col items-center gap-2">
               <span className="text-sm text-white/90">{t("Card expiring?")}</span>
               <Link prefetch={false} href="/portal/apply?type=renewal" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
-                {t("Renew Residence Card")}
+                {t("Renew ECOWAS Residence Card")}
               </Link>
             </div>
           </div>

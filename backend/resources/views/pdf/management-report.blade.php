@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-    <div class="foot">Nigeria Immigration Service · Residence Card Issuance Portal · generated {{ \Carbon\Carbon::parse($report['generated_at'])->timezone(config('app.timezone'))->format('d/m/Y H:i') }} by {{ $by }} · RESTRICTED</div>
+    <div class="foot">Nigeria Immigration Service · ECOWAS Residence Card Issuance Portal · generated {{ \Carbon\Carbon::parse($report['generated_at'])->timezone(config('app.timezone'))->format('d/m/Y H:i') }} by {{ $by }} · RESTRICTED</div>
     <div class="head">
         <img src="{{ $logo }}" alt="">
         <div class="org">NIGERIA IMMIGRATION SERVICE</div>

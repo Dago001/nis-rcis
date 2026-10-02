@@ -29,7 +29,7 @@ class VerifyApplicantEmail extends Notification implements ShouldQueue
         ]);
 
         return (new MailMessage)
-            ->subject('Verify your NIS Residence Card Portal account')
+            ->subject('Verify your NIS ECOWAS Residence Card Portal account')
             ->greeting("Dear {$notifiable->forenames},")
             ->line('Please confirm your e-mail address to activate your applicant account.')
             ->action('Verify e-mail address', $url)

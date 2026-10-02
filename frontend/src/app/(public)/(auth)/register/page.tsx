@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { lettersOnly, NAME_PATTERN, PasswordInput, PHONE_PATTERN, PhoneInput } from "@/components/inputs";
+import { ECOWAS_COUNTRIES } from "@/lib/countries";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { ApiError } from "@/lib/api-client";
 import { useI18n } from "@/components/I18nProvider";
@@ -111,7 +112,7 @@ function RegisterForm() {
         <>
           <div onBlur={touch("phone")}>
             <Field label={t("Phone number")} required error={errorFor("phone")} hint={t("Choose your country code, then type the rest of the number (digits only).")}>
-              <PhoneInput value={values.phone} onChange={(v) => set("phone", v)} />
+              <PhoneInput value={values.phone} onChange={(v) => set("phone", v)} countries={ECOWAS_COUNTRIES} />
             </Field>
           </div>
           <Field label={t("Password")} required error={errorFor("password")} hint={t("At least 6 characters, with letters and numbers. Common passwords that appear in data leaks are refused.")}>
@@ -151,7 +152,7 @@ export default function RegisterPage() {
         <Image src={withBase("/images/hq-entrance.jpg")} alt="" fill priority sizes="50vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-nis-primary-dark/90 via-nis-primary-dark/40 to-transparent" />
         <div className="absolute bottom-0 p-8 text-white">
-          <p className="text-sm font-semibold uppercase tracking-widest text-white/80">{t("Residence Card Portal")}</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-white/80">{t("ECOWAS Residence Card Portal")}</p>
           <p className="mt-2 text-2xl font-semibold leading-snug">{t("One account to apply, pay, book biometrics and track your residence card.")}</p>
         </div>
       </div>

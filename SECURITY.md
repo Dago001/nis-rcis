@@ -1,4 +1,4 @@
-# Security policy — NIS Residence Card Issuance Portal
+# Security policy — NIS ECOWAS Residence Card Issuance Portal
 
 ## Reporting a vulnerability
 

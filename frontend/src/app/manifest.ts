@@ -4,9 +4,9 @@ import { withBase } from "@/lib/base-path";
 /** Installable applicant portal (home-screen app on phones and computers). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "NIS Residence Card Portal",
+    name: "NIS ECOWAS Residence Card Portal",
     short_name: "NIS Residence",
-    description: "Apply for, renew and track your Nigerian residence card.",
+    description: "Apply for, renew and track your ECOWAS residence card in Nigeria.",
     id: withBase("/portal"),
     start_url: withBase("/portal"),
     scope: withBase("/"),

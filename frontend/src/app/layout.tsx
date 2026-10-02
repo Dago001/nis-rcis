@@ -6,8 +6,8 @@ import "./globals.css";
 import { withBase } from "@/lib/base-path";
 
 export const metadata: Metadata = {
-  title: { default: "NIS Residence Card Portal", template: "%s · NIS-RCIS" },
-  description: "Nigeria Immigration Service — Residence Card Issuance Portal",
+  title: { default: "NIS ECOWAS Residence Card Portal", template: "%s · NIS-RCIS" },
+  description: "Nigeria Immigration Service — ECOWAS Residence Card Issuance Portal",
   appleWebApp: { capable: true, title: "NIS Residence", statusBarStyle: "default" },
   icons: { apple: withBase("/icons/apple-touch-icon.png") },
 };

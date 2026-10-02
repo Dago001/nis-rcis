@@ -24,7 +24,11 @@ class AccountController
             'surname' => ['required', 'string', 'max:100', 'regex:'.ApplicationRules::NAME],
             'forenames' => ['required', 'string', 'max:150', 'regex:'.ApplicationRules::NAME],
             'email' => ['required', 'email:rfc', 'max:255'],
-            'phone' => ['required', 'string', 'regex:'.ApplicationRules::PHONE],
+            'phone' => ['required', 'string', 'regex:'.ApplicationRules::PHONE, function (string $attribute, mixed $value, \Closure $fail) {
+                if (is_string($value) && ! collect(config('nis.ecowas_dialling_codes'))->contains(fn ($code) => str_starts_with($value, "+{$code}"))) {
+                    $fail('Use a phone number from an ECOWAS member state (Nigeria included).');
+                }
+            }],
             'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()->uncompromised()],
             'privacy_consent' => ['accepted'],
         ], ['privacy_consent.accepted' => 'You must read and accept the privacy notice to create an account.']);

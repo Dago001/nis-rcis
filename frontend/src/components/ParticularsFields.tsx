@@ -1,6 +1,6 @@
 "use client";
 
-import { NATIONALITIES } from "@/lib/nationalities";
+import { ECOWAS_NATIONALITIES } from "@/lib/nationalities";
 import { NIGERIA_LGAS, NIGERIA_STATES } from "@/lib/nigeria-lgas";
 import { RELATIONSHIPS } from "@/lib/validation";
 import { lettersOnly, PhoneInput } from "./inputs";
@@ -69,38 +69,26 @@ const OTHER = "__OTHER__";
 /** Wizard step 1 — personal particulars (legacy residence card booklet fields). */
 export function PersonalFields(props: Props) {
   const { data, errors, set, touch } = props;
-  const listed = NATIONALITIES.filter((n) => n !== "NIGERIA");
-  const otherNationality = data.nationality_other === "1" || Boolean(data.nationality && !listed.includes(data.nationality));
   const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })}
       {text(props, "forenames", "Other names", { required: true, upper: true, letters: true })}
-      <Field label="Nationality" required error={otherNationality ? undefined : errors.nationality}>
+      <Field label="Nationality" required error={errors.nationality} hint="ECOWAS member states only">
         <Select
-          value={otherNationality ? OTHER : data.nationality ?? ""}
-          className={!otherNationality && errors.nationality ? "!border-red-500" : ""}
+          value={data.nationality ?? ""}
+          className={errors.nationality ? "!border-red-500" : ""}
           onChange={(e) => {
-            if (e.target.value === OTHER) {
-              set("nationality_other", "1");
-              set("nationality", "");
-            } else {
-              set("nationality_other", "");
-              set("nationality", e.target.value);
-              touch?.("nationality");
-            }
+            set("nationality", e.target.value);
+            touch?.("nationality");
           }}
         >
           <option value="">Select nationality…</option>
-          {listed.map((n) => <option key={n} value={n}>{n}</option>)}
-          <option value={OTHER}>OTHER (not listed)</option>
+          {ECOWAS_NATIONALITIES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
         </Select>
       </Field>
-      {otherNationality
-        ? text(props, "nationality", "Enter your country / nationality", { required: true, upper: true, letters: true, maxLength: 100 })
-        : select(props, "sex", "Sex", ["MALE", "FEMALE"], { required: true })}
-      {otherNationality && select(props, "sex", "Sex", ["MALE", "FEMALE"], { required: true })}
+      {select(props, "sex", "Sex", ["MALE", "FEMALE"], { required: true })}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
       {text(props, "profession", "Profession / occupation", { required: true, upper: true })}

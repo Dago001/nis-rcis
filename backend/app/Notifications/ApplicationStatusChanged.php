@@ -37,7 +37,7 @@ class ApplicationStatusChanged extends Notification implements ShouldQueue
         $url = config('nis.frontend_url')."/portal/applications/{$app->id}";
 
         $mail = (new MailMessage)
-            ->subject("Residence card application {$app->application_number}: {$this->status->label()}")
+            ->subject("ECOWAS residence card application {$app->application_number}: {$this->status->label()}")
             ->greeting("Dear {$app->forenames} {$app->surname},");
 
         return match ($this->status) {

@@ -28,7 +28,7 @@ export function PublicHeader() {
           <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={48} height={48} priority />
           <span className="leading-tight">
             <span className="block text-[13px] font-bold tracking-wide text-nis-primary-dark">{t("NIGERIA IMMIGRATION SERVICE")}</span>
-            <span className="block text-xs text-slate-500">{t("Residence Card Portal")}</span>
+            <span className="block text-xs text-slate-500">{t("ECOWAS Residence Card Portal")}</span>
           </span>
         </Link>
 

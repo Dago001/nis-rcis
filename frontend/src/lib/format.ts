@@ -25,6 +25,6 @@ export function naira(amount: number): string {
 /** "Renewal", "Replacement (lost/stolen card)" or "New card", plus "for spouse/child" on dependants' applications. */
 export function applicationType(a: { type: string; renewal_of_card_number?: string | null; dependant_relationship?: string | null }, withCard = false): string {
   const card = withCard && a.renewal_of_card_number ? ` of card ${a.renewal_of_card_number}` : "";
-  const base = a.type === "RENEWAL" ? `Renewal${card}` : a.type === "REPLACE" ? `Replacement${card} (lost/stolen card)` : "New residence card";
+  const base = a.type === "RENEWAL" ? `Renewal${card}` : a.type === "REPLACE" ? `Replacement${card} (lost/stolen card)` : "New ECOWAS residence card";
   return a.dependant_relationship ? `${base} · for ${a.dependant_relationship === "CHILD" ? "child" : "spouse"}` : base;
 }

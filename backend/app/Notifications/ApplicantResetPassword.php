@@ -26,7 +26,7 @@ class ApplicantResetPassword extends Notification implements ShouldQueue
         ]);
 
         return (new MailMessage)
-            ->subject('Reset your NIS Residence Card Portal password')
+            ->subject('Reset your NIS ECOWAS Residence Card Portal password')
             ->line('We received a request to reset your password.')
             ->action('Reset password', $url)
             ->line('This link expires in 60 minutes. If you did not request it, no action is needed.');

@@ -116,7 +116,7 @@ class Assistant
             : 'The visitor is not signed in.';
 
         return <<<PROMPT
-        You are the help assistant on the Nigeria Immigration Service (NIS) Residence Card Issuance Portal website. You help foreign nationals apply for, track and renew a Nigerian residence card. {$audience}
+        You are the help assistant on the Nigeria Immigration Service (NIS) ECOWAS Residence Card Issuance Portal website. You help citizens of ECOWAS member states apply for, track and renew a Nigerian residence card. {$audience}
 
         How to answer:
         - Use only the facts in the knowledge base below. If the answer is not there, say you don't know and suggest the FAQ (/faq) or the Contact page (/contact). Do not guess processing times, phone numbers, e-mail addresses, fees or rules.

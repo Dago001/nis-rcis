@@ -23,12 +23,22 @@ class ApplicationRules
     /** Street addresses: letters, digits and common address punctuation. */
     public const ADDRESS = "/^[\pL0-9][\pL0-9 .,'()\/#&:;-]*$/u";
 
-    public static function particulars(): array
+    /**
+     * @param  string|null  $keepNationality  an existing card's nationality, still accepted when
+     *                                        staff edit it (cards issued before the ECOWAS-only rule)
+     */
+    public static function particulars(?string $keepNationality = null): array
     {
         return [
             'surname' => ['required', 'string', 'max:100', 'regex:'.self::NAME],
             'forenames' => ['required', 'string', 'max:150', 'regex:'.self::NAME],
-            'nationality' => ['required', 'string', 'max:100', 'regex:'.self::TEXT, Rule::notIn(['NIGERIA', 'NIGERIAN'])],
+            // ECOWAS residence card: citizens of ECOWAS member states only.
+            'nationality' => ['required', 'string', 'max:100', function (string $attribute, mixed $value, \Closure $fail) use ($keepNationality) {
+                $allowed = [...config('nis.ecowas_member_states'), ...config('nis.ecowas_legacy_names'), $keepNationality];
+                if (! in_array($value, $allowed, true)) {
+                    $fail('The ECOWAS residence card is only for citizens of ECOWAS member states.');
+                }
+            }],
             'date_of_birth' => ['required', 'date', 'before:-18 years', 'after:1900-01-01'],
             'place_of_birth' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
             'sex' => ['required', Rule::in(['MALE', 'FEMALE'])],

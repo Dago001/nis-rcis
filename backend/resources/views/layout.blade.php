@@ -89,7 +89,7 @@
     <div class="inner">
         <a class="brand" href="{{ config('nis.frontend_url') }}">
             <img src="{{ asset('images/nis-logo.png') }}" alt="">
-            <div><strong>NIGERIA IMMIGRATION SERVICE</strong><span>Residence Card Portal</span></div>
+            <div><strong>NIGERIA IMMIGRATION SERVICE</strong><span>ECOWAS Residence Card Portal</span></div>
         </a>
         <nav>
             <a href="{{ config('nis.frontend_url') }}">Home</a>
@@ -103,12 +103,12 @@
     <img class="bg" src="{{ asset('images/'.trim($__env->yieldContent('image', 'hq-dusk.jpg'))) }}" alt="">
     <div class="caption" aria-hidden="true">
         <div class="eyebrow">Nigeria Immigration Service</div>
-        <h2>@yield('headline', 'Residence Card Issuance Portal')</h2>
+        <h2>@yield('headline', 'ECOWAS Residence Card Issuance Portal')</h2>
         <p>@yield('tagline', 'Directorate of Visa and Residency.')</p>
     </div>
     <section class="panel">
         @yield('content')
-        <div class="back"><a href="{{ config('nis.frontend_url') }}">← Back to the Residence Card Portal</a></div>
+        <div class="back"><a href="{{ config('nis.frontend_url') }}">← Back to the ECOWAS Residence Card Portal</a></div>
     </section>
 </main>
 <footer class="site-footer">Nigeria Immigration Service · All rights reserved © {{ date('Y') }}</footer>

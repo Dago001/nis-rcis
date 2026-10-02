@@ -1,5 +1,5 @@
 /*
- * NIS Residence Card Portal service worker.
+ * NIS ECOWAS Residence Card Portal service worker.
  * - Makes the portal installable and shows a friendly page when offline.
  * - Displays push notifications (sent alongside the e-mails).
  * Personal data is never cached: only the offline page and icons are stored.

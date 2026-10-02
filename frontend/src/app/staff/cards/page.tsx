@@ -27,7 +27,7 @@ function CardRegister() {
   return (
     <div className="space-y-5">
       <PageTitle
-        title="Residence card register"
+        title="ECOWAS residence card register"
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={unprinted ? "/staff/cards" : "/staff/cards?unprinted=1"} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium">

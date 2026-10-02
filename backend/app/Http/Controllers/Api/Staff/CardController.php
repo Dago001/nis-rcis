@@ -93,7 +93,7 @@ class CardController
     public function update(Request $request, int $id, TwoPersonRule $rule): JsonResponse
     {
         $request->merge(ApplicationRules::normalise($request->all()));
-        $rules = Arr::except(ApplicationRules::particulars(), ['date_of_birth', 'passport_expiry']);
+        $rules = Arr::except(ApplicationRules::particulars(ResidenceCard::query()->whereKey($id)->value('nationality')), ['date_of_birth', 'passport_expiry']);
         $rules = array_map(fn ($r) => array_map(fn ($x) => $x === 'required' ? 'sometimes' : $x, $r), $rules);
         $rules += [
             'date_of_birth' => ['sometimes', 'date'],

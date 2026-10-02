@@ -253,3 +253,11 @@ export const COUNTRIES: Country[] = [
   {"name":"Zambia","iso":"ZM","dial":"260"},
   {"name":"Zimbabwe","iso":"ZW","dial":"263"},
 ];
+
+/**
+ * Calling codes for the ECOWAS residence card portal: the member states, Nigeria
+ * included (applicants live here). Keep in step with ecowas_dialling_codes in
+ * backend/config/nis.php.
+ */
+const ECOWAS_ISO = ["BJ", "CV", "CI", "GM", "GH", "GN", "GW", "LR", "NG", "SN", "SL", "TG"];
+export const ECOWAS_COUNTRIES: Country[] = COUNTRIES.filter((c) => ECOWAS_ISO.includes(c.iso));

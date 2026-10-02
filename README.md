@@ -1,7 +1,7 @@
-# NIS-RCIS — Residence Card Issuance Portal
+# NIS-RCIS — ECOWAS Residence Card Issuance Portal
 
 Nigeria Immigration Service, Directorate of Visa and Residency.
-Online application, approval, biometrics capture, issuance, renewal and verification of residence cards for foreign nationals.
+Online application, approval, biometrics capture, issuance, renewal and verification of ECOWAS residence cards for citizens of ECOWAS member states.
 
 | Layer | Technology |
 |---|---|

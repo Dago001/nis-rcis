@@ -158,10 +158,10 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
       </div>
 
       <div className="mt-2 space-y-2">
-        <Box title="Residence Card Details">
+        <Box title="ECOWAS Residence Card Details">
           <Pairs
             rows={[
-              ["Type of Application", applicationType(a, true), "Applying For", "Residence Card (Expatriate)"],
+              ["Type of Application", applicationType(a, true), "Applying For", "ECOWAS Residence Card"],
               ["Card Validity", "2 Years", "Processing Office", center ? `${center.name}` : "NIS Headquarters, Abuja"],
             ]}
           />

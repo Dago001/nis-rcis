@@ -5,13 +5,13 @@ import { COUNTRIES, type Country } from "@/lib/countries";
 import { Input, Select } from "./ui";
 
 /** Split "+2348012345678" into its country and national number. */
-export function splitPhone(value: string, fallbackIso = "NG"): { country: Country; national: string } {
+export function splitPhone(value: string, fallbackIso = "NG", countries: Country[] = COUNTRIES): { country: Country; national: string } {
   const digits = value.replace(/\D/g, "");
-  const fallback = COUNTRIES.find((c) => c.iso === fallbackIso) ?? COUNTRIES[0];
+  const fallback = countries.find((c) => c.iso === fallbackIso) ?? countries[0];
   if (!value.trim().startsWith("+") || !digits) return { country: fallback, national: digits };
 
   // Longest calling code wins; prefer the fallback country when codes are shared (e.g. +1).
-  const matches = COUNTRIES.filter((c) => digits.startsWith(c.dial)).sort((a, b) => b.dial.length - a.dial.length);
+  const matches = countries.filter((c) => digits.startsWith(c.dial)).sort((a, b) => b.dial.length - a.dial.length);
   const best = matches.find((c) => c.iso === fallbackIso && c.dial === matches[0]?.dial) ?? matches[0] ?? fallback;
   return { country: best, national: digits.slice(best.dial.length) };
 }
@@ -34,6 +34,7 @@ export function PhoneInput({
   disabled,
   defaultIso = "NG",
   id,
+  countries = COUNTRIES,
 }: {
   value: string;
   onChange?: (value: string) => void;
@@ -42,9 +43,11 @@ export function PhoneInput({
   disabled?: boolean;
   defaultIso?: string;
   id?: string;
+  /** Calling codes to offer (all countries unless limited, e.g. ECOWAS_COUNTRIES). */
+  countries?: Country[];
 }) {
-  const [iso, setIso] = useState(() => splitPhone(value, defaultIso).country.iso);
-  const country = COUNTRIES.find((c) => c.iso === iso) ?? COUNTRIES[0];
+  const [iso, setIso] = useState(() => splitPhone(value, defaultIso, countries).country.iso);
+  const country = countries.find((c) => c.iso === iso) ?? countries.find((c) => c.iso === defaultIso) ?? countries[0];
   const digits = value.replace(/\D/g, "");
   const national = value.startsWith(`+${country.dial}`) ? digits.slice(country.dial.length) : digits;
 
@@ -60,13 +63,13 @@ export function PhoneInput({
         value={country.iso}
         disabled={disabled}
         onChange={(e) => {
-          const next = COUNTRIES.find((c) => c.iso === e.target.value) ?? country;
+          const next = countries.find((c) => c.iso === e.target.value) ?? country;
           setIso(next.iso);
           emit(next, national);
         }}
         className="!w-40 shrink-0"
       >
-        {COUNTRIES.map((c) => (
+        {countries.map((c) => (
           <option key={c.iso} value={c.iso}>
             {flag(c.iso)} +{c.dial} {c.name}
           </option>

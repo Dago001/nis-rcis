@@ -27,7 +27,7 @@ class CardReportedLost extends Notification implements ShouldQueue
     {
         $type = strtolower((string) $this->card->lost_report_type);
 
-        return (new MailMessage)->subject("Residence card {$this->card->card_number} reported {$type}")
+        return (new MailMessage)->subject("ECOWAS residence card {$this->card->card_number} reported {$type}")
             ->greeting("Dear {$notifiable->forenames} {$notifiable->surname},")
             ->line("We have recorded that residence card {$this->card->card_number} was {$type} on ".now()->format('d M Y, H:i').'.')
             ->line('From now on, anyone who verifies this card is told it is not valid.')

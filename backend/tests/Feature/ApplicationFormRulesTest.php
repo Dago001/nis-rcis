@@ -29,6 +29,17 @@ it('validates names as letters and phones as digits at registration, with 6-char
     ])->assertAccepted();
 });
 
+it('takes phone numbers from ECOWAS member states only at registration', function () {
+    $body = ['privacy_consent' => true, 'surname' => 'Mensah', 'forenames' => 'Ama', 'email' => 'ama@example.com',
+        'password' => 'Nis26x', 'password_confirmation' => 'Nis26x'];
+
+    foreach (['+447700900123', '+237612345678', '+22370123456'] as $phone) { // United Kingdom, Cameroon, Mali
+        $this->postJson('/api/v1/applicant/register', [...$body, 'phone' => $phone])
+            ->assertUnprocessable()->assertJsonValidationErrors(['phone' => 'ECOWAS member state']);
+    }
+    $this->postJson('/api/v1/applicant/register', [...$body, 'phone' => '+233241234567'])->assertAccepted(); // Ghana
+});
+
 it('rejects a local government area that is not in the chosen state', function () {
     $this->artisan('nis:demo')->assertSuccessful();
     $applicant = Applicant::where('email', 'kwame.mensah@example.com')->firstOrFail();

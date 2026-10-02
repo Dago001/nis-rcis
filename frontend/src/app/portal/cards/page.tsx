@@ -32,7 +32,7 @@ export default function MyCardsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle eyebrow={t("Applicant console")} title={t("My residence cards")} subtitle={t("Report a lost or stolen card and apply for a replacement.")} />
+      <PageTitle eyebrow={t("Applicant console")} title={t("My ECOWAS residence cards")} subtitle={t("Report a lost or stolen card and apply for a replacement.")} />
       {notice && <Alert tone="success">{notice}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
       {loading || !data ? (

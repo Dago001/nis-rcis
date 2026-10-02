@@ -1,4 +1,24 @@
-// Ported from the legacy config/constants.php NATIONALITIES list.
+/**
+ * The ECOWAS residence card is issued only to citizens of ECOWAS member states
+ * (Nigeria's own citizens need none; Mali, Burkina Faso and Niger left ECOWAS in
+ * January 2025). `value` is what is stored and printed; keep in step with
+ * ecowas_member_states in backend/config/nis.php.
+ */
+export const ECOWAS_NATIONALITIES: { value: string; label: string }[] = [
+  { value: "BENIN", label: "BENIN" },
+  { value: "CABO VERDE", label: "CABO VERDE" },
+  { value: "COTE D'IVOIRE", label: "CÔTE D'IVOIRE" },
+  { value: "GAMBIA", label: "GAMBIA" },
+  { value: "GHANA", label: "GHANA" },
+  { value: "GUINEA", label: "GUINEA" },
+  { value: "GUINEA-BISSAU", label: "GUINEA-BISSAU" },
+  { value: "LIBERIA", label: "LIBERIA" },
+  { value: "SENEGAL", label: "SENEGAL" },
+  { value: "SIERRA LEONE", label: "SIERRA LEONE" },
+  { value: "TOGO", label: "TOGO" },
+];
+
+// Ported from the legacy config/constants.php NATIONALITIES list (older records; ICAO codes in country-codes.ts).
 export const NATIONALITIES: string[] = [
   "AFGHANISTAN",
   "ALBANIA",

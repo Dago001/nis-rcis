@@ -42,6 +42,7 @@ const CODES: Record<string, string> = {
   "DEMOCRATIC REPUBLIC OF CONGO": "COD",
   "COSTA RICA": "CRI",
   IVOIRE: "CIV",
+  "COTE D'IVOIRE": "CIV",
   CROATIA: "HRV",
   CUBA: "CUB",
   CYPRUS: "CYP",

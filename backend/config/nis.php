@@ -48,6 +48,16 @@ return [
     // the two index fingers). Leave off until scanners are installed.
     'fingerprints_required' => (bool) env('FINGERPRINTS_REQUIRED', false),
 
+    // The ECOWAS residence card is issued only to citizens of ECOWAS member
+    // states (Nigeria's own citizens need none). Mali, Burkina Faso and Niger
+    // left ECOWAS in January 2025. Keep in step with frontend/src/lib/nationalities.ts.
+    // "IVOIRE" is how older records name Côte d'Ivoire.
+    'ecowas_member_states' => ['BENIN', 'CABO VERDE', "COTE D'IVOIRE", 'GAMBIA', 'GHANA', 'GUINEA', 'GUINEA-BISSAU', 'LIBERIA', 'SENEGAL', 'SIERRA LEONE', 'TOGO'],
+    'ecowas_legacy_names' => ['IVOIRE'],
+    // Calling codes of the member states, Nigeria included (applicants live here):
+    // phone numbers given at registration must be from one of them.
+    'ecowas_dialling_codes' => ['229', '238', '225', '220', '233', '224', '245', '231', '234', '221', '232', '228'],
+
     // Monitoring: who is e-mailed when a health check fails or a new
     // server error appears (comma-separated addresses).
     'alerts' => [

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CardStatus;
 use App\Enums\StaffRole;
 use App\Models\Applicant;
 use App\Models\Application;
@@ -425,4 +426,34 @@ it('replaces a card reported lost and withdraws the old card when the new one is
 
     expect($old->fresh()->status->value)->toBe('REVOKED')
         ->and($old->fresh()->revocation_reason)->toStartWith('REPLACED BY');
+});
+
+it('issues the ECOWAS residence card only to citizens of ECOWAS member states', function () {
+    asApplicant(Applicant::factory()->create());
+    uploadDraftDocs();
+    $reference = paidReference();
+
+    // Not ECOWAS, left ECOWAS in 2025, or Nigerian: refused with a clear message.
+    foreach (['CAMEROON', 'UNITED KINGDOM', 'MALI', 'NIGERIA'] as $nationality) {
+        $this->postJson('/api/v1/applicant/applications', particulars(['nationality' => $nationality, 'payment_reference' => $reference]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['nationality' => 'only for citizens of ECOWAS member states']);
+    }
+
+    // Member states are accepted, whatever the letter case.
+    $this->postJson('/api/v1/applicant/applications', particulars(['nationality' => "Cote d'Ivoire", 'payment_reference' => $reference]))
+        ->assertCreated()->assertJsonPath('data.nationality', "COTE D'IVOIRE");
+});
+
+it('still lets staff edit cards issued before the ECOWAS-only rule', function () {
+    $card = ResidenceCard::factory()->create(['nationality' => 'UNITED KINGDOM', 'profession' => 'ENGINEER']);
+    $card->forceFill(['status' => CardStatus::Approved])->save();
+    asStaff(User::factory()->role(StaffRole::IssuingOfficer)->create());
+
+    // The card keeps its own nationality...
+    $this->putJson("/api/v1/staff/cards/{$card->id}", ['nationality' => 'UNITED KINGDOM', 'profession' => 'ARCHITECT', 'change_reason' => 'Typo at capture'])
+        ->assertStatus(202);
+    // ...but cannot be changed to another non-ECOWAS nationality.
+    $this->putJson("/api/v1/staff/cards/{$card->id}", ['nationality' => 'CHINA', 'change_reason' => 'Typo at capture'])
+        ->assertUnprocessable()->assertJsonValidationErrors('nationality');
 });

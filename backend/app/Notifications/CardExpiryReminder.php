@@ -26,7 +26,7 @@ class CardExpiryReminder extends Notification implements ShouldQueue
     {
         $c = $this->card;
 
-        return (new MailMessage)->subject("Your residence card expires in {$this->days} days")
+        return (new MailMessage)->subject("Your ECOWAS residence card expires in {$this->days} days")
             ->greeting("Dear {$c->forenames} {$c->surname},")
             ->line("Residence card {$c->card_number} expires on ".$c->expires_on?->format('d F Y').'.')
             ->line('Apply to renew it in good time so that you remain lawfully resident in Nigeria.')
