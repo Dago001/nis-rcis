@@ -10,10 +10,33 @@ use Illuminate\Support\Str;
  */
 class NumberGenerator
 {
+    private function nextVal(string $seqName, int $defaultStart): int
+    {
+        if (DB::getDriverName() === 'pgsql') {
+            return (int) DB::scalar("SELECT nextval('{$seqName}')");
+        }
+
+        // MySQL sequence simulation via atomic update
+        return DB::transaction(function () use ($seqName, $defaultStart) {
+            DB::table('system_sequences')->insertOrIgnore([
+                'name' => $seqName,
+                'current_val' => $defaultStart - 1,
+            ]);
+
+            DB::table('system_sequences')
+                ->where('name', $seqName)
+                ->increment('current_val', 1);
+
+            return (int) DB::table('system_sequences')
+                ->where('name', $seqName)
+                ->value('current_val');
+        });
+    }
+
     /** e.g. RC-2026-100001 */
     public function applicationNumber(): string
     {
-        $next = DB::scalar("SELECT nextval('application_number_seq')");
+        $next = $this->nextVal('application_number_seq', 100001);
 
         return sprintf('RC-%s-%06d', now()->format('Y'), $next);
     }
@@ -27,7 +50,7 @@ class NumberGenerator
     /** e.g. 389108 (continues the legacy series) */
     public function cardNumber(): string
     {
-        return (string) DB::scalar("SELECT nextval('card_number_seq')");
+        return (string) $this->nextVal('card_number_seq', 389108);
     }
 
     /** Legacy booklet format: RC-389108/26 */

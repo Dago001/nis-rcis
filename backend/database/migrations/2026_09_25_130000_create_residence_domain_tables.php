@@ -41,10 +41,20 @@ return new class extends Migration
 
     public function up(): void
     {
-        // Human-readable numbers come from sequences, never from rand() or
-        // "last number + 1" (the legacy system could produce duplicates).
-        DB::unprepared('DROP SEQUENCE IF EXISTS application_number_seq; CREATE SEQUENCE application_number_seq START 100001;');
-        DB::unprepared('DROP SEQUENCE IF EXISTS card_number_seq; CREATE SEQUENCE card_number_seq START 389108;');
+        // Human-readable numbers come from sequences on PostgreSQL, or a sequence counter table on MySQL.
+        if (DB::getDriverName() === 'pgsql') {
+            DB::unprepared('DROP SEQUENCE IF EXISTS application_number_seq; CREATE SEQUENCE application_number_seq START 100001;');
+            DB::unprepared('DROP SEQUENCE IF EXISTS card_number_seq; CREATE SEQUENCE card_number_seq START 389108;');
+        } else {
+            Schema::create('system_sequences', function (Blueprint $table) {
+                $table->string('name', 50)->primary();
+                $table->unsignedBigInteger('current_val');
+            });
+            DB::table('system_sequences')->insertOrIgnore([
+                ['name' => 'application_number_seq', 'current_val' => 100000],
+                ['name' => 'card_number_seq', 'current_val' => 389107],
+            ]);
+        }
 
         Schema::create('enrollment_centers', function (Blueprint $table) {
             $table->id();
@@ -274,7 +284,11 @@ return new class extends Migration
         Schema::dropIfExists('residence_cards');
         Schema::dropIfExists('application_drafts');
         Schema::dropIfExists('enrollment_centers');
-        DB::statement('DROP SEQUENCE IF EXISTS card_number_seq');
-        DB::statement('DROP SEQUENCE IF EXISTS application_number_seq');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('DROP SEQUENCE IF EXISTS card_number_seq');
+            DB::statement('DROP SEQUENCE IF EXISTS application_number_seq');
+        } else {
+            Schema::dropIfExists('system_sequences');
+        }
     }
 };

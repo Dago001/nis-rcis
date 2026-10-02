@@ -45,10 +45,15 @@ class CardProduction
 
         return DB::transaction(function () use ($card, $officer, $outcome, $reason) {
             // Serialise stock movements so two desks cannot use the last blank card twice.
-            DB::statement('LOCK TABLE card_print_jobs IN SHARE ROW EXCLUSIVE MODE');
-            if ($this->stock()['remaining'] <= 0) {
-                throw ValidationException::withMessages(['stock' => 'No blank cards left in stock. Record the blank cards received under Card stock first.']);
+            if (DB::getDriverName() === 'pgsql') {
+                DB::statement('LOCK TABLE card_print_jobs IN SHARE ROW EXCLUSIVE MODE');
+            } else {
+                DB::statement('LOCK TABLES card_print_jobs WRITE');
             }
+            try {
+                if ($this->stock()['remaining'] <= 0) {
+                    throw ValidationException::withMessages(['stock' => 'No blank cards left in stock. Record the blank cards received under Card stock first.']);
+                }
 
             $job = CardPrintJob::create([
                 'card_id' => $card->id,
@@ -61,6 +66,11 @@ class CardProduction
                 "Card {$card->card_number} ".($outcome === CardPrintJob::PRINTED ? 'printed' : "spoiled: {$reason}"), $card, ['batch_id' => $job->batch_id], $officer);
 
             return $job;
+            } finally {
+                if (DB::getDriverName() === 'mysql') {
+                    DB::statement('UNLOCK TABLES');
+                }
+            }
         });
     }
 
