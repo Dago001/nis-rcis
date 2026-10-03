@@ -163,7 +163,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index(['enrollment_center_id', 'appointment_date', 'appointment_time']);
+            $table->index(['enrollment_center_id', 'appointment_date', 'appointment_time'], 'apps_center_date_time_idx');
         });
 
         // Supporting documents and captured photos. Versioned: a re-upload in
