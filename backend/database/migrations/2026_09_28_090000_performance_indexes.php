@@ -47,34 +47,37 @@ return new class extends Migration
             });
         }
 
-        // Staff search also matches application numbers typed without dashes.
-        DB::statement("CREATE INDEX applications_application_number_nodash_index ON applications ((replace(application_number, '-', '')))");
+        if (DB::getDriverName() === 'pgsql') {
+            // Staff search also matches application numbers typed without dashes.
+            DB::statement("CREATE INDEX applications_application_number_nodash_index ON applications ((replace(application_number, '-', '')))");
 
-        // Shared hosting may not let the database user add extensions: search
-        // then still works, only without these indexes. (A savepoint keeps a
-        // refused CREATE EXTENSION from aborting the migration's transaction.)
-        try {
-            DB::transaction(fn () => DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm'));
-        } catch (QueryException) {
-        }
-        if (! DB::table('pg_extension')->where('extname', 'pg_trgm')->exists()) {
-            return;
-        }
+            // Shared hosting may not let the database user add extensions: search
+            // then still works, only without these indexes. (A savepoint keeps a
+            // refused CREATE EXTENSION from aborting the migration's transaction.)
+            try {
+                DB::transaction(fn () => DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm'));
+            } catch (QueryException) {
+            }
+            if (! DB::table('pg_extension')->where('extname', 'pg_trgm')->exists()) {
+                return;
+            }
 
-        foreach (self::TRIGRAM as $table => $columns) {
-            foreach ($columns as $column) {
-                DB::statement("CREATE INDEX {$table}_{$column}_trgm_index ON {$table} USING gin ({$column} gin_trgm_ops)");
+            foreach (self::TRIGRAM as $table => $columns) {
+                foreach ($columns as $column) {
+                    DB::statement("CREATE INDEX {$table}_{$column}_trgm_index ON {$table} USING gin ({$column} gin_trgm_ops)");
+                }
             }
         }
-
     }
 
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS applications_application_number_nodash_index');
-        foreach (self::TRIGRAM as $table => $columns) {
-            foreach ($columns as $column) {
-                DB::statement("DROP INDEX IF EXISTS {$table}_{$column}_trgm_index");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('DROP INDEX IF EXISTS applications_application_number_nodash_index');
+            foreach (self::TRIGRAM as $table => $columns) {
+                foreach ($columns as $column) {
+                    DB::statement("DROP INDEX IF EXISTS {$table}_{$column}_trgm_index");
+                }
             }
         }
 
