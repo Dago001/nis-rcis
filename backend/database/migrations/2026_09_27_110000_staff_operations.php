@@ -30,7 +30,7 @@ return new class extends Migration
             $table->foreignId('checked_in_by')->constrained('users');
             $table->foreignId('served_by')->nullable()->constrained('users');
             $table->timestamps();
-            $table->unique(['enrollment_center_id', 'service_date', 'ticket_number']);
+            $table->unique(['enrollment_center_id', 'service_date', 'ticket_number'], 'queue_tickets_center_date_ticket_uq');
         });
 
         // Blank card stock received, and every card printed or spoiled.
