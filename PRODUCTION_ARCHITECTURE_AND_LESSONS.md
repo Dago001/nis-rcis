@@ -179,3 +179,26 @@ When generating deployment archives (`next_update.tar.gz`):
 - **Navigation Prefetching (`prefetch={false}`):**
   - High-density navigation sidebars (such as `StaffShell.tsx`) must set `prefetch={false}` on all `<Link>` components.
   - On CloudLinux Phusion Passenger with constrained Node.js thread pool allocations (`UV_THREADPOOL_SIZE: 2`), eager prefetching fires up to 14 simultaneous RSC network requests, choking the worker process queue and producing 5+ second navigation delays. Disabling background prefetch ensures immediate click responsiveness.
+
+---
+
+## 14. 8-Role Staff Hierarchy & Command Allocation Rules
+
+- **The 8 Roles:**
+  1. `Super Administrator` (`SuperAdmin`): Complete system administration and oversight.
+  2. `Admin` (`Admin`): Staff administrator. Can create and manage officers, but **cannot** see or create Super Administrator accounts.
+  3. `Supervisor` (`Supervisor`): Operational monitor with oversight across Approving, Enrollment, Production, and Issuing officer activities.
+  4. `Data Entry Officer` (`DataEntryOfficer`): Assists walk-in applicants with form filling and document uploads. Strictly enforces the **online payment policy** (no counter payments).
+  5. `Approving Officer` (`ApprovingOfficer`): Vetting and approval of applications.
+  6. `Enrollment Officer` (`EnrollmentOfficer`): Captures biometrics, photo, and signature. Strictly restricted to applicants whose appointments fall on that day.
+  7. `Production Officer` (`ProductionOfficer`): Card printing and stock management. Sees State and LGA destination on cards queue.
+  8. `Issuing Officer` (`IssuingOfficer`): Card dispatch and issuance records.
+- **Command Structure & Quotas:**
+  - Dynamic Command allocation between National Headquarters, State Commands, and 774 Local Government Area centres.
+  - Maximum 10 officers per LGA centre: 5 Data Entry Officers and 5 Enrollment Officers.
+  - Maximum 1 active Approving Officer per State Command.
+  - Headquarters assignments are available for Data Entry, Approving, and Enrollment officers without local LGA constraints.
+- **Queue and Dashboard Visibility:**
+  - Individual officers see their specific queues and their own activity metrics.
+  - Supervisor, Admin, and Super Administrator hold complete system-wide metrics and visibility.
+
