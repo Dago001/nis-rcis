@@ -41,9 +41,9 @@
         .panel { position:relative; z-index:1; width:100%; max-width:460px; background:#fff; border-radius:16px; padding:36px 36px 28px;
                  box-shadow:0 25px 50px -12px rgba(0,0,0,.45); }
         .site-footer { padding:18px 16px; text-align:center; font-size:.875rem; color:#475569; background:#fff; border-top:1px solid var(--line); }
-        .qr { display:flex; justify-content:center; margin:6px 0 10px; }
-        .qr svg { width:200px; height:200px; }
-        code.secret { display:inline-block; margin-top:6px; padding:6px 10px; background:var(--mint); border-radius:6px; font-size:.95rem; letter-spacing:.08em; word-break:break-all; }
+        .qr { display:flex; justify-content:center; align-items:center; margin:14px auto; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; width:fit-content; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+        .qr svg { width:140px; height:140px; max-width:140px; max-height:140px; display:block; }
+        code.secret { display:inline-block; margin-top:6px; padding:6px 12px; background:var(--mint); border:1px solid rgba(43,137,43,.2); border-radius:6px; font-size:.95rem; font-weight:600; letter-spacing:.08em; word-break:break-all; color:var(--deep); }
         .pw { position:relative; width:100%; display:block; }
         .pw input { padding-right:48px; width:100%; }
         .pw .eye { position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; margin:0 !important; padding:0 !important;

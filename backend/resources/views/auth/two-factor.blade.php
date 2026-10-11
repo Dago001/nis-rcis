@@ -8,7 +8,7 @@
         <h1>Set up your authenticator app</h1>
         <p class="sub">Staff accounts need a second sign-in step. Install <strong>Google Authenticator</strong> or <strong>Microsoft Authenticator</strong> on your phone, then scan this code.</p>
         <div class="qr">{!! $qr !!}</div>
-        <p class="hint">Can't scan it? Choose "enter a setup key" in the app and type:<br><code class="secret">{{ $secret }}</code></p>
+        <p class="hint" style="text-align:center; margin-bottom:12px;">Can't scan it? Choose "enter a setup key" in the app and type:<br><code class="secret">{{ $secret }}</code></p>
     @else
         <h1>Enter your authenticator code</h1>
         <p class="sub">Open your authenticator app and enter the 6-digit code for <strong>NIS-RCIS</strong>.</p>
@@ -17,7 +17,7 @@
     <form method="POST" action="{{ url('/login/staff/two-factor') }}" autocomplete="off">
         @csrf
         <label for="code">6-digit code</label>
-        <input id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" required autofocus autocomplete="one-time-code">
+        <input id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" required autofocus autocomplete="one-time-code" style="text-align:center; font-size:1.35rem; letter-spacing:0.25em; font-weight:700;" placeholder="000 000">
         <button type="submit">{{ $setup ? 'Confirm and sign in' : 'Verify and sign in' }}</button>
     </form>
     <div class="notice">

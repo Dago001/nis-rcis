@@ -45,7 +45,9 @@ Route::middleware('web')->group(function () {
     Route::post('/login/staff/two-factor', [StaffLoginController::class, 'verifyTwoFactor'])->middleware('throttle:two-factor');
 
     Route::middleware('auth:staff')->group(function () {
-        Route::get('/password/change', [StaffLoginController::class, 'showChangePassword'])->name('password.change');
+        Route::get('/login/staff/change-password', [StaffLoginController::class, 'showChangePassword'])->name('password.change');
+        Route::post('/login/staff/change-password', [StaffLoginController::class, 'changePassword'])->middleware('throttle:login');
+        Route::get('/password/change', [StaffLoginController::class, 'showChangePassword']);
         Route::post('/password/change', [StaffLoginController::class, 'changePassword'])->middleware('throttle:login');
     });
 

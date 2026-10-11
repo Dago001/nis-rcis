@@ -94,7 +94,7 @@ class StaffLoginController
 
         $secret = $request->session()->get('staff_2fa_secret') ?? tap(Totp::generateSecret(), fn ($s) => $request->session()->put('staff_2fa_secret', $s));
         $uri = Totp::uri($user->service_number, $secret);
-        $qr = (new Writer(new ImageRenderer(new RendererStyle(220, 1), new SvgImageBackEnd)))->writeString($uri);
+        $qr = (new Writer(new ImageRenderer(new RendererStyle(140, 1), new SvgImageBackEnd)))->writeString($uri);
 
         return view('auth.two-factor', ['setup' => true, 'qr' => $qr, 'secret' => trim(chunk_split($secret, 4, ' '))]);
     }
