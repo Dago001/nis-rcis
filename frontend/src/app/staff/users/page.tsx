@@ -26,7 +26,6 @@ export default function UsersPage() {
   const me = useStaff();
   const [users, setUsers] = useState<StaffUser[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [secret, setSecret] = useState<{ who: string; password: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -67,8 +66,8 @@ export default function UsersPage() {
     }
 
     try {
-      const r = await api<{ data: StaffUser; temporary_password: string }>("staff", "users", { method: "POST", json: payload });
-      setSecret({ who: r.data.fullname, password: r.temporary_password });
+      const r = await api<{ data: StaffUser; message?: string }>("staff", "users", { method: "POST", json: payload });
+      setNotice(r.message ?? `Account created. Temporary password and login credentials have been emailed to ${r.data.email}.`);
       form.reset();
       setShowForm(false);
       setSelectedState("");
@@ -86,9 +85,10 @@ export default function UsersPage() {
   }
 
   async function reset(user: StaffUser) {
-    if (!confirm(`Issue a new temporary password for ${user.fullname}? Their current sessions will be signed out.`)) return;
-    const r = await api<{ temporary_password: string }>("staff", `users/${user.id}/reset-password`, { method: "POST" });
-    setSecret({ who: user.fullname, password: r.temporary_password });
+    if (!confirm(`Issue a new temporary password for ${user.fullname}? Their current sessions will be signed out and the temporary password will be emailed to ${user.email}.`)) return;
+    const r = await api<{ message: string }>("staff", `users/${user.id}/reset-password`, { method: "POST" });
+    setNotice(r.message ?? `A new temporary password has been sent to ${user.fullname} (${user.email}).`);
+    await load();
   }
 
   async function resetTwoFactor(user: StaffUser) {
@@ -129,12 +129,6 @@ export default function UsersPage() {
     <div className="space-y-6">
       <PageTitle title="Staff accounts & roles" subtitle="Create and assign officers to Headquarters, State Commands, and Local Government Area centres." />
       {notice && <Alert tone="success">{notice}</Alert>}
-      {secret && (
-        <Alert tone="warning">
-          Temporary password for <strong>{secret.who}</strong>: <code className="rounded bg-white px-2 py-0.5 font-mono">{secret.password}</code>
-          <br />It is shown only once. Give it to the officer in person; they must change it at first sign-in.
-        </Alert>
-      )}
       {showForm && (
         <Panel title="Add new officer" actions={<Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setShowForm(false)}>Close</Button>}>
           <form onSubmit={create} className="space-y-4">

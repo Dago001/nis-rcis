@@ -59,7 +59,17 @@ class UserController
         $user = User::create([...$data, 'password' => $password, 'must_change_password' => true]);
         Audit::log('STAFF_CREATED', "Created {$user->role->value} account {$user->auditLabel()}", $user);
 
-        return response()->json(['data' => $user->only(self::FIELDS), 'temporary_password' => $password], 201);
+        // Send login credentials and temporary password to the officer's email
+        try {
+            $user->notify(new \App\Notifications\StaffTemporaryPassword($password, 'created'));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to send temporary password email to staff {$user->email}: {$e->getMessage()}");
+        }
+
+        return response()->json([
+            'data' => $user->only(self::FIELDS),
+            'message' => "Account created successfully. Login credentials and temporary password have been sent to {$user->email}.",
+        ], 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -196,6 +206,15 @@ class UserController
         $user->tokens()->update(['revoked' => true]);
         Audit::log('STAFF_PASSWORD_RESET', "Temporary password issued for {$user->auditLabel()}", $user);
 
-        return response()->json(['temporary_password' => $password]);
+        // Send temporary password to the officer's email
+        try {
+            $user->notify(new \App\Notifications\StaffTemporaryPassword($password, 'reset'));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to send password reset email to staff {$user->email}: {$e->getMessage()}");
+        }
+
+        return response()->json([
+            'message' => "A new temporary password has been emailed to {$user->fullname} ({$user->email}).",
+        ]);
     }
 }
