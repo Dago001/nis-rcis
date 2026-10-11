@@ -47,6 +47,8 @@ Route::middleware('web')->group(function () {
     Route::middleware('auth:staff')->group(function () {
         Route::get('/login/staff/change-password', [StaffLoginController::class, 'showChangePassword'])->name('password.change');
         Route::post('/login/staff/change-password', [StaffLoginController::class, 'changePassword'])->middleware('throttle:login');
+        Route::get('/staff/change-password', [StaffLoginController::class, 'showChangePassword']);
+        Route::post('/staff/change-password', [StaffLoginController::class, 'changePassword'])->middleware('throttle:login');
         Route::get('/password/change', [StaffLoginController::class, 'showChangePassword']);
         Route::post('/password/change', [StaffLoginController::class, 'changePassword'])->middleware('throttle:login');
     });
