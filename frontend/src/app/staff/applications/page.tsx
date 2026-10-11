@@ -82,6 +82,7 @@ function Queue() {
               <tr>
                 <th className="px-4 py-3">Application</th>
                 <th className="px-4 py-3">Applicant</th>
+                <th className="px-4 py-3">Command / Location</th>
                 <th className="px-4 py-3">Nationality</th>
                 <th className="px-4 py-3">Appointment</th>
                 <th className="px-4 py-3">Status</th>
@@ -96,6 +97,10 @@ function Queue() {
                     <div className="text-xs text-slate-500">{a.channel === "ASSISTED" ? "Assisted" : "Online"} · {applicationType(a)}</div>
                   </td>
                   <td className="px-4 py-3">{a.surname}, {a.forenames}<div className="text-xs text-slate-500">{a.passport_number}</div></td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-800">{a.domicile_state ? `${a.domicile_state} State` : "—"}</div>
+                    <div className="text-xs text-slate-500">{a.domicile_lga ? `${a.domicile_lga} LGA` : a.domicile || ""}</div>
+                  </td>
                   <td className="px-4 py-3">{a.nationality}</td>
                   <td className="px-4 py-3">{nisDate(a.appointment_date)}<div className="text-xs text-slate-500">{a.appointment_time} · {a.enrollment_center?.code}</div></td>
                   <td className="px-4 py-3">

@@ -1,0 +1,12 @@
+process.env.PORT = "30898";
+process.env.HOSTNAME = "0.0.0.0";
+process.env.APP_URL = "https://rcis.nimcoselection.com";
+process.env.API_URL = "https://rcis.nimcoselection.com/api";
+process.env.API_PUBLIC_URL = "https://rcis.nimcoselection.com/api";
+process.env.SESSION_SECRET = "y5bwqkiAno3ZfYXyxWkzvnMBthGSJiCbdePLomuX7q4QieM7dh+7SGWoMRx0PkSZ";
+process.env.OAUTH_STAFF_CLIENT_ID = "01a0fff6-0f3c-70b5-a54f-2d6c2caa6393";
+process.env.OAUTH_STAFF_CLIENT_SECRET = "O7dWCXnM0pj7RQhCkhrJBGHzlKamhjXHH1c47IGaDXwKipys";
+process.env.OAUTH_APPLICANT_CLIENT_ID = "01a0fff6-107a-71d4-a724-c209130a6b6c";
+process.env.OAUTH_APPLICANT_CLIENT_SECRET = "mOhcY9Rvbg9vKm0XhAdoOOiDFf6ik6vAmLPMagAbnDE67VUT";
+process.env.UV_THREADPOOL_SIZE = "2";
+const path = require('path');\nconsole.log('OK');

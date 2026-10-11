@@ -58,3 +58,21 @@ main:focus { outline: none; }
     transition-duration: 0.01ms !important; scroll-behavior: auto !important;
   }
 }
+
+@keyframes pulse-attention {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(234, 115, 23, 0.2));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 16px rgba(234, 115, 23, 0.8));
+  }
+}
+
+.animate-apply-now {
+  display: inline-block;
+  animation: pulse-attention 2s ease-in-out infinite;
+  transform-origin: center;
+}
+

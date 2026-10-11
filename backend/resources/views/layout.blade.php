@@ -44,15 +44,15 @@
         .qr { display:flex; justify-content:center; margin:6px 0 10px; }
         .qr svg { width:200px; height:200px; }
         code.secret { display:inline-block; margin-top:6px; padding:6px 10px; background:var(--mint); border-radius:6px; font-size:.95rem; letter-spacing:.08em; word-break:break-all; }
-        .pw { position:relative; }
-        .pw input { padding-right:48px; }
-        .pw .eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:38px; height:38px; margin:0; padding:0;
-                   display:flex; align-items:center; justify-content:center; background:transparent; color:var(--muted); border-radius:6px; }
-        .pw .eye:hover { background:var(--mint); color:var(--primary); }
-        .pw .eye svg { width:20px; height:20px; }
-        .pw .eye .off { display:none; }
-        .pw .eye[aria-pressed="true"] .on { display:none; }
-        .pw .eye[aria-pressed="true"] .off { display:block; }
+        .pw { position:relative; width:100%; display:block; }
+        .pw input { padding-right:48px; width:100%; }
+        .pw .eye { position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; margin:0 !important; padding:0 !important;
+                   display:flex; align-items:center; justify-content:center; background:transparent !important; color:var(--muted); border:0 !important; border-radius:6px; cursor:pointer; }
+        .pw .eye:hover { background:var(--mint) !important; color:var(--primary); }
+        .pw .eye svg { width:20px; height:20px; pointer-events:none; }
+        .pw .eye .eye-off { display:none; }
+        .pw .eye.showing .eye-on { display:none; }
+        .pw .eye.showing .eye-off { display:block; }
         h1 { font-size:1.6rem; margin:0 0 6px; color:#0f172a; }
         .sub { color:var(--muted); font-size:.92rem; margin:0 0 26px; line-height:1.5; }
         label { display:block; font-size:.85rem; font-weight:600; margin:18px 0 6px; color:#334155; }
@@ -112,6 +112,22 @@
     </section>
 </main>
 <footer class="site-footer">Nigeria Immigration Service · All rights reserved © {{ date('Y') }}</footer>
-<script src="{{ asset('js/password-toggle.js') }}" defer></script>
+<script>
+function togglePw(event, btn) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    var wrap = btn.closest('.pw');
+    if (!wrap) return;
+    var input = wrap.querySelector('input');
+    if (!input) return;
+    var isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.classList.toggle('showing', isPassword);
+    btn.setAttribute('aria-pressed', String(isPassword));
+    btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+}
+</script>
 </body>
 </html>

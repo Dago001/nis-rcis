@@ -24,11 +24,18 @@ export function PublicHeader() {
   return (
     <header className="no-print sticky top-0 z-40 border-b border-slate-200 bg-[#f6f6f6]">
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-[5%] text-sm xl:px-8" aria-label="Main">
-        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={48} height={48} priority />
-          <span className="leading-tight">
-            <span className="block text-[13px] font-bold tracking-wide text-nis-primary-dark">{t("NIGERIA IMMIGRATION SERVICE")}</span>
-            <span className="block text-xs text-slate-500">{t("ECOWAS Residence Card Portal")}</span>
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3" onClick={() => setOpen(false)}>
+          <Image
+            src={withBase("/images/nis-logo.png")}
+            alt="Nigeria Immigration Service"
+            width={44}
+            height={44}
+            priority
+            className="h-9 w-9 shrink-0 sm:h-11 sm:w-11"
+          />
+          <span className="min-w-0 leading-tight">
+            <span className="block truncate text-xs font-bold tracking-wide text-nis-primary-dark sm:text-[13px]">{t("NIGERIA IMMIGRATION SERVICE")}</span>
+            <span className="block truncate text-[11px] text-slate-500 sm:text-xs">{t("ECOWAS Residence Card Portal")}</span>
           </span>
         </Link>
 

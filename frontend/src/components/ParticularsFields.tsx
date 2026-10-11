@@ -67,8 +67,8 @@ function select(props: Props, name: string, label: string, options: string[], op
 const OTHER = "__OTHER__";
 
 /** Wizard step 1 — personal particulars (legacy residence card booklet fields). */
-export function PersonalFields(props: Props) {
-  const { data, errors, set, touch } = props;
+export function PersonalFields(props: Props & { lockContact?: boolean }) {
+  const { data, errors, set, touch, lockContact } = props;
   const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
 
   return (
@@ -102,27 +102,88 @@ export function PersonalFields(props: Props) {
       {text(props, "eye_color", "Colour of eyes", { letters: true, upper: true, maxLength: 50 })}
       {text(props, "hair_color", "Colour of hair", { letters: true, upper: true, maxLength: 50 })}
       <div className="sm:col-span-2">{text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}</div>
+
+      <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">Your contact details</h3>
+      {lockContact ? (
+        <>
+          <Field label="Phone number" hint="From your account registration; it cannot be changed here.">
+            <Input value={data.phone ?? ""} readOnly disabled className="bg-slate-100" />
+          </Field>
+          <Field label="E-mail address" hint="From your account registration; it cannot be changed here.">
+            <Input value={data.email ?? ""} readOnly disabled className="bg-slate-100" />
+          </Field>
+        </>
+      ) : (
+        <>
+          <div onBlur={() => touch?.("phone")}>
+            <Field label="Phone number" required error={errors.phone}>
+              <PhoneInput value={data.phone ?? ""} onChange={(v) => set("phone", v)} />
+            </Field>
+          </div>
+          {text(props, "email", "E-mail address", { required: true, type: "email", maxLength: 255 })}
+        </>
+      )}
     </div>
   );
 }
 
-/** Wizard step 2 — passport and identity numbers. */
+/** Wizard step 2 — passport, national ID or ECOWAS travel certificate. */
 export function PassportFields(props: Props) {
+  const { data, errors, set, touch } = props;
   const today = new Date().toISOString().slice(0, 10);
+  const docType = data.travel_document_type || "PASSPORT";
+
+  const numLabel = docType === "NATIONAL_ID"
+    ? "National ID number (from home country)"
+    : docType === "ECOWAS_TC"
+    ? "ECOWAS Travel Certificate number"
+    : "Passport number";
+
+  const numHint = docType === "NATIONAL_ID"
+    ? "As printed on your home country national ID"
+    : docType === "ECOWAS_TC"
+    ? "As printed on your travel certificate"
+    : "6–15 letters and digits, no spaces";
+
+  const expiryRequired = docType !== "NATIONAL_ID";
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Passport number" required error={props.errors.passport_number} hint="6–15 letters and digits, no spaces">
+      <div className="sm:col-span-2">
+        <Field label="Document type" required hint="Choose Passport, National ID from your country, or ECOWAS Travel Certificate">
+          <Select
+            value={docType}
+            onChange={(e) => {
+              set("travel_document_type", e.target.value);
+              touch?.("travel_document_type");
+            }}
+          >
+            <option value="PASSPORT">International Passport</option>
+            <option value="NATIONAL_ID">National Identification Number from home country</option>
+            <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
+          </Select>
+        </Field>
+      </div>
+
+      <Field label={numLabel} required error={errors.passport_number} hint={numHint}>
         <Input
-          value={props.data.passport_number ?? ""}
-          maxLength={15}
-          className={props.errors.passport_number ? "!border-red-500" : ""}
-          onChange={(e) => props.set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-          onBlur={() => props.touch?.("passport_number")}
+          value={data.passport_number ?? ""}
+          maxLength={20}
+          className={errors.passport_number ? "!border-red-500" : ""}
+          onChange={(e) => set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
+          onBlur={() => touch?.("passport_number")}
         />
       </Field>
-      {text(props, "passport_issue_date", "Passport issue date", { type: "date", max: today })}
-      {text(props, "passport_expiry", "Passport expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })}
-      {text(props, "national_id_number", "NIN (if any)", { digits: true, maxLength: 11, hint: "11 digits" })}
+
+      {text(props, "passport_issue_date", "Document issue date", { type: "date", max: today })}
+
+      {expiryRequired ? (
+        text(props, "passport_expiry", "Document expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })
+      ) : (
+        text(props, "passport_expiry", "Document expiry date (if any)", { type: "date", min: today, hint: "Leave blank if your National ID does not expire" })
+      )}
+
+      {text(props, "national_id_number", "NIN (if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
       {text(props, "tax_id_number", "Tax identification number (if any)", { maxLength: 20 })}
     </div>
   );
@@ -168,13 +229,27 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
 }
 
 /** Wizard step 3 — residence and contacts. */
-export function ContactFields(props: Props & { lockContact?: boolean }) {
-  const { data, errors, set, touch, lockContact } = props;
+export function ContactFields(props: Props) {
+  const { data, errors, set, touch } = props;
   const listedRelation = RELATIONSHIPS.includes(data.emergency_contact_relation ?? "");
   const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(data.emergency_contact_relation && !listedRelation);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Home Country</h3>
+      <div className="sm:col-span-2">
+        <Field label="Address in country of origin" required error={errors.home_country_address} hint="Permanent residential address in your home country">
+          <Textarea
+            value={data.home_country_address ?? ""}
+            maxLength={300}
+            rows={2}
+            className={errors.home_country_address ? "!border-red-500" : ""}
+            onChange={(e) => set("home_country_address", e.target.value)}
+            onBlur={() => touch?.("home_country_address")}
+          />
+        </Field>
+      </div>
+
       <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Nigeria (domicile)</h3>
       <AddressFields {...props} prefix="domicile" streetField="domicile" streetLabel="Street address" />
       <div className="sm:col-span-2">
@@ -182,27 +257,6 @@ export function ContactFields(props: Props & { lockContact?: boolean }) {
           <Textarea value={data.change_of_address ?? ""} maxLength={300} onChange={(e) => set("change_of_address", e.target.value)} onBlur={() => touch?.("change_of_address")} rows={2} />
         </Field>
       </div>
-
-      <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">Your contact details</h3>
-      {lockContact ? (
-        <>
-          <Field label="Phone number" hint="From your account registration; it cannot be changed here.">
-            <Input value={data.phone ?? ""} readOnly disabled className="bg-slate-100" />
-          </Field>
-          <Field label="E-mail address" hint="From your account registration; it cannot be changed here.">
-            <Input value={data.email ?? ""} readOnly disabled className="bg-slate-100" />
-          </Field>
-        </>
-      ) : (
-        <>
-          <div onBlur={() => touch?.("phone")}>
-            <Field label="Phone number" required error={errors.phone}>
-              <PhoneInput value={data.phone ?? ""} onChange={(v) => set("phone", v)} />
-            </Field>
-          </div>
-          {text(props, "email", "E-mail address", { required: true, type: "email", maxLength: 255 })}
-        </>
-      )}
 
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">Emergency contact in Nigeria</h3>
       {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}

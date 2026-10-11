@@ -50,7 +50,11 @@ class NumberGenerator
     /** e.g. 389108 (continues the legacy series) */
     public function cardNumber(): string
     {
-        return (string) $this->nextVal('card_number_seq', 389108);
+        do {
+            $candidate = (string) $this->nextVal('card_number_seq', 389108);
+        } while (DB::table('residence_cards')->where('card_number', $candidate)->exists());
+
+        return $candidate;
     }
 
     /** Legacy booklet format: RC-389108/26 */

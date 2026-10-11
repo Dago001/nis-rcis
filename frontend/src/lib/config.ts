@@ -16,9 +16,9 @@ export const config = {
   /** Public URL of this Next.js app (used for OAuth redirect URIs). */
   appUrl: () => required("APP_URL").replace(/\/$/, ""),
   /** URL the Next.js server uses to reach the Laravel API (can be internal). */
-  apiUrl: () => required("API_URL").replace(/\/$/, ""),
+  apiUrl: () => required("API_URL").replace(/\/+$/, "").replace(/\/api$/, ""),
   /** URL the *browser* uses to reach the Laravel authorization server. */
-  apiPublicUrl: () => (process.env.API_PUBLIC_URL || required("API_URL")).replace(/\/$/, ""),
+  apiPublicUrl: () => (process.env.API_PUBLIC_URL || required("API_URL")).replace(/\/+$/, "").replace(/\/api$/, ""),
   /** 32+ character secret used to encrypt the session cookies. */
   sessionSecret: () => {
     const secret = required("SESSION_SECRET");

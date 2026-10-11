@@ -16,12 +16,12 @@ export function useI18n() {
 }
 
 /** English / Français switch; the choice is remembered for a year. */
-export function LanguageSwitcher({ className = "" }: { className?: string }) {
+export function LanguageSwitcher({ className = "inline-flex" }: { className?: string }) {
   const { lang, t } = useI18n();
   const router = useRouter();
 
   return (
-    <label className={`inline-flex items-center gap-1.5 text-sm text-slate-700 ${className}`}>
+    <label className={`items-center gap-1.5 text-sm text-slate-700 ${className.includes("flex") ? className : `inline-flex ${className}`}`}>
       <svg className="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
         <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
       </svg>

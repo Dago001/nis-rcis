@@ -15,15 +15,54 @@ import { withBase } from "@/lib/base-path";
 type Me = { forenames: string; surname: string; email: string; has_draft: boolean };
 
 export default function PortalHome() {
-  const [me, setMe] = useState<Me | null>(null);
-  const [applications, setApplications] = useState<Application[] | null>(null);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [me, setMe] = useState<Me | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = sessionStorage.getItem("nis_applicant_me");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [applications, setApplications] = useState<Application[] | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = sessionStorage.getItem("nis_applicant_apps");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const cached = sessionStorage.getItem("nis_applicant_notifs");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const { t } = useI18n();
 
   useEffect(() => {
-    api<Me>("applicant", "me").then(setMe);
-    api<{ data: Application[] }>("applicant", "applications").then((r) => setApplications(r.data));
-    api<{ data: AppNotification[] }>("applicant", "notifications").then((r) => setNotifications(r.data));
+    Promise.all([
+      api<Me>("applicant", "me").catch(() => null),
+      api<{ data: Application[] }>("applicant", "applications").catch(() => null),
+      api<{ data: AppNotification[] }>("applicant", "notifications").catch(() => null),
+    ]).then(([meData, appsData, notifsData]) => {
+      if (meData) {
+        setMe(meData);
+        try { sessionStorage.setItem("nis_applicant_me", JSON.stringify(meData)); } catch {}
+      }
+      if (appsData) {
+        setApplications(appsData.data);
+        try { sessionStorage.setItem("nis_applicant_apps", JSON.stringify(appsData.data)); } catch {}
+      }
+      if (notifsData) {
+        setNotifications(notifsData.data);
+        try { sessionStorage.setItem("nis_applicant_notifs", JSON.stringify(notifsData.data)); } catch {}
+      }
+    });
   }, []);
 
   if (!me || !applications) return <Spinner label={t("Loading…")} />;

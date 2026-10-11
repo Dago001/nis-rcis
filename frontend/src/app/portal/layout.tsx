@@ -11,16 +11,14 @@ export default async function PortalLayout({ children }: LayoutProps<"/portal">)
     <>
       <SiteHeader
         languages
-        right={
-          <nav aria-label="Applicant portal" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <Link href="/portal" className="font-medium text-slate-700 transition-colors hover:text-nis-primary">{t("My applications")}</Link>
-            <Link href="/portal/cards" className="font-medium text-slate-700 transition-colors hover:text-nis-primary">{t("My cards")}</Link>
-            <Link href="/portal/payments" className="font-medium text-slate-700 transition-colors hover:text-nis-primary">{t("Payments")}</Link>
-            <LogoutButton portal="applicant" />
-          </nav>
-        }
+        portal="applicant"
+        links={[
+          { href: "/portal", label: t("My applications") },
+          { href: "/portal/cards", label: t("My cards") },
+          { href: "/portal/payments", label: t("Payments") },
+        ]}
       />
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">{children}</main>
       <SiteFooter />
       <ChatWidget scope="applicant" />
     </>

@@ -54,7 +54,9 @@ class CentreQueue
 
         $warning = null;
         if ($purpose === 'Biometrics capture' && ! $application->appointment_date?->isToday()) {
-            $warning = 'The appointment is on '.$application->appointment_date?->format('d M Y').', not today.';
+            throw ValidationException::withMessages([
+                'code' => 'Appointment scheduled for ' . ($application->appointment_date?->format('d M Y') ?? 'another date') . '. Only applicants scheduled for today may be enrolled.',
+            ]);
         }
         if ($application->enrollment_center_id && $application->enrollment_center_id !== $center->id) {
             $warning = trim(($warning ?? '').' The appointment was booked at another centre.');

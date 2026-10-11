@@ -17,7 +17,7 @@ class Application extends Model
     public const PARTICULARS = [
         'surname', 'forenames', 'nationality', 'date_of_birth', 'place_of_birth', 'sex', 'height',
         'complexion', 'eye_color', 'hair_color', 'distinguished_features', 'blood_group', 'profession',
-        'domicile', 'domicile_state', 'domicile_lga', 'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
+        'home_country_address', 'domicile', 'domicile_state', 'domicile_lga', 'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
         'national_id_number', 'tax_id_number', 'emergency_contact_name', 'emergency_contact_relation',
         'emergency_contact_phone', 'emergency_contact_address', 'emergency_contact_state', 'emergency_contact_lga',
     ];
@@ -43,6 +43,16 @@ class Application extends Model
             'fingerprints' => 'encrypted:array',
             'risk_checked_at' => 'datetime',
         ];
+    }
+
+    public function fromEncryptedString($value)
+    {
+        try {
+            return parent::fromEncryptedString($value);
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            \Illuminate\Support\Facades\Log::warning("Corrupted encrypted attribute on application {$this->id}: {$e->getMessage()}");
+            return null;
+        }
     }
 
     public function applicant(): BelongsTo

@@ -13,7 +13,7 @@ import type { Application, EnrollmentCenter } from "@/lib/types";
 import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
 
 // Review & declaration come before payment; the appointment is booked last, then the application is submitted.
-const STEPS = ["Personal details", "Passport", "Residence & contacts", "Documents", "Review & declaration", "Fee payment", "Biometrics appointment"];
+const STEPS = ["Personal details", "Travel / Identity document", "Residence & contacts", "Documents", "Review & declaration", "Fee payment", "Biometrics appointment"];
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
@@ -22,19 +22,21 @@ type DocSpec = { type: string; label: string; required: boolean; accept: string;
 const PHOTO: DocSpec = { type: "photo", label: "Passport photograph (white background)", required: true, accept: "image/jpeg,image/png", kinds: "JPG or PNG" };
 
 const DOCUMENTS: DocSpec[] = [
-  { type: "passport_copy", label: "International passport data page", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-  { type: "residence_visa", label: "Subject-to-Regularization / residence visa", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+  { type: "passport_copy", label: "International passport data page OR National ID from home country OR ECOWAS Travel Certificate", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+  { type: "domicile_proof", label: "Proof of domicile (Utility bill)", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+  { type: "residence_visa", label: "Subject-to-Regularization / residence visa", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
   { type: "quota_approval", label: "Expatriate quota approval", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-  { type: "domicile_proof", label: "Proof of domicile", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
   { type: "additional", label: "Additional document", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
 ];
 
 /** Which step each field lives on (to jump back when the API rejects one). */
 const FIELD_STEP: Record<string, number> = {
   ...Object.fromEntries(PERSONAL_FIELDS.map((f) => [f, 1])),
-  blood_group: 1, renewal_card_number: 1, photo: 1, principal_application_id: 1, dependant_relationship: 1,
+  blood_group: 1, renewal_card_number: 1, photo: 1, principal_application_id: 1, dependant_relationship: 1, phone: 1, email: 1,
   ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 2])),
+  travel_document_type: 2,
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
+  home_country_address: 3,
   documents: 4, quota_reference: 4, employer_name: 4, declaration: 5, payment_reference: 6,
   ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
 };
@@ -87,10 +89,9 @@ function Wizard() {
   /** Fields validated on each step. */
   const stepFields = useCallback(
     (n: number) =>
-      n === 1 ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS]
+      n === 1 ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS.filter((f) => f !== "phone" && f !== "email")]
         : n === 2 ? PASSPORT_FIELDS
-          // Phone and e-mail are locked (taken from the account), so they are not re-checked here.
-          : n === 3 ? CONTACT_FIELDS.filter((f) => f !== "phone" && f !== "email")
+          : n === 3 ? CONTACT_FIELDS
             : n === 4 ? ["quota_reference", "employer_name"]
             : n === 7 ? APPOINTMENT_FIELDS
               : [],
@@ -362,11 +363,11 @@ function Wizard() {
                 <Input value={data.renewal_card_number ?? ""} inputMode="numeric" maxLength={12} onChange={(e) => set("renewal_card_number", e.target.value.replace(/\D/g, ""))} onBlur={() => touch("renewal_card_number")} />
               </Field>
             )}
-            <PersonalFields {...props} />
+            <PersonalFields {...props} lockContact />
           </div>
         )}
         {step === 2 && <PassportFields {...props} />}
-        {step === 3 && <ContactFields {...props} lockContact />}
+        {step === 3 && <ContactFields {...props} />}
         {step === 4 && (
           <div className="space-y-4">
             <p className="text-sm text-slate-600">Each file must be <strong>smaller than 2 MB</strong>: JPG, PNG or PDF. Your passport photograph was uploaded in step 1.</p>
@@ -413,20 +414,28 @@ function Wizard() {
                     ...(data.dependant_relationship ? [["Applying for", `Your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`] as [string, string | undefined]] : []),
                     ["Surname", data.surname], ["Other names", data.forenames], ["Nationality", data.nationality], ["Sex", data.sex],
                     ["Date of birth", nisDate(data.date_of_birth)], ["Place of birth", data.place_of_birth], ["Profession", data.profession],
+                    ["Phone number", data.phone], ["E-mail address", data.email],
                     ["Blood group", data.blood_group || "UNKNOWN"], ["Height", data.height], ["Complexion", data.complexion],
                     ["Colour of eyes", data.eye_color], ["Colour of hair", data.hair_color], ["Distinguishing features", data.distinguished_features || "NONE"],
                   ]}
                 />
               </div>
             </ReviewSection>
-            <ReviewSection title="Passport" onEdit={() => goTo(2)}>
-              <ReviewGrid items={[["Passport number", data.passport_number], ["Issue date", nisDate(data.passport_issue_date)], ["Expiry date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]]} />
+            <ReviewSection title="Travel / Identity document" onEdit={() => goTo(2)}>
+              <ReviewGrid
+                items={[
+                  ["Document type", data.travel_document_type === "NATIONAL_ID" ? "National Identification Number (Home country)" : data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "International Passport"],
+                  [(data.travel_document_type === "NATIONAL_ID" ? "National ID number" : data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number"), data.passport_number],
+                  ["Issue date", nisDate(data.passport_issue_date)], ["Expiry date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
+                ]}
+              />
             </ReviewSection>
             <ReviewSection title="Residence & contacts" onEdit={() => goTo(3)}>
               <ReviewGrid
                 items={[
+                  ["Address in Home Country", data.home_country_address],
                   ["Address in Nigeria", data.domicile], ["Local government area", data.domicile_lga], ["State", data.domicile_state],
-                  ["Change of address", data.change_of_address], ["Phone number", data.phone], ["E-mail address", data.email],
+                  ["Change of address", data.change_of_address],
                 ]}
               />
             </ReviewSection>

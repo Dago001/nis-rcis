@@ -39,7 +39,21 @@ class StaffLoginController
             ->orWhere('username', $data['identifier'])
             ->first();
 
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
+        $passwordValid = false;
+        if ($user) {
+            try {
+                $passwordValid = Hash::check($data['password'], $user->password);
+            } catch (\Throwable) {
+                // If legacy or imported unhashed password matches, automatically upgrade to bcrypt
+                if (hash_equals((string) $user->password, (string) $data['password'])) {
+                    $user->password = Hash::make($data['password']);
+                    $user->save();
+                    $passwordValid = true;
+                }
+            }
+        }
+
+        if (! $user || ! $passwordValid) {
             Audit::log('STAFF_LOGIN_FAILED', 'Failed staff sign-in attempt', context: ['identifier' => $data['identifier']], actorLabel: 'GUEST');
 
             throw ValidationException::withMessages(['identifier' => 'Invalid service number/username or password.']);

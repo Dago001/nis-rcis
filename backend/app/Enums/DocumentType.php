@@ -17,10 +17,10 @@ enum DocumentType: string
         return match ($this) {
             self::Photo => 'Passport photograph',
             self::Signature => 'Signature',
-            self::PassportCopy => 'International passport data page',
+            self::PassportCopy => 'International passport data page / National ID / ECOWAS Travel Certificate',
             self::ResidenceVisa => 'Subject-to-Regularization / residence visa',
             self::QuotaApproval => 'Expatriate quota approval',
-            self::DomicileProof => 'Proof of domicile',
+            self::DomicileProof => 'Proof of domicile (Utility bill)',
             self::Additional => 'Additional document',
         };
     }
@@ -28,7 +28,7 @@ enum DocumentType: string
     /** Documents an applicant must upload before submitting. */
     public static function requiredForSubmission(): array
     {
-        return [self::Photo, self::PassportCopy, self::ResidenceVisa];
+        return [self::Photo, self::PassportCopy, self::DomicileProof];
     }
 
     /** Types applicants may upload (signature is captured at the desk). */

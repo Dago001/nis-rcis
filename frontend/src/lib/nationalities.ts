@@ -6,6 +6,7 @@
  */
 export const ECOWAS_NATIONALITIES: { value: string; label: string }[] = [
   { value: "BENIN", label: "BENIN" },
+  { value: "BURKINA FASO", label: "Burkina Faso (exceptional)" },
   { value: "CABO VERDE", label: "CABO VERDE" },
   { value: "COTE D'IVOIRE", label: "CÔTE D'IVOIRE" },
   { value: "GAMBIA", label: "GAMBIA" },
@@ -13,6 +14,8 @@ export const ECOWAS_NATIONALITIES: { value: string; label: string }[] = [
   { value: "GUINEA", label: "GUINEA" },
   { value: "GUINEA-BISSAU", label: "GUINEA-BISSAU" },
   { value: "LIBERIA", label: "LIBERIA" },
+  { value: "MALI", label: "Mali (exceptional)" },
+  { value: "NIGER", label: "Niger (exceptional)" },
   { value: "SENEGAL", label: "SENEGAL" },
   { value: "SIERRA LEONE", label: "SIERRA LEONE" },
   { value: "TOGO", label: "TOGO" },

@@ -74,7 +74,7 @@ function CardRegister() {
                       onChange={(e) => setSelected(e.target.checked ? result.data.map((c) => c.id).slice(0, 50) : [])} />
                   </th>
                 )}
-                <th className="px-4 py-3">Card</th><th className="px-4 py-3">Holder</th><th className="px-4 py-3">Nationality</th><th className="px-4 py-3">Expires</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Printed</th></tr>
+                <th className="px-4 py-3">Card</th><th className="px-4 py-3">Holder</th><th className="px-4 py-3">Destination (State / LGA)</th><th className="px-4 py-3">Nationality</th><th className="px-4 py-3">Expires</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Printed</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {result.data.map((c) => (
@@ -82,6 +82,10 @@ function CardRegister() {
                   {unprinted && <td className="px-4 py-3"><input type="checkbox" aria-label={`Select card ${c.card_number}`} checked={selected.includes(c.id)} onChange={() => toggle(c.id)} /></td>}
                   <td className="px-4 py-3"><Link href={`/staff/cards/${c.id}`} className="font-semibold text-nis-green hover:underline">{c.card_number}</Link><div className="text-xs text-slate-500">{c.booklet_number}</div></td>
                   <td className="px-4 py-3">{c.surname}, {c.forenames}<div className="text-xs text-slate-500">{c.passport_number}</div></td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-800">{c.domicile_state ? `${c.domicile_state} State` : "—"}</div>
+                    <div className="text-xs text-slate-500">{c.domicile_lga ? `${c.domicile_lga} LGA` : c.domicile || ""}</div>
+                  </td>
                   <td className="px-4 py-3">{c.nationality}</td>
                   <td className="px-4 py-3">{nisDate(c.expires_on)}</td>
                   <td className="space-x-1 px-4 py-3"><StatusBadge status={c.status} />{c.is_watchlisted && <StatusBadge status="WATCHLISTED" />}{c.verification_status === "EXPIRED" && <StatusBadge status="EXPIRED" />}{c.reported_lost_at && <StatusBadge status={c.verification_status} />}</td>

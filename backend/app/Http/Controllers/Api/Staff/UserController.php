@@ -16,24 +16,44 @@ use Illuminate\Validation\Rule;
  */
 class UserController
 {
-    private const FIELDS = ['id', 'username', 'fullname', 'service_number', 'email', 'role', 'command', 'is_active', 'must_change_password', 'last_login_at', 'created_at'];
+    private const FIELDS = ['id', 'username', 'fullname', 'service_number', 'email', 'role', 'command', 'state', 'lga', 'is_active', 'must_change_password', 'last_login_at', 'created_at'];
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(['data' => User::orderBy('fullname')->get([...self::FIELDS, 'two_factor_confirmed_at'])
+        $currentUser = $request->user();
+        $query = User::orderBy('fullname');
+
+        // Admin cannot see SuperAdmin accounts
+        if ($currentUser && $currentUser->role === StaffRole::Admin) {
+            $query->where('role', '!=', StaffRole::SuperAdmin->value);
+        }
+
+        return response()->json(['data' => $query->get([...self::FIELDS, 'two_factor_confirmed_at'])
             ->map(fn (User $u) => [...$u->only(self::FIELDS), 'two_factor_enabled' => $u->two_factor_confirmed_at !== null])]);
     }
 
     public function store(Request $request): JsonResponse
     {
+        $currentUser = $request->user();
+
+        // Admin cannot add Super Administrator
+        $allowedRoles = StaffRole::cases();
+        if ($currentUser && $currentUser->role === StaffRole::Admin) {
+            $allowedRoles = array_filter($allowedRoles, fn ($r) => $r !== StaffRole::SuperAdmin);
+        }
+
         $data = $request->validate([
             'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users'],
             'fullname' => ['required', 'string', 'max:150'],
             'service_number' => ['required', 'string', 'max:50', 'unique:users'],
             'email' => ['required', 'email', 'max:255', 'unique:users'],
-            'role' => ['required', Rule::enum(StaffRole::class)],
+            'role' => ['required', Rule::in(array_map(fn ($r) => $r->value, $allowedRoles))],
             'command' => ['required', 'string', 'max:150'],
+            'state' => ['nullable', 'string', 'max:100'],
+            'lga' => ['nullable', 'string', 'max:100'],
         ]);
+
+        $this->validateQuota($data['role'], $data['state'] ?? null, $data['lga'] ?? null);
 
         $password = Str::password(16);
         $user = User::create([...$data, 'password' => $password, 'must_change_password' => true]);
@@ -44,17 +64,37 @@ class UserController
 
     public function update(Request $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
         $user = User::findOrFail($id);
+
+        if ($currentUser && $currentUser->role === StaffRole::Admin && $user->role === StaffRole::SuperAdmin) {
+            abort(403, 'Administrators cannot modify Super Administrator accounts.');
+        }
+
+        $allowedRoles = StaffRole::cases();
+        if ($currentUser && $currentUser->role === StaffRole::Admin) {
+            $allowedRoles = array_filter($allowedRoles, fn ($r) => $r !== StaffRole::SuperAdmin);
+        }
+
         $data = $request->validate([
             'fullname' => ['sometimes', 'string', 'max:150'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role' => ['sometimes', Rule::enum(StaffRole::class)],
+            'role' => ['sometimes', Rule::in(array_map(fn ($r) => $r->value, $allowedRoles))],
             'command' => ['sometimes', 'string', 'max:150'],
+            'state' => ['nullable', 'string', 'max:100'],
+            'lga' => ['nullable', 'string', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
-        abort_if($user->is($request->user()) && (($data['is_active'] ?? true) === false || isset($data['role'])), 422,
+        abort_if($user->is($currentUser) && (($data['is_active'] ?? true) === false || isset($data['role'])), 422,
             'You cannot deactivate yourself or change your own role.');
+
+        $targetRole = $data['role'] ?? $user->role->value;
+        $targetState = array_key_exists('state', $data) ? $data['state'] : $user->state;
+        $targetLga = array_key_exists('lga', $data) ? $data['lga'] : $user->lga;
+        if (($data['is_active'] ?? $user->is_active) && ($targetState !== null || $targetLga !== null)) {
+            $this->validateQuota($targetRole, $targetState, $targetLga, $user->id);
+        }
 
         $user->fill($data)->save();
 
@@ -67,6 +107,58 @@ class UserController
         Audit::log('STAFF_UPDATED', "Updated account {$user->auditLabel()}", $user, ['changes' => array_keys($user->getChanges())]);
 
         return response()->json(['data' => $user->only(self::FIELDS)]);
+    }
+
+    /**
+     * Capacity verification:
+     * - LGA level: max 5 Data Entry Officers and 5 Enrollment Officers per LGA.
+     * - State level: max 1 Approving Officer per State.
+     * - Headquarters level: allowed for Data Entry, Approving, and Enrollment Officers without local LGA restriction.
+     */
+    private function validateQuota(string $role, ?string $state, ?string $lga, ?int $ignoreUserId = null): void
+    {
+        // If assigned to Headquarters or command has no specific state/lga, skip LGA quotas
+        if (empty($state) && empty($lga)) {
+            return;
+        }
+
+        if (! empty($state) && ! empty($lga)) {
+            if ($role === StaffRole::DataEntryOfficer->value) {
+                $query = User::where('role', StaffRole::DataEntryOfficer->value)
+                    ->where('state', $state)
+                    ->where('lga', $lga)
+                    ->where('is_active', true);
+                if ($ignoreUserId) {
+                    $query->where('id', '!=', $ignoreUserId);
+                }
+                if ($query->count() >= 5) {
+                    abort(422, "Maximum capacity reached: {$lga} LGA ({$state} State) already has 5 active Data Entry Officers.");
+                }
+            } elseif ($role === StaffRole::EnrollmentOfficer->value) {
+                $query = User::where('role', StaffRole::EnrollmentOfficer->value)
+                    ->where('state', $state)
+                    ->where('lga', $lga)
+                    ->where('is_active', true);
+                if ($ignoreUserId) {
+                    $query->where('id', '!=', $ignoreUserId);
+                }
+                if ($query->count() >= 5) {
+                    abort(422, "Maximum capacity reached: {$lga} LGA ({$state} State) already has 5 active Enrollment Officers.");
+                }
+            }
+        }
+
+        if (! empty($state) && $role === StaffRole::ApprovingOfficer->value) {
+            $query = User::where('role', StaffRole::ApprovingOfficer->value)
+                ->where('state', $state)
+                ->where('is_active', true);
+            if ($ignoreUserId) {
+                $query->where('id', '!=', $ignoreUserId);
+            }
+            if ($query->count() >= 1) {
+                abort(422, "Maximum capacity reached: {$state} State already has 1 active Approving Officer.");
+            }
+        }
     }
 
     /**

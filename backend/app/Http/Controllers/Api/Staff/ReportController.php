@@ -38,6 +38,13 @@ class ReportController
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['nationality'] ?? null, fn ($q, $n) => $q->where('nationality', mb_strtoupper($n)));
 
+        $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+        $monthFormat = match ($driver) {
+            'mysql' => "DATE_FORMAT(issued_on, '%Y-%m')",
+            'sqlite' => "strftime('%Y-%m', issued_on)",
+            default => "to_char(issued_on, 'YYYY-MM')",
+        };
+
         return response()->json([
             'from' => $from,
             'to' => $to,
@@ -47,7 +54,7 @@ class ReportController
             'renewals' => CardRenewal::whereBetween('created_at', [$from, "{$to} 23:59:59"])->count(),
             'nationalities' => (clone $cards)->distinct()->count('nationality'),
             'by_nationality' => (clone $cards)->selectRaw('nationality, count(*) as total')->groupBy('nationality')->orderByDesc('total')->get(),
-            'by_month' => (clone $cards)->selectRaw("to_char(issued_on, 'YYYY-MM') as month, count(*) as total")->groupBy('month')->orderBy('month')->get(),
+            'by_month' => (clone $cards)->selectRaw("{$monthFormat} as month, count(*) as total")->groupBy('month')->orderBy('month')->get(),
         ]);
     }
 

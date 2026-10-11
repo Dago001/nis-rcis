@@ -6,9 +6,21 @@ import { useStaff } from "@/components/StaffShell";
 import { Alert, Button, Field, Input, Panel, Select, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime } from "@/lib/format";
-import type { StaffUser } from "@/lib/types";
+import { NIGERIA_LGAS } from "@/lib/nigeria-lgas";
+import type { StaffRole, StaffUser } from "@/lib/types";
 
-const ROLES = [["SuperAdmin", "Super Administrator"], ["ApprovingOfficer", "Approving Officer"], ["IssuingOfficer", "Issuing Officer"], ["Inspector", "Inspector"], ["Auditor", "Auditor"]];
+const ALL_ROLES: [StaffRole, string][] = [
+  ["SuperAdmin", "Super Administrator"],
+  ["Admin", "Admin"],
+  ["Supervisor", "Supervisor"],
+  ["DataEntryOfficer", "Data Entry Officer"],
+  ["ApprovingOfficer", "Approving Officer"],
+  ["EnrollmentOfficer", "Enrollment Officer"],
+  ["ProductionOfficer", "Production Officer"],
+  ["IssuingOfficer", "Issuing Officer"],
+];
+
+const STATES = Object.keys(NIGERIA_LGAS).sort();
 
 export default function UsersPage() {
   const me = useStaff();
@@ -20,6 +32,18 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
 
+  // Form State for dynamic Command / State / LGA
+  const [selectedRole, setSelectedRole] = useState<StaffRole>("DataEntryOfficer");
+  const [selectedState, setSelectedState] = useState<string>("");
+  const [selectedLga, setSelectedLga] = useState<string>("");
+  const [commandType, setCommandType] = useState<"STATE_LGA" | "HEADQUARTERS">("STATE_LGA");
+
+  // Filter roles based on logged in user: Admin cannot see or add SuperAdmin
+  const availableRoles = ALL_ROLES.filter(([role]) => {
+    if (me.role === "Admin" && role === "SuperAdmin") return false;
+    return true;
+  });
+
   const load = useCallback(() => api<{ data: StaffUser[] }>("staff", "users").then((r) => setUsers(r.data)), []);
   useEffect(() => {
     void load();
@@ -29,11 +53,26 @@ export default function UsersPage() {
     event.preventDefault();
     const form = event.currentTarget;
     setErrors({});
+    const formData = new FormData(form);
+    const payload: Record<string, any> = Object.fromEntries(formData);
+
+    if (commandType === "HEADQUARTERS") {
+      payload.command = "National Headquarters, Abuja";
+      payload.state = "";
+      payload.lga = "";
+    } else {
+      payload.state = selectedState;
+      payload.lga = selectedLga;
+      payload.command = selectedLga ? `${selectedLga} LGA, ${selectedState} State Command` : `${selectedState} State Command`;
+    }
+
     try {
-      const r = await api<{ data: StaffUser; temporary_password: string }>("staff", "users", { method: "POST", json: Object.fromEntries(new FormData(form)) });
+      const r = await api<{ data: StaffUser; temporary_password: string }>("staff", "users", { method: "POST", json: payload });
       setSecret({ who: r.data.fullname, password: r.temporary_password });
       form.reset();
       setShowForm(false);
+      setSelectedState("");
+      setSelectedLga("");
       await load();
     } catch (e) {
       if (e instanceof ApiError) setErrors(e.fieldErrors());
@@ -77,18 +116,18 @@ export default function UsersPage() {
     await load();
   }
 
-
   const q = query.trim().toLowerCase();
   const shown = (users ?? []).filter(
     (u) =>
       (!roleFilter || u.role === roleFilter) &&
-      (!q || [u.fullname, u.username, u.service_number, u.email, u.command].some((v) => v?.toLowerCase().includes(q))),
+      (!q || [u.fullname, u.username, u.service_number, u.email, u.command, u.state, u.lga].some((v) => v?.toLowerCase().includes(q))),
   );
   const activeCount = (users ?? []).filter((u) => u.is_active).length;
+  const lgas = selectedState ? NIGERIA_LGAS[selectedState] ?? [] : [];
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Staff accounts" subtitle="Create officers, change or revoke roles, reset passwords and authenticator apps, and sign officers out." />
+      <PageTitle title="Staff accounts & roles" subtitle="Create and assign officers to Headquarters, State Commands, and Local Government Area centres." />
       {notice && <Alert tone="success">{notice}</Alert>}
       {secret && (
         <Alert tone="warning">
@@ -97,15 +136,72 @@ export default function UsersPage() {
         </Alert>
       )}
       {showForm && (
-        <Panel title="Add officer" actions={<Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setShowForm(false)}>Close</Button>}>
-          <form onSubmit={create} className="grid gap-3 sm:grid-cols-3">
-            <Field label="Full name" error={errors.fullname}><Input name="fullname" required /></Field>
-            <Field label="Username" error={errors.username}><Input name="username" required /></Field>
-            <Field label="Service number" error={errors.service_number}><Input name="service_number" required /></Field>
-            <Field label="E-mail" error={errors.email}><Input name="email" type="email" required /></Field>
-            <Field label="Role" error={errors.role}><Select name="role">{ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
-            <Field label="Command" error={errors.command}><Input name="command" defaultValue="National Processing Center" required /></Field>
-            <div className="flex gap-3 sm:col-span-3">
+        <Panel title="Add new officer" actions={<Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setShowForm(false)}>Close</Button>}>
+          <form onSubmit={create} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Full name" error={errors.fullname}><Input name="fullname" required /></Field>
+              <Field label="Username" error={errors.username}><Input name="username" required /></Field>
+              <Field label="Service number" error={errors.service_number}><Input name="service_number" placeholder="e.g. NIS-10492" required /></Field>
+              <Field label="E-mail" error={errors.email}><Input name="email" type="email" required /></Field>
+              <Field label="Role" error={errors.role}>
+                <Select name="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as StaffRole)}>
+                  {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </Select>
+              </Field>
+              <Field label="Assignment level">
+                <Select value={commandType} onChange={(e) => setCommandType(e.target.value as any)}>
+                  <option value="STATE_LGA">State & LGA Command</option>
+                  <option value="HEADQUARTERS">National Headquarters (Abuja)</option>
+                </Select>
+              </Field>
+            </div>
+
+            {commandType === "STATE_LGA" && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/75 p-4">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600">Command Location & LGA Allocation</div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="State" error={errors.state}>
+                    <Select
+                      name="state"
+                      value={selectedState}
+                      onChange={(e) => {
+                        setSelectedState(e.target.value);
+                        setSelectedLga("");
+                      }}
+                      required
+                    >
+                      <option value="">Select State…</option>
+                      {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </Select>
+                  </Field>
+
+                  {selectedRole !== "ApprovingOfficer" && (
+                    <Field label="Local Government Area (LGA)" error={errors.lga}>
+                      <Select
+                        name="lga"
+                        value={selectedLga}
+                        disabled={!selectedState}
+                        onChange={(e) => setSelectedLga(e.target.value)}
+                        required
+                      >
+                        <option value="">{selectedState ? "Select LGA…" : "Select a State first"}</option>
+                        {lgas.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </Select>
+                    </Field>
+                  )}
+                </div>
+
+                <div className="mt-3 text-xs text-slate-500">
+                  {selectedRole === "ApprovingOfficer" ? (
+                    <span>• <strong>State Approving Officer:</strong> Maximum 1 active Approving Officer per State.</span>
+                  ) : (
+                    <span>• <strong>LGA Capacity Rule:</strong> Maximum 10 officers per LGA (5 Data Entry Officers and 5 Enrollment Officers).</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
               <Button type="submit">Create account</Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
             </div>
@@ -116,13 +212,13 @@ export default function UsersPage() {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-5 py-4">
           <div className="mr-auto">
-            <h2 className="text-[15px] font-semibold text-slate-900">Officers</h2>
+            <h2 className="text-[15px] font-semibold text-slate-900">Officers & Commands</h2>
             {users && <p className="text-xs text-slate-500">{users.length} accounts · {activeCount} active</p>}
           </div>
-          <Input type="search" placeholder="Search officers…" aria-label="Search officers" value={query} onChange={(e) => setQuery(e.target.value)} className="!w-full !py-2 sm:!w-72" />
+          <Input type="search" placeholder="Search name, role, LGA, command…" aria-label="Search officers" value={query} onChange={(e) => setQuery(e.target.value)} className="!w-full !py-2 sm:!w-72" />
           <Select aria-label="Filter by role" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="!w-auto !py-2">
             <option value="">All roles</option>
-            {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
           {!showForm && <Button className="!py-2" onClick={() => setShowForm(true)}>+ Add officer</Button>}
         </header>
@@ -131,10 +227,10 @@ export default function UsersPage() {
           <p className="px-5 py-10 text-center text-sm text-slate-500">No officers match your search.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[840px] text-sm">
               <thead className="text-left">
                 <tr className="[&>th]:whitespace-nowrap [&>th]:px-4 [&>th]:py-3 [&>th:first-child]:pl-5 [&>th:last-child]:pr-5">
-                  <th>Officer</th><th>Role</th><th>Command</th><th>Access</th><th className="text-right"><span className="sr-only">Actions</span></th>
+                  <th>Officer</th><th>Role</th><th>Command / Jurisdiction</th><th>Access</th><th className="text-right"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -155,14 +251,21 @@ export default function UsersPage() {
                     </td>
                     <td>
                       {u.id === me.id ? (
-                        <span className="text-slate-700">{roleLabel(u.role)}</span>
+                        <span className="font-medium text-slate-800">{roleLabel(u.role)}</span>
                       ) : (
-                        <Select aria-label={`Role of ${u.fullname}`} value={u.role} disabled={!u.is_active} onChange={(e) => void changeRole(u, e.target.value)} className="!w-44 !py-1.5">
-                          {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        <Select aria-label={`Role of ${u.fullname}`} value={u.role} disabled={!u.is_active} onChange={(e) => void changeRole(u, e.target.value)} className="!w-48 !py-1.5">
+                          {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </Select>
                       )}
                     </td>
-                    <td><div className="line-clamp-2 max-w-[15rem] text-slate-700" title={u.command}>{u.command}</div></td>
+                    <td>
+                      <div className="font-medium text-slate-800">{u.command}</div>
+                      {(u.state || u.lga) && (
+                        <div className="text-xs text-slate-500">
+                          {u.lga ? `${u.lga} LGA · ` : ""}{u.state ? `${u.state} State` : ""}
+                        </div>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap">
                       {u.two_factor_enabled ? <Badge tone="green">Authenticator set up</Badge> : <Badge tone="amber">No authenticator</Badge>}
                       <div className="mt-1 text-xs text-slate-500">{u.last_login_at ? `Last sign-in ${dateTime(u.last_login_at)}` : "Never signed in"}</div>
@@ -192,7 +295,7 @@ export default function UsersPage() {
 }
 
 function roleLabel(role: string) {
-  return ROLES.find(([v]) => v === role)?.[1] ?? role;
+  return ALL_ROLES.find(([v]) => v === role)?.[1] ?? role;
 }
 
 function initials(name: string) {

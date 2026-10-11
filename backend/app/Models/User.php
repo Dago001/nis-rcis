@@ -18,7 +18,7 @@ class User extends Authenticatable implements OAuthenticatable
 
     protected $fillable = [
         'username', 'fullname', 'service_number', 'email', 'password',
-        'role', 'command', 'is_active', 'must_change_password', 'photo_path',
+        'role', 'command', 'state', 'lga', 'is_active', 'must_change_password', 'photo_path',
     ];
 
     protected $hidden = ['password', 'remember_token', 'two_factor_secret', 'two_factor_last_step'];

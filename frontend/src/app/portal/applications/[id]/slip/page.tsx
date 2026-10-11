@@ -75,7 +75,9 @@ function SlipView() {
       <div className="no-print flex justify-end gap-2">
         <Button onClick={() => window.print()}>Print / save as PDF</Button>
       </div>
-      {appointment ? <AppointmentSlip slip={slip} /> : <ApplicationSlip slip={slip} />}
+      <div className="w-full overflow-x-auto pb-6">
+        {appointment ? <AppointmentSlip slip={slip} /> : <ApplicationSlip slip={slip} />}
+      </div>
     </div>
   );
 }
@@ -95,7 +97,7 @@ function Pairs({ rows }: { rows: [string, string, string?, string?][] }) {
   return (
     <div className="divide-y divide-slate-300">
       {rows.map(([k1, v1, k2, v2]) => (
-        <div key={k1} className="grid grid-cols-2 divide-x divide-slate-300">
+        <div key={k1} className="grid grid-cols-1 divide-y divide-slate-300 sm:grid-cols-2 sm:divide-x sm:divide-y-0 print:grid-cols-2 print:divide-x print:divide-y-0">
           <div className="px-2 py-1.5">
             <div className="text-[13px] font-medium text-slate-900">{k1}</div>
             <div className="text-[13px] text-slate-700">{v1}</div>
@@ -118,7 +120,7 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
     a.status === "PENDING_APPROVAL" ? "Waiting for approval" : a.status === "QUERIED" ? "Queried – action required" : a.status_label;
 
   return (
-    <article className="mx-auto max-w-[210mm] bg-white p-6 text-slate-900 shadow-sm print:p-0 print:shadow-none">
+    <article className="mx-auto max-w-[210mm] min-w-[320px] bg-white p-3 text-slate-900 shadow-sm sm:p-6 print:p-0 print:shadow-none">
       {/* Page 1 */}
       <div className="flex justify-center pb-3">
         <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={56} height={56} />
@@ -130,28 +132,41 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
           <div className="w-[88px] shrink-0 border-r border-slate-300 p-1">
             {slip.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={slip.photo_url} alt="Applicant" className="h-[104px] w-full object-cover" />
-            ) : (
-              <div className="flex h-[104px] items-center justify-center bg-slate-100 text-[10px] text-slate-400">No photo</div>
-            )}
+              <img
+                src={slip.photo_url}
+                alt="Applicant"
+                className="h-[104px] w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const fallback = e.currentTarget.parentElement?.querySelector(".photo-fallback");
+                  if (fallback) (fallback as HTMLElement).style.display = "flex";
+                }}
+              />
+            ) : null}
+            <div className={`photo-fallback flex h-[104px] flex-col items-center justify-center bg-slate-100 text-slate-400 ${slip.photo_url ? "hidden" : ""}`}>
+              <svg className="h-8 w-8 text-slate-300" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.6-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+              </svg>
+              <span className="text-[10px]">Applicant</span>
+            </div>
           </div>
           <div className="flex flex-1 flex-col">
-            <div className="flex flex-1 items-start justify-between gap-4 border-b border-slate-300 px-3 pt-2">
+            <div className="flex flex-1 flex-col gap-2 border-b border-slate-300 px-3 pt-2 sm:flex-row sm:items-start sm:justify-between print:flex-row print:justify-between">
               <div>
                 <Barcode value={a.application_number} height={40} moduleWidth={1.1} />
-                <div className="text-[15px] tracking-wide">{a.application_number}</div>
+                <div className="text-[13px] tracking-wide sm:text-[15px]">{a.application_number}</div>
               </div>
-              <div className="self-center text-lg">{a.type === "RENEWAL" ? "Residence Card Renewal" : a.type === "REPLACE" ? "Residence Card Replacement" : "Residence Card Application"}</div>
+              <div className="self-start text-base font-medium sm:self-center sm:text-lg print:self-center print:text-lg">{a.type === "RENEWAL" ? "Residence Card Renewal" : a.type === "REPLACE" ? "Residence Card Replacement" : "Residence Card Application"}</div>
             </div>
-            <div className="grid grid-cols-5 gap-2 px-3 py-2 text-[13px]">
-              <div><div className="font-medium">Reference Number</div><div>{a.reference_number}</div></div>
-              <div><div className="font-medium">Application Number</div><div>{a.application_number}</div></div>
-              <div><div className="font-medium">Application Date</div><div>{ddmmyyyy(slip.submitted_at ?? a.submitted_at)}</div></div>
+            <div className="grid grid-cols-2 gap-2 px-3 py-2 text-[12px] sm:grid-cols-5 sm:text-[13px] print:grid-cols-5 print:text-[13px]">
+              <div><div className="font-medium text-slate-500">Reference Number</div><div className="font-semibold text-slate-900 break-all">{a.reference_number}</div></div>
+              <div><div className="font-medium text-slate-500">Application Number</div><div className="font-semibold text-slate-900 break-all">{a.application_number}</div></div>
+              <div><div className="font-medium text-slate-500">Application Date</div><div>{ddmmyyyy(slip.submitted_at ?? a.submitted_at)}</div></div>
               <div>
-                <div className="font-medium">Payment Status</div>
+                <div className="font-medium text-slate-500">Payment Status</div>
                 <span className={`mt-0.5 inline-block rounded-full border-2 px-2 text-[11px] font-bold ${paid ? "border-nis-primary text-nis-primary" : "border-amber-500 text-amber-600"}`}>{paid ? "PAID" : "PENDING"}</span>
               </div>
-              <div><div className="font-medium">Approval Status</div><div>{approval}</div></div>
+              <div className="col-span-2 sm:col-span-1 print:col-span-1"><div className="font-medium text-slate-500">Approval Status</div><div>{approval}</div></div>
             </div>
           </div>
         </div>
@@ -203,7 +218,7 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
       </div>
 
       {/* Page 2 */}
-      <div className="mt-6 grid grid-cols-2 items-start gap-0 break-before-page print:pt-4">
+      <div className="mt-6 grid grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-0 print:grid-cols-2 break-before-page print:pt-4">
         <Box title="Supporting Documents" className="border-r-0">
           <div className="px-2 py-1.5">
             <div className="text-[13px] text-nis-primary">Documents submitted</div>
@@ -246,7 +261,7 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
   const a = slip.application;
   const center = a.enrollment_center;
   return (
-    <article className="mx-auto max-w-[210mm] bg-white px-14 py-10 text-[15px] text-slate-800 shadow-sm print:p-6 print:shadow-none">
+    <article className="mx-auto max-w-[210mm] min-w-[320px] bg-white px-4 py-6 sm:px-14 sm:py-10 text-[14px] sm:text-[15px] text-slate-800 shadow-sm print:p-6 print:shadow-none">
       <div className="flex flex-col items-center">
         <div className="flex items-center gap-2">
           <Image src={withBase("/images/nis-logo.png")} alt="Nigeria Immigration Service" width={84} height={84} />
@@ -255,7 +270,7 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
         <h1 className="mt-3 text-3xl font-light">Appointment Slip</h1>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-center sm:justify-end">
         <Barcode value={a.reference_number} height={48} moduleWidth={1.4} />
       </div>
 

@@ -59,12 +59,20 @@ export const RULES: Record<string, Check> = {
   hair_color: pattern(NAME, lettersOnly),
   distinguished_features: pattern(TEXT, "Use letters only."),
 
-  passport_number: all(required("Passport number"), pattern(PASSPORT, "6–15 capital letters and digits, no spaces.")),
+  passport_number: all(
+    (v, d) => (!v.trim() ? `${d.travel_document_type === "NATIONAL_ID" ? "National ID number" : d.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number"} is required.` : undefined),
+    pattern(/^[A-Za-z0-9-]{4,20}$/, "4–20 letters and digits (hyphens allowed), no spaces.")
+  ),
   passport_issue_date: (v) => (v && v > today() ? "The issue date cannot be in the future." : undefined),
-  passport_expiry: all(required("Passport expiry date"), (v) => (v <= addMonths(6) ? "Your passport must be valid for at least 6 more months." : undefined)),
+  passport_expiry: (v, d) => {
+    if (d.travel_document_type === "NATIONAL_ID" && !v) return undefined;
+    if (!v) return "Expiry date is required.";
+    return v <= addMonths(6) ? "Must be valid for at least 6 more months." : undefined;
+  },
   national_id_number: pattern(/^[0-9]{11}$/, "The NIN is 11 digits."),
   tax_id_number: pattern(/^[0-9-]{6,20}$/, "Digits only (hyphens allowed)."),
 
+  home_country_address: all(required("Residential address in Home Country"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
   domicile_state: required("State"),
   domicile_lga: all(required("Local government area"), (v, d) => (d.domicile_state && !NIGERIA_LGAS[d.domicile_state]?.includes(v) ? "Select a local government area." : undefined)),
   domicile: all(required("Street address"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
@@ -86,10 +94,15 @@ export const RULES: Record<string, Check> = {
   appointment_time: required("Time slot"),
 };
 
-export const PERSONAL_FIELDS = ["surname", "forenames", "nationality", "sex", "date_of_birth", "place_of_birth", "profession", "height", "complexion", "eye_color", "hair_color", "distinguished_features"];
+export const PERSONAL_FIELDS = [
+  "surname", "forenames", "nationality", "sex", "date_of_birth", "place_of_birth", "profession",
+  "phone", "email",
+  "height", "complexion", "eye_color", "hair_color", "distinguished_features"
+];
 export const PASSPORT_FIELDS = ["passport_number", "passport_issue_date", "passport_expiry", "national_id_number", "tax_id_number"];
 export const CONTACT_FIELDS = [
-  "domicile_state", "domicile_lga", "domicile", "change_of_address", "phone", "email",
+  "home_country_address",
+  "domicile_state", "domicile_lga", "domicile", "change_of_address",
   "emergency_contact_name", "emergency_contact_relation", "emergency_contact_phone",
   "emergency_contact_state", "emergency_contact_lga", "emergency_contact_address",
 ];

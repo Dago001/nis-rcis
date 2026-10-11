@@ -74,10 +74,9 @@ export default async function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/75" aria-hidden />
 
         <div className="relative z-10 max-w-4xl text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">{t("Directorate of Visa and Residency")}</p>
-          <h1 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
+          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
             {t("Obtain your ECOWAS Residence Card")}
-            <span className="block text-nis-orange">{t("Apply Now!")}</span>
+            <span className="block text-nis-orange animate-apply-now">{t("Apply Now!")}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-white/85 sm:text-lg">
             {t("Citizens of ECOWAS member states resident in Nigeria can apply for, renew and track their ECOWAS Residence Card online.")}
@@ -94,18 +93,6 @@ export default async function Home() {
               <span className="text-sm text-white/90">{t("Card expiring?")}</span>
               <Link prefetch={false} href="/portal/apply?type=renewal" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
                 {t("Renew ECOWAS Residence Card")}
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-10 flex flex-col items-center gap-2">
-            <span className="text-sm text-white/90">{t("Already applied?")}</span>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Link href="/track" className="inline-flex items-center gap-2 rounded-md border-2 border-white/80 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10">
-                {t("Track Application")} <span aria-hidden>›</span>
-              </Link>
-              <Link href="/verify" className="inline-flex items-center gap-2 rounded-md border-2 border-white/80 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10">
-                {t("Verify a Card")} <span aria-hidden>›</span>
               </Link>
             </div>
           </div>

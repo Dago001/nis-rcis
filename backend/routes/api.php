@@ -145,7 +145,7 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:ApprovingOfficer,IssuingOfficer')->whereNumber('id');
 
         // Enrollment-centre queue desk
-        Route::middleware('role:ApprovingOfficer,IssuingOfficer')->prefix('queue')->group(function () {
+        Route::middleware('role:ApprovingOfficer,EnrollmentOfficer,IssuingOfficer,Supervisor,Admin')->prefix('queue')->group(function () {
             Route::get('/', [QueueController::class, 'index']);
             Route::post('check-in', [QueueController::class, 'checkIn']);
             Route::post('walk-in', [QueueController::class, 'walkIn']);
@@ -153,7 +153,7 @@ Route::prefix('v1')->group(function () {
             Route::post('{id}/finish', [QueueController::class, 'finish'])->whereNumber('id');
         });
 
-        Route::middleware('role:SuperAdmin')->group(function () {
+        Route::middleware('role:DataEntryOfficer,SuperAdmin,Admin')->group(function () {
             Route::post('applications', [StaffApplications::class, 'store']);
             Route::post('applications/{id}/documents', [StaffApplications::class, 'uploadDocument'])->whereNumber('id');
         });
@@ -161,8 +161,11 @@ Route::prefix('v1')->group(function () {
         Route::post('applications/{id}/decision', [StaffApplications::class, 'decide'])
             ->middleware('role:ApprovingOfficer')->whereNumber('id');
 
-        Route::middleware('role:ApprovingOfficer,IssuingOfficer')->group(function () {
+        Route::middleware('role:EnrollmentOfficer,ApprovingOfficer,IssuingOfficer')->group(function () {
             Route::post('applications/{id}/biometrics', [StaffApplications::class, 'captureBiometrics'])->whereNumber('id');
+        });
+
+        Route::middleware('role:IssuingOfficer,ApprovingOfficer')->group(function () {
             Route::post('applications/{id}/collect', [StaffApplications::class, 'collect'])->whereNumber('id');
         });
 
@@ -174,12 +177,15 @@ Route::prefix('v1')->group(function () {
         Route::get('cards', [CardController::class, 'index']);
         Route::get('cards/{id}', [CardController::class, 'show'])->whereNumber('id');
 
-        Route::middleware('role:ApprovingOfficer,IssuingOfficer')->group(function () {
+        Route::middleware('role:ProductionOfficer,IssuingOfficer,ApprovingOfficer')->group(function () {
             Route::get('cards/{id}/print', [CardController::class, 'print'])->whereNumber('id');
             Route::get('cards/print-batch', [CardStockController::class, 'batch']);
             Route::post('cards/{id}/print-jobs', [CardStockController::class, 'record'])->whereNumber('id');
             Route::get('card-stock', [CardStockController::class, 'index']);
             Route::post('card-stock/batches', [CardStockController::class, 'receive']);
+        });
+
+        Route::middleware('role:IssuingOfficer,ApprovingOfficer')->group(function () {
             Route::put('cards/{id}', [CardController::class, 'update'])->whereNumber('id');
             Route::post('cards/{id}/ready-for-collection', [CardController::class, 'readyForCollection'])->whereNumber('id');
             Route::post('cards/{id}/renew', [CardController::class, 'renew'])->whereNumber('id');
@@ -210,21 +216,21 @@ Route::prefix('v1')->group(function () {
 
         // Reports
         Route::get('reports/summary', [ReportController::class, 'summary']);
-        Route::get('reports/export', [ReportController::class, 'export'])->middleware('role:SuperAdmin');
-        Route::get('reports/management', [ReportController::class, 'management'])->middleware('role:SuperAdmin,Auditor');
+        Route::get('reports/export', [ReportController::class, 'export'])->middleware('role:SuperAdmin,Admin');
+        Route::get('reports/management', [ReportController::class, 'management'])->middleware('role:SuperAdmin,Admin,Supervisor,Auditor');
         Route::get('reports/filters', [ReportController::class, 'filters']);
         Route::post('reports/filters', [ReportController::class, 'saveFilter']);
         Route::delete('reports/filters/{id}', [ReportController::class, 'deleteFilter'])->whereNumber('id');
 
         // Administration
-        Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('role:Auditor');
+        Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('role:Auditor,Supervisor,Admin');
 
         // NDPA personal-data breach register
-        Route::get('data-breaches', [DataBreachController::class, 'index'])->middleware('role:Auditor');
-        Route::post('data-breaches', [DataBreachController::class, 'store'])->middleware('role:SuperAdmin');
-        Route::patch('data-breaches/{id}', [DataBreachController::class, 'update'])->middleware('role:SuperAdmin')->whereNumber('id');
+        Route::get('data-breaches', [DataBreachController::class, 'index'])->middleware('role:Auditor,Supervisor,Admin');
+        Route::post('data-breaches', [DataBreachController::class, 'store'])->middleware('role:SuperAdmin,Admin');
+        Route::patch('data-breaches/{id}', [DataBreachController::class, 'update'])->middleware('role:SuperAdmin,Admin')->whereNumber('id');
 
-        Route::middleware('role:SuperAdmin')->group(function () {
+        Route::middleware('role:SuperAdmin,Admin')->group(function () {
             Route::get('users', [UserController::class, 'index']);
             Route::post('users', [UserController::class, 'store']);
             Route::patch('users/{id}', [UserController::class, 'update'])->whereNumber('id');

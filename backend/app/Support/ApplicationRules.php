@@ -35,7 +35,8 @@ class ApplicationRules
             // ECOWAS residence card: citizens of ECOWAS member states only.
             'nationality' => ['required', 'string', 'max:100', function (string $attribute, mixed $value, \Closure $fail) use ($keepNationality) {
                 $allowed = [...config('nis.ecowas_member_states'), ...config('nis.ecowas_legacy_names'), $keepNationality];
-                if (! in_array($value, $allowed, true)) {
+                $upperAllowed = array_map('strtoupper', array_filter($allowed));
+                if (! in_array(strtoupper(trim((string) $value)), $upperAllowed, true)) {
                     $fail('The ECOWAS residence card is only for citizens of ECOWAS member states.');
                 }
             }],
@@ -49,13 +50,14 @@ class ApplicationRules
             'distinguished_features' => ['nullable', 'string', 'max:150', 'regex:'.self::TEXT],
             'blood_group' => ['nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'])],
             'profession' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
+            'home_country_address' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
             'domicile' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
             'domicile_state' => ['required', 'string', Rule::in(NigeriaLgas::states())],
             'domicile_lga' => ['required', 'string', new NigerianLga('domicile_state')],
             'change_of_address' => ['nullable', 'string', 'max:500', 'regex:'.self::ADDRESS],
-            'passport_number' => ['required', 'string', 'regex:/^[A-Z0-9]{6,15}$/'],
+            'passport_number' => ['required', 'string', 'regex:/^[A-Z0-9-]{4,20}$/i'],
             'passport_issue_date' => ['nullable', 'date', 'before_or_equal:today'],
-            'passport_expiry' => ['required', 'date', 'after:+6 months'],
+            'passport_expiry' => ['nullable', 'date'],
             'national_id_number' => ['nullable', 'string', 'regex:/^[0-9]{11}$/'],
             'tax_id_number' => ['nullable', 'string', 'regex:/^[0-9-]{6,20}$/'],
             'emergency_contact_name' => ['required', 'string', 'max:150', 'regex:'.self::NAME],

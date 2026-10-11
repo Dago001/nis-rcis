@@ -92,16 +92,23 @@ class ApplicationWorkflow
 
     private function notify(Application $application, ?string $notes): void
     {
-        if ($application->applicant) {
-            $application->applicant->notify(new ApplicationStatusChanged($application, $notes));
-        }
+        try {
+            if ($application->applicant) {
+                $application->applicant->notify(new ApplicationStatusChanged($application, $notes));
+            }
 
-        if ($application->status === ApplicationStatus::PendingApproval) {
-            $reviewers = User::query()
-                ->where('is_active', true)
-                ->whereIn('role', [StaffRole::ApprovingOfficer, StaffRole::SuperAdmin])
-                ->get();
-            Notification::send($reviewers, new ApplicationAwaitingReview($application));
+            if ($application->status === ApplicationStatus::PendingApproval) {
+                $reviewers = User::query()
+                    ->where('is_active', true)
+                    ->whereIn('role', [StaffRole::ApprovingOfficer, StaffRole::SuperAdmin])
+                    ->get();
+                Notification::send($reviewers, new ApplicationAwaitingReview($application));
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Application workflow notification delivery failed: ' . $e->getMessage(), [
+                'application_id' => $application->id,
+                'application_number' => $application->application_number,
+            ]);
         }
     }
 }

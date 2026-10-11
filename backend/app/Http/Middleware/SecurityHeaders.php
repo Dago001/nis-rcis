@@ -26,7 +26,7 @@ class SecurityHeaders
         $isHtml = str_contains((string) $headers->get('Content-Type'), 'text/html');
 
         $headers->set('Content-Security-Policy', $isHtml
-            ? "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+            ? "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
             : "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
         $headers->set('X-Content-Type-Options', 'nosniff');
         $headers->set('X-Frame-Options', 'DENY');

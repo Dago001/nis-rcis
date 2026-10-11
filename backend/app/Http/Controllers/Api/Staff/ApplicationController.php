@@ -85,6 +85,20 @@ class ApplicationController
             });
         }
 
+        $currentUser = $request->user();
+
+        // Role-based visibility:
+        // Enrollment Officer: Only applicants whose appointments fall on that particular day
+        if ($currentUser && $currentUser->role === StaffRole::EnrollmentOfficer) {
+            $query->whereDate('appointment_date', today())
+                  ->where('status', ApplicationStatus::ApprovedForBiometrics);
+        }
+
+        // Data Entry Officer: Assisted applications assisted/created by them
+        if ($currentUser && $currentUser->role === StaffRole::DataEntryOfficer) {
+            $query->where('created_by', $currentUser->id);
+        }
+
         return ApplicationResource::collection($query->paginate(25));
     }
 

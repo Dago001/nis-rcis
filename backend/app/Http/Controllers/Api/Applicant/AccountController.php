@@ -45,10 +45,14 @@ class AccountController
                 'phone' => $data['phone'],
             ]);
             $applicant->forceFill(['privacy_consent_at' => now(), 'privacy_policy_version' => config('nis.privacy_policy_version')])->save();
-            if (Features::skipEmailVerification()) {
-                $applicant->markEmailAsVerified();
-            } else {
-                $applicant->sendEmailVerificationNotification();
+            try {
+                if (Features::skipEmailVerification()) {
+                    $applicant->markEmailAsVerified();
+                } else {
+                    $applicant->sendEmailVerificationNotification();
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send applicant verification email: ' . $e->getMessage());
             }
             Audit::log('APPLICANT_REGISTERED', 'Applicant account created', $applicant, actor: $applicant);
         }
@@ -86,7 +90,11 @@ class AccountController
         $applicant = Applicant::where('email', strtolower($data['email']))->first();
 
         if ($applicant && ! $applicant->hasVerifiedEmail()) {
-            $applicant->sendEmailVerificationNotification();
+            try {
+                $applicant->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to resend applicant verification email: ' . $e->getMessage());
+            }
         }
 
         return response()->json(['message' => 'If the account exists and is unverified, a new link has been sent.'], 202);
@@ -95,7 +103,11 @@ class AccountController
     public function forgotPassword(Request $request): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email']]);
-        Password::broker('applicants')->sendResetLink(['email' => strtolower($data['email'])]);
+        try {
+            Password::broker('applicants')->sendResetLink(['email' => strtolower($data['email'])]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send applicant reset link: ' . $e->getMessage());
+        }
 
         return response()->json(['message' => 'If the account exists, a password reset link has been sent.'], 202);
     }

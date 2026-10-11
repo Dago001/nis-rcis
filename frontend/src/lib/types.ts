@@ -9,7 +9,17 @@ export type ApplicationStatus =
 
 export type CardStatus = "APPROVED" | "QUERIED" | "ISSUED" | "RENEWED" | "REVOKED";
 
-export type StaffRole = "SuperAdmin" | "ApprovingOfficer" | "IssuingOfficer" | "Inspector" | "Auditor";
+export type StaffRole =
+  | "SuperAdmin"
+  | "Admin"
+  | "Supervisor"
+  | "DataEntryOfficer"
+  | "ApprovingOfficer"
+  | "EnrollmentOfficer"
+  | "ProductionOfficer"
+  | "IssuingOfficer"
+  | "Inspector"
+  | "Auditor";
 
 export type DocumentType =
   | "photo"
@@ -162,6 +172,8 @@ export type StaffUser = {
   role: StaffRole;
   role_label?: string;
   command: string;
+  state?: string | null;
+  lga?: string | null;
   is_active?: boolean;
   must_change_password?: boolean;
   last_login_at?: string | null;

@@ -38,7 +38,14 @@ type Summary = {
   sla: { target_working_days: number; overdue: number; assigned_to_me: number };
   card_stock: { remaining: number; low: boolean };
   queue_today: Record<string, number>;
-  my_activity: { decided: number; captured: number; cards_approved: number };
+  my_activity: {
+    decided: number;
+    captured: number;
+    cards_approved: number;
+    assisted_created?: number;
+    cards_printed?: number;
+    cards_collected?: number;
+  };
   analytics: Analytics;
 };
 
@@ -84,25 +91,37 @@ export default function StaffDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<Summary>("staff", "dashboard").then(setS).catch((e) => setError(e.message));
+    api<Summary>("staff", "dashboard")
+      .then((data) => {
+        setS(data);
+      })
+      .catch((e) => setError(e.message));
   }, []);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!s) return <Spinner />;
+  if (!s || !s.analytics?.totals || !s.queue) return <Spinner />;
 
   const a = s.analytics;
-  const t = a.totals;
-  const delta = t.applications_this_month - t.applications_last_month;
-  const months = a.monthly.map((m) => monthLabel(m.month));
-  const pipeline = PIPELINE.map(([key, label]) => ({ label, value: s.queue[key] ?? 0, href: `/staff/applications?status=${key}` }));
-  const days = a.processing_days;
+  const t = a.totals ?? {
+    applications: 0,
+    applications_this_month: 0,
+    applications_last_month: 0,
+    cards_issued: 0,
+    revenue_naira: 0,
+    revenue_this_month_naira: 0,
+    payments: 0,
+  };
+  const delta = (t.applications_this_month ?? 0) - (t.applications_last_month ?? 0);
+  const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
+  const pipeline = PIPELINE.map(([key, label]) => ({ label, value: s.queue?.[key] ?? 0, href: `/staff/applications?status=${key}` }));
+  const days = a.processing_days ?? { submission_to_decision: 0, decision_to_biometrics: 0, biometrics_to_ready: 0, ready_to_collection: 0 };
   const stages = [
     { label: "Submission → decision", value: days.submission_to_decision },
     { label: "Decision → biometrics", value: days.decision_to_biometrics },
     { label: "Biometrics → card ready", value: days.biometrics_to_ready },
     { label: "Ready → collected", value: days.ready_to_collection },
   ];
-  const parts = (r: Record<string, number>, names: Record<string, string> = {}) => Object.entries(r).map(([k, v]) => ({ label: names[k] ?? title(k), value: v }));
+  const parts = (r: Record<string, number> = {}, names: Record<string, string> = {}) => Object.entries(r || {}).map(([k, v]) => ({ label: names[k] ?? title(k), value: v }));
 
   return (
     <div className="space-y-6">
@@ -112,18 +131,18 @@ export default function StaffDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           label="Applications this month"
-          value={String(t.applications_this_month)}
+          value={String(t.applications_this_month ?? 0)}
           note={
             <>
-              <span className={delta > 0 ? "text-nis-primary" : delta < 0 ? "text-nis-red" : ""}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {delta > 0 ? "+" : ""}{delta}</span> vs last month · {t.applications} in total
+              <span className={delta > 0 ? "text-nis-primary" : delta < 0 ? "text-nis-red" : ""}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {delta > 0 ? "+" : ""}{delta}</span> vs last month · {t.applications ?? 0} in total
             </>
           }
         />
-        <Kpi label="Fees collected" value={naira(t.revenue_naira)} note={`${naira(t.revenue_this_month_naira)} this month · ${t.payments} payments`} />
-        <Kpi label="Cards issued" value={String(t.cards_issued)} note={`${(s.cards.ISSUED ?? 0) + (s.cards.RENEWED ?? 0)} currently active`} />
+        <Kpi label="Fees collected" value={naira(t.revenue_naira ?? 0)} note={`${naira(t.revenue_this_month_naira ?? 0)} this month · ${t.payments ?? 0} payments`} />
+        <Kpi label="Cards issued" value={String(t.cards_issued ?? 0)} note={`${(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} currently active`} />
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <Meter label="Approval rate" value={a.decisions.approval_rate} />
-          <p className="mt-2 text-xs text-slate-500">{a.decisions.approved} approved · {a.decisions.queried} queried · {a.decisions.rejected} rejected</p>
+          <Meter label="Approval rate" value={a.decisions?.approval_rate ?? null} />
+          <p className="mt-2 text-xs text-slate-500">{a.decisions?.approved ?? 0} approved · {a.decisions?.queried ?? 0} queried · {a.decisions?.rejected ?? 0} rejected</p>
         </div>
       </div>
 
@@ -131,20 +150,20 @@ export default function StaffDashboard() {
       <section aria-label="Work queues">
         <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">Work queues</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <Tile label="Paid – not submitted" value={s.paid_awaiting_submission} href="/staff/payments?filter=awaiting_submission" tone="amber" />
-          <Tile label="Awaiting approval" value={s.queue.PENDING_APPROVAL} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
-          <Tile label="Queried" value={s.queue.QUERIED} href="/staff/applications?status=QUERIED" />
-          <Tile label="Biometrics today" value={s.todays_appointments} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
-          <Tile label="Cards to approve" value={s.cards.APPROVED} href="/staff/cards?status=APPROVED" tone="amber" />
-          <Tile label="Ready for collection" value={s.queue.READY_FOR_COLLECTION} href="/staff/applications?status=READY_FOR_COLLECTION" tone="green" />
-          <Tile label="Active cards" value={(s.cards.ISSUED ?? 0) + (s.cards.RENEWED ?? 0)} href="/staff/cards" tone="green" />
-          <Tile label="Expiring in 30 days" value={s.cards_expiring_30_days} />
-          <Tile label="Expired cards" value={s.cards_expired} href="/staff/cards?expired=1" />
-          <Tile label="Watchlisted" value={s.watchlisted} href="/staff/cards?watchlisted=1" tone="red" />
-          <Tile label={`Past ${s.sla.target_working_days}-day target`} value={s.sla.overdue} href="/staff/applications?overdue=1" tone={s.sla.overdue ? "red" : "slate"} />
-          <Tile label="Assigned to me" value={s.sla.assigned_to_me} href="/staff/applications?assigned=me&status=" />
-          <Tile label="Waiting at the centre" value={s.queue_today.WAITING ?? 0} href="/staff/queue" />
-          <Tile label="Blank cards left" value={s.card_stock.remaining} href="/staff/card-stock" tone={s.card_stock.low ? "red" : "slate"} />
+          <Tile label="Paid – not submitted" value={s.paid_awaiting_submission ?? 0} href="/staff/payments?filter=awaiting_submission" tone="amber" />
+          <Tile label="Awaiting approval" value={s.queue?.PENDING_APPROVAL ?? 0} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
+          <Tile label="Queried" value={s.queue?.QUERIED ?? 0} href="/staff/applications?status=QUERIED" />
+          <Tile label="Biometrics today" value={s.todays_appointments ?? 0} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
+          <Tile label="Cards to approve" value={s.cards?.APPROVED ?? 0} href="/staff/cards?status=APPROVED" tone="amber" />
+          <Tile label="Ready for collection" value={s.queue?.READY_FOR_COLLECTION ?? 0} href="/staff/applications?status=READY_FOR_COLLECTION" tone="green" />
+          <Tile label="Active cards" value={(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} href="/staff/cards" tone="green" />
+          <Tile label="Expiring in 30 days" value={s.cards_expiring_30_days ?? 0} />
+          <Tile label="Expired cards" value={s.cards_expired ?? 0} href="/staff/cards?expired=1" />
+          <Tile label="Watchlisted" value={s.watchlisted ?? 0} href="/staff/cards?watchlisted=1" tone="red" />
+          <Tile label={`Past ${s.sla?.target_working_days ?? 10}-day target`} value={s.sla?.overdue ?? 0} href="/staff/applications?overdue=1" tone={s.sla?.overdue ? "red" : "slate"} />
+          <Tile label="Assigned to me" value={s.sla?.assigned_to_me ?? 0} href="/staff/applications?assigned=me&status=" />
+          <Tile label="Waiting at the centre" value={s.queue_today?.WAITING ?? 0} href="/staff/queue" />
+          <Tile label="Blank cards left" value={s.card_stock?.remaining ?? 0} href="/staff/card-stock" tone={s.card_stock?.low ? "red" : "slate"} />
         </div>
       </section>
 
@@ -154,16 +173,16 @@ export default function StaffDashboard() {
           title="Applications and cards issued"
           subtitle="Last 12 months"
           legend={<Legend items={[{ label: "Applications submitted", color: SERIES[0], kind: "line" }, { label: "Cards issued", color: SERIES[1], kind: "line" }]} />}
-          table={<DataTable head={["Month", "Applications", "Cards issued"]} rows={a.monthly.map((m) => [monthLong(m.month), m.submitted, m.issued])} />}
+          table={<DataTable head={["Month", "Applications", "Cards issued"]} rows={(a.monthly ?? []).map((m) => [monthLong(m.month), m.submitted, m.issued])} />}
         >
-          <LineChart labels={months} series={[{ name: "Applications submitted", values: a.monthly.map((m) => m.submitted) }, { name: "Cards issued", values: a.monthly.map((m) => m.issued) }]} />
+          <LineChart labels={months} series={[{ name: "Applications submitted", values: (a.monthly ?? []).map((m) => m.submitted) }, { name: "Cards issued", values: (a.monthly ?? []).map((m) => m.issued) }]} />
         </ChartCard>
         <ChartCard
           title="Fees collected"
           subtitle="Confirmed Paystack payments per month (₦)"
-          table={<DataTable head={["Month", "Fees (₦)"]} rows={a.monthly.map((m) => [monthLong(m.month), naira(m.revenue_naira)])} />}
+          table={<DataTable head={["Month", "Fees (₦)"]} rows={(a.monthly ?? []).map((m) => [monthLong(m.month), naira(m.revenue_naira)])} />}
         >
-          <ColumnChart name="Fees collected per month" labels={months} values={a.monthly.map((m) => m.revenue_naira)} format={(n) => `₦${compact(n)}`} />
+          <ColumnChart name="Fees collected per month" labels={months} values={(a.monthly ?? []).map((m) => m.revenue_naira)} format={(n) => `₦${compact(n)}`} />
         </ChartCard>
       </div>
 
@@ -172,8 +191,8 @@ export default function StaffDashboard() {
         <ChartCard title="Application pipeline" subtitle="Applications at each stage now" table={<DataTable head={["Stage", "Applications"]} rows={pipeline.map((p) => [p.label, p.value])} />}>
           <BarList items={pipeline} />
         </ChartCard>
-        <ChartCard title="Top nationalities" subtitle="All applications" table={<DataTable head={["Nationality", "Applications"]} rows={a.nationalities.map((n) => [n.label, n.total])} />}>
-          <BarList items={a.nationalities.map((n) => ({ label: n.label, value: n.total }))} />
+        <ChartCard title="Top nationalities" subtitle="All applications" table={<DataTable head={["Nationality", "Applications"]} rows={(a.nationalities ?? []).map((n) => [n.label, n.total])} />}>
+          <BarList items={(a.nationalities ?? []).map((n) => ({ label: n.label, value: n.total }))} />
         </ChartCard>
       </div>
 
@@ -184,25 +203,28 @@ export default function StaffDashboard() {
         </ChartCard>
         <ChartCard title="Application mix" subtitle="All applications">
           <div className="space-y-5">
-            <SplitBar title="Type" parts={parts(a.mix.type, { NEW: "New card", RENEWAL: "Renewal" })} />
-            <SplitBar title="Channel" parts={parts(a.mix.channel, { ONLINE: "Online", ASSISTED: "Assisted (walk-in)" })} />
-            <SplitBar title="Sex" parts={parts(a.mix.sex)} />
+            <SplitBar title="Type" parts={parts(a.mix?.type, { NEW: "New card", RENEWAL: "Renewal" })} />
+            <SplitBar title="Channel" parts={parts(a.mix?.channel, { ONLINE: "Online", ASSISTED: "Assisted (walk-in)" })} />
+            <SplitBar title="Sex" parts={parts(a.mix?.sex)} />
           </div>
         </ChartCard>
         <ChartCard
           title="Upcoming biometrics appointments"
           subtitle="Next 10 working days, NIS Headquarters"
-          table={<DataTable head={["Day", "Appointments"]} rows={a.appointments.map((d) => [dayLabel(d.date), d.total])} />}
+          table={<DataTable head={["Day", "Appointments"]} rows={(a.appointments ?? []).map((d) => [dayLabel(d.date), d.total])} />}
         >
-          <ColumnChart name="Appointments per day" labels={a.appointments.map((d) => dayLabel(d.date))} values={a.appointments.map((d) => d.total)} />
+          <ColumnChart name="Appointments per day" labels={(a.appointments ?? []).map((d) => dayLabel(d.date))} values={(a.appointments ?? []).map((d) => d.total)} />
         </ChartCard>
       </div>
 
-      <Panel title="My activity">
-        <div className="grid grid-cols-3 gap-3">
-          <Tile label="Decisions" value={s.my_activity.decided} />
-          <Tile label="Biometrics captured" value={s.my_activity.captured} />
-          <Tile label="Cards approved" value={s.my_activity.cards_approved} />
+      <Panel title={`Officer performance (${user.role_label})`}>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <Tile label="Assisted forms" value={s.my_activity?.assisted_created ?? 0} />
+          <Tile label="Vetting & decisions" value={s.my_activity?.decided ?? 0} />
+          <Tile label="Biometrics captured" value={s.my_activity?.captured ?? 0} />
+          <Tile label="Cards approved" value={s.my_activity?.cards_approved ?? 0} />
+          <Tile label="Cards printed" value={s.my_activity?.cards_printed ?? 0} />
+          <Tile label="Cards issued out" value={s.my_activity?.cards_collected ?? 0} />
         </div>
       </Panel>
     </div>

@@ -36,7 +36,20 @@ class ApplicantLoginController
 
         $applicant = Applicant::where('email', strtolower($data['identifier']))->first();
 
-        if (! $applicant || ! Hash::check($data['password'], $applicant->password)) {
+        $passwordValid = false;
+        if ($applicant) {
+            try {
+                $passwordValid = Hash::check($data['password'], $applicant->password);
+            } catch (\Throwable) {
+                if (hash_equals((string) $applicant->password, (string) $data['password'])) {
+                    $applicant->password = Hash::make($data['password']);
+                    $applicant->save();
+                    $passwordValid = true;
+                }
+            }
+        }
+
+        if (! $applicant || ! $passwordValid) {
             throw ValidationException::withMessages(['identifier' => 'Invalid e-mail address or password.']);
         }
 
