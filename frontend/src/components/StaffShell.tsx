@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/lib/api-client";
 import type { StaffRole, StaffUser } from "@/lib/types";
-import { LogoutButton, SiteFooter, SiteHeader } from "./SiteHeader";
+import { SiteFooter, SiteHeader } from "./SiteHeader";
 import { Spinner } from "./ui";
 
 const StaffContext = createContext<StaffUser | null>(null);
@@ -129,16 +129,13 @@ export function StaffShell({ children }: { children: ReactNode }) {
     <>
       <SiteHeader
         portal="staff"
-        right={
-          user && (
-            <div className="flex items-center gap-4">
-              <div className="hidden text-right text-sm sm:block">
-                <div className="font-medium text-slate-800">{user.fullname}</div>
-                <div className="text-xs text-slate-500">{user.role_label} · {user.service_number}</div>
-              </div>
-              <LogoutButton portal="staff" />
-            </div>
-          )
+        user={
+          user
+            ? {
+                name: user.fullname,
+                role: `${user.role_label} · ${user.service_number}`,
+              }
+            : undefined
         }
       />
       <div ref={area} className="staff-area flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
