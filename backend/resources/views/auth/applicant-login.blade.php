@@ -9,6 +9,9 @@
     @include('auth._errors')
     <form method="POST" action="{{ route('login.applicant') }}">
         @csrf
+        @if(request('returnTo'))
+            <input type="hidden" name="returnTo" value="{{ request('returnTo') }}">
+        @endif
         <label for="identifier">E-mail address</label>
         <input id="identifier" type="email" name="identifier" value="{{ old('identifier') }}" required autofocus autocomplete="email">
         <label for="password">Password</label>

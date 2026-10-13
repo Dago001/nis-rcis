@@ -9,6 +9,9 @@
     @include('auth._errors')
     <form method="POST" action="{{ route('login.staff') }}" autocomplete="off">
         @csrf
+        @if(request('returnTo'))
+            <input type="hidden" name="returnTo" value="{{ request('returnTo') }}">
+        @endif
         <label for="identifier">Service number or username</label>
         <input id="identifier" name="identifier" value="{{ old('identifier') }}" required autofocus>
         <label for="password">Password</label>

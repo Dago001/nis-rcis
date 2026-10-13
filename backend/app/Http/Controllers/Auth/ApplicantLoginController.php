@@ -19,8 +19,15 @@ use Illuminate\View\View;
  */
 class ApplicantLoginController
 {
-    public function show(): View
+    public function show(Request $request): View
     {
+        if ($returnTo = $request->query('returnTo')) {
+            $path = parse_url($returnTo, PHP_URL_PATH) ?? '';
+            if (str_starts_with($path, '/portal') || str_starts_with($path, '/oauth/authorize')) {
+                $request->session()->put('applicant_intended', $returnTo);
+            }
+        }
+
         return view('auth.applicant-login', [
             'registerUrl' => '/register',
             'forgotUrl' => '/forgot-password',
@@ -68,6 +75,20 @@ class ApplicantLoginController
         $request->session()->regenerate();
         Audit::log('APPLICANT_LOGIN', 'Signed in to the applicant portal', actor: $applicant);
 
-        return redirect()->intended('/portal');
+        $target = '/portal';
+        $intended = $request->session()->pull('applicant_intended')
+            ?? $request->session()->pull('url.intended')
+            ?? $request->input('returnTo')
+            ?? $request->query('returnTo');
+
+        if ($intended) {
+            $path = parse_url($intended, PHP_URL_PATH) ?? '';
+            if (str_starts_with($path, '/portal') || str_starts_with($path, '/oauth/authorize')) {
+                $query = parse_url($intended, PHP_URL_QUERY);
+                $target = $path . ($query ? '?' . $query : '');
+            }
+        }
+
+        return redirect()->to($target);
     }
 }

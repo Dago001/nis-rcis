@@ -21,6 +21,8 @@ class UserFactory extends Factory
             'password' => 'Correct-Horse-9-Battery!',
             'role' => StaffRole::IssuingOfficer,
             'command' => 'National Processing Center',
+            'state' => null,
+            'lga' => null,
             'is_active' => true,
             'must_change_password' => false,
         ];

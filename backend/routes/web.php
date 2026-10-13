@@ -41,6 +41,15 @@ Route::middleware('web')->group(function () {
     Route::get('/reset-password', fn () => Inertia::render('Auth/ResetPassword'))->name('reset-password');
     Route::get('/auth-error', fn () => Inertia::render('Auth/AuthError'))->name('auth-error');
 
+    // ------------------------------------------------ OAuth2 Authorization Server
+    Route::prefix('oauth')->name('passport.')->group(function () {
+        Route::get('/authorize', [AuthorizeController::class, 'authorize'])->name('authorizations.authorize');
+        Route::middleware('auth:staff,applicant')->group(function () {
+            Route::post('/authorize', [ApproveAuthorizationController::class, 'approve'])->name('authorizations.approve');
+            Route::delete('/authorize', [DenyAuthorizationController::class, 'deny'])->name('authorizations.deny');
+        });
+    });
+
     // --------------------------------------- Native Sign-In & Session Actions
     Route::get('/login/staff', [StaffLoginController::class, 'show'])->name('login.staff');
     Route::post('/login/staff', [StaffLoginController::class, 'login'])->middleware('throttle:login');

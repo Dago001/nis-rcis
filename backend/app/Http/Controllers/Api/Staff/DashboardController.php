@@ -32,8 +32,8 @@ class DashboardController
             'role' => $user->role->value,
             'role_label' => $user->role->label(),
             'command' => $user->command,
-            'state' => $user->state,
-            'lga' => $user->lga,
+            'state' => $user->getAttributes()['state'] ?? null,
+            'lga' => $user->getAttributes()['lga'] ?? null,
             'unread_notifications' => $user->unreadNotifications()->count(),
         ]);
     }

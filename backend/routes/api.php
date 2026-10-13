@@ -79,7 +79,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ------------------------------------------------------ Applicant portal
-    Route::prefix('applicant')->middleware(['auth:applicant-api,applicant', 'scopes:applicant'])->group(function () {
+    Route::prefix('applicant')->middleware(['auth.any:applicant', 'scopes:applicant'])->group(function () {
         Route::get('me', [AccountController::class, 'me']);
         Route::get('my-data', [AccountController::class, 'myData'])->middleware('throttle:6,1');
         Route::post('oauth/revoke', RevokeTokenController::class);
@@ -121,7 +121,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ------------------------------------------------------- Staff console
-    Route::prefix('staff')->middleware(['auth:api,staff', 'scopes:staff', 'staff.active'])->group(function () {
+    Route::prefix('staff')->middleware(['auth.any:staff', 'scopes:staff', 'staff.active'])->group(function () {
         Route::get('me', [DashboardController::class, 'me']);
         Route::get('dashboard', [DashboardController::class, 'summary']);
         Route::post('oauth/revoke', RevokeTokenController::class);

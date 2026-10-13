@@ -48,7 +48,49 @@ it('renders staff console pages when authenticated', function () {
         'is_active' => true,
     ]);
 
+    $response = $this->actingAs($user, 'staff')->get('/staff');
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page->component('Staff/Dashboard'));
+
     $response = $this->actingAs($user, 'staff')->get('/staff/applications');
     $response->assertOk();
     $response->assertInertia(fn (Assert $page) => $page->component('Staff/Applications'));
+
+    $apiResponse = $this->actingAs($user, 'staff')->getJson('/api/v1/staff/me');
+    $apiResponse->assertOk()->assertJsonPath('role', 'ApprovingOfficer');
 });
+
+it('redirects staff to staff console even if session had applicant intended url', function () {
+    $secret = \App\Support\Totp::generateSecret();
+    $user = \App\Models\User::factory()->create([
+        'service_number' => '99887',
+        'password' => 'StaffPassword123!',
+        'two_factor_secret' => $secret,
+        'two_factor_confirmed_at' => now(),
+        'must_change_password' => false,
+        'is_active' => true,
+    ]);
+
+    // 1. Session contains applicant url.intended from previous browsing
+    $this->withSession(['url.intended' => 'http://localhost/portal/apply']);
+
+    // 2. User navigates to /login/staff and logs in
+    $response = $this->post('/login/staff', [
+        'identifier' => '99887',
+        'password' => 'StaffPassword123!',
+        '_token' => csrf_token(),
+    ]);
+    $response->assertRedirect(route('login.staff.two-factor'));
+
+    // 3. User submits 2FA code
+    $code = \App\Support\Totp::code($secret);
+    $twoFactorResponse = $this->post('/login/staff/two-factor', [
+        'code' => $code,
+        '_token' => csrf_token(),
+    ]);
+
+    // 4. Must redirect to /staff, NEVER to /portal/apply or /login/applicant
+    $twoFactorResponse->assertRedirect('/staff');
+    $this->assertAuthenticatedAs($user, 'staff');
+});
+

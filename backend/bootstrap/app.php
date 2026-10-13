@@ -41,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
+            'auth.any' => \App\Http\Middleware\AuthenticateTokenOrSession::class,
             'scopes' => \App\Http\Middleware\CheckScopeOrSession::class,
             'scope' => CheckTokenForAnyScope::class,
             'client' => EnsureClientIsResourceOwner::class,

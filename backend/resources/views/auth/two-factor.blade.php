@@ -16,6 +16,9 @@
     @include('auth._errors')
     <form method="POST" action="{{ url('/login/staff/two-factor') }}" autocomplete="off">
         @csrf
+        @if(request('returnTo'))
+            <input type="hidden" name="returnTo" value="{{ request('returnTo') }}">
+        @endif
         <label for="code">6-digit code</label>
         <input id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" required autofocus autocomplete="one-time-code" style="text-align:center; font-size:1.35rem; letter-spacing:0.25em; font-weight:700;" placeholder="000 000">
         <button type="submit">{{ $setup ? 'Confirm and sign in' : 'Verify and sign in' }}</button>

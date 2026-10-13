@@ -22,8 +22,15 @@ use Illuminate\View\View;
  */
 class StaffLoginController
 {
-    public function show(): View
+    public function show(Request $request): View
     {
+        if ($returnTo = $request->query('returnTo')) {
+            $path = parse_url($returnTo, PHP_URL_PATH) ?? '';
+            if (str_starts_with($path, '/staff') || str_starts_with($path, '/oauth/authorize')) {
+                $request->session()->put('staff_intended', $returnTo);
+            }
+        }
+
         return view('auth.staff-login');
     }
 
@@ -67,6 +74,15 @@ class StaffLoginController
 
         // Second step: a code from the officer's authenticator app.
         if ($this->twoFactorRequired()) {
+            $intended = $request->session()->get('url.intended') ?? $request->input('returnTo') ?? $request->query('returnTo');
+            if ($intended) {
+                $path = parse_url($intended, PHP_URL_PATH) ?? '';
+                if (str_starts_with($path, '/staff') || str_starts_with($path, '/oauth/authorize')) {
+                    $request->session()->put('staff_intended', $intended);
+                }
+            }
+            $request->session()->forget('url.intended');
+
             $request->session()->regenerate();
             $request->session()->put('staff_2fa', ['id' => $user->id, 'at' => time()]);
             $request->session()->forget('staff_2fa_secret');
@@ -143,7 +159,23 @@ class StaffLoginController
             return redirect()->route('password.change');
         }
 
-        return redirect()->intended('/staff');
+        $target = '/staff';
+
+        $intended = $request->session()->pull('staff_intended')
+            ?? $request->session()->pull('url.intended')
+            ?? $request->input('returnTo')
+            ?? $request->query('returnTo');
+
+        if ($intended) {
+            $path = parse_url($intended, PHP_URL_PATH) ?? '';
+            // Only honor intended if it is genuinely a staff route or oauth authorization
+            if (str_starts_with($path, '/staff') || str_starts_with($path, '/oauth/authorize')) {
+                $query = parse_url($intended, PHP_URL_QUERY);
+                $target = $path . ($query ? '?' . $query : '');
+            }
+        }
+
+        return redirect()->to($target);
     }
 
     /** The officer who passed the password step within the last 10 minutes. */
@@ -182,6 +214,18 @@ class StaffLoginController
         $request->session()->regenerate();
         Audit::log('STAFF_PASSWORD_CHANGED', 'Changed own password', actor: $user);
 
-        return redirect()->intended(config('nis.frontend_url').'/staff');
+        $target = '/staff';
+        $intended = $request->session()->pull('staff_intended')
+            ?? $request->session()->pull('url.intended');
+
+        if ($intended) {
+            $path = parse_url($intended, PHP_URL_PATH) ?? '';
+            if (str_starts_with($path, '/staff') || str_starts_with($path, '/oauth/authorize')) {
+                $query = parse_url($intended, PHP_URL_QUERY);
+                $target = $path . ($query ? '?' . $query : '');
+            }
+        }
+
+        return redirect()->to($target);
     }
 }
