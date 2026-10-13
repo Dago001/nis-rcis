@@ -99,7 +99,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               ))}
             </optgroup>
             <optgroup label="All Countries">
-              {NATIONALITIES.filter((c) => !ECOWAS_NATIONALITIES.some((e) => e.value === c)).map((c) => (
+              {NATIONALITIES.filter((c) => !ECOWAS_NATIONALITIES.some((e) => e.value.toUpperCase() === c.toUpperCase())).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -203,18 +203,14 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
         text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })
       )}
       {text(props, "forenames", "Other names", { required: true, upper: true, letters: true })}
-      <Field label="Nationality" required error={errors.nationality} hint="As chosen in General Information">
-        <Select
+      <Field label="Nationality" hint="Selected in Step 1 (General Information)">
+        <Input
+          name="nationality"
           value={data.nationality ?? ""}
-          className={errors.nationality ? "!border-red-500" : ""}
-          onChange={(e) => {
-            set("nationality", e.target.value);
-            touch?.("nationality");
-          }}
-        >
-          <option value="">Select nationality…</option>
-          {ECOWAS_NATIONALITIES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
-        </Select>
+          readOnly
+          disabled
+          className="bg-slate-100 font-semibold text-slate-700 cursor-not-allowed"
+        />
       </Field>
       {select(props, "sex", "Sex", ["MALE", "FEMALE"], { required: true })}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}

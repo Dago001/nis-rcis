@@ -29,7 +29,7 @@ class DraftController
     {
         $data = $request->validate([
             'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
-            'current_step' => ['required', 'integer', 'between:1,7'],
+            'current_step' => ['required', 'integer', 'between:1,8'],
             'data' => ['required', 'array'],
             'data.*' => ['nullable'],
         ]);

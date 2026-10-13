@@ -41,8 +41,7 @@ export const RULES: Record<string, Check> = {
   surname: all(required("Surname"), pattern(NAME, lettersOnly)),
   forenames: all(required("Other names"), pattern(NAME, lettersOnly)),
   nationality: all(
-    required("Nationality"),
-    pattern(TEXT, "Use letters only."),
+    (v) => (!v || !v.trim() ? "Select your country of origin." : undefined),
     (v) => (/^NIGERIA(N)?$/i.test(v.trim()) ? "Nigerian citizens do not need a residence card." : undefined),
   ),
   sex: required("Sex"),

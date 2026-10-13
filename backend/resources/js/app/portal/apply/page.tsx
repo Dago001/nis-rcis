@@ -106,6 +106,7 @@ function Wizard() {
   const set = useCallback((key: string, value: string) => {
     setData((d) => ({ ...d, [key]: value }));
     setServerErrors((e) => (e[key] ? { ...e, [key]: "" } : e));
+    setStepError((e) => (e[key] ? { ...e, [key]: "" } : e));
   }, []);
   const touch = useCallback((key: string) => setTouched((t) => (t.has(key) ? t : new Set(t).add(key))), []);
 
@@ -134,9 +135,6 @@ function Wizard() {
   const extraErrors = useCallback(
     (n: number): Record<string, string> => {
       const e: Record<string, string> = {};
-      if (n === 1) {
-        if (!data.nationality) e.nationality = "Select your country of origin.";
-      }
       if (n === 2 && !photo) e.photo = "Upload your passport photograph.";
       if (n === 5) {
         const requiredDocs = getDocuments(data.category);
@@ -147,7 +145,7 @@ function Wizard() {
       if (n === 7 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, documents, paid, data.declaration, data.category, data.nationality],
+    [photo, documents, paid, data.declaration, data.category],
   );
 
   // Errors shown now: every visited field is checked as the applicant types.
@@ -158,7 +156,12 @@ function Wizard() {
       if (message) shown[field] = message;
     }
     for (const [field, message] of Object.entries(serverErrors)) if (message) shown[field] = message;
-    return { ...shown, ...stepError };
+    for (const [field, message] of Object.entries(stepError)) {
+      if (message && (!data[field] || ["photo", "documents", "declaration", "payment_reference"].includes(field))) {
+        shown[field] = message;
+      }
+    }
+    return shown;
   }, [touched, data, serverErrors, stepError]);
 
   const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration"].some((f) => errors[f] && FIELD_STEP[f] === step);
