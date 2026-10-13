@@ -29,7 +29,16 @@ function getCsrfToken(): string | null {
 export async function api<T = unknown>(scope: ApiScope, path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, ...rest } = init;
   const cleanPath = path.replace(/^\//, "");
-  const url = cleanPath.startsWith("api/") ? `/${cleanPath}` : `/api/v1/${cleanPath}`;
+  let url: string;
+  if (cleanPath.startsWith("api/")) {
+    url = `/${cleanPath}`;
+  } else if (cleanPath.startsWith("v1/")) {
+    url = `/api/${cleanPath}`;
+  } else if (cleanPath.startsWith(`${scope}/`)) {
+    url = `/api/v1/${cleanPath}`;
+  } else {
+    url = `/api/v1/${scope}/${cleanPath}`;
+  }
   const csrf = getCsrfToken();
 
   const response = await fetch(url, {

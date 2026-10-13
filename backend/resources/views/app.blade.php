@@ -7,7 +7,9 @@
     <title inertia>{{ config('app.name', 'Nigeria Immigration Service - ECOWAS Residence Card Portal') }}</title>
     <link rel="icon" href="/favicon.ico">
 
-    @viteReactRefresh
+    @if (app()->environment('local') && file_exists(public_path('hot')))
+        @viteReactRefresh
+    @endif
     @vite(['resources/js/app.tsx'])
     @inertiaHead
 </head>

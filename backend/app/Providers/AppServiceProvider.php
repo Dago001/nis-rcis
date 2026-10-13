@@ -50,11 +50,17 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::shouldBeStrict(! $this->app->isProduction());
 
-        // The API is called server-to-server by Next.js on an internal
-        // address; links in e-mails must always use the public APP_URL.
-        URL::forceRootUrl(config('app.url'));
-        if (str_starts_with(config('app.url'), 'https://')) {
+        $appUrl = (string) config('app.url');
+
+        if ($this->app->isProduction() || str_starts_with($appUrl, 'https://') || request()->isSecure() || request()->header('X-Forwarded-Proto') === 'https') {
             URL::forceScheme('https');
+        }
+
+        if (! empty($appUrl) && ! str_contains($appUrl, '127.0.0.1') && ! str_contains($appUrl, 'localhost')) {
+            URL::forceRootUrl($appUrl);
+            if (str_starts_with($appUrl, 'https://')) {
+                URL::forceScheme('https');
+            }
         }
 
         $this->configureOAuth();
