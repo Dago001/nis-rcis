@@ -35,11 +35,17 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $cookieLang = $request->cookie('nis_lang');
+        if (in_array($cookieLang, ['en', 'fr'], true)) {
+            app()->setLocale($cookieLang);
+        }
+
         $applicant = $request->user('applicant');
         $staff = $request->user('staff');
 
         return [
             ...parent::share($request),
+            'locale' => app()->getLocale(),
             'auth' => [
                 'applicant' => $applicant ? [
                     'id' => $applicant->id,
