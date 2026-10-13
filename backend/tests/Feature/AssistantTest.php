@@ -31,6 +31,22 @@ it('answers general questions from the knowledge base without an API key', funct
         ->assertOk()->assertJson(fn ($json) => $json->where('reply', fn ($r) => str_contains($r, '₦'.number_format(config('nis.fee_naira'))))->etc());
 });
 
+it('provides links routing to /register for new applications and /login/applicant for renewal', function () {
+    fakeModel(available: false);
+
+    $apply = $this->postJson('/api/v1/public/assistant', ['message' => 'How do I apply?'])
+        ->assertOk()
+        ->json('links');
+
+    expect($apply)->toContain(['label' => 'Apply now', 'href' => '/register']);
+
+    $renew = $this->postJson('/api/v1/public/assistant', ['message' => 'How do I renew my card?'])
+        ->assertOk()
+        ->json('links');
+
+    expect($renew)->toContain(['label' => 'Renew a card', 'href' => '/login/applicant']);
+});
+
 it('uses the language model with only public knowledge and keeps history server-side', function () {
     $model = fakeModel();
 

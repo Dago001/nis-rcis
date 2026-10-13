@@ -33,14 +33,14 @@ class KnowledgeBase
                 'question' => 'What documents do I need?',
                 'answer' => 'You need: your international passport data page (valid for at least six more months), your residence visa (STR), a recent colour passport photograph on a white background and, if you are employed, your expatriate quota approval. Proof of address is optional. Files can be JPG, PNG or PDF, up to 5 MB each; the photograph must be JPG or PNG.',
                 'keywords' => ['document', 'documents', 'requirement', 'requirements', 'upload', 'passport', 'visa', 'str', 'photo', 'photograph', 'quota', 'pdf', 'file', 'size'],
-                'links' => [['label' => 'Start an application', 'href' => '/portal/apply']],
+                'links' => [['label' => 'Start an application', 'href' => '/register']],
             ],
             [
                 'id' => 'steps',
                 'question' => 'How do I apply?',
                 'answer' => "1. Create an account and sign in to the applicant portal.\n2. Complete the 7-step form: personal details, passport, address and emergency contact, documents, then review everything and sign the declaration.\n3. Pay the fee online, book a biometrics appointment and submit.\n4. An Approving Officer reviews your application.\n5. Attend your biometrics appointment.\n6. Collect your card when you are told it is ready.",
-                'keywords' => ['apply', 'application', 'how', 'start', 'process', 'steps', 'register', 'new', 'form'],
-                'links' => [['label' => 'Create an account', 'href' => '/register'], ['label' => 'Apply now', 'href' => '/portal/apply']],
+                'keywords' => ['apply', 'application', 'how to apply', 'how do i apply', 'start', 'process', 'steps', 'register', 'new', 'form'],
+                'links' => [['label' => 'Create an account', 'href' => '/register'], ['label' => 'Apply now', 'href' => '/register']],
             ],
             [
                 'id' => 'fee',
@@ -102,8 +102,8 @@ class KnowledgeBase
                 'id' => 'renewal',
                 'question' => 'How do I renew my card?',
                 'answer' => "A residence card is valid for {$validity} years. To renew, sign in, choose \"Renew a card\" and enter your current card number. The renewal follows the same steps as a new application.",
-                'keywords' => ['renew', 'renewal', 'expire', 'expired', 'expiring', 'expiry', 'valid', 'validity', 'years'],
-                'links' => [['label' => 'Renew a card', 'href' => '/portal/apply?type=renewal']],
+                'keywords' => ['renew', 'renewal', 'renew card', 'how to renew', 'how do i renew', 'expire', 'expired', 'expiring', 'expiry', 'valid', 'validity', 'years'],
+                'links' => [['label' => 'Renew a card', 'href' => '/login/applicant']],
             ],
             [
                 'id' => 'verify',
@@ -183,7 +183,7 @@ class KnowledgeBase
     /** Internal pages the assistant may link to. */
     public function allowedPaths(): array
     {
-        return ['/', '/about', '/faq', '/track', '/verify', '/contact', '/login', '/register', '/forgot-password', '/portal', '/portal/apply', '/portal/apply?type=renewal'];
+        return ['/', '/about', '/faq', '/track', '/verify', '/contact', '/login', '/login/applicant', '/register', '/forgot-password', '/portal', '/portal/apply', '/portal/apply?type=renewal'];
     }
 
     /** @return list<string> */

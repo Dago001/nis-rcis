@@ -85,13 +85,13 @@ export default async function Home() {
           <div className="mt-10 flex flex-wrap items-end justify-center gap-6 sm:gap-8">
             <div className="flex flex-col items-center gap-2">
               <span className="text-sm text-white/90">{t("New to Nigeria?")}</span>
-              <Link prefetch={false} href="/portal/apply" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-nis-primary-dark">
+              <Link prefetch={false} href="/register" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-nis-primary-dark">
                 {t("Apply for Residence Card")}
               </Link>
             </div>
             <div className="flex flex-col items-center gap-2">
               <span className="text-sm text-white/90">{t("Card expiring?")}</span>
-              <Link prefetch={false} href="/portal/apply?type=renewal" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
+              <Link prefetch={false} href="/login/applicant" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
                 {t("Renew ECOWAS Residence Card")}
               </Link>
             </div>

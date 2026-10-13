@@ -38,8 +38,8 @@ export function PublicFooter() {
           <div>
             <h2 className="font-semibold text-slate-900">{t("Services")}</h2>
             <ul className="mt-3 space-y-2 text-slate-600">
-              <li><Link prefetch={false} href="/portal/apply" className="hover:text-nis-primary">{t("Apply for an ECOWAS residence card")}</Link></li>
-              <li><Link prefetch={false} href="/portal/apply?type=renewal" className="hover:text-nis-primary">{t("Renew an ECOWAS residence card")}</Link></li>
+              <li><Link prefetch={false} href="/register" className="hover:text-nis-primary">{t("Apply for an ECOWAS residence card")}</Link></li>
+              <li><Link prefetch={false} href="/login/applicant" className="hover:text-nis-primary">{t("Renew an ECOWAS residence card")}</Link></li>
               <li><Link href="/track" className="hover:text-nis-primary">{t("Track an application")}</Link></li>
               <li><Link href="/verify" className="hover:text-nis-primary">{t("Verify an ECOWAS residence card")}</Link></li>
             </ul>

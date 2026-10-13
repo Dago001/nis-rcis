@@ -48,7 +48,7 @@ class PersonalAnswers
         return new Reply(
             'To see your own application, please sign in to the applicant portal. You can also check its status on the Track page with your application number and passport number.',
             'personal',
-            [['label' => 'Sign in', 'href' => '/login'], ['label' => 'Track an application', 'href' => '/track']],
+            [['label' => 'Sign in', 'href' => '/login/applicant'], ['label' => 'Track an application', 'href' => '/track']],
         );
     }
 

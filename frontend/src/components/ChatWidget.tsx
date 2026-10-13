@@ -15,6 +15,26 @@ function isInternal(href: string): boolean {
   return href.startsWith("/") && !href.startsWith("//") && !href.includes("\\");
 }
 
+function resolveChatLink(link: ChatLink, scope: "public" | "applicant"): ChatLink {
+  if (scope === "public") {
+    const l = (link.label || "").toLowerCase();
+    const h = (link.href || "").toLowerCase();
+    if (h.includes("renewal") || l.includes("renew")) {
+      return { ...link, href: "/login/applicant" };
+    }
+    if (
+      h.startsWith("/portal/apply") ||
+      h.includes("apply") ||
+      l.includes("apply") ||
+      l.includes("account") ||
+      l.includes("register")
+    ) {
+      return { ...link, href: "/register" };
+    }
+  }
+  return link;
+}
+
 /**
  * Floating help assistant. Messages go through the BFF to the Laravel API;
  * replies are rendered as plain text (never HTML), and only internal links
@@ -56,7 +76,16 @@ export function ChatWidget({ scope }: { scope: "public" | "applicant" }) {
       });
       conversationId.current = data.conversation_id;
       setSuggestions(data.suggestions ?? []);
-      setMessages((m) => [...m, { role: "assistant", text: data.reply, links: (data.links ?? []).filter((l) => isInternal(l.href)) }]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: data.reply,
+          links: (data.links ?? [])
+            .filter((l) => isInternal(l.href))
+            .map((l) => resolveChatLink(l, scope)),
+        },
+      ]);
     } catch (e) {
       const text =
         e instanceof ApiError && e.status === 429
@@ -111,11 +140,18 @@ export function ChatWidget({ scope }: { scope: "public" | "applicant" }) {
                   {m.text}
                   {m.links && m.links.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {m.links.map((l) => (
-                        <Link key={l.href} href={l.href} className="rounded-full border border-nis-primary/40 px-3 py-1 text-xs font-medium text-nis-primary hover:bg-nis-mint">
-                          {l.label}
-                        </Link>
-                      ))}
+                      {m.links.map((l, lIdx) => {
+                        const resolved = resolveChatLink(l, scope);
+                        return (
+                          <Link
+                            key={`${resolved.href}-${lIdx}`}
+                            href={resolved.href}
+                            className="rounded-full border border-nis-primary/40 px-3 py-1 text-xs font-medium text-nis-primary hover:bg-nis-mint"
+                          >
+                            {resolved.label}
+                          </Link>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
