@@ -170,20 +170,11 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
         </p>
       </div>
 
-      {/* Prescribed Fee Notice Before Moving to Next Step */}
-      <div className="rounded-xl border-2 border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Prescribed Application Fee</span>
-            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">₦{feeDisplay}</div>
-            <p className="mt-1 text-xs text-slate-600">
-              Prescribed fee payable at Step 7 before scheduling biometrics. Valid for 2 years from date of production.
-            </p>
-          </div>
-          <div className="rounded-lg bg-nis-primary/10 px-3.5 py-2 text-right">
-            <span className="text-xs font-medium text-nis-primary-dark">Card Validity</span>
-            <div className="font-bold text-slate-900">2 Years (from production)</div>
-          </div>
+      {/* Application Fee Notice Before Moving to Next Step */}
+      <div className="rounded-xl border border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Application Fee</span>
+          <div className="mt-0.5 text-lg font-bold text-slate-900 sm:text-xl">₦{feeDisplay}</div>
         </div>
       </div>
     </div>
