@@ -1,6 +1,6 @@
 "use client";
 
-import { ECOWAS_NATIONALITIES, NATIONALITIES } from "@/lib/nationalities";
+import { ECOWAS_NATIONALITIES } from "@/lib/nationalities";
 import { NIGERIA_LGAS, NIGERIA_STATES } from "@/lib/nigeria-lgas";
 import { RELATIONSHIPS } from "@/lib/validation";
 import { lettersOnly, PhoneInput } from "./inputs";
@@ -91,20 +91,11 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             }}
           >
             <option value="">Select country…</option>
-            <optgroup label="ECOWAS Member States">
-              {ECOWAS_NATIONALITIES.map((n) => (
-                <option key={n.value} value={n.value}>
-                  {n.label}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="All Countries">
-              {NATIONALITIES.filter((c) => !ECOWAS_NATIONALITIES.some((e) => e.value.toUpperCase() === c.toUpperCase())).map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </optgroup>
+            {ECOWAS_NATIONALITIES.map((n) => (
+              <option key={n.value} value={n.value}>
+                {n.label}
+              </option>
+            ))}
           </Select>
         </Field>
 
