@@ -35,7 +35,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $cookieLang = $request->cookie('nis_lang');
+        $cookieLang = $request->cookie('nis_lang') ?? session('locale');
         if (in_array($cookieLang, ['en', 'fr'], true)) {
             app()->setLocale($cookieLang);
         }

@@ -44,6 +44,17 @@ Route::middleware('web')->group(function () {
         ]);
     });
 
+    Route::match(['get', 'post'], '/locale/{lang}', function (string $lang) {
+        $valid = in_array($lang, ['en', 'fr'], true) ? $lang : 'en';
+        session(['locale' => $valid]);
+        app()->setLocale($valid);
+        $cookie = cookie('nis_lang', $valid, 60 * 24 * 365, '/', null, false, false, false, 'lax');
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json(['locale' => $valid])->withCookie($cookie);
+        }
+        return back()->withCookie($cookie);
+    })->name('locale.switch');
+
     // -------------------------------------------------- Auth Pages (Inertia)
     Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');
     Route::get('/register', fn () => Inertia::render('Auth/Register'))->name('register');

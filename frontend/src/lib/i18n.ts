@@ -3,22 +3,16 @@
  * here and falls back to English when a phrase has no translation yet.
  * The choice is kept in the `nis_lang` cookie so server and client agree.
  */
-export type Lang = "en" | "fr" | "pt" | "ha" | "yo" | "ig" | "pcm";
+export type Lang = "en" | "fr";
 
 export const LANG_COOKIE = "nis_lang";
 export const LANGUAGES: { code: Lang; label: string }[] = [
   { code: "en", label: "English" },
   { code: "fr", label: "Français" },
-  { code: "pt", label: "Português" },
-  { code: "ha", label: "Hausa" },
-  { code: "yo", label: "Yorùbá" },
-  { code: "ig", label: "Asụsụ Igbo" },
-  { code: "pcm", label: "Pidgin (West Africa)" },
 ];
 
 export function parseLang(value: string | undefined | null): Lang {
-  const allowed: Lang[] = ["en", "fr", "pt", "ha", "yo", "ig", "pcm"];
-  return allowed.includes(value as Lang) ? (value as Lang) : "en";
+  return value === "fr" ? "fr" : "en";
 }
 
 export type Translate = (text: string, vars?: Record<string, string | number>) => string;
@@ -27,11 +21,6 @@ export function translator(lang: Lang): Translate {
   return (text, vars) => {
     let out = text;
     if (lang === "fr") out = FR[text] ?? text;
-    else if (lang === "pt") out = PT[text] ?? text;
-    else if (lang === "ha") out = HA[text] ?? text;
-    else if (lang === "yo") out = YO[text] ?? text;
-    else if (lang === "ig") out = IG[text] ?? text;
-    else if (lang === "pcm") out = PCM[text] ?? text;
 
     if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
     return out;

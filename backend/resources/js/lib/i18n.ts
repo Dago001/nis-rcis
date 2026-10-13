@@ -3,22 +3,16 @@
  * here and falls back to English when a phrase has no translation yet.
  * The choice is kept in the `nis_lang` cookie so server and client agree.
  */
-export type Lang = "en" | "fr" | "pt" | "ha" | "yo" | "ig" | "pcm";
+export type Lang = "en" | "fr";
 
 export const LANG_COOKIE = "nis_lang";
 export const LANGUAGES: { code: Lang; label: string }[] = [
   { code: "en", label: "English" },
   { code: "fr", label: "Français" },
-  { code: "pt", label: "Português" },
-  { code: "ha", label: "Hausa" },
-  { code: "yo", label: "Yorùbá" },
-  { code: "ig", label: "Asụsụ Igbo" },
-  { code: "pcm", label: "Pidgin (West Africa)" },
 ];
 
 export function parseLang(value: string | undefined | null): Lang {
-  const allowed: Lang[] = ["en", "fr", "pt", "ha", "yo", "ig", "pcm"];
-  return allowed.includes(value as Lang) ? (value as Lang) : "en";
+  return value === "fr" ? "fr" : "en";
 }
 
 export type Translate = (text: string, vars?: Record<string, string | number>) => string;
@@ -27,11 +21,6 @@ export function translator(lang: Lang): Translate {
   return (text, vars) => {
     let out = text;
     if (lang === "fr") out = FR[text] ?? text;
-    else if (lang === "pt") out = PT[text] ?? text;
-    else if (lang === "ha") out = HA[text] ?? text;
-    else if (lang === "yo") out = YO[text] ?? text;
-    else if (lang === "ig") out = IG[text] ?? text;
-    else if (lang === "pcm") out = PCM[text] ?? text;
 
     if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
     return out;
@@ -218,164 +207,4 @@ const FR: Record<string, string> = {
   "Submitting…": "Envoi…",
   "Pay securely with Paystack": "Payer en toute sécurité avec Paystack",
   "Loading…": "Chargement…",
-};
-
-const PT: Record<string, string> = {
-  "Home": "Início",
-  "About": "Sobre",
-  "FAQ": "Perguntas Frequentes",
-  "Track": "Acompanhar",
-  "Verify card": "Verificar cartão",
-  "Contact": "Contacto",
-  "Contact Support": "Contactar Suporte",
-  "Login": "Entrar",
-  "Language": "Idioma",
-  "Apply Now!": "Inscreva-se já!",
-  "Apply for Your ECOWAS Residence Card": "Solicite o seu Cartão de Residência da CEDEAO",
-  "Obtain your ECOWAS Residence Card": "Solicite o seu Cartão de Residência da CEDEAO",
-  "Apply for Residence Card": "Solicitar Cartão de Residência",
-  "Renew ECOWAS Residence Card": "Renovar Cartão de Residência CEDEAO",
-  "Track Application": "Acompanhar Pedido",
-  "Verify a Card": "Verificar Cartão",
-  "General Information": "Informações Gerais",
-  "Personal details": "Dados Pessoais",
-  "Passport": "Passaporte",
-  "Documents": "Documentos",
-  "Step {n} of 8 — {title}": "Passo {n} de 8 — {title}",
-  "Sign out": "Sair",
-  "My applications": "Os meus pedidos",
-  "My cards": "Os meus cartões",
-  "Payments": "Pagamentos",
-  "Applicant console": "Painel do requerente",
-  "Password": "Senha",
-  "Create account": "Criar conta",
-  "Sign in": "Iniciar sessão",
-};
-
-const HA: Record<string, string> = {
-  "Home": "Gida",
-  "About": "Game da mu",
-  "FAQ": "Tambayoyi",
-  "Track": "Bibiyar Bayani",
-  "Verify card": "Tabbatar da Katin",
-  "Contact": "Tuntuba",
-  "Contact Support": "Tuntubi Cibiyar Taimako",
-  "Login": "Shiga Ciki",
-  "Language": "Harshe",
-  "Apply Now!": "Nemi Yanzu!",
-  "Apply for Your ECOWAS Residence Card": "Nemi Katin Zama na ECOWAS",
-  "Obtain your ECOWAS Residence Card": "Nemi Katin Zama na ECOWAS",
-  "Apply for Residence Card": "Nemi Katin Zama",
-  "Renew ECOWAS Residence Card": "Sabunta Katin ECOWAS",
-  "Track Application": "Bibiyar Takardar Nema",
-  "Verify a Card": "Duba Ingancin Kati",
-  "General Information": "Bayanai na Gabaɗaya",
-  "Personal details": "Bayanin Kanka",
-  "Passport": "Fasfo",
-  "Documents": "Takardun Shaida",
-  "Step {n} of 8 — {title}": "Mataki na {n} cikin 8 — {title}",
-  "Sign out": "Fita",
-  "My applications": "Takardun da na nema",
-  "My cards": "Katina na",
-  "Payments": "Biya",
-  "Applicant console": "Shafin Mai Nema",
-  "Password": "Kalmar Sirri",
-  "Create account": "Bude Asusun",
-  "Sign in": "Shiga Ciki",
-};
-
-const YO: Record<string, string> = {
-  "Home": "Ilé",
-  "About": "Nípa Wa",
-  "FAQ": "Àwọn Ìbéèrè",
-  "Track": "Tọpinpin",
-  "Verify card": "Ṣayẹwo Kaadi",
-  "Contact": "Kan si Wa",
-  "Contact Support": "Kan si Olùrànlọ́wọ́",
-  "Login": "Wọlé",
-  "Language": "Èdè",
-  "Apply Now!": "Bẹrẹ Níyìí!",
-  "Apply for Your ECOWAS Residence Card": "Gba Kaadi Ibugbe ECOWAS Rẹ",
-  "Obtain your ECOWAS Residence Card": "Gba Kaadi Ibugbe ECOWAS Rẹ",
-  "Apply for Residence Card": "Bẹrẹ Fún Kaadi Ibugbe",
-  "Renew ECOWAS Residence Card": "Sọ Kaadi ECOWAS Dọtun",
-  "Track Application": "Tọpinpin Ìbérè Rẹ",
-  "Verify a Card": "Ṣayẹwo Kaadi",
-  "General Information": "Àwọn Ìròyìn Gbogbogbò",
-  "Personal details": "Àwọn Ìròyìn Tiara Ẹni",
-  "Passport": "Iwe Irinna",
-  "Documents": "Àwọn Àkọsílẹ",
-  "Step {n} of 8 — {title}": "Igbese {n} ninu 8 — {title}",
-  "Sign out": "Jade",
-  "My applications": "Àwọn Ìbéèrè Mi",
-  "My cards": "Àwọn Kaadi Mi",
-  "Payments": "Àwọn Ìsanwó",
-  "Applicant console": "Gbọngan Olùbéèrè",
-  "Password": "Ọ̀rọ̀ Aṣínà",
-  "Create account": "Ṣẹda Akọọlẹ",
-  "Sign in": "Wọlé",
-};
-
-const IG: Record<string, string> = {
-  "Home": "Ulo",
-  "About": "Gbasara Anyi",
-  "FAQ": "Ajuju Ndị Dị Mkpa",
-  "Track": "Chọpụta Ọnọdụ",
-  "Verify card": "Nyochaa Kaadị",
-  "Contact": "Kpọtụrụ Anyị",
-  "Contact Support": "Kpọtụrụ Nkwado",
-  "Login": "Banye",
-  "Language": "Asụsụ",
-  "Apply Now!": "Tinye Akwụkwọ Ugbu a!",
-  "Apply for Your ECOWAS Residence Card": "Nweta Kaadị Obibi ECOWAS Gị",
-  "Obtain your ECOWAS Residence Card": "Nweta Kaadị Obibi ECOWAS Gị",
-  "Apply for Residence Card": "Tinye Akwụkwọ Maka Kaadị Obibi",
-  "Renew ECOWAS Residence Card": "Megharia Kaadị ECOWAS",
-  "Track Application": "Chọpụta Akwụkwọ Gị",
-  "Verify a Card": "Nyochaa Kaadị",
-  "General Information": "Ozi Izugbe",
-  "Personal details": "Nkọwa Onwe Onye",
-  "Passport": "Paspọtụ",
-  "Documents": "Akwụkwọ Nkwado",
-  "Step {n} of 8 — {title}": "Nzọụkwụ {n} n'ime 8 — {title}",
-  "Sign out": "Pụọ",
-  "My applications": "Akwụkwọ M Niile",
-  "My cards": "Kaadị M Niile",
-  "Payments": "Ịkwụ Ụgwọ",
-  "Applicant console": "Kọnsol Onye Na-etinye Akwụkwọ",
-  "Password": "Okwu Nzuzo",
-  "Create account": "Mepụta Akaụntụ",
-  "Sign in": "Banye",
-};
-
-const PCM: Record<string, string> = {
-  "Home": "Home",
-  "About": "About Us",
-  "FAQ": "Questions Wey People Dey Ask",
-  "Track": "Check Application Level",
-  "Verify card": "Check If Card Correct",
-  "Contact": "Contact Us",
-  "Contact Support": "Call Support",
-  "Login": "Login",
-  "Language": "Language",
-  "Apply Now!": "Apply Now!",
-  "Apply for Your ECOWAS Residence Card": "Apply For Your ECOWAS Residence Card",
-  "Obtain your ECOWAS Residence Card": "Apply For Your ECOWAS Residence Card",
-  "Apply for Residence Card": "Apply For Residence Card",
-  "Renew ECOWAS Residence Card": "Renew Your ECOWAS Card",
-  "Track Application": "Track Application",
-  "Verify a Card": "Verify Card",
-  "General Information": "General Information",
-  "Personal details": "Your Details",
-  "Passport": "Passport / Travel Certificate",
-  "Documents": "Your Documents",
-  "Step {n} of 8 — {title}": "Step {n} of 8 — {title}",
-  "Sign out": "Log Out",
-  "My applications": "My Applications",
-  "My cards": "My Cards",
-  "Payments": "Payments",
-  "Applicant console": "Applicant Console",
-  "Password": "Password",
-  "Create account": "Create Account",
-  "Sign in": "Sign In",
 };

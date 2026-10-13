@@ -128,6 +128,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader
+        languages
         portal="staff"
         user={
           user

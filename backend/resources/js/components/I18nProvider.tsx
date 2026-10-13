@@ -17,7 +17,6 @@ const I18nContext = createContext<I18nContextType>({
 
 export function I18nProvider({ lang: initialLang, children }: { lang?: Lang; children: ReactNode }) {
   const [currentLang, setCurrentLang] = useState<Lang>(() => {
-    if (initialLang) return parseLang(initialLang);
     if (typeof document !== "undefined") {
       const match = document.cookie.match(/(?:^|;\s*)nis_lang=([^;]+)/);
       if (match) return parseLang(match[1]);
@@ -26,6 +25,7 @@ export function I18nProvider({ lang: initialLang, children }: { lang?: Lang; chi
         if (stored) return parseLang(stored);
       } catch {}
     }
+    if (initialLang) return parseLang(initialLang);
     return "en";
   });
 
@@ -38,12 +38,22 @@ export function I18nProvider({ lang: initialLang, children }: { lang?: Lang; chi
         localStorage.setItem(LANG_COOKIE, valid);
       } catch {}
       document.documentElement.lang = valid;
+      fetch(`/locale/${valid}`, { method: "POST", credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } }).catch(() => {});
     }
   }, []);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = currentLang;
+    }
+    if (typeof window !== "undefined") {
+      const handleStorage = (e: StorageEvent) => {
+        if (e.key === LANG_COOKIE && e.newValue) {
+          setCurrentLang(parseLang(e.newValue));
+        }
+      };
+      window.addEventListener("storage", handleStorage);
+      return () => window.removeEventListener("storage", handleStorage);
     }
   }, [currentLang]);
 
