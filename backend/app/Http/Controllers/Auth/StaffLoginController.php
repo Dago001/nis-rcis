@@ -143,7 +143,7 @@ class StaffLoginController
             return redirect()->route('password.change');
         }
 
-        return redirect()->intended(config('nis.frontend_url').'/staff');
+        return redirect()->intended('/staff');
     }
 
     /** The officer who passed the password step within the last 10 minutes. */

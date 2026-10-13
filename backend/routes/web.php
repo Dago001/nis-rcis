@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\StaffLoginController;
 use App\Http\Controllers\OAuth\AuthorizeController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Laravel\Passport\Http\Controllers\ApproveAuthorizationController;
 use Laravel\Passport\Http\Controllers\DenyAuthorizationController;
 
@@ -22,23 +23,25 @@ use Laravel\Passport\Http\Controllers\DenyAuthorizationController;
 |
 */
 
-Route::redirect('/', config('nis.frontend_url'));
-
-Route::prefix('oauth')->name('passport.')->group(function () {
-    // POST /oauth/token lives in routes/oauth.php (no session/CSRF middleware).
-
-    Route::get('/authorize', [AuthorizeController::class, 'authorize'])
-        ->middleware('web')
-        ->name('authorizations.authorize');
-
-    // Consent screen actions (third-party authorization-code clients only)
-    Route::middleware(['web', 'auth:staff,applicant'])->group(function () {
-        Route::post('/authorize', [ApproveAuthorizationController::class, 'approve'])->name('authorizations.approve');
-        Route::delete('/authorize', [DenyAuthorizationController::class, 'deny'])->name('authorizations.deny');
-    });
-});
-
 Route::middleware('web')->group(function () {
+    // ------------------------------------------------ Public Pages (Inertia)
+    Route::get('/', fn () => Inertia::render('Public/Home'))->name('home');
+    Route::get('/about', fn () => Inertia::render('Public/About'))->name('about');
+    Route::get('/contact', fn () => Inertia::render('Public/Contact'))->name('contact');
+    Route::get('/faq', fn () => Inertia::render('Public/Faq'))->name('faq');
+    Route::get('/privacy', fn () => Inertia::render('Public/Privacy'))->name('privacy');
+    Route::get('/track', fn () => Inertia::render('Public/Track'))->name('track');
+    Route::get('/verify', fn () => Inertia::render('Public/Verify'))->name('verify');
+    Route::get('/queue-display/{center}', fn ($center) => Inertia::render('Public/QueueDisplay', ['center' => $center]))->name('queue-display');
+
+    // -------------------------------------------------- Auth Pages (Inertia)
+    Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');
+    Route::get('/register', fn () => Inertia::render('Auth/Register'))->name('register');
+    Route::get('/forgot-password', fn () => Inertia::render('Auth/ForgotPassword'))->name('forgot-password');
+    Route::get('/reset-password', fn () => Inertia::render('Auth/ResetPassword'))->name('reset-password');
+    Route::get('/auth-error', fn () => Inertia::render('Auth/AuthError'))->name('auth-error');
+
+    // --------------------------------------- Native Sign-In & Session Actions
     Route::get('/login/staff', [StaffLoginController::class, 'show'])->name('login.staff');
     Route::post('/login/staff', [StaffLoginController::class, 'login'])->middleware('throttle:login');
     Route::get('/login/staff/two-factor', [StaffLoginController::class, 'showTwoFactor'])->name('login.staff.two-factor');
@@ -57,4 +60,39 @@ Route::middleware('web')->group(function () {
     Route::post('/login/applicant', [ApplicantLoginController::class, 'login'])->middleware('throttle:login');
 
     Route::get('/logout', LogoutController::class)->name('logout');
+    Route::post('/logout', LogoutController::class);
+
+    // ---------------------------------------------- Applicant Portal (Inertia)
+    Route::middleware('auth:applicant')->prefix('portal')->name('portal.')->group(function () {
+        Route::get('/', fn () => Inertia::render('Portal/Dashboard'))->name('dashboard');
+        Route::get('/apply', fn () => Inertia::render('Portal/Apply'))->name('apply');
+        Route::get('/applications/{id}', fn ($id) => Inertia::render('Portal/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
+        Route::get('/applications/{id}/slip', fn ($id) => Inertia::render('Portal/Slip', ['id' => $id]))->whereNumber('id')->name('applications.slip');
+        Route::get('/cards', fn () => Inertia::render('Portal/Cards'))->name('cards');
+        Route::get('/payments', fn () => Inertia::render('Portal/Payments'))->name('payments');
+    });
+
+    // ------------------------------------------------- Staff Console (Inertia)
+    Route::middleware(['auth:staff', 'staff.active'])->prefix('staff')->name('staff.')->group(function () {
+        Route::get('/', fn () => Inertia::render('Staff/Dashboard'))->name('dashboard');
+        Route::get('/queue', fn () => Inertia::render('Staff/Queue'))->name('queue');
+        Route::get('/approvals', fn () => Inertia::render('Staff/Approvals'))->name('approvals');
+        Route::get('/applications', fn () => Inertia::render('Staff/Applications'))->name('applications');
+        Route::get('/applications/new', fn () => Inertia::render('Staff/ApplicationNew'))->name('applications.new');
+        Route::get('/applications/{id}', fn ($id) => Inertia::render('Staff/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
+        Route::get('/applications/{id}/biometrics', fn ($id) => Inertia::render('Staff/Biometrics', ['id' => $id]))->whereNumber('id')->name('applications.biometrics');
+        Route::get('/cards', fn () => Inertia::render('Staff/Cards'))->name('cards');
+        Route::get('/cards/print-batch', fn () => Inertia::render('Staff/CardPrintBatch'))->name('cards.print-batch');
+        Route::get('/cards/{id}', fn ($id) => Inertia::render('Staff/CardDetail', ['id' => $id]))->whereNumber('id')->name('cards.show');
+        Route::get('/cards/{id}/print', fn ($id) => Inertia::render('Staff/CardPrint', ['id' => $id]))->whereNumber('id')->name('cards.print');
+        Route::get('/card-stock', fn () => Inertia::render('Staff/CardStock'))->name('card-stock');
+        Route::get('/payments', fn () => Inertia::render('Staff/Payments'))->name('payments');
+        Route::get('/payments/{id}', fn ($id) => Inertia::render('Staff/PaymentDetail', ['id' => $id]))->name('payments.show');
+        Route::get('/refunds', fn () => Inertia::render('Staff/Refunds'))->name('refunds');
+        Route::get('/reports', fn () => Inertia::render('Staff/Reports'))->name('reports');
+        Route::get('/audit-logs', fn () => Inertia::render('Staff/AuditLogs'))->name('audit-logs');
+        Route::get('/data-breaches', fn () => Inertia::render('Staff/DataBreaches'))->name('data-breaches');
+        Route::get('/users', fn () => Inertia::render('Staff/Users'))->name('users');
+        Route::get('/system', fn () => Inertia::render('Staff/System'))->name('system');
+    });
 });

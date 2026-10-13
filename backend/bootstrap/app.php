@@ -30,17 +30,33 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->append(SecurityHeaders::class);
 
+        $middleware->web(append: [
+            \App\Http\Middleware\HandleInertiaRequests::class,
+        ]);
+
+        $middleware->api(prepend: [
+            \Illuminate\Cookie\Middleware\EncryptCookies::class,
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \Illuminate\Session\Middleware\StartSession::class,
+        ]);
+
         $middleware->alias([
-            'scopes' => CheckToken::class,
+            'scopes' => \App\Http\Middleware\CheckScopeOrSession::class,
             'scope' => CheckTokenForAnyScope::class,
             'client' => EnsureClientIsResourceOwner::class,
             'staff.active' => EnsureActiveStaff::class,
             'role' => EnsureStaffRole::class,
         ]);
 
-        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('password/*')
-            ? route('login.staff')
-            : null);
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('staff', 'staff/*') || $request->is('password/*')) {
+                return route('login.staff');
+            }
+            if ($request->is('portal', 'portal/*')) {
+                return route('login.applicant');
+            }
+            return route('login');
+        });
 
         $middleware->throttleApi();
     })

@@ -79,7 +79,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ------------------------------------------------------ Applicant portal
-    Route::prefix('applicant')->middleware(['auth:applicant-api', 'scopes:applicant'])->group(function () {
+    Route::prefix('applicant')->middleware(['auth:applicant-api,applicant', 'scopes:applicant'])->group(function () {
         Route::get('me', [AccountController::class, 'me']);
         Route::get('my-data', [AccountController::class, 'myData'])->middleware('throttle:6,1');
         Route::post('oauth/revoke', RevokeTokenController::class);
@@ -121,7 +121,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ------------------------------------------------------- Staff console
-    Route::prefix('staff')->middleware(['auth:api', 'scopes:staff', 'staff.active'])->group(function () {
+    Route::prefix('staff')->middleware(['auth:api,staff', 'scopes:staff', 'staff.active'])->group(function () {
         Route::get('me', [DashboardController::class, 'me']);
         Route::get('dashboard', [DashboardController::class, 'summary']);
         Route::post('oauth/revoke', RevokeTokenController::class);
@@ -248,4 +248,12 @@ Route::prefix('v1')->group(function () {
     Route::prefix('partner')->middleware(['client:cards:verify', 'throttle:api'])->group(function () {
         Route::get('cards/verify', [PartnerController::class, 'verifyCard']);
     });
+});
+
+// Backward compatibility for Next.js public-account endpoints
+Route::prefix('public-account')->group(function () {
+    Route::post('register', [AccountController::class, 'register'])->middleware('throttle:registration');
+    Route::post('email/resend', [AccountController::class, 'resendVerification'])->middleware('throttle:registration');
+    Route::post('password/forgot', [AccountController::class, 'forgotPassword'])->middleware('throttle:registration');
+    Route::post('password/reset', [AccountController::class, 'resetPassword'])->middleware('throttle:login');
 });

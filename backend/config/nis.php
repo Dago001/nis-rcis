@@ -12,7 +12,7 @@ return [
     | (verification, password reset, application notifications) and as
     | the "create account" target on the applicant login page.
     */
-    'frontend_url' => rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/'),
+    'frontend_url' => rtrim(env('FRONTEND_URL', env('APP_URL', 'http://127.0.0.1:8000')), '/'),
 
     /*
     | Residence card fee and validity.

@@ -22,8 +22,8 @@ class ApplicantLoginController
     public function show(): View
     {
         return view('auth.applicant-login', [
-            'registerUrl' => config('nis.frontend_url').'/register',
-            'forgotUrl' => config('nis.frontend_url').'/forgot-password',
+            'registerUrl' => '/register',
+            'forgotUrl' => '/forgot-password',
         ]);
     }
 
@@ -68,6 +68,6 @@ class ApplicantLoginController
         $request->session()->regenerate();
         Audit::log('APPLICANT_LOGIN', 'Signed in to the applicant portal', actor: $applicant);
 
-        return redirect()->intended(config('nis.frontend_url').'/portal');
+        return redirect()->intended('/portal');
     }
 }

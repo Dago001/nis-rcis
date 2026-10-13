@@ -21,14 +21,18 @@ class LogoutController
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        $frontend = config('nis.frontend_url');
-        $target = (string) $request->query('redirect_uri', $frontend);
+        $target = (string) $request->query('redirect_uri', '/');
 
-        // Only ever redirect back to our own frontend.
-        if ($target !== $frontend && ! Str::startsWith($target, $frontend.'/')) {
-            $target = $frontend;
+        // Only redirect to local paths or trusted frontend
+        $frontend = config('nis.frontend_url');
+        if (Str::startsWith($target, '/')) {
+            return redirect($target);
         }
 
-        return redirect()->away($target);
+        if ($target === $frontend || Str::startsWith($target, $frontend.'/')) {
+            return redirect()->away($target);
+        }
+
+        return redirect('/');
     }
 }
