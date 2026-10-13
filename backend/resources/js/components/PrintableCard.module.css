@@ -88,7 +88,7 @@
   height: 128px;
   border-radius: 8px;
   overflow: hidden;
-  z-index: 1;
+  z-index: 2;
 }
 .ghost img {
   width: 100%;
@@ -97,6 +97,26 @@
   opacity: .28;
   filter: grayscale(1);
   mix-blend-mode: multiply;
+}
+
+.nisLogoWatermark {
+  position: absolute;
+  right: 42px;
+  top: 196px;
+  width: 94px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+.nisLogoWatermark img {
+  max-width: 86px;
+  max-height: 86px;
+  object-fit: contain;
+  opacity: 0.22;
+  filter: grayscale(0.1);
 }
 
 /* Front dynamic values mapped directly to template coordinates */

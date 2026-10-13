@@ -140,10 +140,17 @@ class ApplicationController
                 ->map(fn ($d) => ['type' => $d->type->value, 'label' => $d->type->label()])->values(),
             'submitted_at' => $application->submitted_at?->toIso8601String(),
             'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
+            'signature_url' => $storage->temporaryUrlForPath($application->signature_path),
             'qr_payload' => "NIS-RCIS|APP:{$application->application_number}|REF:{$application->reference_number}",
             'appointment_slip_available' => ! in_array($application->status, [
                 ApplicationStatus::PendingApproval, ApplicationStatus::Queried, ApplicationStatus::Rejected,
             ], true),
+            'temporary_slip_available' => in_array($application->status, [
+                ApplicationStatus::BiometricsCaptured, ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,
+            ], true),
+            'is_card_produced' => in_array($application->status, [
+                ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,
+            ], true) || ($application->card && $application->card->status->isActive()),
         ]);
     }
 

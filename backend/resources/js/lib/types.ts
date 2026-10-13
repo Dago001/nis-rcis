@@ -13,6 +13,7 @@ export type StaffRole =
   | "SuperAdmin"
   | "Admin"
   | "Supervisor"
+  | "VettingOfficer"
   | "DataEntryOfficer"
   | "ApprovingOfficer"
   | "EnrollmentOfficer"
@@ -26,8 +27,11 @@ export type DocumentType =
   | "signature"
   | "passport_copy"
   | "residence_visa"
-  | "quota_approval"
+  | "admission_letter"
+  | "appointment_letter"
+  | "cac_certificate"
   | "domicile_proof"
+  | "quota_approval"
   | "additional";
 
 export type Particulars = {

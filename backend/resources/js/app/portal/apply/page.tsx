@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppointmentPicker } from "@/components/AppointmentPicker";
-import { ContactFields, PassportFields, PersonalFields } from "@/components/ParticularsFields";
+import { ContactFields, GeneralInfoFields, PassportFields, PersonalFields } from "@/components/ParticularsFields";
 import { Alert, Button, Field, Input, Panel, Spinner } from "@/components/ui";
 import { useI18n } from "@/components/I18nProvider";
 import { api, ApiError, upload } from "@/lib/api-client";
@@ -12,8 +12,17 @@ import { naira, nisDate } from "@/lib/format";
 import type { Application, EnrollmentCenter } from "@/lib/types";
 import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
 
-// Review & declaration come before payment; the appointment is booked last, then the application is submitted.
-const STEPS = ["Personal details", "Travel / Identity document", "Residence & contacts", "Documents", "Review & declaration", "Fee payment", "Biometrics appointment"];
+/** 8-Step Application Process */
+const STEPS = [
+  "General Information",
+  "Personal details",
+  "Travel / Identity document",
+  "Residence & contacts",
+  "Documents",
+  "Review & declaration",
+  "Fee payment",
+  "Biometrics appointment",
+];
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
@@ -21,24 +30,38 @@ type DocSpec = { type: string; label: string; required: boolean; accept: string;
 
 const PHOTO: DocSpec = { type: "photo", label: "Passport photograph (white background)", required: true, accept: "image/jpeg,image/png", kinds: "JPG or PNG" };
 
-const DOCUMENTS: DocSpec[] = [
-  { type: "passport_copy", label: "International passport data page OR National ID from home country OR ECOWAS Travel Certificate", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-  { type: "domicile_proof", label: "Proof of domicile (Utility bill)", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-  { type: "residence_visa", label: "Subject-to-Regularization / residence visa", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-  { type: "quota_approval", label: "Expatriate quota approval", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-  { type: "additional", label: "Additional document", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-];
+/** Category-dependent document requirements */
+function getDocuments(category?: string): DocSpec[] {
+  const cat = (category || "WORK").toUpperCase();
+  const catDoc: DocSpec =
+    cat === "STUDENT"
+      ? { type: "admission_letter", label: "Institution Admission Letter", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" }
+      : cat === "BUSINESS"
+      ? { type: "cac_certificate", label: "CAC Business Registration Certificate / Documents", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" }
+      : { type: "appointment_letter", label: "Employment Appointment / Offer Letter", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" };
+
+  return [
+    { type: "passport_copy", label: "International Passport data page OR ECOWAS Travel Certificate", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+    { type: "domicile_proof", label: "Proof of domicile in Nigeria (Utility bill / Tenancy)", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+    catDoc,
+    { type: "residence_visa", label: "Subject-to-Regularization / Entry visa (if applicable)", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+    { type: "additional", label: "Additional supporting document", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+  ];
+}
 
 /** Which step each field lives on (to jump back when the API rejects one). */
 const FIELD_STEP: Record<string, number> = {
-  ...Object.fromEntries(PERSONAL_FIELDS.map((f) => [f, 1])),
-  blood_group: 1, renewal_card_number: 1, photo: 1, principal_application_id: 1, dependant_relationship: 1, phone: 1, email: 1,
-  ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 2])),
-  travel_document_type: 2,
-  ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
-  home_country_address: 3,
-  documents: 4, quota_reference: 4, employer_name: 4, declaration: 5, payment_reference: 6,
-  ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
+  nationality: 1, category: 1, travel_document_type: 1,
+  ...Object.fromEntries(PERSONAL_FIELDS.filter((f) => f !== "nationality").map((f) => [f, 2])),
+  blood_group: 2, renewal_card_number: 2, photo: 2, principal_application_id: 2, dependant_relationship: 2, phone: 2, email: 2,
+  ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 3])),
+  travel_document_type_doc: 3,
+  ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 4])),
+  home_country_address: 4,
+  documents: 5,
+  declaration: 6,
+  payment_reference: 7,
+  ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 8])),
 };
 
 type DraftDoc = { id: number; type: string; label: string; original_name: string; size_bytes: number; mime_type: string };
@@ -65,7 +88,10 @@ function Wizard() {
     const t = (params.get("type") ?? "").toUpperCase();
     return t === "RENEWAL" || t === "REPLACE" ? t : "NEW";
   });
-  const [data, setData] = useState<Record<string, string>>({});
+  const [data, setData] = useState<Record<string, string>>({
+    category: "WORK",
+    travel_document_type: "PASSPORT",
+  });
   const [documents, setDocuments] = useState<DraftDoc[]>([]);
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
@@ -85,16 +111,22 @@ function Wizard() {
 
   const photo = documents.find((d) => d.type === "photo");
   const photoUrl = photo && photoLink?.id === photo.id ? photoLink.url : null;
+  const currentDocs = useMemo(() => getDocuments(data.category), [data.category]);
 
   /** Fields validated on each step. */
   const stepFields = useCallback(
     (n: number) =>
-      n === 1 ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS.filter((f) => f !== "phone" && f !== "email")]
-        : n === 2 ? PASSPORT_FIELDS
-          : n === 3 ? CONTACT_FIELDS
-            : n === 4 ? ["quota_reference", "employer_name"]
-            : n === 7 ? APPOINTMENT_FIELDS
-              : [],
+      n === 1
+        ? ["nationality", "category", "travel_document_type"]
+        : n === 2
+        ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS.filter((f) => f !== "phone" && f !== "email" && f !== "nationality")]
+        : n === 3
+        ? PASSPORT_FIELDS
+        : n === 4
+        ? CONTACT_FIELDS
+        : n === 8
+        ? APPOINTMENT_FIELDS
+        : [],
     [type],
   );
 
@@ -102,16 +134,20 @@ function Wizard() {
   const extraErrors = useCallback(
     (n: number): Record<string, string> => {
       const e: Record<string, string> = {};
-      if (n === 1 && !photo) e.photo = "Upload your passport photograph.";
-      if (n === 4) {
-        const absent = DOCUMENTS.filter((d) => d.required && !documents.some((x) => x.type === d.type));
+      if (n === 1) {
+        if (!data.nationality) e.nationality = "Select your country of origin.";
+      }
+      if (n === 2 && !photo) e.photo = "Upload your passport photograph.";
+      if (n === 5) {
+        const requiredDocs = getDocuments(data.category);
+        const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
         if (absent.length) e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
       }
-      if (n === 5 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
-      if (n === 6 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
+      if (n === 6 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
+      if (n === 7 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, documents, paid, data.declaration],
+    [photo, documents, paid, data.declaration, data.category, data.nationality],
   );
 
   // Errors shown now: every visited field is checked as the applicant types.
@@ -149,21 +185,34 @@ function Wizard() {
 
       // A new application for a spouse or child (from the portal home page).
       const relationship = (params.get("for") ?? "").toUpperCase();
-      const dependant = !draft && params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship)
-        ? { principal_application_id: params.get("principal") as string, dependant_relationship: relationship }
-        : null;
-      let restored: Record<string, string> = dependant ?? { surname: me.surname, forenames: me.forenames };
-      if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
-      if (draft) {
-        restored = { ...restored, ...draft.data };
-        setType(draft.type);
-        setStep(draft.current_step);
-        setDocuments(draft.documents);
-        setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
+      const isDependantFlow = Boolean(params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship));
+
+      let restored: Record<string, string> = {
+        nationality: "",
+        category: "WORK",
+        travel_document_type: "PASSPORT",
+        surname: me.surname,
+        forenames: isDependantFlow ? "" : me.forenames,
+      };
+
+      if (isDependantFlow) {
+        restored.principal_application_id = params.get("principal") as string;
+        restored.dependant_relationship = relationship;
+        // Dependant flow starts afresh: previous draft of principal is not loaded
+        restored.phone = me.phone;
+        restored.email = me.email;
+      } else {
+        if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
+        if (draft) {
+          restored = { ...restored, ...draft.data };
+          setType(draft.type);
+          setStep(draft.current_step);
+          setDocuments(draft.documents);
+          setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
+        }
+        restored.phone = me.phone;
+        restored.email = me.email;
       }
-      // Phone and e-mail always come from the registered account.
-      restored.phone = me.phone;
-      restored.email = me.email;
 
       const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
       if (reference) {
@@ -172,11 +221,11 @@ function Wizard() {
           restored.payment_reference = reference;
           setPaid(true);
           if (params.get("payment") === "callback") {
-            setStep(6);
+            setStep(7);
             setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
           }
         } else if (params.get("payment") === "callback") {
-          setStep(6);
+          setStep(7);
           setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
         }
       }
@@ -256,7 +305,6 @@ function Wizard() {
       const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
       setDocuments(result.draft.documents);
     } catch (e) {
-      // The photograph check can report several problems at once; show them all.
       if (e instanceof ApiError) setStepError({ [key]: e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message });
     } finally {
       setBusy(false);
@@ -277,7 +325,7 @@ function Wizard() {
     setBusy(true);
     try {
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
-      await saveDraft(6, { payment_reference: payment.reference });
+      await saveDraft(7, { payment_reference: payment.reference });
       if (payment.fake) {
         const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
         setData((d) => ({ ...d, payment_reference: payment.reference }));
@@ -286,7 +334,7 @@ function Wizard() {
         setNotice({ tone: "info", text: "Test mode: no Paystack keys are configured, so the payment was simulated." });
         setBusy(false);
       } else if (payment.authorization_url) {
-        window.location.href = payment.authorization_url; // Paystack secure checkout; returns to this page
+        window.location.href = payment.authorization_url;
       }
     } catch (e) {
       setNotice({ tone: "danger", text: (e as Error).message });
@@ -295,9 +343,9 @@ function Wizard() {
   }
 
   async function submit() {
-    if (!checkStep(7)) return;
-    // The declaration (step 5) and payment (step 6) must both be complete.
-    for (const n of [5, 6]) {
+    if (!checkStep(8)) return;
+    // The declaration (step 6) and payment (step 7) must both be complete.
+    for (const n of [6, 7]) {
       if (Object.keys(extraErrors(n)).length) {
         goTo(n);
         setStepError(extraErrors(n));
@@ -315,7 +363,7 @@ function Wizard() {
       if (e instanceof ApiError && e.status === 422) {
         const fieldErrors = e.fieldErrors();
         setServerErrors(fieldErrors);
-        const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 7));
+        const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 8));
         goTo(first);
       } else {
         setNotice({ tone: "danger", text: (e as Error).message });
@@ -336,8 +384,8 @@ function Wizard() {
           {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
           {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}</h1>
-        <ol className="mt-4 grid grid-cols-7 gap-1.5" aria-label="Progress">
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("Step {n} of 8 — {title}", { n: step, title: t(STEPS[step - 1]) })}</h1>
+        <ol className="mt-4 grid grid-cols-8 gap-1.5" aria-label="Progress">
           {STEPS.map((label, i) => (
             <li key={label} title={t(label)} aria-current={i + 1 === step ? "step" : undefined} className={`h-2 rounded-full ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`} />
           ))}
@@ -348,13 +396,19 @@ function Wizard() {
       {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
 
       <Panel title={t(STEPS[step - 1])}>
+        {/* Step 1: General Information */}
         {step === 1 && (
+          <GeneralInfoFields {...props} feeNaira={fee} />
+        )}
+
+        {/* Step 2: Personal details */}
+        {step === 2 && (
           <div className="space-y-6">
             <PhotoUpload photo={photo} url={photoUrl} error={errors.photo} busy={busy} onUpload={(f) => uploadDocument(PHOTO, f)} onView={() => photo && view(photo)} />
             {data.dependant_relationship && (
               <Alert tone="info">
                 This application is for your <strong>{data.dependant_relationship === "CHILD" ? "child" : "spouse"}</strong> and is linked to your own application.
-                Enter <strong>their</strong> details, photograph and passport. {data.dependant_relationship === "CHILD" && "A child may be any age."}
+                The surname is locked to match the primary applicant. Enter their forenames, photograph and passport.
               </Alert>
             )}
             {type !== "NEW" && (
@@ -366,22 +420,25 @@ function Wizard() {
             <PersonalFields {...props} lockContact />
           </div>
         )}
-        {step === 2 && <PassportFields {...props} />}
-        {step === 3 && <ContactFields {...props} />}
-        {step === 4 && (
+
+        {/* Step 3: Travel / Identity document */}
+        {step === 3 && <PassportFields {...props} />}
+
+        {/* Step 4: Residence & contacts */}
+        {step === 4 && <ContactFields {...props} />}
+
+        {/* Step 5: Documents */}
+        {step === 5 && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">Each file must be <strong>smaller than 2 MB</strong>: JPG, PNG or PDF. Your passport photograph was uploaded in step 1.</p>
-            <div className="grid gap-4 rounded-xl border border-slate-200 bg-nis-mint/50 p-4 sm:grid-cols-2">
-              <Field label="Expatriate quota approval number" error={errors.quota_reference} hint="If you are employed in Nigeria. It is checked with the Ministry of Interior.">
-                <Input value={data.quota_reference ?? ""} maxLength={60} onChange={(e) => set("quota_reference", e.target.value.toUpperCase())} onBlur={() => touch("quota_reference")} />
-              </Field>
-              <Field label="Employer" error={errors.employer_name} required={!!data.quota_reference?.trim()}>
-                <Input value={data.employer_name ?? ""} maxLength={150} onChange={(e) => set("employer_name", e.target.value)} onBlur={() => touch("employer_name")} />
-              </Field>
+            <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
+              <div className="text-sm font-semibold text-nis-primary-dark">Required Documents for {data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work"} Category</div>
+              <p className="mt-1 text-xs text-slate-600">
+                Each file must be <strong>smaller than 2 MB</strong> (JPG, PNG or PDF). Your passport photograph was uploaded in step 2.
+              </p>
             </div>
             {errors.documents && <Alert tone="danger">{errors.documents}</Alert>}
             <ul className="divide-y divide-slate-100">
-              {DOCUMENTS.map((d) => {
+              {currentDocs.map((d) => {
                 const current = documents.find((x) => x.type === d.type);
                 return (
                   <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -399,10 +456,23 @@ function Wizard() {
             </ul>
           </div>
         )}
-        {step === 5 && (
+
+        {/* Step 6: Review & declaration */}
+        {step === 6 && (
           <div className="space-y-6">
             <p className="text-sm text-slate-600">Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</p>
-            <ReviewSection title="Personal details" onEdit={() => goTo(1)}>
+            <ReviewSection title="General Information" onEdit={() => goTo(1)}>
+              <ReviewGrid
+                items={[
+                  ["Nationality", data.nationality],
+                  ["Category / Class", data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work (Employment)"],
+                  ["Document Type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "Passport"],
+                  ["Validity Period", "2 Years from date of production"],
+                ]}
+              />
+            </ReviewSection>
+
+            <ReviewSection title="Personal details" onEdit={() => goTo(2)}>
               <div className="flex flex-col gap-5 sm:flex-row">
                 {photoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -421,16 +491,18 @@ function Wizard() {
                 />
               </div>
             </ReviewSection>
-            <ReviewSection title="Travel / Identity document" onEdit={() => goTo(2)}>
+
+            <ReviewSection title="Travel / Identity document" onEdit={() => goTo(3)}>
               <ReviewGrid
                 items={[
-                  ["Document type", data.travel_document_type === "NATIONAL_ID" ? "National Identification Number (Home country)" : data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "International Passport"],
-                  [(data.travel_document_type === "NATIONAL_ID" ? "National ID number" : data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number"), data.passport_number],
+                  ["Document type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "International Passport"],
+                  [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
                   ["Issue date", nisDate(data.passport_issue_date)], ["Expiry date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
                 ]}
               />
             </ReviewSection>
-            <ReviewSection title="Residence & contacts" onEdit={() => goTo(3)}>
+
+            <ReviewSection title="Residence & contacts" onEdit={() => goTo(4)}>
               <ReviewGrid
                 items={[
                   ["Address in Home Country", data.home_country_address],
@@ -439,7 +511,8 @@ function Wizard() {
                 ]}
               />
             </ReviewSection>
-            <ReviewSection title="Emergency contact" onEdit={() => goTo(3)}>
+
+            <ReviewSection title="Emergency contact" onEdit={() => goTo(4)}>
               <ReviewGrid
                 items={[
                   ["Full name", data.emergency_contact_name], ["Relationship", data.emergency_contact_relation], ["Phone number", data.emergency_contact_phone],
@@ -447,10 +520,10 @@ function Wizard() {
                 ]}
               />
             </ReviewSection>
-            <ReviewSection title="Documents" onEdit={() => goTo(4)}>
-              {data.quota_reference && <p className="mb-2 text-sm">Expatriate quota: <strong>{data.quota_reference}</strong> ({data.employer_name})</p>}
+
+            <ReviewSection title="Documents" onEdit={() => goTo(5)}>
               <ul className="divide-y divide-slate-100 text-sm">
-                {[PHOTO, ...DOCUMENTS].map((d) => {
+                {[PHOTO, ...currentDocs].map((d) => {
                   const current = documents.find((x) => x.type === d.type);
                   if (!current && !d.required) return null;
                   return (
@@ -462,7 +535,8 @@ function Wizard() {
                 })}
               </ul>
             </ReviewSection>
-            <ReviewSection title="Residence card fee" onEdit={() => goTo(6)}>
+
+            <ReviewSection title="Residence card fee" onEdit={() => goTo(7)}>
               <ReviewGrid
                 items={[
                   ["Amount", fee !== null ? naira(fee) : "—"],
@@ -482,7 +556,9 @@ function Wizard() {
             {errors.declaration && <p className="text-sm text-red-700">{errors.declaration}</p>}
           </div>
         )}
-        {step === 6 && (
+
+        {/* Step 7: Fee payment */}
+        {step === 7 && (
           <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
@@ -499,7 +575,9 @@ function Wizard() {
             )}
           </div>
         )}
-        {step === 7 && (
+
+        {/* Step 8: Biometrics appointment */}
+        {step === 8 && (
           <div className="space-y-6">
             <AppointmentPicker {...props} />
             <div className="grid gap-4 sm:grid-cols-3">
@@ -518,8 +596,8 @@ function Wizard() {
           <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
           <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">{t("Discard")}</Button>
         </div>
-        {step < 7 ? (
-          <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
+        {step < 8 ? (
+          <Button onClick={next} disabled={busy || (step === 7 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
         ) : (
           <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
         )}
@@ -540,7 +618,6 @@ function Wizard() {
       )}
     </div>
   );
-
 }
 
 function Summary({ label, value }: { label: string; value: ReactNode }) {

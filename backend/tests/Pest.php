@@ -38,7 +38,8 @@ function particulars(array $overrides = []): array
         'type' => 'NEW',
         'surname' => 'Okafor', 'forenames' => 'Jean Pierre', 'nationality' => 'SENEGAL',
         'date_of_birth' => '1985-04-12', 'place_of_birth' => 'Dakar', 'sex' => 'MALE',
-        'profession' => 'Civil Engineer', 'domicile' => '12 Adeola Odeku Street, Victoria Island',
+        'profession' => 'Civil Engineer', 'home_country_address' => '15 Rue de Dakar, Medina, Dakar',
+        'domicile' => '12 Adeola Odeku Street, Victoria Island',
         'domicile_state' => 'Lagos', 'domicile_lga' => 'Eti Osa',
         'emergency_contact_state' => 'Federal Capital Territory', 'emergency_contact_lga' => 'Bwari',
         'passport_number' => 'CM1234567', 'passport_expiry' => now()->addYears(3)->toDateString(),
@@ -52,7 +53,7 @@ function particulars(array $overrides = []): array
 
 function uploadDraftDocs(): void
 {
-    foreach (['photo' => 'photo.png', 'passport_copy' => 'passport.png', 'residence_visa' => 'visa.png'] as $type => $name) {
+    foreach (['photo' => 'photo.png', 'passport_copy' => 'passport.png', 'domicile_proof' => 'utility.png', 'residence_visa' => 'visa.png'] as $type => $name) {
         test()->post('/api/v1/applicant/draft/documents', [
             'type' => $type, 'file' => UploadedFile::fake()->createWithContent($name, test()->pngBytes()),
         ], ['Accept' => 'application/json'])->assertCreated();

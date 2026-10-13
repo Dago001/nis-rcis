@@ -35,7 +35,7 @@ const requirements: { title: string; body: string; icon: ReactNode }[] = [
   },
   {
     title: "Residence Visa (STR)",
-    body: "Your Subject-to-Regularization or residence visa, and your expatriate quota approval where it applies.",
+    body: "Your Subject-to-Regularization or residence visa, and Category document (Admission letter for Students, Employment letter for Work, or CAC certificate for Business).",
     icon: <path d="M9 12l2 2 4-4M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z" />,
   },
   {
@@ -52,7 +52,7 @@ const requirements: { title: string; body: string; icon: ReactNode }[] = [
 
 const eligibility = [
   { image: "/images/hq-building.jpg", alt: "NIS Headquarters building", text: "Citizens of ECOWAS member states resident in Nigeria for employment, business or study." },
-  { image: "/images/hq-reception.jpg", alt: "NIS Headquarters reception", text: "Expatriates with a valid residence visa (STR) and, for employees, an approved expatriate quota." },
+  { image: "/images/hq-reception.jpg", alt: "NIS Headquarters reception", text: "ECOWAS citizens residing in Nigeria for Work, Business, or Study with valid residence visa or entry clearance." },
   { image: "/images/card-template.jpg", alt: "Residence document", text: "Current residence card holders renewing a card that is expiring or has expired." },
 ];
 
@@ -75,7 +75,7 @@ export default async function Home() {
 
         <div className="relative z-10 max-w-4xl text-white">
           <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
-            {t("Obtain your ECOWAS Residence Card")}
+            {t("Apply for Your ECOWAS Residence Card")}
             <span className="block text-nis-orange animate-apply-now">{t("Apply Now!")}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-white/85 sm:text-lg">

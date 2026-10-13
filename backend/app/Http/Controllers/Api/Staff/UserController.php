@@ -68,6 +68,7 @@ class UserController
 
         return response()->json([
             'data' => $user->only(self::FIELDS),
+            'temporary_password' => $password,
             'message' => "Account created successfully. Login credentials and temporary password have been sent to {$user->email}.",
         ], 201);
     }

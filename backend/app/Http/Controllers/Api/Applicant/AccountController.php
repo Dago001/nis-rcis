@@ -29,7 +29,7 @@ class AccountController
                     $fail('Use a phone number from an ECOWAS member state (Nigeria included).');
                 }
             }],
-            'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()->uncompromised()],
+            'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()],
             'privacy_consent' => ['accepted'],
         ], ['privacy_consent.accepted' => 'You must read and accept the privacy notice to create an account.']);
 
@@ -117,7 +117,7 @@ class AccountController
         $data = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()->uncompromised()],
+            'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()],
         ]);
 
         $status = Password::broker('applicants')->reset(

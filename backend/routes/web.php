@@ -81,12 +81,17 @@ Route::middleware('web')->group(function () {
     Route::get('/logout', LogoutController::class)->name('logout');
     Route::post('/logout', LogoutController::class);
 
+    // ---------------------------------------------- Slip Route (Applicant & Staff)
+    Route::get('/portal/applications/{id}/slip', fn ($id) => Inertia::render('Portal/Slip', ['id' => $id]))
+        ->middleware('auth:applicant,staff')
+        ->whereNumber('id')
+        ->name('portal.applications.slip');
+
     // ---------------------------------------------- Applicant Portal (Inertia)
     Route::middleware('auth:applicant')->prefix('portal')->name('portal.')->group(function () {
         Route::get('/', fn () => Inertia::render('Portal/Dashboard'))->name('dashboard');
         Route::get('/apply', fn () => Inertia::render('Portal/Apply'))->name('apply');
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Portal/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
-        Route::get('/applications/{id}/slip', fn ($id) => Inertia::render('Portal/Slip', ['id' => $id]))->whereNumber('id')->name('applications.slip');
         Route::get('/cards', fn () => Inertia::render('Portal/Cards'))->name('cards');
         Route::get('/payments', fn () => Inertia::render('Portal/Payments'))->name('payments');
     });

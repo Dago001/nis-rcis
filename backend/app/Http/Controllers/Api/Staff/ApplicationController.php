@@ -314,6 +314,33 @@ class ApplicationController
         return response()->json(['url' => $storage->temporaryUrl($document), 'expires_in' => config('nis.document_url_ttl_minutes') * 60]);
     }
 
+    public function slip(Request $request, int $id, DocumentStorage $storage): JsonResponse
+    {
+        $application = Application::with(['enrollmentCenter', 'documents', 'principal', 'card'])->findOrFail($id);
+        $payment = $application->payments()->where('status', 'SUCCESS')->latest('id')->first();
+
+        return response()->json([
+            'application' => new ApplicationResource($application),
+            'payment' => $payment ? ['reference' => $payment->reference, 'amount_naira' => $payment->amount_kobo / 100, ...\App\Services\PaystackGateway::receipt($payment)] : null,
+            'documents' => $application->documents
+                ->reject(fn ($d) => $d->type === \App\Enums\DocumentType::Signature)
+                ->map(fn ($d) => ['type' => $d->type->value, 'label' => $d->type->label()])->values(),
+            'submitted_at' => $application->submitted_at?->toIso8601String(),
+            'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
+            'signature_url' => $storage->temporaryUrlForPath($application->signature_path),
+            'qr_payload' => "NIS-RCIS|APP:{$application->application_number}|REF:{$application->reference_number}",
+            'appointment_slip_available' => ! in_array($application->status, [
+                ApplicationStatus::PendingApproval, ApplicationStatus::Queried, ApplicationStatus::Rejected,
+            ], true),
+            'temporary_slip_available' => in_array($application->status, [
+                ApplicationStatus::BiometricsCaptured, ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,
+            ], true),
+            'is_card_produced' => in_array($application->status, [
+                ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,
+            ], true) || ($application->card && $application->card->status->isActive()),
+        ]);
+    }
+
     /**
      * Accepts raw numbers or the QR payload printed on slips
      * ("NIS-RCIS|APP:RC-2026-100001|REF:...").

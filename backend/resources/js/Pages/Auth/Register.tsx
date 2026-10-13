@@ -112,7 +112,7 @@ function RegisterForm() {
               <PhoneInput value={values.phone} onChange={(v) => set("phone", v)} countries={ECOWAS_COUNTRIES} />
             </Field>
           </div>
-          <Field label={t("Password")} required error={errorFor("password")} hint={t("At least 6 characters, with letters and numbers. Common passwords that appear in data leaks are refused.")}>
+          <Field label={t("Password")} required error={errorFor("password")} hint={t("At least 6 characters, with letters and numbers.")}>
             <PasswordInput value={values.password} onChange={(e) => set("password", e.target.value)} onBlur={touch("password")} autoComplete="new-password" />
           </Field>
           <Field label={t("Confirm password")} required error={errorFor("password_confirmation")}>

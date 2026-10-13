@@ -3,23 +3,36 @@
  * here and falls back to English when a phrase has no translation yet.
  * The choice is kept in the `nis_lang` cookie so server and client agree.
  */
-export type Lang = "en" | "fr";
+export type Lang = "en" | "fr" | "pt" | "ha" | "yo" | "ig" | "pcm";
 
 export const LANG_COOKIE = "nis_lang";
 export const LANGUAGES: { code: Lang; label: string }[] = [
   { code: "en", label: "English" },
   { code: "fr", label: "Français" },
+  { code: "pt", label: "Português" },
+  { code: "ha", label: "Hausa" },
+  { code: "yo", label: "Yorùbá" },
+  { code: "ig", label: "Asụsụ Igbo" },
+  { code: "pcm", label: "Pidgin (West Africa)" },
 ];
 
 export function parseLang(value: string | undefined | null): Lang {
-  return value === "fr" ? "fr" : "en";
+  const allowed: Lang[] = ["en", "fr", "pt", "ha", "yo", "ig", "pcm"];
+  return allowed.includes(value as Lang) ? (value as Lang) : "en";
 }
 
 export type Translate = (text: string, vars?: Record<string, string | number>) => string;
 
 export function translator(lang: Lang): Translate {
   return (text, vars) => {
-    let out = lang === "fr" ? FR[text] ?? text : text;
+    let out = text;
+    if (lang === "fr") out = FR[text] ?? text;
+    else if (lang === "pt") out = PT[text] ?? text;
+    else if (lang === "ha") out = HA[text] ?? text;
+    else if (lang === "yo") out = YO[text] ?? text;
+    else if (lang === "ig") out = IG[text] ?? text;
+    else if (lang === "pcm") out = PCM[text] ?? text;
+
     if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
     return out;
   };
@@ -63,7 +76,8 @@ const FR: Record<string, string> = {
 
   // Landing page
   "Directorate of Visa and Residency": "Direction des visas et de la résidence",
-  "Obtain your ECOWAS Residence Card": "Obtenez votre carte de résident CEDEAO",
+  "Apply for Your ECOWAS Residence Card": "Demandez votre carte de résident CEDEAO",
+  "Obtain your ECOWAS Residence Card": "Demandez votre carte de résident CEDEAO",
   "Apply Now!": "Postulez maintenant !",
   "Citizens of ECOWAS member states resident in Nigeria can apply for, renew and track their ECOWAS Residence Card online.": "Les citoyens des États membres de la CEDEAO résidant au Nigeria peuvent demander, renouveler et suivre leur carte de résident CEDEAO en ligne.",
   "New to Nigeria?": "Nouveau au Nigeria ?",
@@ -87,7 +101,7 @@ const FR: Record<string, string> = {
   "Valid International Passport": "Passeport international valide",
   "A clear copy of your passport data page. The passport must be valid for at least six more months.": "Une copie lisible de la page d’identité de votre passeport, valable encore au moins six mois.",
   "Residence Visa (STR)": "Visa de résidence (STR)",
-  "Your Subject-to-Regularization or residence visa, and your expatriate quota approval where it applies.": "Votre visa STR ou de résidence et, le cas échéant, l’approbation du quota d’expatriés.",
+  "Your Subject-to-Regularization or residence visa, and Category document (Admission letter for Students, Employment letter for Work, or CAC certificate for Business).": "Votre visa STR ou de résidence et le document de catégorie (lettre d'admission pour étudiants, lettre d'emploi pour salariés, certificat CAC pour affaires).",
   "Passport Photograph": "Photo d’identité",
   "A recent colour photograph on a white background. A live photo and signature are also taken at biometrics.": "Une photo couleur récente sur fond blanc. Une photo et une signature sont aussi prises lors de la biométrie.",
   "Address & Contact Details": "Adresse et coordonnées",
@@ -96,7 +110,7 @@ const FR: Record<string, string> = {
   "Note:": "Remarque :",
   "ensure all information provided matches your travel and residence documents to avoid delays.": "assurez-vous que toutes les informations correspondent à vos documents de voyage et de résidence pour éviter des retards.",
   "Citizens of ECOWAS member states resident in Nigeria for employment, business or study.": "Citoyens des États membres de la CEDEAO résidant au Nigeria pour le travail, les affaires ou les études.",
-  "Expatriates with a valid residence visa (STR) and, for employees, an approved expatriate quota.": "Expatriés titulaires d’un visa de résidence (STR) valide et, pour les salariés, d’un quota d’expatriés approuvé.",
+  "ECOWAS citizens residing in Nigeria for Work, Business, or Study with valid residence visa or entry clearance.": "Citoyens de la CEDEAO résidant au Nigeria pour le travail, les affaires ou les études avec visa de résidence valide.",
   "Current residence card holders renewing a card that is expiring or has expired.": "Titulaires d’une carte de résident qui expire ou a expiré.",
   "Ready to apply?": "Prêt à faire votre demande ?",
   "Create your account in minutes and track every step of your application online.": "Créez votre compte en quelques minutes et suivez chaque étape en ligne.",
@@ -140,7 +154,8 @@ const FR: Record<string, string> = {
   "Open the link in the e-mail within 24 hours, then": "Ouvrez le lien de l’e-mail dans les 24 heures, puis",
   "sign in": "connectez-vous",
   "Choose your country code, then type the rest of the number (digits only).": "Choisissez l’indicatif du pays, puis saisissez le reste du numéro (chiffres uniquement).",
-  "At least 6 characters, with letters and numbers. Common passwords that appear in data leaks are refused.": "Au moins 6 caractères, avec des lettres et des chiffres. Les mots de passe connus pour avoir fuité sont refusés.",
+  "At least 6 characters, with letters and numbers.": "Au moins 6 caractères, avec des lettres et des chiffres.",
+  "At least 6 characters, with letters and numbers. Common passwords that appear in data leaks are refused.": "Au moins 6 caractères, avec des lettres et des chiffres.",
   "I have read the": "J’ai lu l’",
   "privacy notice": "avis de confidentialité",
   "and agree to the Nigeria Immigration Service processing my personal data for my residence card application.": "et j’accepte que le Service d’immigration du Nigeria traite mes données personnelles pour ma demande de carte de résident.",
@@ -187,7 +202,9 @@ const FR: Record<string, string> = {
   "Review & declaration": "Vérification et déclaration",
   "Fee payment": "Paiement des frais",
   "Biometrics appointment": "Rendez-vous biométrique",
-  "Step {n} of 7 — {title}": "Étape {n} sur 7 — {title}",
+  "Step {n} of 8 — {title}": "Étape {n} sur 8 — {title}",
+  "Step {n} of 7 — {title}": "Étape {n} sur 8 — {title}",
+  "General Information": "Informations générales",
   "Residence card application": "Demande de carte de résident",
   "Residence card renewal": "Renouvellement de la carte de résident",
   "Replacement of a lost or stolen card": "Remplacement d’une carte perdue ou volée",
@@ -201,4 +218,164 @@ const FR: Record<string, string> = {
   "Submitting…": "Envoi…",
   "Pay securely with Paystack": "Payer en toute sécurité avec Paystack",
   "Loading…": "Chargement…",
+};
+
+const PT: Record<string, string> = {
+  "Home": "Início",
+  "About": "Sobre",
+  "FAQ": "Perguntas Frequentes",
+  "Track": "Acompanhar",
+  "Verify card": "Verificar cartão",
+  "Contact": "Contacto",
+  "Contact Support": "Contactar Suporte",
+  "Login": "Entrar",
+  "Language": "Idioma",
+  "Apply Now!": "Inscreva-se já!",
+  "Apply for Your ECOWAS Residence Card": "Solicite o seu Cartão de Residência da CEDEAO",
+  "Obtain your ECOWAS Residence Card": "Solicite o seu Cartão de Residência da CEDEAO",
+  "Apply for Residence Card": "Solicitar Cartão de Residência",
+  "Renew ECOWAS Residence Card": "Renovar Cartão de Residência CEDEAO",
+  "Track Application": "Acompanhar Pedido",
+  "Verify a Card": "Verificar Cartão",
+  "General Information": "Informações Gerais",
+  "Personal details": "Dados Pessoais",
+  "Passport": "Passaporte",
+  "Documents": "Documentos",
+  "Step {n} of 8 — {title}": "Passo {n} de 8 — {title}",
+  "Sign out": "Sair",
+  "My applications": "Os meus pedidos",
+  "My cards": "Os meus cartões",
+  "Payments": "Pagamentos",
+  "Applicant console": "Painel do requerente",
+  "Password": "Senha",
+  "Create account": "Criar conta",
+  "Sign in": "Iniciar sessão",
+};
+
+const HA: Record<string, string> = {
+  "Home": "Gida",
+  "About": "Game da mu",
+  "FAQ": "Tambayoyi",
+  "Track": "Bibiyar Bayani",
+  "Verify card": "Tabbatar da Katin",
+  "Contact": "Tuntuba",
+  "Contact Support": "Tuntubi Cibiyar Taimako",
+  "Login": "Shiga Ciki",
+  "Language": "Harshe",
+  "Apply Now!": "Nemi Yanzu!",
+  "Apply for Your ECOWAS Residence Card": "Nemi Katin Zama na ECOWAS",
+  "Obtain your ECOWAS Residence Card": "Nemi Katin Zama na ECOWAS",
+  "Apply for Residence Card": "Nemi Katin Zama",
+  "Renew ECOWAS Residence Card": "Sabunta Katin ECOWAS",
+  "Track Application": "Bibiyar Takardar Nema",
+  "Verify a Card": "Duba Ingancin Kati",
+  "General Information": "Bayanai na Gabaɗaya",
+  "Personal details": "Bayanin Kanka",
+  "Passport": "Fasfo",
+  "Documents": "Takardun Shaida",
+  "Step {n} of 8 — {title}": "Mataki na {n} cikin 8 — {title}",
+  "Sign out": "Fita",
+  "My applications": "Takardun da na nema",
+  "My cards": "Katina na",
+  "Payments": "Biya",
+  "Applicant console": "Shafin Mai Nema",
+  "Password": "Kalmar Sirri",
+  "Create account": "Bude Asusun",
+  "Sign in": "Shiga Ciki",
+};
+
+const YO: Record<string, string> = {
+  "Home": "Ilé",
+  "About": "Nípa Wa",
+  "FAQ": "Àwọn Ìbéèrè",
+  "Track": "Tọpinpin",
+  "Verify card": "Ṣayẹwo Kaadi",
+  "Contact": "Kan si Wa",
+  "Contact Support": "Kan si Olùrànlọ́wọ́",
+  "Login": "Wọlé",
+  "Language": "Èdè",
+  "Apply Now!": "Bẹrẹ Níyìí!",
+  "Apply for Your ECOWAS Residence Card": "Gba Kaadi Ibugbe ECOWAS Rẹ",
+  "Obtain your ECOWAS Residence Card": "Gba Kaadi Ibugbe ECOWAS Rẹ",
+  "Apply for Residence Card": "Bẹrẹ Fún Kaadi Ibugbe",
+  "Renew ECOWAS Residence Card": "Sọ Kaadi ECOWAS Dọtun",
+  "Track Application": "Tọpinpin Ìbérè Rẹ",
+  "Verify a Card": "Ṣayẹwo Kaadi",
+  "General Information": "Àwọn Ìròyìn Gbogbogbò",
+  "Personal details": "Àwọn Ìròyìn Tiara Ẹni",
+  "Passport": "Iwe Irinna",
+  "Documents": "Àwọn Àkọsílẹ",
+  "Step {n} of 8 — {title}": "Igbese {n} ninu 8 — {title}",
+  "Sign out": "Jade",
+  "My applications": "Àwọn Ìbéèrè Mi",
+  "My cards": "Àwọn Kaadi Mi",
+  "Payments": "Àwọn Ìsanwó",
+  "Applicant console": "Gbọngan Olùbéèrè",
+  "Password": "Ọ̀rọ̀ Aṣínà",
+  "Create account": "Ṣẹda Akọọlẹ",
+  "Sign in": "Wọlé",
+};
+
+const IG: Record<string, string> = {
+  "Home": "Ulo",
+  "About": "Gbasara Anyi",
+  "FAQ": "Ajuju Ndị Dị Mkpa",
+  "Track": "Chọpụta Ọnọdụ",
+  "Verify card": "Nyochaa Kaadị",
+  "Contact": "Kpọtụrụ Anyị",
+  "Contact Support": "Kpọtụrụ Nkwado",
+  "Login": "Banye",
+  "Language": "Asụsụ",
+  "Apply Now!": "Tinye Akwụkwọ Ugbu a!",
+  "Apply for Your ECOWAS Residence Card": "Nweta Kaadị Obibi ECOWAS Gị",
+  "Obtain your ECOWAS Residence Card": "Nweta Kaadị Obibi ECOWAS Gị",
+  "Apply for Residence Card": "Tinye Akwụkwọ Maka Kaadị Obibi",
+  "Renew ECOWAS Residence Card": "Megharia Kaadị ECOWAS",
+  "Track Application": "Chọpụta Akwụkwọ Gị",
+  "Verify a Card": "Nyochaa Kaadị",
+  "General Information": "Ozi Izugbe",
+  "Personal details": "Nkọwa Onwe Onye",
+  "Passport": "Paspọtụ",
+  "Documents": "Akwụkwọ Nkwado",
+  "Step {n} of 8 — {title}": "Nzọụkwụ {n} n'ime 8 — {title}",
+  "Sign out": "Pụọ",
+  "My applications": "Akwụkwọ M Niile",
+  "My cards": "Kaadị M Niile",
+  "Payments": "Ịkwụ Ụgwọ",
+  "Applicant console": "Kọnsol Onye Na-etinye Akwụkwọ",
+  "Password": "Okwu Nzuzo",
+  "Create account": "Mepụta Akaụntụ",
+  "Sign in": "Banye",
+};
+
+const PCM: Record<string, string> = {
+  "Home": "Home",
+  "About": "About Us",
+  "FAQ": "Questions Wey People Dey Ask",
+  "Track": "Check Application Level",
+  "Verify card": "Check If Card Correct",
+  "Contact": "Contact Us",
+  "Contact Support": "Call Support",
+  "Login": "Login",
+  "Language": "Language",
+  "Apply Now!": "Apply Now!",
+  "Apply for Your ECOWAS Residence Card": "Apply For Your ECOWAS Residence Card",
+  "Obtain your ECOWAS Residence Card": "Apply For Your ECOWAS Residence Card",
+  "Apply for Residence Card": "Apply For Residence Card",
+  "Renew ECOWAS Residence Card": "Renew Your ECOWAS Card",
+  "Track Application": "Track Application",
+  "Verify a Card": "Verify Card",
+  "General Information": "General Information",
+  "Personal details": "Your Details",
+  "Passport": "Passport / Travel Certificate",
+  "Documents": "Your Documents",
+  "Step {n} of 8 — {title}": "Step {n} of 8 — {title}",
+  "Sign out": "Log Out",
+  "My applications": "My Applications",
+  "My cards": "My Cards",
+  "Payments": "Payments",
+  "Applicant console": "Applicant Console",
+  "Password": "Password",
+  "Create account": "Create Account",
+  "Sign in": "Sign In",
 };

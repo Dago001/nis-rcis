@@ -45,9 +45,9 @@ export default function StaffApplicationPage() {
 
   if (!detail) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
   const a = detail.data;
-  const canDecide = hasRole(user, "ApprovingOfficer") && a.status === "PENDING_APPROVAL";
-  const canCapture = hasRole(user, "ApprovingOfficer", "IssuingOfficer") && a.status === "APPROVED_FOR_BIOMETRICS";
-  const canCollect = hasRole(user, "ApprovingOfficer", "IssuingOfficer") && a.status === "READY_FOR_COLLECTION";
+  const canDecide = hasRole(user, "VettingOfficer", "ApprovingOfficer", "SuperAdmin", "Admin") && a.status === "PENDING_APPROVAL";
+  const canCapture = hasRole(user, "EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "APPROVED_FOR_BIOMETRICS";
+  const canCollect = hasRole(user, "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "READY_FOR_COLLECTION";
 
   return (
     <div className="space-y-6">
@@ -55,7 +55,14 @@ export default function StaffApplicationPage() {
         title={<>{a.application_number} <StatusBadge status={a.status} label={a.status_label} /></>}
         subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
+            {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+              <Link href={`/portal/applications/${a.id}/slip?kind=appointment`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Appointment slip</Link>
+            )}
+            {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+              <Link href={`/portal/applications/${a.id}/slip?kind=temporary`} target="_blank" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
+            )}
             {canCapture && <Link href={`/staff/applications/${a.id}/biometrics`} className="rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white">Open biometrics desk</Link>}
             {a.card && <Link href={`/staff/cards/${a.card.id}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Card {a.card.card_number}</Link>}
           </div>
@@ -66,8 +73,8 @@ export default function StaffApplicationPage() {
 
       <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
 
-      <ExternalChecks checks={detail.integration_checks} quota={a.quota_reference ? `${a.quota_reference} · ${a.employer_name ?? ""}` : null}
-        canRun={hasRole(user, "ApprovingOfficer")} busy={busy} onRun={() => act("integration-checks")} />
+      <ExternalChecks checks={detail.integration_checks}
+        canRun={hasRole(user, "VettingOfficer", "ApprovingOfficer", "SuperAdmin")} busy={busy} onRun={() => act("integration-checks")} />
 
       {a.sla && (
         <Alert tone={a.sla.overdue ? "danger" : "info"}>
@@ -75,7 +82,7 @@ export default function StaffApplicationPage() {
         </Alert>
       )}
 
-      <WorkPanel applicationId={a.id} assignedTo={a.assigned_to ?? null} canAssign={hasRole(user, "ApprovingOfficer", "IssuingOfficer")} onChanged={load} />
+      <WorkPanel applicationId={a.id} assignedTo={a.assigned_to ?? null} canAssign={hasRole(user, "VettingOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin")} onChanged={load} />
 
       {a.principal && (
         <Alert tone="info">
@@ -96,13 +103,13 @@ export default function StaffApplicationPage() {
       )}
 
       {canDecide && (
-        <Panel title="Decision">
+        <Panel title="Vetting & Decision" subtitle="Cross-check all documents and applicant particulars. If verified and correct, click Vetted to approve for biometrics. If corrections are needed, enter reasons and click Query.">
           <div className="space-y-3">
-            <Field label="Notes to the applicant" hint="Required when querying or rejecting. The applicant receives these by e-mail.">
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Field label="Notes / Reason for Query" hint="Required when querying or rejecting. The applicant receives this reason by e-mail and on their portal dashboard.">
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Enter details or reason if querying applicant..." />
             </Field>
             <div className="flex flex-wrap gap-2">
-              <Button disabled={busy} onClick={() => act("decision", { decision: "APPROVE", notes: notes || undefined })}>Approve for biometrics</Button>
+              <Button disabled={busy} onClick={() => act("decision", { decision: "APPROVE", notes: notes || "Application verified and vetted by immigration vetting officer." })}>✓ Vetted (Approve for biometrics)</Button>
               <Button variant="gold" disabled={busy || !notes.trim()} onClick={() => act("decision", { decision: "QUERY", notes })}>Query applicant</Button>
               <Button variant="danger" disabled={busy || !notes.trim()} onClick={() => confirm("Reject this application? This cannot be undone.") && act("decision", { decision: "REJECT", notes })}>Reject</Button>
             </div>

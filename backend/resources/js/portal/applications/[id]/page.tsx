@@ -65,6 +65,7 @@ function ApplicationDetail() {
   if (!app) return <Spinner />;
 
   const appointmentReady = ["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
+  const temporaryReady = ["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
 
   return (
     <div className="space-y-6">
@@ -77,6 +78,9 @@ function ApplicationDetail() {
             <Link href={`/portal/applications/${app.id}/slip`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold">Application slip</Link>
             {appointmentReady && (
               <Link href={`/portal/applications/${app.id}/slip?kind=appointment`} className="rounded-lg bg-nis-green px-3 py-2 text-sm font-semibold text-white">Appointment slip</Link>
+            )}
+            {temporaryReady && (
+              <Link href={`/portal/applications/${app.id}/slip?kind=temporary`} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
             )}
           </div>
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ECOWAS_NATIONALITIES } from "@/lib/nationalities";
+import { ECOWAS_NATIONALITIES, NATIONALITIES } from "@/lib/nationalities";
 import { NIGERIA_LGAS, NIGERIA_STATES } from "@/lib/nigeria-lgas";
 import { RELATIONSHIPS } from "@/lib/validation";
 import { lettersOnly, PhoneInput } from "./inputs";
@@ -66,16 +66,153 @@ function select(props: Props, name: string, label: string, options: string[], op
 
 const OTHER = "__OTHER__";
 
-/** Wizard step 1 — personal particulars (legacy residence card booklet fields). */
+/** Wizard step 1 of 8 — General Information (Nationality, Category, Document Type, Prescribed Fee). */
+export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
+  const { data, errors, set, touch, feeNaira } = props;
+  const docType = data.travel_document_type || "PASSPORT";
+  const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-5 sm:grid-cols-2">
+        {/* Nationality - Complete Dropdown of Countries */}
+        <Field
+          label="Nationality"
+          required
+          error={errors.nationality}
+          hint="Select your country of origin"
+        >
+          <Select
+            value={data.nationality ?? ""}
+            className={errors.nationality ? "!border-red-500" : ""}
+            onChange={(e) => {
+              set("nationality", e.target.value);
+              touch?.("nationality");
+            }}
+          >
+            <option value="">Select country…</option>
+            <optgroup label="ECOWAS Member States">
+              {ECOWAS_NATIONALITIES.map((n) => (
+                <option key={n.value} value={n.value}>
+                  {n.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="All Countries">
+              {NATIONALITIES.filter((c) => !ECOWAS_NATIONALITIES.some((e) => e.value === c)).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </optgroup>
+          </Select>
+        </Field>
+
+        {/* Category / Class: Student, Work, Business */}
+        <Field
+          label="Category / Class"
+          required
+          error={errors.category}
+          hint="Determines documents to provide"
+        >
+          <Select
+            value={data.category ?? "WORK"}
+            className={errors.category ? "!border-red-500" : ""}
+            onChange={(e) => {
+              set("category", e.target.value);
+              touch?.("category");
+            }}
+          >
+            <option value="WORK">Work (Employment)</option>
+            <option value="BUSINESS">Business (Trade / Enterprise)</option>
+            <option value="STUDENT">Student (Academic)</option>
+          </Select>
+        </Field>
+
+        {/* Document Type: Passport, ECOWAS Travel Certificate */}
+        <div className="sm:col-span-2">
+          <Field
+            label="Passport/Other Documents"
+            required
+            error={errors.travel_document_type}
+            hint="Choose Passport or ECOWAS Travel Certificate only"
+          >
+            <Select
+              value={docType}
+              className={errors.travel_document_type ? "!border-red-500" : ""}
+              onChange={(e) => {
+                set("travel_document_type", e.target.value);
+                touch?.("travel_document_type");
+              }}
+            >
+              <option value="PASSPORT">Passport</option>
+              <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
+            </Select>
+          </Field>
+        </div>
+      </div>
+
+      {/* Dynamic Document Notice depending on Category */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-slate-800">
+        <div className="font-semibold text-blue-900 mb-1">
+          {data.category === "STUDENT"
+            ? "Student Category: Admission Letter is Required"
+            : data.category === "BUSINESS"
+            ? "Business Category: CAC Registration Letter is Required"
+            : "Work Category: Appointment Letter is Required"}
+        </div>
+        <p className="text-xs text-blue-800">
+          {data.category === "STUDENT"
+            ? "You will upload your valid Institution Admission Letter in Step 5 (Documents)."
+            : data.category === "BUSINESS"
+            ? "You will upload your CAC Business Registration Letter / Certificate in Step 5 (Documents)."
+            : "You will upload your official Employment Appointment Letter in Step 5 (Documents)."}
+        </p>
+      </div>
+
+      {/* Prescribed Fee Notice Before Moving to Next Step */}
+      <div className="rounded-xl border-2 border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Prescribed Application Fee</span>
+            <div className="text-2xl font-bold text-slate-900 sm:text-3xl">₦{feeDisplay}</div>
+            <p className="mt-1 text-xs text-slate-600">
+              Prescribed fee payable at Step 7 before scheduling biometrics. Valid for 2 years from date of production.
+            </p>
+          </div>
+          <div className="rounded-lg bg-nis-primary/10 px-3.5 py-2 text-right">
+            <span className="text-xs font-medium text-nis-primary-dark">Card Validity</span>
+            <div className="font-bold text-slate-900">2 Years (from production)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Wizard step 2 — personal particulars. */
 export function PersonalFields(props: Props & { lockContact?: boolean }) {
   const { data, errors, set, touch, lockContact } = props;
   const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
+  const isDependant = Boolean(data.dependant_relationship || data.principal_application_id);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })}
+      {isDependant ? (
+        <Field label="Surname" required error={errors.surname} hint="Inherited from primary applicant (cannot be changed)">
+          <Input
+            name="surname"
+            value={data.surname ?? ""}
+            readOnly
+            disabled
+            className="bg-slate-100 font-semibold text-slate-700 cursor-not-allowed"
+          />
+        </Field>
+      ) : (
+        text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })
+      )}
       {text(props, "forenames", "Other names", { required: true, upper: true, letters: true })}
-      <Field label="Nationality" required error={errors.nationality} hint="ECOWAS member states only">
+      <Field label="Nationality" required error={errors.nationality} hint="As chosen in General Information">
         <Select
           value={data.nationality ?? ""}
           className={errors.nationality ? "!border-red-500" : ""}
@@ -127,30 +264,24 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
   );
 }
 
-/** Wizard step 2 — passport, national ID or ECOWAS travel certificate. */
+/** Wizard step 3 — Passport or ECOWAS Travel Certificate only (National ID removed). */
 export function PassportFields(props: Props) {
   const { data, errors, set, touch } = props;
   const today = new Date().toISOString().slice(0, 10);
-  const docType = data.travel_document_type || "PASSPORT";
+  const docType = data.travel_document_type === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
 
-  const numLabel = docType === "NATIONAL_ID"
-    ? "National ID number (from home country)"
-    : docType === "ECOWAS_TC"
+  const numLabel = docType === "ECOWAS_TC"
     ? "ECOWAS Travel Certificate number"
     : "Passport number";
 
-  const numHint = docType === "NATIONAL_ID"
-    ? "As printed on your home country national ID"
-    : docType === "ECOWAS_TC"
-    ? "As printed on your travel certificate"
+  const numHint = docType === "ECOWAS_TC"
+    ? "As printed on your ECOWAS Travel Certificate"
     : "6–15 letters and digits, no spaces";
-
-  const expiryRequired = docType !== "NATIONAL_ID";
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <Field label="Document type" required hint="Choose Passport, National ID from your country, or ECOWAS Travel Certificate">
+        <Field label="Passport/Other Documents" required hint="Passport or ECOWAS Travel Certificate only">
           <Select
             value={docType}
             onChange={(e) => {
@@ -158,8 +289,7 @@ export function PassportFields(props: Props) {
               touch?.("travel_document_type");
             }}
           >
-            <option value="PASSPORT">International Passport</option>
-            <option value="NATIONAL_ID">National Identification Number from home country</option>
+            <option value="PASSPORT">Passport</option>
             <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
           </Select>
         </Field>
@@ -177,13 +307,9 @@ export function PassportFields(props: Props) {
 
       {text(props, "passport_issue_date", "Document issue date", { type: "date", max: today })}
 
-      {expiryRequired ? (
-        text(props, "passport_expiry", "Document expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })
-      ) : (
-        text(props, "passport_expiry", "Document expiry date (if any)", { type: "date", min: today, hint: "Leave blank if your National ID does not expire" })
-      )}
+      {text(props, "passport_expiry", "Document expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })}
 
-      {text(props, "national_id_number", "NIN (if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
+      {text(props, "national_id_number", "National Identification Number (NIN, if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
       {text(props, "tax_id_number", "Tax identification number (if any)", { maxLength: 20 })}
     </div>
   );

@@ -59,7 +59,7 @@ it('runs the complete legacy workflow from online application to card collection
         ->json('data');
 
     expect($app['application_number'])->toMatch('/^RC-\d{4}-\d{6}$/')
-        ->and($app['documents'])->toHaveCount(3);
+        ->and($app['documents'])->toHaveCount(4);
     $this->getJson('/api/v1/applicant/draft')->assertJsonPath('draft', null);
 
     // Payment cannot be reused.
@@ -348,7 +348,7 @@ it('shows staff a paid applicant straight away, before the application is submit
 
     $this->getJson("/api/v1/staff/payments/{$row['id']}")->assertOk()
         ->assertJsonPath('draft_data.surname', 'PAIDEARLY')
-        ->assertJsonCount(3, 'draft_documents')
+        ->assertJsonCount(4, 'draft_documents')
         ->assertJsonMissingPath('receipt.authorization_code');
     $this->getJson('/api/v1/staff/dashboard')->assertOk()
         ->assertJsonPath('paid_awaiting_submission', 1)
@@ -433,8 +433,8 @@ it('issues the ECOWAS residence card only to citizens of ECOWAS member states', 
     uploadDraftDocs();
     $reference = paidReference();
 
-    // Not ECOWAS, left ECOWAS in 2025, or Nigerian: refused with a clear message.
-    foreach (['CAMEROON', 'UNITED KINGDOM', 'MALI', 'NIGERIA'] as $nationality) {
+    // Not ECOWAS or Nigerian: refused with a clear message.
+    foreach (['CAMEROON', 'UNITED KINGDOM', 'KENYA', 'NIGERIA'] as $nationality) {
         $this->postJson('/api/v1/applicant/applications', particulars(['nationality' => $nationality, 'payment_reference' => $reference]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['nationality' => 'only for citizens of ECOWAS member states']);

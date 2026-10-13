@@ -13,7 +13,7 @@ const ALL_ROLES: [StaffRole, string][] = [
   ["SuperAdmin", "Super Administrator"],
   ["Admin", "Admin"],
   ["Supervisor", "Supervisor"],
-  ["DataEntryOfficer", "Data Entry Officer"],
+  ["VettingOfficer", "Vetting Officer"],
   ["ApprovingOfficer", "Approving Officer"],
   ["EnrollmentOfficer", "Enrollment Officer"],
   ["ProductionOfficer", "Production Officer"],
@@ -32,7 +32,7 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false);
 
   // Form State for dynamic Command / State / LGA
-  const [selectedRole, setSelectedRole] = useState<StaffRole>("DataEntryOfficer");
+  const [selectedRole, setSelectedRole] = useState<StaffRole>("VettingOfficer");
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedLga, setSelectedLga] = useState<string>("");
   const [commandType, setCommandType] = useState<"STATE_LGA" | "HEADQUARTERS">("STATE_LGA");

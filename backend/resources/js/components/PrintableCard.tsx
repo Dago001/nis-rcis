@@ -25,21 +25,36 @@ function height(value?: string | null): string {
 
 function stateCode(c: Card): string {
   const s = (c.domicile_state || "").trim().toUpperCase();
-  if (!s) return "ABJ";
-  if (s.length <= 3) return s;
+  if (!s) return "FC";
   const map: Record<string, string> = {
-    ABUJA: "ABJ", "FEDERAL CAPITAL TERRITORY": "FCT", FCT: "FCT",
-    LAGOS: "LA", KANO: "KN", RIVERS: "RV", OYO: "OY",
-    KADUNA: "KD", OGUN: "OG", ENUGU: "EN", DELTA: "DT",
-    EDO: "ED", ANAMBRA: "AN", "AKWA IBOM": "AK", "CROSS RIVER": "CR",
-    IMO: "IM", ABIA: "AB", PLATEAU: "PL", BENUE: "BN",
-    BORNO: "BO", BAUCHI: "BA", KATSINA: "KT", NIGER: "NG",
-    KWARA: "KW", ONDO: "OD", OSUN: "OS", EKITI: "EK",
-    SOKOTO: "SO", ZAMFARA: "ZM", KEBBI: "KB", GOMBE: "GB",
-    YOBE: "YB", ADAMAWA: "AD", TARABA: "TR", KOGI: "KG",
-    NASARAWA: "NA", JIGAWA: "JG", BAYELSA: "BY", EBONYI: "EB",
+    ABUJA: "FC", "FEDERAL CAPITAL TERRITORY": "FC", FCT: "FC",
+    ABIA: "AB", ADAMAWA: "AD", "AKWA IBOM": "AK", ANAMBRA: "AN",
+    BAUCHI: "BA", BAYELSA: "BY", BENUE: "BN", BORNO: "BO",
+    "CROSS RIVER": "CR", DELTA: "DE", EBONYI: "EB", EDO: "ED",
+    EKITI: "EK", ENUGU: "EN", GOMBE: "GO", IMO: "IM",
+    JIGAWA: "JI", KADUNA: "KD", KANO: "KN", KATSINA: "KT",
+    KEBBI: "KB", KOGI: "KO", KWARA: "KW", LAGOS: "LA",
+    NASARAWA: "NA", NIGER: "NI", OGUN: "OG", ONDO: "OD",
+    OSUN: "OS", OYO: "OY", PLATEAU: "PL", RIVERS: "RV",
+    SOKOTO: "SO", TARABA: "TA", YOBE: "YO", ZAMFARA: "ZA",
   };
-  return map[s] || s.slice(0, 3);
+  return map[s] || (s.length === 2 ? s : s.slice(0, 2));
+}
+
+function cardType(c: Card): string {
+  const cat = (c.category || "").toUpperCase();
+  if (cat === "BUSINESS") return "TYPE 02 - BUSINESS RESIDENCE";
+  if (cat === "STUDENT") return "TYPE 03 - STUDENT RESIDENCE";
+  return "TYPE 01 - RESIDENCE CARD";
+}
+
+function fullDomicile(c: Card): string {
+  const parts = [
+    c.domicile?.trim(),
+    c.domicile_lga?.trim() ? `LGA: ${c.domicile_lga.trim()}` : null,
+    c.domicile_state?.trim() ? `${c.domicile_state.trim()} STATE` : null,
+  ].filter(Boolean);
+  return parts.join(", ") || "—";
 }
 
 /** Shrinks a single-line value so long names still fit their box (sizes are in design px). */
@@ -101,6 +116,11 @@ function Front({ p }: { p: PrintData }) {
           {stateCode(c)}
         </div>
 
+        {/* Fainted NIS Logo watermark behind/replacing ICAO chip */}
+        <div className={s.nisLogoWatermark}>
+          <img src={withBase("/images/nis-logo.png")} alt="" />
+        </div>
+
         {/* Ghost photo */}
         <div className={s.ghost}>
           {p.photo_url && <img src={p.photo_url} alt="" />}
@@ -127,10 +147,10 @@ function Back({ p }: { p: PrintData }) {
           {c.issued_at || "NIS HEADQUARTERS, ABUJA"}
         </div>
         <div className={s.valCardType}>
-          RESIDENCE CARD
+          {cardType(c)}
         </div>
-        <div className={s.valDomicile} style={{ fontSize: `${fit(c.domicile, 15, 580, 2)}px` }}>
-          {c.domicile}
+        <div className={s.valDomicile} style={{ fontSize: `${fit(fullDomicile(c), 15, 580, 2)}px` }}>
+          {fullDomicile(c)}
         </div>
         <div className={s.valProfession} style={{ fontSize: `${fit(c.profession || "—", 16, 205)}px` }}>
           {c.profession || "—"}

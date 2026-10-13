@@ -7,6 +7,7 @@ enum StaffRole: string
     case SuperAdmin = 'SuperAdmin';
     case Admin = 'Admin';
     case Supervisor = 'Supervisor';
+    case VettingOfficer = 'VettingOfficer';
     case DataEntryOfficer = 'DataEntryOfficer';
     case ApprovingOfficer = 'ApprovingOfficer';
     case EnrollmentOfficer = 'EnrollmentOfficer';
@@ -22,7 +23,7 @@ enum StaffRole: string
             self::SuperAdmin => 'Super Administrator',
             self::Admin => 'Admin',
             self::Supervisor => 'Supervisor',
-            self::DataEntryOfficer => 'Data Entry Officer',
+            self::VettingOfficer, self::DataEntryOfficer => 'Vetting Officer',
             self::ApprovingOfficer => 'Approving Officer',
             self::EnrollmentOfficer => 'Enrollment Officer',
             self::ProductionOfficer => 'Production Officer',

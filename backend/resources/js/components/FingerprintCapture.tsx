@@ -13,7 +13,23 @@ import { CONFIGURED, detectScanner, driver, DRIVERS, SIMULATOR_ALLOWED, type Fin
  */
 export type { Fingerprint } from "@/lib/fingerprint";
 
-const FINGERS: [string, string][] = [["R_INDEX", "Right index"], ["L_INDEX", "Left index"], ["R_THUMB", "Right thumb"], ["L_THUMB", "Left thumb"]];
+const RIGHT_HAND: [string, string][] = [
+  ["R_THUMB", "Right Thumb"],
+  ["R_INDEX", "Right Index"],
+  ["R_MIDDLE", "Right Middle"],
+  ["R_RING", "Right Ring"],
+  ["R_LITTLE", "Right Little"],
+];
+
+const LEFT_HAND: [string, string][] = [
+  ["L_THUMB", "Left Thumb"],
+  ["L_INDEX", "Left Index"],
+  ["L_MIDDLE", "Left Middle"],
+  ["L_RING", "Left Ring"],
+  ["L_LITTLE", "Left Little"],
+];
+
+const ALL_FINGERS = [...RIGHT_HAND, ...LEFT_HAND];
 const MIN_QUALITY = 40;
 const CHOICE_KEY = "nis-rcis:scanner";
 
@@ -93,10 +109,15 @@ export function FingerprintCapture({ onChange }: { onChange: (prints: Fingerprin
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-600">
-        Capture at least the two index fingers. If a finger cannot be captured (injury), capture the thumb instead.
-        {off && " Fingerprint scanners are switched off in this installation."}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+        <p>
+          Capture all 10 fingers (Right Hand &amp; Left Hand). Standard biometric protocol requires ten-print capture.
+          {off && " Fingerprint scanners are switched off in this installation."}
+        </p>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+          {Object.keys(prints).length} of 10 captured
+        </span>
+      </div>
 
       {!off && (
         <div className="space-y-2">
@@ -132,33 +153,70 @@ export function FingerprintCapture({ onChange }: { onChange: (prints: Fingerprin
       )}
 
       {error && <Alert tone="danger">{error}</Alert>}
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {FINGERS.map(([code, label]) => {
-          const p = prints[code];
-          return (
-            <li key={code} className="rounded-xl border border-slate-200 p-3 text-center text-sm">
-              <div className="font-medium">{label}</div>
-              <div className="mx-auto my-2 flex h-32 w-24 items-center justify-center overflow-hidden rounded border border-dashed border-slate-300 bg-slate-50">
-                {p?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain" />
-                ) : (
-                  <span className="px-1 text-xs text-slate-400">{p ? (p.format === "WSQ" ? "Captured ✓ (WSQ image)" : "Captured ✓") : "Not captured"}</span>
+
+      {/* Right Hand */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Right Hand (5 Fingers)</h3>
+        <ul className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+          {RIGHT_HAND.map(([code, label]) => {
+            const p = prints[code];
+            return (
+              <li key={code} className="rounded-xl border border-slate-200 bg-white p-3 text-center text-sm shadow-sm">
+                <div className="font-semibold text-xs text-slate-800">{label}</div>
+                <div className="mx-auto my-2 flex h-28 w-20 items-center justify-center overflow-hidden rounded border border-dashed border-slate-300 bg-slate-50">
+                  {p?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="px-1 text-[11px] text-slate-400">{p ? "Captured ✓" : "Pending"}</span>
+                  )}
+                </div>
+                {p && (p.quality !== null || p.nfiq) && (
+                  <div className="mb-1.5 text-[10px] text-slate-500">{[p.quality !== null && `Q ${p.quality}`, p.nfiq && `NFIQ ${p.nfiq}`].filter(Boolean).join(" · ")}</div>
                 )}
-              </div>
-              {p && (p.quality !== null || p.nfiq) && (
-                <div className="mb-2 text-xs text-slate-500">{[p.quality !== null && `Quality ${p.quality}`, p.nfiq && `NFIQ ${p.nfiq}`].filter(Boolean).join(" · ")}</div>
-              )}
-              <div className="flex justify-center gap-1">
-                <Button variant={p ? "secondary" : "primary"} className="!px-3 !py-1.5" disabled={busy !== null || off || !active} onClick={() => capture(code)}>
-                  {busy === code ? "Place finger…" : p ? "Retake" : "Capture"}
-                </Button>
-                {p && <Button variant="ghost" className="!px-2 !py-1.5" onClick={() => remove(code)} aria-label={`Remove ${label}`}>✕</Button>}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                <div className="flex justify-center gap-1">
+                  <Button variant={p ? "secondary" : "primary"} className="!px-2.5 !py-1 text-xs" disabled={busy !== null || off || !active} onClick={() => capture(code)}>
+                    {busy === code ? "Capturing…" : p ? "Retake" : "Capture"}
+                  </Button>
+                  {p && <Button variant="ghost" className="!px-1.5 !py-1 text-xs text-slate-400 hover:text-red-600" onClick={() => remove(code)} aria-label={`Remove ${label}`}>✕</Button>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {/* Left Hand */}
+      <div className="space-y-2 pt-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Left Hand (5 Fingers)</h3>
+        <ul className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+          {LEFT_HAND.map(([code, label]) => {
+            const p = prints[code];
+            return (
+              <li key={code} className="rounded-xl border border-slate-200 bg-white p-3 text-center text-sm shadow-sm">
+                <div className="font-semibold text-xs text-slate-800">{label}</div>
+                <div className="mx-auto my-2 flex h-28 w-20 items-center justify-center overflow-hidden rounded border border-dashed border-slate-300 bg-slate-50">
+                  {p?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="px-1 text-[11px] text-slate-400">{p ? "Captured ✓" : "Pending"}</span>
+                  )}
+                </div>
+                {p && (p.quality !== null || p.nfiq) && (
+                  <div className="mb-1.5 text-[10px] text-slate-500">{[p.quality !== null && `Q ${p.quality}`, p.nfiq && `NFIQ ${p.nfiq}`].filter(Boolean).join(" · ")}</div>
+                )}
+                <div className="flex justify-center gap-1">
+                  <Button variant={p ? "secondary" : "primary"} className="!px-2.5 !py-1 text-xs" disabled={busy !== null || off || !active} onClick={() => capture(code)}>
+                    {busy === code ? "Capturing…" : p ? "Retake" : "Capture"}
+                  </Button>
+                  {p && <Button variant="ghost" className="!px-1.5 !py-1 text-xs text-slate-400 hover:text-red-600" onClick={() => remove(code)} aria-label={`Remove ${label}`}>✕</Button>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }

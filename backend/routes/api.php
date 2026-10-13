@@ -153,13 +153,15 @@ Route::prefix('v1')->group(function () {
             Route::post('{id}/finish', [QueueController::class, 'finish'])->whereNumber('id');
         });
 
-        Route::middleware('role:DataEntryOfficer,SuperAdmin,Admin')->group(function () {
+        Route::middleware('role:VettingOfficer,DataEntryOfficer,SuperAdmin,Admin')->group(function () {
             Route::post('applications', [StaffApplications::class, 'store']);
             Route::post('applications/{id}/documents', [StaffApplications::class, 'uploadDocument'])->whereNumber('id');
         });
 
+        Route::get('applications/{id}/slip', [StaffApplications::class, 'slip'])->whereNumber('id');
+
         Route::post('applications/{id}/decision', [StaffApplications::class, 'decide'])
-            ->middleware('role:ApprovingOfficer')->whereNumber('id');
+            ->middleware('role:VettingOfficer,ApprovingOfficer,SuperAdmin,Admin')->whereNumber('id');
 
         Route::middleware('role:EnrollmentOfficer,ApprovingOfficer,IssuingOfficer')->group(function () {
             Route::post('applications/{id}/biometrics', [StaffApplications::class, 'captureBiometrics'])->whereNumber('id');
