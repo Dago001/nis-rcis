@@ -33,6 +33,16 @@ Route::middleware('web')->group(function () {
     Route::get('/track', fn () => Inertia::render('Public/Track'))->name('track');
     Route::get('/verify', fn () => Inertia::render('Public/Verify'))->name('verify');
     Route::get('/queue-display/{center}', fn ($center) => Inertia::render('Public/QueueDisplay', ['center' => $center]))->name('queue-display');
+    Route::get('/favicon.ico', function () {
+        $path = public_path('images/nis-logo.png');
+        if (! file_exists($path)) {
+            $path = public_path('favicon.ico');
+        }
+        return response()->file($path, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=604800',
+        ]);
+    });
 
     // -------------------------------------------------- Auth Pages (Inertia)
     Route::get('/login', fn () => Inertia::render('Auth/Login'))->name('login');

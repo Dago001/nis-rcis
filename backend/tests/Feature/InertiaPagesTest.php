@@ -17,6 +17,11 @@ it('renders public pages via Inertia successfully', function (string $url, strin
     ['/login', 'Auth/Login'],
 ]);
 
+it('serves favicon.ico successfully', function () {
+    $response = $this->get('/favicon.ico');
+    $response->assertOk();
+});
+
 it('responds to public chatbot assistant queries', function () {
     $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
 

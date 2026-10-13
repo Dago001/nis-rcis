@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title>@yield('title') — Nigeria Immigration Service</title>
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/nis-logo.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/nis-logo.png') }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ asset('images/nis-logo.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/apple-touch-icon.png') }}">
     <style>
         :root {
             --primary:#2b892b; --primary-dark:#1f6b1f; --deep:#073f1c; --mint:#eef7f1; --orange:#ea7317;
