@@ -8,7 +8,11 @@ export function Link({ href, children, className, style, onClick, target, rel, p
       href.startsWith('https://') ||
       href.startsWith('mailto:') ||
       href.startsWith('tel:') ||
-      href.startsWith('#'));
+      href.startsWith('#') ||
+      href === '/login/applicant' ||
+      href === '/login/staff' ||
+      href.startsWith('/login/staff/') ||
+      href.startsWith('/api/'));
 
   if (isExternal || target === '_blank') {
     return (
