@@ -17,9 +17,9 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, 'resources/js'),
             'WebSdk': path.resolve(__dirname, 'resources/js/lib/fingerprint/websdk-shim.ts'),
-            'next/link': path.resolve(__dirname, 'resources/js/lib/navigation.tsx'),
-            'next/navigation': path.resolve(__dirname, 'resources/js/lib/navigation.tsx'),
-            'next/image': path.resolve(__dirname, 'resources/js/lib/navigation.tsx'),
+            'next/link': path.resolve(__dirname, 'resources/js/lib/next-link.tsx'),
+            'next/navigation': path.resolve(__dirname, 'resources/js/lib/next-navigation.tsx'),
+            'next/image': path.resolve(__dirname, 'resources/js/lib/next-image.tsx'),
         },
     },
 });
