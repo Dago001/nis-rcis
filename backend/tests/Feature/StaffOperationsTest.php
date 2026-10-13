@@ -121,3 +121,34 @@ it('produces the monthly management report as PDF and Excel, and saves report fi
     asStaff(User::where('role', StaffRole::IssuingOfficer)->firstOrFail());
     $this->get('/api/v1/staff/reports/management')->assertForbidden();
 });
+
+it('prevents Administrator from modifying, resetting 2FA, resetting password, or revoking sessions of Super Administrators', function () {
+    $superAdmin = User::factory()->role(StaffRole::SuperAdmin)->create([
+        'username' => 'sup_admin',
+        'email' => 'sup_admin@example.com',
+        'two_factor_secret' => \App\Support\Totp::generateSecret(),
+        'two_factor_confirmed_at' => now(),
+    ]);
+    $admin = User::factory()->role(StaffRole::Admin)->create([
+        'username' => 'sub_admin',
+        'email' => 'sub_admin@example.com',
+    ]);
+
+    asStaff($admin);
+
+    // Admin cannot modify SuperAdmin
+    $this->patchJson("/api/v1/staff/users/{$superAdmin->id}", ['fullname' => 'Hacked Admin'])->assertForbidden();
+
+    // Admin cannot reset SuperAdmin 2FA
+    $this->postJson("/api/v1/staff/users/{$superAdmin->id}/reset-two-factor")->assertForbidden();
+
+    // Admin cannot reset SuperAdmin password
+    $this->postJson("/api/v1/staff/users/{$superAdmin->id}/reset-password")->assertForbidden();
+
+    // Admin cannot revoke SuperAdmin sessions
+    $this->postJson("/api/v1/staff/users/{$superAdmin->id}/revoke-sessions")->assertForbidden();
+
+    // Staff cannot reset their own password via admin endpoint
+    $this->postJson("/api/v1/staff/users/{$admin->id}/reset-password")->assertStatus(422);
+});
+

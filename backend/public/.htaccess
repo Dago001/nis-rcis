@@ -5,6 +5,10 @@
 
     RewriteEngine On
 
+    # Block access to hidden files and sensitive extensions (.env, .git, .sql, .bak, etc.)
+    RewriteRule ^(\.env|\.git|\.well-known/.*$|\.ht) - [F,L]
+    RewriteRule \.(env|git|sql|sqlite|bak|log|sh|bat|cmd|ini|conf|ya?ml)$ - [F,L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

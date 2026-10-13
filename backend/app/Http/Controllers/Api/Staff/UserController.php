@@ -177,8 +177,13 @@ class UserController
      */
     public function resetTwoFactor(Request $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
         $user = User::findOrFail($id);
-        abort_if($user->is($request->user()), 422, 'Another Super Administrator must reset your own authenticator.');
+        abort_if($user->is($currentUser), 422, 'Another Super Administrator must reset your own authenticator.');
+
+        if ($currentUser && $currentUser->role === StaffRole::Admin && $user->role === StaffRole::SuperAdmin) {
+            abort(403, 'Administrators cannot modify Super Administrator accounts.');
+        }
 
         $user->forceFill(['two_factor_secret' => null, 'two_factor_confirmed_at' => null, 'two_factor_last_step' => null])->save();
         $user->tokens()->update(['revoked' => true]);
@@ -190,7 +195,13 @@ class UserController
     /** Sign an officer out everywhere (revokes every access and refresh token). */
     public function revokeSessions(Request $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
         $user = User::findOrFail($id);
+
+        if ($currentUser && $currentUser->role === StaffRole::Admin && $user->role === StaffRole::SuperAdmin) {
+            abort(403, 'Administrators cannot modify Super Administrator accounts.');
+        }
+
         $count = $user->tokens()->where('revoked', false)->update(['revoked' => true]);
         Audit::log('STAFF_SESSIONS_REVOKED', "Signed {$user->auditLabel()} out of all sessions", $user, ['tokens' => $count]);
 
@@ -199,7 +210,15 @@ class UserController
 
     public function resetPassword(Request $request, int $id): JsonResponse
     {
+        $currentUser = $request->user();
         $user = User::findOrFail($id);
+
+        abort_if($user->is($currentUser), 422, 'You cannot reset your own password here. Please use the change password setting.');
+
+        if ($currentUser && $currentUser->role === StaffRole::Admin && $user->role === StaffRole::SuperAdmin) {
+            abort(403, 'Administrators cannot modify Super Administrator accounts.');
+        }
+
         $password = Str::password(16);
 
         $user->forceFill(['password' => $password, 'must_change_password' => true])->save();
