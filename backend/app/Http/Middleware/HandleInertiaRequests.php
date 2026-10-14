@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -73,6 +74,8 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'info' => fn () => $request->session()->get('info'),
             ],
+            'announcement' => fn () => SystemSetting::get('broadcast', ['is_active' => false]),
+            'countdown' => fn () => SystemSetting::get('countdown', ['is_active' => false]),
         ];
     }
 }

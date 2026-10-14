@@ -3,12 +3,15 @@ import Image from "next/image";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { FooterForPath } from "@/components/public/FooterForPath";
 import { ChatWidget } from "@/components/ChatWidget";
+import { CookieConsentNotice } from "@/components/CookieConsentNotice";
+import { GlobalAnnouncements } from "@/components/GlobalAnnouncements";
 
 export function PublicLayout({ children, noMain = false }: { children: ReactNode; noMain?: boolean }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#f4f6f5]">
       <a href="#main" className="skip-link">Skip to main content</a>
       <PublicHeader />
+      <GlobalAnnouncements />
       {noMain ? children : (
         <main id="main" tabIndex={-1} className="flex-1">
           {children}
@@ -16,6 +19,7 @@ export function PublicLayout({ children, noMain = false }: { children: ReactNode
       )}
       <FooterForPath />
       <ChatWidget scope="public" />
+      <CookieConsentNotice />
     </div>
   );
 }
