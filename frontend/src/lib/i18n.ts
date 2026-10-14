@@ -66,6 +66,7 @@ const FR: Record<string, string> = {
   // Landing page
   "Directorate of Visa and Residency": "Direction des visas et de la résidence",
   "Apply for Your ECOWAS Residence Card": "Demandez votre carte de résident CEDEAO",
+  "ECOWAS Residence Card": "Carte de résident CEDEAO",
   "Obtain your ECOWAS Residence Card": "Demandez votre carte de résident CEDEAO",
   "Apply Now!": "Postulez maintenant !",
   "Citizens of ECOWAS member states resident in Nigeria can apply for, renew and track their ECOWAS Residence Card online.": "Les citoyens des États membres de la CEDEAO résidant au Nigeria peuvent demander, renouveler et suivre leur carte de résident CEDEAO en ligne.",
