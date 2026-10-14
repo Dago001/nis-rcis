@@ -124,7 +124,7 @@
     </div>
     <section class="panel">
         @yield('content')
-        <div class="back"><a href="{{ config('nis.frontend_url') }}">← Back to the ECOWAS Residence Card Portal</a></div>
+        <div class="back"><a href="{{ config('nis.frontend_url') }}">Back</a></div>
     </section>
 </main>
 <footer class="site-footer">Nigeria Immigration Service · All rights reserved © {{ date('Y') }}</footer>
