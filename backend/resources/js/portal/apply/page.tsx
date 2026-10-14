@@ -440,6 +440,7 @@ function Wizard() {
   }
 
   async function submit() {
+    if (busy) return;
     if (!checkStep(8)) return;
     // The declaration (step 6) and payment (step 7) must both be complete.
     for (const n of [6, 7]) {
