@@ -77,7 +77,7 @@ export default function Home() {
 
         <div className="relative z-10 max-w-4xl text-white">
           <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
-            {t("Apply for Your ECOWAS Residence Card")}
+            {t("Apply for ECOWAS Residence Card")}
             <span className="block text-nis-orange animate-apply-now">{t("Apply Now!")}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-white/85 sm:text-lg">
