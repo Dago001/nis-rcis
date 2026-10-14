@@ -20,7 +20,7 @@ function Batch() {
     <div className="space-y-6">
       <div className="no-print flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-600">
-          Batch of <strong>{data.data.length}</strong> card(s). Blank cards in stock: <strong>{data.stock.remaining}</strong>. Prints front then back for each card: choose the Fargo HDP5000, CR80 card, 100% scale, no margins.
+          Batch of <strong>{data.data.length}</strong> card(s). Blank cards in stock: <strong>{data.stock.remaining}</strong>.
         </p>
         <Button onClick={() => window.print()} disabled={data.stock.remaining < data.data.length}>Print all</Button>
       </div>

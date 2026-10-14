@@ -23,8 +23,7 @@ export default function PrintCardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-600">Prints two pages, front then back: choose the Fargo HDP5000, CR80 card, 100% scale, no margins. <Link href={`/staff/cards/${id}`} className="underline">Back to the card</Link></p>
+      <div className="no-print flex items-center justify-end gap-3">
         <Button onClick={() => window.print()}>Print</Button>
       </div>
       <PrintableCard p={p} />
