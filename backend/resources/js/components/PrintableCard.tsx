@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { createPortal } from "react-dom";
 import { QrCode } from "@/components/QrCode";
-import { td1Mrz } from "@/lib/mrz";
+import { td2Mrz } from "@/lib/mrz";
 import type { Card } from "@/lib/types";
 import s from "./PrintableCard.module.css";
 import { withBase } from "@/lib/base-path";
@@ -149,7 +149,7 @@ function Back({ p }: { p: PrintData }) {
         <div className={s.valCardType}>
           {cardType(c)}
         </div>
-        <div className={s.valDomicile} style={{ fontSize: `${fit(fullDomicile(c), 15, 580, 2)}px` }}>
+        <div className={s.valDomicile} style={{ fontSize: `${fit(fullDomicile(c), 13, 580, 2)}px` }}>
           {fullDomicile(c)}
         </div>
         <div className={s.valProfession} style={{ fontSize: `${fit(c.profession || "—", 16, 205)}px` }}>
@@ -165,9 +165,9 @@ function Back({ p }: { p: PrintData }) {
           {cardDate(c.expires_on)}
         </div>
 
-        {/* ICAO 9303 TD1 3-line Machine Readable Zone */}
+        {/* ICAO 9303 TD2 2-line Machine Readable Zone */}
         <div className={s.mrz} aria-hidden="true">
-          {td1Mrz({
+          {td2Mrz({
             documentNumber: c.card_number,
             dateOfBirth: c.date_of_birth,
             sex: c.sex,
@@ -175,7 +175,7 @@ function Back({ p }: { p: PrintData }) {
             nationality: c.nationality,
             surname: c.surname,
             givenNames: c.forenames,
-          }).map((line) => <div key={line}>{line}</div>)}
+          }).map((line, idx) => <div key={idx}>{line}</div>)}
         </div>
       </section>
     </div>

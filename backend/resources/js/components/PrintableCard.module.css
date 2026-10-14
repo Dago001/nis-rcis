@@ -295,11 +295,11 @@
 .valDomicile {
   position: absolute;
   left: 234px;
-  top: 189px;
+  top: 178px;
   width: 580px;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.18;
   color: var(--ink);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -370,22 +370,22 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 122px;
+  height: 98px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   font-family: NisCardPlex, monospace;
   font-weight: 500;
-  font-size: 24px;
-  letter-spacing: 11px;
-  line-height: 1.4;
+  font-size: 22px;
+  letter-spacing: 5px;
+  line-height: 1.55;
   color: #000;
   white-space: pre;
   z-index: 1;
 }
 .mrz div {
-  margin-right: -11px;
+  margin-right: -5px;
 }
 
 .red { color: var(--red); }

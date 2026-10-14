@@ -65,3 +65,30 @@ export function td1Mrz(d: MrzInput): [string, string, string] {
 
   return [line1, line2, line3];
 }
+
+/** The two 36-character lines of a TD2 machine-readable zone (ICAO 9303 Part 6). */
+export function td2Mrz(d: MrzInput): [string, string] {
+  const code = pad(clean(d.documentCode ?? "IR"), 2);
+  const state = pad(clean(d.issuingState ?? "NGA"), 3);
+  const name = pad(`${clean(d.surname)}<<${clean(d.givenNames)}`.replace(/^<+|<+$/g, "").replace(/(<<)<+/g, "$1"), 31);
+  const line1 = code + state + name;
+
+  const doc = clean(d.documentNumber).replace(/</g, "");
+  const docField = doc.length <= 9 ? pad(doc, 9) + checkDigit(pad(doc, 9)) : doc.slice(0, 9) + "<";
+  const optional = doc.length <= 9 ? pad("", 7) : pad(doc.slice(9) + checkDigit(doc), 7);
+
+  const nat = pad(countryCode(d.nationality), 3);
+  const dob = mrzDate(d.dateOfBirth);
+  const dobWithCd = dob + checkDigit(dob);
+  const sex = d.sex.toUpperCase().startsWith("M") ? "M" : d.sex.toUpperCase().startsWith("F") ? "F" : "<";
+  const exp = mrzDate(d.dateOfExpiry);
+  const expWithCd = exp + checkDigit(exp);
+
+  const compositeSource = docField + dobWithCd + expWithCd + optional;
+  const compositeCd = checkDigit(compositeSource);
+
+  const line2 = docField + nat + dobWithCd + sex + expWithCd + optional + compositeCd;
+
+  return [line1, line2];
+}
+
