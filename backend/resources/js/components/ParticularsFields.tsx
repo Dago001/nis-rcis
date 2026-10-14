@@ -43,22 +43,46 @@ function text(props: Props, name: string, label: string, opts: TextOptions = {})
   );
 }
 
-function select(props: Props, name: string, label: string, options: string[], opts: { required?: boolean; placeholder?: string; disabled?: boolean } = {}) {
+export type SelectOption = string | { value: string; label: string };
+
+function select(
+  props: Props,
+  name: string,
+  label: string,
+  options: SelectOption[],
+  opts: { required?: boolean; placeholder?: string; disabled?: boolean } = {}
+) {
+  const normalizedOptions = options.map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o
+  );
+
+  const rawValue = (props.data[name] ?? "").trim();
+  const matched = normalizedOptions.find(
+    (o) => o.value.toLowerCase() === rawValue.toLowerCase()
+  );
+  const selectedValue = matched ? matched.value : rawValue;
+
   return (
     <Field label={label} required={opts.required} error={props.errors[name]}>
       <Select
-        value={props.data[name] ?? ""}
+        name={name}
+        value={selectedValue}
         disabled={opts.disabled}
         aria-invalid={Boolean(props.errors[name])}
         className={props.errors[name] ? "!border-red-500" : ""}
         onChange={(e) => {
-          props.set(name, e.target.value);
+          const val = e.target.value;
+          props.set(name, val);
           props.touch?.(name);
         }}
         onBlur={() => props.touch?.(name)}
       >
         <option value="">{opts.placeholder ?? "Select…"}</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        {normalizedOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </Select>
     </Field>
   );
@@ -69,8 +93,19 @@ const OTHER = "__OTHER__";
 /** Wizard step 1 of 8 — General Information (Nationality, Category, Document Type, Prescribed Fee). */
 export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
   const { data, errors, set, touch, feeNaira } = props;
-  const docType = data.travel_document_type || "PASSPORT";
   const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
+
+  const normalizedNat = (data.nationality ?? "").trim();
+  const matchedNat = ECOWAS_NATIONALITIES.find(
+    (n) => n.value.toLowerCase() === normalizedNat.toLowerCase()
+  );
+  const selectedNat = matchedNat ? matchedNat.value : normalizedNat;
+
+  const rawCat = (data.category ?? "WORK").trim().toUpperCase();
+  const selectedCat = ["WORK", "BUSINESS", "STUDENT"].includes(rawCat) ? rawCat : "WORK";
+
+  const rawDocType = (data.travel_document_type ?? "PASSPORT").trim().toUpperCase();
+  const selectedDocType = rawDocType === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
 
   return (
     <div className="space-y-6">
@@ -83,12 +118,16 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           hint="Select your country of origin"
         >
           <Select
-            value={data.nationality ?? ""}
+            name="nationality"
+            value={selectedNat}
+            aria-invalid={Boolean(errors.nationality)}
             className={errors.nationality ? "!border-red-500" : ""}
             onChange={(e) => {
-              set("nationality", e.target.value);
+              const val = e.target.value;
+              set("nationality", val);
               touch?.("nationality");
             }}
+            onBlur={() => touch?.("nationality")}
           >
             <option value="">Select country…</option>
             {ECOWAS_NATIONALITIES.map((n) => (
@@ -107,12 +146,16 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           hint="Determines documents to provide"
         >
           <Select
-            value={data.category ?? "WORK"}
+            name="category"
+            value={selectedCat}
+            aria-invalid={Boolean(errors.category)}
             className={errors.category ? "!border-red-500" : ""}
             onChange={(e) => {
-              set("category", e.target.value);
+              const val = e.target.value;
+              set("category", val);
               touch?.("category");
             }}
+            onBlur={() => touch?.("category")}
           >
             <option value="WORK">Work (Employment)</option>
             <option value="BUSINESS">Business (Trade / Enterprise)</option>
@@ -129,12 +172,16 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             hint="Choose Passport or ECOWAS Travel Certificate only"
           >
             <Select
-              value={docType}
+              name="travel_document_type"
+              value={selectedDocType}
+              aria-invalid={Boolean(errors.travel_document_type)}
               className={errors.travel_document_type ? "!border-red-500" : ""}
               onChange={(e) => {
-                set("travel_document_type", e.target.value);
+                const val = e.target.value;
+                set("travel_document_type", val);
                 touch?.("travel_document_type");
               }}
+              onBlur={() => touch?.("travel_document_type")}
             >
               <option value="PASSPORT">Passport</option>
               <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
@@ -203,15 +250,26 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
           className="bg-slate-100 font-semibold text-slate-700 cursor-not-allowed"
         />
       </Field>
-      {select(props, "sex", "Sex", ["MALE", "FEMALE"], { required: true })}
+      {select(
+        props,
+        "sex",
+        "Sex",
+        [
+          { value: "MALE", label: "Male" },
+          { value: "FEMALE", label: "Female" },
+        ],
+        { required: true, placeholder: "Select sex…" }
+      )}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
       {text(props, "profession", "Profession / occupation", { required: true, upper: true })}
-      <Field label="Blood group" error={errors.blood_group}>
-        <Select value={data.blood_group ?? "UNKNOWN"} onChange={(e) => set("blood_group", e.target.value)}>
-          {["UNKNOWN", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((g) => <option key={g}>{g}</option>)}
-        </Select>
-      </Field>
+      {select(
+        props,
+        "blood_group",
+        "Blood group",
+        ["UNKNOWN", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+        { placeholder: "Select blood group…" }
+      )}
       {text(props, "height", "Height", { hint: "e.g. 1.75m or 175cm", maxLength: 10 })}
       {text(props, "complexion", "Complexion", { letters: true, upper: true, maxLength: 50 })}
       {text(props, "eye_color", "Colour of eyes", { letters: true, upper: true, maxLength: 50 })}
@@ -335,8 +393,9 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
 /** Wizard step 3 — residence and contacts. */
 export function ContactFields(props: Props) {
   const { data, errors, set, touch } = props;
-  const listedRelation = RELATIONSHIPS.includes(data.emergency_contact_relation ?? "");
-  const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(data.emergency_contact_relation && !listedRelation);
+  const rawRelation = (data.emergency_contact_relation ?? "").trim();
+  const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === rawRelation.toLowerCase());
+  const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(rawRelation && !matchedRelation);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -366,7 +425,8 @@ export function ContactFields(props: Props) {
       {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
       <Field label="Relationship" required error={otherRelation ? undefined : errors.emergency_contact_relation}>
         <Select
-          value={otherRelation ? OTHER : listedRelation ? data.emergency_contact_relation : ""}
+          name="emergency_contact_relation"
+          value={otherRelation ? OTHER : matchedRelation ?? ""}
           className={!otherRelation && errors.emergency_contact_relation ? "!border-red-500" : ""}
           onChange={(e) => {
             if (e.target.value === OTHER) {
@@ -378,6 +438,7 @@ export function ContactFields(props: Props) {
               touch?.("emergency_contact_relation");
             }
           }}
+          onBlur={() => touch?.("emergency_contact_relation")}
         >
           <option value="">Select relationship…</option>
           {RELATIONSHIPS.map((r) => <option key={r} value={r}>{r}</option>)}

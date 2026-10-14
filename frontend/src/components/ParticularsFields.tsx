@@ -43,22 +43,46 @@ function text(props: Props, name: string, label: string, opts: TextOptions = {})
   );
 }
 
-function select(props: Props, name: string, label: string, options: string[], opts: { required?: boolean; placeholder?: string; disabled?: boolean } = {}) {
+export type SelectOption = string | { value: string; label: string };
+
+function select(
+  props: Props,
+  name: string,
+  label: string,
+  options: SelectOption[],
+  opts: { required?: boolean; placeholder?: string; disabled?: boolean } = {}
+) {
+  const normalizedOptions = options.map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o
+  );
+
+  const rawValue = (props.data[name] ?? "").trim();
+  const matched = normalizedOptions.find(
+    (o) => o.value.toLowerCase() === rawValue.toLowerCase()
+  );
+  const selectedValue = matched ? matched.value : rawValue;
+
   return (
     <Field label={label} required={opts.required} error={props.errors[name]}>
       <Select
-        value={props.data[name] ?? ""}
+        name={name}
+        value={selectedValue}
         disabled={opts.disabled}
         aria-invalid={Boolean(props.errors[name])}
         className={props.errors[name] ? "!border-red-500" : ""}
         onChange={(e) => {
-          props.set(name, e.target.value);
+          const val = e.target.value;
+          props.set(name, val);
           props.touch?.(name);
         }}
         onBlur={() => props.touch?.(name)}
       >
         <option value="">{opts.placeholder ?? "Select…"}</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        {normalizedOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </Select>
     </Field>
   );
@@ -66,37 +90,186 @@ function select(props: Props, name: string, label: string, options: string[], op
 
 const OTHER = "__OTHER__";
 
-/** Wizard step 1 — personal particulars (legacy residence card booklet fields). */
+/** Wizard step 1 of 8 — General Information (Nationality, Category, Document Type, Prescribed Fee). */
+export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
+  const { data, errors, set, touch, feeNaira } = props;
+  const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
+
+  const normalizedNat = (data.nationality ?? "").trim();
+  const matchedNat = ECOWAS_NATIONALITIES.find(
+    (n) => n.value.toLowerCase() === normalizedNat.toLowerCase()
+  );
+  const selectedNat = matchedNat ? matchedNat.value : normalizedNat;
+
+  const rawCat = (data.category ?? "WORK").trim().toUpperCase();
+  const selectedCat = ["WORK", "BUSINESS", "STUDENT"].includes(rawCat) ? rawCat : "WORK";
+
+  const rawDocType = (data.travel_document_type ?? "PASSPORT").trim().toUpperCase();
+  const selectedDocType = rawDocType === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-5 sm:grid-cols-2">
+        {/* Nationality - Complete Dropdown of Countries */}
+        <Field
+          label="Nationality"
+          required
+          error={errors.nationality}
+          hint="Select your country of origin"
+        >
+          <Select
+            name="nationality"
+            value={selectedNat}
+            aria-invalid={Boolean(errors.nationality)}
+            className={errors.nationality ? "!border-red-500" : ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              set("nationality", val);
+              touch?.("nationality");
+            }}
+            onBlur={() => touch?.("nationality")}
+          >
+            <option value="">Select country…</option>
+            {ECOWAS_NATIONALITIES.map((n) => (
+              <option key={n.value} value={n.value}>
+                {n.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {/* Category / Class: Student, Work, Business */}
+        <Field
+          label="Category / Class"
+          required
+          error={errors.category}
+          hint="Determines documents to provide"
+        >
+          <Select
+            name="category"
+            value={selectedCat}
+            aria-invalid={Boolean(errors.category)}
+            className={errors.category ? "!border-red-500" : ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              set("category", val);
+              touch?.("category");
+            }}
+            onBlur={() => touch?.("category")}
+          >
+            <option value="WORK">Work (Employment)</option>
+            <option value="BUSINESS">Business (Trade / Enterprise)</option>
+            <option value="STUDENT">Student (Academic)</option>
+          </Select>
+        </Field>
+
+        {/* Document Type: Passport, ECOWAS Travel Certificate */}
+        <div className="sm:col-span-2">
+          <Field
+            label="Passport/Other Documents"
+            required
+            error={errors.travel_document_type}
+            hint="Choose Passport or ECOWAS Travel Certificate only"
+          >
+            <Select
+              name="travel_document_type"
+              value={selectedDocType}
+              aria-invalid={Boolean(errors.travel_document_type)}
+              className={errors.travel_document_type ? "!border-red-500" : ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                set("travel_document_type", val);
+                touch?.("travel_document_type");
+              }}
+              onBlur={() => touch?.("travel_document_type")}
+            >
+              <option value="PASSPORT">Passport</option>
+              <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
+            </Select>
+          </Field>
+        </div>
+      </div>
+
+      {/* Dynamic Document Notice depending on Category */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-slate-800">
+        <div className="font-semibold text-blue-900 mb-1">
+          {data.category === "STUDENT"
+            ? "Student Category: Admission Letter is Required"
+            : data.category === "BUSINESS"
+            ? "Business Category: CAC Registration Letter is Required"
+            : "Work Category: Appointment Letter is Required"}
+        </div>
+        <p className="text-xs text-blue-800">
+          {data.category === "STUDENT"
+            ? "You will upload your valid Institution Admission Letter in Step 5 (Documents)."
+            : data.category === "BUSINESS"
+            ? "You will upload your CAC Business Registration Letter / Certificate in Step 5 (Documents)."
+            : "You will upload your official Employment Appointment Letter in Step 5 (Documents)."}
+        </p>
+      </div>
+
+      {/* Application Fee Notice Before Moving to Next Step */}
+      <div className="rounded-xl border border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Application Fee</span>
+          <div className="mt-0.5 text-lg font-bold text-slate-900 sm:text-xl">₦{feeDisplay}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Wizard step 2 — personal particulars. */
 export function PersonalFields(props: Props & { lockContact?: boolean }) {
   const { data, errors, set, touch, lockContact } = props;
   const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
+  const isDependant = Boolean(data.dependant_relationship || data.principal_application_id);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })}
+      {isDependant ? (
+        <Field label="Surname" required error={errors.surname} hint="Inherited from primary applicant (cannot be changed)">
+          <Input
+            name="surname"
+            value={data.surname ?? ""}
+            readOnly
+            disabled
+            className="bg-slate-100 font-semibold text-slate-700 cursor-not-allowed"
+          />
+        </Field>
+      ) : (
+        text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })
+      )}
       {text(props, "forenames", "Other names", { required: true, upper: true, letters: true })}
-      <Field label="Nationality" required error={errors.nationality} hint="ECOWAS member states only">
-        <Select
+      <Field label="Nationality" hint="Selected in Step 1 (General Information)">
+        <Input
+          name="nationality"
           value={data.nationality ?? ""}
-          className={errors.nationality ? "!border-red-500" : ""}
-          onChange={(e) => {
-            set("nationality", e.target.value);
-            touch?.("nationality");
-          }}
-        >
-          <option value="">Select nationality…</option>
-          {ECOWAS_NATIONALITIES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
-        </Select>
+          readOnly
+          disabled
+          className="bg-slate-100 font-semibold text-slate-700 cursor-not-allowed"
+        />
       </Field>
-      {select(props, "sex", "Sex", ["MALE", "FEMALE"], { required: true })}
+      {select(
+        props,
+        "sex",
+        "Sex",
+        [
+          { value: "MALE", label: "Male" },
+          { value: "FEMALE", label: "Female" },
+        ],
+        { required: true, placeholder: "Select sex…" }
+      )}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
       {text(props, "profession", "Profession / occupation", { required: true, upper: true })}
-      <Field label="Blood group" error={errors.blood_group}>
-        <Select value={data.blood_group ?? "UNKNOWN"} onChange={(e) => set("blood_group", e.target.value)}>
-          {["UNKNOWN", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((g) => <option key={g}>{g}</option>)}
-        </Select>
-      </Field>
+      {select(
+        props,
+        "blood_group",
+        "Blood group",
+        ["UNKNOWN", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+        { placeholder: "Select blood group…" }
+      )}
       {text(props, "height", "Height", { hint: "e.g. 1.75m or 175cm", maxLength: 10 })}
       {text(props, "complexion", "Complexion", { letters: true, upper: true, maxLength: 50 })}
       {text(props, "eye_color", "Colour of eyes", { letters: true, upper: true, maxLength: 50 })}
@@ -127,30 +300,24 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
   );
 }
 
-/** Wizard step 2 — passport, national ID or ECOWAS travel certificate. */
+/** Wizard step 3 — Passport or ECOWAS Travel Certificate only (National ID removed). */
 export function PassportFields(props: Props) {
   const { data, errors, set, touch } = props;
   const today = new Date().toISOString().slice(0, 10);
-  const docType = data.travel_document_type || "PASSPORT";
+  const docType = data.travel_document_type === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
 
-  const numLabel = docType === "NATIONAL_ID"
-    ? "National ID number (from home country)"
-    : docType === "ECOWAS_TC"
+  const numLabel = docType === "ECOWAS_TC"
     ? "ECOWAS Travel Certificate number"
     : "Passport number";
 
-  const numHint = docType === "NATIONAL_ID"
-    ? "As printed on your home country national ID"
-    : docType === "ECOWAS_TC"
-    ? "As printed on your travel certificate"
+  const numHint = docType === "ECOWAS_TC"
+    ? "As printed on your ECOWAS Travel Certificate"
     : "6–15 letters and digits, no spaces";
-
-  const expiryRequired = docType !== "NATIONAL_ID";
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <Field label="Document type" required hint="Choose Passport, National ID from your country, or ECOWAS Travel Certificate">
+        <Field label="Passport/Other Documents" required hint="Passport or ECOWAS Travel Certificate only">
           <Select
             value={docType}
             onChange={(e) => {
@@ -158,8 +325,7 @@ export function PassportFields(props: Props) {
               touch?.("travel_document_type");
             }}
           >
-            <option value="PASSPORT">International Passport</option>
-            <option value="NATIONAL_ID">National Identification Number from home country</option>
+            <option value="PASSPORT">Passport</option>
             <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
           </Select>
         </Field>
@@ -177,13 +343,9 @@ export function PassportFields(props: Props) {
 
       {text(props, "passport_issue_date", "Document issue date", { type: "date", max: today })}
 
-      {expiryRequired ? (
-        text(props, "passport_expiry", "Document expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })
-      ) : (
-        text(props, "passport_expiry", "Document expiry date (if any)", { type: "date", min: today, hint: "Leave blank if your National ID does not expire" })
-      )}
+      {text(props, "passport_expiry", "Document expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })}
 
-      {text(props, "national_id_number", "NIN (if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
+      {text(props, "national_id_number", "National Identification Number (NIN, if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
       {text(props, "tax_id_number", "Tax identification number (if any)", { maxLength: 20 })}
     </div>
   );
@@ -231,8 +393,9 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
 /** Wizard step 3 — residence and contacts. */
 export function ContactFields(props: Props) {
   const { data, errors, set, touch } = props;
-  const listedRelation = RELATIONSHIPS.includes(data.emergency_contact_relation ?? "");
-  const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(data.emergency_contact_relation && !listedRelation);
+  const rawRelation = (data.emergency_contact_relation ?? "").trim();
+  const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === rawRelation.toLowerCase());
+  const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(rawRelation && !matchedRelation);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -262,7 +425,8 @@ export function ContactFields(props: Props) {
       {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
       <Field label="Relationship" required error={otherRelation ? undefined : errors.emergency_contact_relation}>
         <Select
-          value={otherRelation ? OTHER : listedRelation ? data.emergency_contact_relation : ""}
+          name="emergency_contact_relation"
+          value={otherRelation ? OTHER : matchedRelation ?? ""}
           className={!otherRelation && errors.emergency_contact_relation ? "!border-red-500" : ""}
           onChange={(e) => {
             if (e.target.value === OTHER) {
@@ -274,6 +438,7 @@ export function ContactFields(props: Props) {
               touch?.("emergency_contact_relation");
             }
           }}
+          onBlur={() => touch?.("emergency_contact_relation")}
         >
           <option value="">Select relationship…</option>
           {RELATIONSHIPS.map((r) => <option key={r} value={r}>{r}</option>)}

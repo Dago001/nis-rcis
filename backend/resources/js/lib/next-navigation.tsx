@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { router, usePage } from '@inertiajs/react';
 
 export function useRouter() {
@@ -21,13 +22,17 @@ export function usePathname(): string {
 }
 
 export function useSearchParams(): URLSearchParams {
+  let query = '';
   try {
     const { url } = usePage();
-    const query = url && url.includes('?') ? url.split('?')[1] : '';
-    return new URLSearchParams(query);
+    query = url && url.includes('?') ? url.split('?')[1] : '';
   } catch {
-    return new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    if (typeof window !== 'undefined') {
+      const search = window.location.search;
+      query = search.startsWith('?') ? search.slice(1) : search;
+    }
   }
+  return useMemo(() => new URLSearchParams(query), [query]);
 }
 
 export function useParams(): Record<string, string> {

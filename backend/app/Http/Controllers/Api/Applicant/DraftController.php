@@ -63,9 +63,16 @@ class DraftController
             throw ValidationException::withMessages(['file' => $problems]);
         }
 
-        $storage->storeUpload($request->file('file'), DocumentType::from($data['type']), ['draft_id' => $draft->id], $applicant);
+        $uploaded = $storage->storeUpload($request->file('file'), DocumentType::from($data['type']), ['draft_id' => $draft->id], $applicant);
 
-        return response()->json(['draft' => $this->present($draft->load('documents'))], 201);
+        return response()->json([
+            'draft' => $this->present($draft->load('documents')),
+            'uploaded_document' => [
+                'id' => $uploaded->id,
+                'url' => $storage->temporaryUrl($uploaded),
+                'mime_type' => $uploaded->mime_type,
+            ],
+        ], 201);
     }
 
     /**

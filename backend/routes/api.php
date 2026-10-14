@@ -87,7 +87,7 @@ Route::prefix('v1')->group(function () {
         Route::get('draft', [DraftController::class, 'show']);
         Route::put('draft', [DraftController::class, 'save']);
         Route::delete('draft', [DraftController::class, 'destroy']);
-        Route::post('draft/documents', [DraftController::class, 'uploadDocument']);
+        Route::post('draft/documents', [DraftController::class, 'uploadDocument'])->middleware('throttle:uploads');
         Route::get('draft/documents/{document}', [DraftController::class, 'document'])->whereNumber('document');
 
         Route::post('payments', [PaymentController::class, 'initialize']);

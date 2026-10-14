@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppointmentPicker } from "@/components/AppointmentPicker";
 import { ContactFields, GeneralInfoFields, PassportFields, PersonalFields } from "@/components/ParticularsFields";
 import { Alert, Button, Field, Input, Panel, Spinner } from "@/components/ui";
@@ -101,11 +101,17 @@ function Wizard() {
   const [paid, setPaid] = useState(false);
   const [fee, setFee] = useState<number | null>(null);
   const [photoLink, setPhotoLink] = useState<{ id: number; url: string } | null>(null);
+  const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
+  const [photoUploadStatus, setPhotoUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+
+  const initialLoadedRef = useRef(false);
+  const isUploadingPhotoRef = useRef(false);
 
   const set = useCallback((key: string, value: string) => {
     setData((d) => ({ ...d, [key]: value }));
     setServerErrors((e) => (e[key] ? { ...e, [key]: "" } : e));
+    setStepError((e) => (e[key] ? { ...e, [key]: "" } : e));
   }, []);
   const touch = useCallback((key: string) => setTouched((t) => (t.has(key) ? t : new Set(t).add(key))), []);
 
@@ -134,10 +140,7 @@ function Wizard() {
   const extraErrors = useCallback(
     (n: number): Record<string, string> => {
       const e: Record<string, string> = {};
-      if (n === 1) {
-        if (!data.nationality) e.nationality = "Select your country of origin.";
-      }
-      if (n === 2 && !photo) e.photo = "Upload your passport photograph.";
+      if (n === 2 && !photo && !localPhotoPreview) e.photo = "Upload your passport photograph.";
       if (n === 5) {
         const requiredDocs = getDocuments(data.category);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
@@ -147,7 +150,7 @@ function Wizard() {
       if (n === 7 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, documents, paid, data.declaration, data.category, data.nationality],
+    [photo, localPhotoPreview, documents, paid, data.declaration, data.category],
   );
 
   // Errors shown now: every visited field is checked as the applicant types.
@@ -158,7 +161,12 @@ function Wizard() {
       if (message) shown[field] = message;
     }
     for (const [field, message] of Object.entries(serverErrors)) if (message) shown[field] = message;
-    return { ...shown, ...stepError };
+    for (const [field, message] of Object.entries(stepError)) {
+      if (message && (!data[field] || ["photo", "documents", "declaration", "payment_reference"].includes(field))) {
+        shown[field] = message;
+      }
+    }
+    return shown;
   }, [touched, data, serverErrors, stepError]);
 
   const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration"].some((f) => errors[f] && FIELD_STEP[f] === step);
@@ -175,74 +183,99 @@ function Wizard() {
 
   // Load draft (or pre-fill from the profile) and handle the Paystack return.
   useEffect(() => {
+    if (initialLoadedRef.current) return;
+    initialLoadedRef.current = true;
+
     (async () => {
-      const [{ draft }, me, centerList] = await Promise.all([
-        api<{ draft: Draft | null }>("applicant", "draft"),
-        api<{ surname: string; forenames: string; email: string; phone: string }>("applicant", "me"),
-        api<{ data: EnrollmentCenter[]; fee_naira: number }>("public", "enrollment-centers"),
-      ]);
-      setFee(centerList.fee_naira);
+      try {
+        const [{ draft }, me, centerList] = await Promise.all([
+          api<{ draft: Draft | null }>("applicant", "draft"),
+          api<{ surname: string; forenames: string; email: string; phone: string }>("applicant", "me"),
+          api<{ data: EnrollmentCenter[]; fee_naira: number }>("public", "enrollment-centers"),
+        ]);
+        setFee(centerList.fee_naira);
 
-      // A new application for a spouse or child (from the portal home page).
-      const relationship = (params.get("for") ?? "").toUpperCase();
-      const isDependantFlow = Boolean(params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship));
+        // A new application for a spouse or child (from the portal home page).
+        const relationship = (params.get("for") ?? "").toUpperCase();
+        const isDependantFlow = Boolean(params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship));
 
-      let restored: Record<string, string> = {
-        nationality: "",
-        category: "WORK",
-        travel_document_type: "PASSPORT",
-        surname: me.surname,
-        forenames: isDependantFlow ? "" : me.forenames,
-      };
+        let restored: Record<string, string> = {
+          nationality: "",
+          category: "WORK",
+          travel_document_type: "PASSPORT",
+          surname: me.surname,
+          forenames: isDependantFlow ? "" : me.forenames,
+        };
 
-      if (isDependantFlow) {
-        restored.principal_application_id = params.get("principal") as string;
-        restored.dependant_relationship = relationship;
-        // Dependant flow starts afresh: previous draft of principal is not loaded
-        restored.phone = me.phone;
-        restored.email = me.email;
-      } else {
-        if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
-        if (draft) {
-          restored = { ...restored, ...draft.data };
-          setType(draft.type);
-          setStep(draft.current_step);
-          setDocuments(draft.documents);
-          setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
-        }
-        restored.phone = me.phone;
-        restored.email = me.email;
-      }
-
-      const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
-      if (reference) {
-        const payment = await api<{ paid: boolean; used: boolean }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
-        if (payment?.paid && !payment.used) {
-          restored.payment_reference = reference;
-          setPaid(true);
-          if (params.get("payment") === "callback") {
-            setStep(7);
-            setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
+        if (isDependantFlow) {
+          restored.principal_application_id = params.get("principal") as string;
+          restored.dependant_relationship = relationship;
+          // Dependant flow starts afresh: previous draft of principal is not loaded
+          restored.phone = me.phone;
+          restored.email = me.email;
+        } else {
+          if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
+          if (draft) {
+            restored = { ...restored, ...draft.data };
+            setType(draft.type);
+            setStep(draft.current_step);
+            setDocuments(draft.documents);
+            setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
           }
-        } else if (params.get("payment") === "callback") {
-          setStep(7);
-          setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
+          restored.phone = me.phone;
+          restored.email = me.email;
         }
-      }
-      setData(restored);
-      setLoaded(true);
-    })();
-  }, [params]);
 
-  // Passport photograph preview.
+        const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
+        if (reference) {
+          const payment = await api<{ paid: boolean; used: boolean }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
+          if (payment?.paid && !payment.used) {
+            restored.payment_reference = reference;
+            setPaid(true);
+            if (params.get("payment") === "callback") {
+              setStep(7);
+              setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
+            }
+          } else if (params.get("payment") === "callback") {
+            setStep(7);
+            setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
+          }
+        }
+        setData(restored);
+      } catch (err) {
+        setNotice({ tone: "danger", text: (err as Error).message || "Failed to load application data." });
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  // Clean up temporary local preview object URL to prevent memory leaks
   useEffect(() => {
-    if (!photo) return;
+    return () => {
+      if (localPhotoPreview) {
+        URL.revokeObjectURL(localPhotoPreview);
+      }
+    };
+  }, [localPhotoPreview]);
+
+  // Passport photograph server link (only needed when no local preview is already showing)
+  useEffect(() => {
+    if (!photo || localPhotoPreview) return;
+    if (photoLink?.id === photo.id && photoLink.url) return;
     let cancelled = false;
-    documentUrl(photo.id).then((url) => !cancelled && setPhotoLink({ id: photo.id, url })).catch(() => undefined);
+    documentUrl(photo.id)
+      .then((url) => {
+        if (!cancelled) {
+          setPhotoLink({ id: photo.id, url });
+          setPhotoUploadStatus("success");
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [photo]);
+  }, [photo, localPhotoPreview, photoLink?.id, photoLink?.url]);
 
   /** Check a whole step; shows every problem at once. */
   function checkStep(n: number): boolean {
@@ -288,8 +321,72 @@ function Wizard() {
     router.push("/portal");
   }
 
+  async function uploadPhotograph(file: File) {
+    if (isUploadingPhotoRef.current) return;
+
+    if (file.size > MAX_BYTES) {
+      setStepError((prev) => ({ ...prev, photo: `Passport photograph: the file is ${kb(file.size)}. Please upload a file smaller than 2 MB.` }));
+      setPhotoUploadStatus("error");
+      return;
+    }
+
+    const validMimes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!validMimes.includes(file.type.toLowerCase())) {
+      setStepError((prev) => ({ ...prev, photo: "Passport photograph: please upload a JPEG or PNG image." }));
+      setPhotoUploadStatus("error");
+      return;
+    }
+
+    if (localPhotoPreview) {
+      URL.revokeObjectURL(localPhotoPreview);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPhotoPreview(objectUrl);
+    setPhotoUploadStatus("uploading");
+    setStepError((prev) => {
+      const next = { ...prev };
+      delete next.photo;
+      return next;
+    });
+
+    isUploadingPhotoRef.current = true;
+    setBusy(true);
+
+    try {
+      await saveDraft(step);
+      const result = await upload<{ draft: Draft; uploaded_document?: { id: number; url: string } }>(
+        "applicant",
+        "draft/documents",
+        { type: "photo", file }
+      );
+      setDocuments(result.draft.documents);
+      const uploadedDoc = result.draft.documents.find((d) => d.type === "photo");
+      if (uploadedDoc) {
+        setPhotoLink({ id: uploadedDoc.id, url: result.uploaded_document?.url || objectUrl });
+      }
+      setPhotoUploadStatus("success");
+    } catch (e) {
+      setPhotoUploadStatus("error");
+      if (e instanceof ApiError) {
+        setStepError((prev) => ({
+          ...prev,
+          photo: e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message,
+        }));
+      } else {
+        setStepError((prev) => ({ ...prev, photo: (e as Error).message }));
+      }
+    } finally {
+      isUploadingPhotoRef.current = false;
+      setBusy(false);
+    }
+  }
+
   async function uploadDocument(spec: DocSpec, file: File) {
-    const key = spec.type === "photo" ? "photo" : "documents";
+    if (spec.type === "photo") {
+      return uploadPhotograph(file);
+    }
+    const key = "documents";
     if (file.size > MAX_BYTES) {
       setStepError({ [key]: `${spec.label}: the file is ${kb(file.size)}. Please upload a file smaller than 2 MB.` });
       return;
@@ -404,7 +501,22 @@ function Wizard() {
         {/* Step 2: Personal details */}
         {step === 2 && (
           <div className="space-y-6">
-            <PhotoUpload photo={photo} url={photoUrl} error={errors.photo} busy={busy} onUpload={(f) => uploadDocument(PHOTO, f)} onView={() => photo && view(photo)} />
+            <PhotoUpload
+              photo={photo}
+              url={photoUrl}
+              localPreview={localPhotoPreview}
+              uploadStatus={photoUploadStatus}
+              error={errors.photo}
+              busy={busy}
+              onUpload={uploadPhotograph}
+              onView={() => {
+                if (localPhotoPreview) {
+                  setPreview({ url: localPhotoPreview, name: "Passport photograph" });
+                } else if (photo) {
+                  view(photo);
+                }
+              }}
+            />
             {data.dependant_relationship && (
               <Alert tone="info">
                 This application is for your <strong>{data.dependant_relationship === "CHILD" ? "child" : "spouse"}</strong> and is linked to your own application.
@@ -673,27 +785,99 @@ function UploadButton({ label, accept, disabled, onFile }: { label: string; acce
   );
 }
 
-function PhotoUpload({ photo, url, error, busy, onUpload, onView }: { photo?: DraftDoc; url: string | null; error?: string; busy: boolean; onUpload: (f: File) => void; onView: () => void }) {
+function PhotoUpload({
+  photo,
+  url,
+  localPreview,
+  uploadStatus,
+  error,
+  busy,
+  onUpload,
+  onView,
+}: {
+  photo?: DraftDoc;
+  url: string | null;
+  localPreview?: string | null;
+  uploadStatus: "idle" | "uploading" | "success" | "error";
+  error?: string;
+  busy: boolean;
+  onUpload: (f: File) => void;
+  onView: () => void;
+}) {
+  const displayUrl = localPreview || url;
+
   return (
     <div className={`flex flex-col gap-5 rounded-xl border p-4 sm:flex-row sm:items-center ${error ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}>
-      <div className="flex h-40 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white">
-        {url ? (
+      <div className="relative flex h-40 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white shadow-inner">
+        {displayUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="Your passport photograph" className="h-full w-full object-cover" />
+          <img src={displayUrl} alt="Your passport photograph" className="h-full w-full object-cover" />
         ) : (
           <svg className="h-14 w-14 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
           </svg>
         )}
+        {uploadStatus === "uploading" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-[1px]">
+            <svg className="h-6 w-6 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            <span className="mt-1.5 text-[11px] font-medium tracking-wide">Uploading…</span>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
-        <div className="font-semibold text-slate-900">Passport photograph <span className="text-red-600">*</span></div>
+        <div className="font-semibold text-slate-900">
+          Passport photograph <span className="text-red-600">*</span>
+        </div>
         <p className="text-sm text-slate-600">A recent colour photograph of your face on a white background. JPG or PNG, smaller than 2 MB.</p>
-        {photo && <p className="text-xs text-nis-primary">✓ {photo.original_name}</p>}
-        {error && <p className="text-sm text-red-700">{error}</p>}
-        <div className="flex gap-2">
-          <UploadButton label={photo ? "Change photograph" : "Upload photograph"} accept={PHOTO.accept} disabled={busy} onFile={onUpload} />
-          {photo && <Button variant="secondary" onClick={onView}>View</Button>}
+
+        {/* Status badges */}
+        {uploadStatus === "uploading" && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">
+            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Uploading photograph…
+          </div>
+        )}
+        {uploadStatus !== "uploading" && (uploadStatus === "success" || (photo && !error)) && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Upload Successful {photo ? `(${photo.original_name})` : ""}
+          </div>
+        )}
+        {uploadStatus === "error" && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Upload Failed — please select a valid photo
+          </div>
+        )}
+        {displayUrl && uploadStatus === "idle" && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+            Photograph Selected
+          </div>
+        )}
+
+        {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <UploadButton
+            label={displayUrl ? "Change photograph" : "Upload photograph"}
+            accept={PHOTO.accept}
+            disabled={busy || uploadStatus === "uploading"}
+            onFile={onUpload}
+          />
+          {displayUrl && (
+            <Button variant="secondary" onClick={onView} disabled={uploadStatus === "uploading"}>
+              View
+            </Button>
+          )}
         </div>
       </div>
     </div>
