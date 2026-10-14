@@ -129,5 +129,6 @@ Route::middleware('web')->group(function () {
         Route::get('/data-breaches', fn () => Inertia::render('Staff/DataBreaches'))->name('data-breaches');
         Route::get('/users', fn () => Inertia::render('Staff/Users'))->name('users');
         Route::get('/system', fn () => Inertia::render('Staff/System'))->name('system');
+        Route::get('/settings', fn () => Inertia::render('Staff/Settings'))->name('settings');
     });
 });

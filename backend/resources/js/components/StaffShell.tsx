@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { api } from "@/lib/api-client";
 import type { StaffRole, StaffUser } from "@/lib/types";
 import { SiteFooter, SiteHeader } from "./SiteHeader";
+import { GlobalAnnouncements } from "./GlobalAnnouncements";
 import { Spinner } from "./ui";
 
 const StaffContext = createContext<StaffUser | null>(null);
@@ -84,6 +85,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/staff/users", label: "Staff accounts", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"), roles: ["SuperAdmin", "Admin"] },
       { href: "/staff/system", label: "System health", icon: icon("M22 12h-4l-3 9L9 3l-3 9H2"), roles: ["SuperAdmin", "Admin"] },
+      { href: "/staff/settings", label: "Settings", icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"), roles: ["SuperAdmin", "Admin"] },
     ],
   },
 ];
@@ -139,6 +141,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
             : undefined
         }
       />
+      <GlobalAnnouncements />
       <div ref={area} className="staff-area flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
         <nav className="no-print lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
           <div

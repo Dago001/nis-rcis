@@ -207,4 +207,21 @@ const FR: Record<string, string> = {
   "Submitting…": "Envoi…",
   "Pay securely with Paystack": "Payer en toute sécurité avec Paystack",
   "Loading…": "Chargement…",
+
+  // Cookie consent & announcements
+  "Cookie Consent Notice": "Avis de consentement relatif aux témoins",
+  "We use essential cookies and local storage to keep your session secure, verify applicant identity, and deliver the ECOWAS Residence Card services.": "Nous utilisons des témoins essentiels et le stockage local pour sécuriser votre session, vérifier l'identité des demandeurs et fournir les services de la carte de résident CEDEAO.",
+  "Accept all cookies": "Accepter tous les témoins",
+  "Essential only": "Témoins essentiels uniquement",
+  "Close": "Fermer",
+  "Settings": "Paramètres",
+  "Settings & System Announcements": "Paramètres et annonces système",
+  "SuperAdmin Console": "Console SuperAdmin",
+  "Countdown Notice": "Compte à rebours",
+  "Days": "Jours",
+  "Hours": "Heures",
+  "Mins": "Mins",
+  "Secs": "Secs",
+  "Preview": "Aperçu",
+  "Dismiss": "Fermer",
 };

@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
 use App\Http\Controllers\Api\Staff\QueueController;
 use App\Http\Controllers\Api\Staff\RefundController;
 use App\Http\Controllers\Api\Staff\ReportController;
+use App\Http\Controllers\Api\Staff\SettingController;
 use App\Http\Controllers\Api\Staff\SystemController;
 use App\Http\Controllers\Api\Staff\UserController;
 use App\Http\Controllers\OAuth\RevokeTokenController;
@@ -51,6 +52,7 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('public')->group(function () {
         Route::get('push-key', [PushController::class, 'key']);
+        Route::get('announcements', [SettingController::class, 'publicAnnouncements']);
         Route::get('enrollment-centers', [PublicController::class, 'centers']);
         Route::get('enrollment-centers/{center}/availability', [PublicController::class, 'availability']);
         Route::get('enrollment-centers/{center}/queue', [PublicController::class, 'queueDisplay'])->middleware('throttle:120,1');
@@ -243,6 +245,11 @@ Route::prefix('v1')->group(function () {
             // Monitoring: system health and tracked server errors
             Route::get('system/health', [SystemController::class, 'health']);
             Route::post('system/errors/{id}/resolve', [SystemController::class, 'resolve'])->whereNumber('id');
+
+            // Super Admin Settings: broadcast push notifications and countdown timer
+            Route::get('settings', [SettingController::class, 'index']);
+            Route::post('settings', [SettingController::class, 'update']);
+            Route::post('settings/push-broadcast', [SettingController::class, 'pushBroadcast']);
         });
     });
 
