@@ -33,7 +33,7 @@ it('takes phone numbers from ECOWAS member states only at registration', functio
     $body = ['privacy_consent' => true, 'surname' => 'Mensah', 'forenames' => 'Ama', 'email' => 'ama@example.com',
         'password' => 'Nis26x', 'password_confirmation' => 'Nis26x'];
 
-    foreach (['+447700900123', '+237612345678', '+22370123456'] as $phone) { // United Kingdom, Cameroon, Mali
+    foreach (['+447700900123', '+237612345678', '+12025550123'] as $phone) { // United Kingdom, Cameroon, United States
         $this->postJson('/api/v1/applicant/register', [...$body, 'phone' => $phone])
             ->assertUnprocessable()->assertJsonValidationErrors(['phone' => 'ECOWAS member state']);
     }

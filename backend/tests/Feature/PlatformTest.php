@@ -10,7 +10,10 @@ use App\Notifications\SystemAlert;
 use App\Services\ErrorTracker;
 use Illuminate\Support\Facades\Notification;
 
-beforeEach(fn () => config(['nis.alerts.disk_min_free_percent' => 0]));
+beforeEach(fn () => config([
+    'nis.alerts.disk_min_free_percent' => 0,
+    'nis.backup.key' => null,
+]));
 
 it('reports overall health to uptime monitors without details', function () {
     $response = $this->getJson('/api/v1/health')->assertOk();

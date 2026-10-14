@@ -207,7 +207,19 @@ class StaffLoginController
 
         $data = $request->validate([
             'current_password' => ['required', 'current_password:staff'],
-            'password' => ['required', 'confirmed', 'different:current_password', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
+            'password' => [
+                'required',
+                'confirmed',
+                'different:current_password',
+                Password::min(6)->mixedCase()->numbers()->symbols(),
+            ],
+        ], [
+            'password.min' => 'The new password must be at least 6 characters.',
+            'password.mixed' => 'The new password must contain at least one uppercase and one lowercase letter.',
+            'password.numbers' => 'The new password must contain at least one number.',
+            'password.symbols' => 'The new password must contain at least one special character.',
+            'password.confirmed' => 'The password confirmation does not match.',
+            'password.different' => 'The new password must be different from your temporary password.',
         ]);
 
         $user->forceFill(['password' => $data['password'], 'must_change_password' => false])->save();

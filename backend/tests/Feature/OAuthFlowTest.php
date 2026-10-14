@@ -266,3 +266,62 @@ it('never skips e-mail verification in production', function () {
     $this->post('/login/applicant', ['identifier' => 'new@example.com', 'password' => 'Applicant-Pass-123'])
         ->assertSessionHasErrors('identifier');
 });
+
+it('validates staff password change with 6-character policy (1 uppercase, 1 lowercase, 1 number, 1 symbol) without leak checks', function () {
+    $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+
+    $user = User::factory()->create([
+        'service_number' => '99881',
+        'must_change_password' => true,
+        'password' => 'Old-Pass-123!',
+    ]);
+
+    $this->actingAs($user, 'staff');
+
+    // 1. Under 6 chars (5 chars)
+    $this->post('/staff/change-password', [
+        'current_password' => 'Old-Pass-123!',
+        'password' => 'Aa1!b',
+        'password_confirmation' => 'Aa1!b',
+    ])->assertSessionHasErrors(['password' => 'The new password must be at least 6 characters.']);
+
+    // 2. Missing uppercase
+    $this->post('/staff/change-password', [
+        'current_password' => 'Old-Pass-123!',
+        'password' => 'aa1!bc',
+        'password_confirmation' => 'aa1!bc',
+    ])->assertSessionHasErrors('password');
+
+    // 3. Missing lowercase
+    $this->post('/staff/change-password', [
+        'current_password' => 'Old-Pass-123!',
+        'password' => 'AA1!BC',
+        'password_confirmation' => 'AA1!BC',
+    ])->assertSessionHasErrors('password');
+
+    // 4. Missing number
+    $this->post('/staff/change-password', [
+        'current_password' => 'Old-Pass-123!',
+        'password' => 'Aab!cd',
+        'password_confirmation' => 'Aab!cd',
+    ])->assertSessionHasErrors('password');
+
+    // 5. Missing symbol
+    $this->post('/staff/change-password', [
+        'current_password' => 'Old-Pass-123!',
+        'password' => 'Aa12bc',
+        'password_confirmation' => 'Aa12bc',
+    ])->assertSessionHasErrors('password');
+
+    // 6. Valid 6-character password (e.g. P@ss1w - commonly compromised, should pass since leak check is removed)
+    $this->post('/staff/change-password', [
+        'current_password' => 'Old-Pass-123!',
+        'password' => 'P@ss1w',
+        'password_confirmation' => 'P@ss1w',
+    ])->assertSessionHasNoErrors();
+
+    $user->refresh();
+    expect($user->must_change_password)->toBeFalse()
+        ->and(Hash::check('P@ss1w', $user->password))->toBeTrue();
+});
+
