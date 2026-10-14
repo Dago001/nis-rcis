@@ -112,3 +112,16 @@ describe('malicious uploads', function () {
         expect(Storage::disk('local')->get($document->path))->not->toContain('HIDDEN-PAYLOAD');
     });
 });
+
+it('includes the password eye-toggle script on auth pages and maintains public/auth.js', function () {
+    expect(file_exists(public_path('auth.js')))->toBeTrue();
+    $authJs = file_get_contents(public_path('auth.js'));
+    expect($authJs)->toContain("document.addEventListener('click'")
+        ->toContain("button.eye")
+        ->toContain("input.type = isPassword ? 'text' : 'password'");
+
+    $response = $this->get('/login/staff')->assertOk();
+    expect($response->getContent())->toContain('src="')
+        ->toContain('auth.js?v=');
+});
+

@@ -27,7 +27,7 @@ class SecurityHeaders
 
         if (! $isHtml) {
             $headers->set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
-        } elseif ($request->is('login/applicant', 'login/staff', 'login/staff/*', 'password/*')) {
+        } elseif ($request->is('login/applicant', 'login/staff', 'login/staff/*', 'staff/change-password', 'password/*')) {
             $headers->set('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'");
         } else {
             $headers->set('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'");

@@ -116,6 +116,6 @@
     </section>
 </main>
 <footer class="site-footer">Nigeria Immigration Service · All rights reserved © {{ date('Y') }}</footer>
-<script src="{{ asset('auth.js') }}"></script>
+<script src="{{ asset('auth.js') }}?v={{ file_exists(public_path('auth.js')) ? filemtime(public_path('auth.js')) : '1' }}"></script>
 </body>
 </html>
