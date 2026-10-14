@@ -33,11 +33,11 @@
 /* Front components */
 .photo {
   position: absolute;
-  left: 24px;
-  top: 109px;
-  width: 213px;
-  height: 275px;
-  border-radius: 16px;
+  left: 26px;
+  top: 124px;
+  width: 192px;
+  height: 246px;
+  border-radius: 12px;
   overflow: hidden;
   z-index: 1;
   background: linear-gradient(180deg, #dfe7ee, #c9d4de);
