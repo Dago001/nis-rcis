@@ -4,19 +4,18 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppointmentPicker } from "@/components/AppointmentPicker";
-import { ContactFields, GeneralInfoFields, PassportFields, PersonalFields } from "@/components/ParticularsFields";
+import { ContactFields, GeneralInfoFields, PersonalFields } from "@/components/ParticularsFields";
 import { Alert, Button, Field, Input, Panel, Spinner } from "@/components/ui";
 import { useI18n } from "@/components/I18nProvider";
 import { api, ApiError, upload } from "@/lib/api-client";
 import { naira, nisDate } from "@/lib/format";
 import type { Application, EnrollmentCenter } from "@/lib/types";
-import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
+import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, GENERAL_FIELDS, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
 
-/** 8-Step Application Process */
+/** 7-Step Application Process */
 const STEPS = [
   "General Information",
   "Personal details",
-  "Travel / Identity document",
   "Residence & contacts",
   "Documents",
   "Review & declaration",
@@ -53,13 +52,6 @@ function getDocuments(category?: string): DocSpec[] {
     catDocs.push({
       type: "cac_certificate",
       label: "CAC Business Registration Certificate / Documents",
-      required: true,
-      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-      kinds: "JPG, JPEG, PNG or PDF",
-    });
-    catDocs.push({
-      type: "appointment_letter",
-      label: "Employment Appointment / Offer Letter",
       required: true,
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
@@ -110,16 +102,15 @@ function getDocuments(category?: string): DocSpec[] {
 /** Which step each field lives on (to jump back when the API rejects one). */
 const FIELD_STEP: Record<string, number> = {
   nationality: 1, category: 1, travel_document_type: 1,
+  passport_number: 1, passport_issue_date: 1, passport_expiry: 1, national_id_number: 1, tax_id_number: 1,
   ...Object.fromEntries(PERSONAL_FIELDS.filter((f) => f !== "nationality").map((f) => [f, 2])),
   blood_group: 2, renewal_card_number: 2, photo: 2, principal_application_id: 2, dependant_relationship: 2, phone: 2, email: 2,
-  ...Object.fromEntries(PASSPORT_FIELDS.map((f) => [f, 3])),
-  travel_document_type_doc: 3,
-  ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 4])),
-  home_country_address: 4,
-  documents: 5,
-  declaration: 6,
-  payment_reference: 7,
-  ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 8])),
+  ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
+  home_country_address: 3,
+  documents: 4,
+  declaration: 5,
+  payment_reference: 6,
+  ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
 };
 
 type DraftDoc = { id: number; type: string; label: string; original_name: string; size_bytes: number; mime_type: string };
@@ -194,14 +185,12 @@ function Wizard() {
   const stepFields = useCallback(
     (n: number) =>
       n === 1
-        ? ["nationality", "category", "travel_document_type"]
+        ? GENERAL_FIELDS
         : n === 2
         ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS.filter((f) => f !== "phone" && f !== "email" && f !== "nationality")]
         : n === 3
-        ? PASSPORT_FIELDS
-        : n === 4
         ? CONTACT_FIELDS
-        : n === 8
+        : n === 7
         ? APPOINTMENT_FIELDS
         : [],
     [type],
@@ -212,7 +201,7 @@ function Wizard() {
     (n: number): Record<string, string> => {
       const e: Record<string, string> = {};
       if (n === 2 && !photo && !localPhotoPreview) e.photo = "Upload your passport photograph.";
-      if (n === 5) {
+      if (n === 4) {
         const requiredDocs = getDocuments(data.category);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
         if (absent.length === 1) {
@@ -221,8 +210,8 @@ function Wizard() {
           e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
         }
       }
-      if (n === 6 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
-      if (n === 7 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
+      if (n === 5 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
+      if (n === 6 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
     [photo, localPhotoPreview, documents, paid, data.declaration, data.category],
@@ -302,7 +291,11 @@ function Wizard() {
           if (draft && shouldResumeDraft) {
             restored = { ...restored, ...draft.data };
             setType(draft.type);
-            setStep(draft.current_step);
+            let resumedStep = draft.current_step;
+            if (resumedStep > 3 && resumedStep <= 8) {
+              resumedStep = resumedStep === 3 ? 1 : resumedStep - 1;
+            }
+            setStep(Math.min(Math.max(1, resumedStep), 7));
             setDocuments(draft.documents);
             setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
           }
@@ -317,11 +310,11 @@ function Wizard() {
             restored.payment_reference = reference;
             setPaid(true);
             if (params.get("payment") === "callback") {
-              setStep(7);
+              setStep(6);
               setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
             }
           } else if (params.get("payment") === "callback") {
-            setStep(7);
+            setStep(6);
             setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
           }
         }
@@ -402,15 +395,15 @@ function Wizard() {
     }
 
     // Pre-Payment Validation Guard:
-    // When completing Step 6 (Review & Declaration), ensure all pre-payment steps (1 to 6)
-    // and compulsory documents are complete and valid before advancing to Step 7 (Payment).
-    if (step === 6) {
-      for (let s = 1; s <= 6; s++) {
+    // When completing Step 5 (Review & Declaration), ensure all pre-payment steps (1 to 5)
+    // and compulsory documents are complete and valid before advancing to Step 6 (Payment).
+    if (step === 5) {
+      for (let s = 1; s <= 5; s++) {
         if (!checkStep(s)) {
           goTo(s);
           setNotice({
             tone: "danger",
-            text: "Please complete all compulsory fields and document uploads before proceeding to payment.",
+            text: `Please complete all required fields in ${STEPS[s - 1]} before proceeding to payment.`,
           });
           return;
         }
@@ -674,13 +667,13 @@ function Wizard() {
   }
 
   async function pay() {
-    // Pre-Payment Client Validation Guard across steps 1 through 6
-    for (let s = 1; s <= 6; s++) {
+    // Pre-Payment Client Validation Guard across steps 1 through 5
+    for (let s = 1; s <= 5; s++) {
       if (!checkStep(s)) {
         goTo(s);
         setNotice({
           tone: "danger",
-          text: "Please complete all required fields and compulsory document uploads before making payment.",
+          text: `Please complete all required fields in ${STEPS[s - 1]} before proceeding to payment.`,
         });
         return;
       }
@@ -689,7 +682,7 @@ function Wizard() {
     setBusy(true);
     try {
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
-      await saveDraft(7, { payment_reference: payment.reference });
+      await saveDraft(6, { payment_reference: payment.reference });
       if (payment.fake) {
         const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
         setData((d) => ({ ...d, payment_reference: payment.reference }));
@@ -706,7 +699,15 @@ function Wizard() {
         setServerErrors(fieldErrors);
         const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 6));
         goTo(first);
-        setNotice({ tone: "danger", text: "Please complete all required application details before proceeding to payment." });
+        const errorDescriptions = Object.entries(fieldErrors)
+          .map(([k, errs]) => `${k.replace(/_/g, " ")}: ${Array.isArray(errs) ? errs.join(", ") : errs}`)
+          .join("; ");
+        setNotice({
+          tone: "danger",
+          text: errorDescriptions
+            ? `Please correct the following: ${errorDescriptions}`
+            : "Please complete all required application details before proceeding to payment.",
+        });
       } else {
         setNotice({ tone: "danger", text: (e as Error).message });
       }
@@ -716,9 +717,9 @@ function Wizard() {
 
   async function submit() {
     if (busy) return;
-    if (!checkStep(8)) return;
-    // The declaration (step 6) and payment (step 7) must both be complete.
-    for (const n of [6, 7]) {
+    if (!checkStep(7)) return;
+    // The declaration (step 5) and payment (step 6) must both be complete.
+    for (const n of [5, 6]) {
       if (Object.keys(extraErrors(n)).length) {
         goTo(n);
         setStepError(extraErrors(n));
@@ -736,7 +737,7 @@ function Wizard() {
       if (e instanceof ApiError && e.status === 422) {
         const fieldErrors = e.fieldErrors();
         setServerErrors(fieldErrors);
-        const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 8));
+        const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 7));
         goTo(first);
       } else {
         setNotice({ tone: "danger", text: (e as Error).message });
@@ -757,8 +758,8 @@ function Wizard() {
           {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
           {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("Step {n} of 8 — {title}", { n: step, title: t(STEPS[step - 1]) })}</h1>
-        <ol className="mt-4 grid grid-cols-8 gap-1.5" aria-label="Progress">
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}</h1>
+        <ol className="mt-4 grid grid-cols-7 gap-1.5" aria-label="Progress">
           {STEPS.map((label, i) => (
             <li key={label} title={t(label)} aria-current={i + 1 === step ? "step" : undefined} className={`h-2 rounded-full ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`} />
           ))}
@@ -809,14 +810,11 @@ function Wizard() {
           </div>
         )}
 
-        {/* Step 3: Travel / Identity document */}
-        {step === 3 && <PassportFields {...props} />}
+        {/* Step 3: Residence & contacts */}
+        {step === 3 && <ContactFields {...props} />}
 
-        {/* Step 4: Residence & contacts */}
-        {step === 4 && <ContactFields {...props} />}
-
-        {/* Step 5: Documents */}
-        {step === 5 && (
+        {/* Step 4: Documents */}
+        {step === 4 && (
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
               <div className="text-sm font-semibold text-nis-primary-dark">
@@ -1025,8 +1023,8 @@ function Wizard() {
           </div>
         )}
 
-        {/* Step 6: Review & declaration */}
-        {step === 6 && (
+        {/* Step 5: Review & declaration */}
+        {step === 5 && (
           <div className="space-y-6">
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs text-slate-600 sm:text-sm">
               <svg className="h-4 w-4 shrink-0 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1043,7 +1041,12 @@ function Wizard() {
                   ["Nationality", data.nationality],
                   ["Category / Class", data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work (Employment)"],
                   ["Document Type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "Passport"],
+                  [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
+                  ["Document Issue Date", nisDate(data.passport_issue_date)],
+                  ["Document Expiring Date", nisDate(data.passport_expiry)],
                   ["Validity Period", "2 Years from date of production"],
+                  ...(data.national_id_number ? [["National ID Number", data.national_id_number] as [string, string | undefined]] : []),
+                  ...(data.tax_id_number ? [["Tax ID Number", data.tax_id_number] as [string, string | undefined]] : []),
                 ]}
               />
             </ReviewSection>
@@ -1072,17 +1075,7 @@ function Wizard() {
               </div>
             </ReviewSection>
 
-            <ReviewSection title="Travel / Identity document" onEdit={() => goTo(3)}>
-              <ReviewGrid
-                items={[
-                  ["Document type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "International Passport"],
-                  [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
-                  ["Issue Date", nisDate(data.passport_issue_date)], ["Expiring Date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
-                ]}
-              />
-            </ReviewSection>
-
-            <ReviewSection title="Residence & contacts" onEdit={() => goTo(4)}>
+            <ReviewSection title="Residence & contacts" onEdit={() => goTo(3)}>
               <ReviewGrid
                 items={[
                   ["Address in Home Country", data.home_country_address],
@@ -1092,7 +1085,7 @@ function Wizard() {
               />
             </ReviewSection>
 
-            <ReviewSection title="Emergency contact" onEdit={() => goTo(4)}>
+            <ReviewSection title="Emergency contact" onEdit={() => goTo(3)}>
               <ReviewGrid
                 items={[
                   ["Full name", data.emergency_contact_name], ["Relationship", data.emergency_contact_relation], ["Phone number", data.emergency_contact_phone],
@@ -1101,7 +1094,7 @@ function Wizard() {
               />
             </ReviewSection>
 
-            <ReviewSection title="Documents" onEdit={() => goTo(5)}>
+            <ReviewSection title="Documents" onEdit={() => goTo(4)}>
               <ul className="divide-y divide-slate-100 text-sm">
                 {[PHOTO, ...currentDocs].map((d) => {
                   const current = documents.find((x) => x.type === d.type);
@@ -1133,7 +1126,7 @@ function Wizard() {
               </ul>
             </ReviewSection>
 
-            <ReviewSection title="Residence card fee" onEdit={() => goTo(7)}>
+            <ReviewSection title="Residence card fee" onEdit={() => goTo(6)}>
               <ReviewGrid
                 items={[
                   ["Amount", fee !== null ? naira(fee) : "—"],
@@ -1175,8 +1168,8 @@ function Wizard() {
           </div>
         )}
 
-        {/* Step 7: Fee payment */}
-        {step === 7 && (
+        {/* Step 6: Fee payment */}
+        {step === 6 && (
           <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
@@ -1194,8 +1187,8 @@ function Wizard() {
           </div>
         )}
 
-        {/* Step 8: Biometrics appointment */}
-        {step === 8 && (
+        {/* Step 7: Biometrics appointment */}
+        {step === 7 && (
           <div className="space-y-6">
             <AppointmentPicker {...props} />
             <div className="grid gap-4 sm:grid-cols-3">
@@ -1214,8 +1207,8 @@ function Wizard() {
           <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
           <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">{t("Discard")}</Button>
         </div>
-        {step < 8 ? (
-          <Button onClick={next} disabled={busy || (step === 7 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
+        {step < 7 ? (
+          <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
         ) : (
           <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
         )}
