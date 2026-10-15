@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LanguageSwitcher, useI18n } from "@/components/I18nProvider";
 import { NotificationBell } from "@/components/NotificationBell";
 import { withBase } from "@/lib/base-path";
@@ -79,26 +79,23 @@ export function SiteHeader({
         )}
 
         {/* Desktop right section */}
-        <div className="hidden items-center gap-4 md:flex">
+        <div className="hidden items-center gap-3.5 md:flex">
           {languages && <LanguageSwitcher />}
-          {portal && <NotificationBell portal={portal} />}
-          {user && (
-            <div className="text-right text-sm">
-              <div className="font-medium text-slate-800">{user.name}</div>
-              {(user.role || user.email) && (
-                <div className="text-xs text-slate-500">{user.role || user.email}</div>
-              )}
-            </div>
+          {portal === "applicant" && <NotificationBell portal={portal} />}
+          {user ? (
+            <ProfileDropdown user={user} portal={portal ?? "staff"} />
+          ) : (
+            portal && <LogoutButton portal={portal} />
           )}
-          {portal && <LogoutButton portal={portal} />}
           {right}
         </div>
 
         {/* Mobile controls */}
-        <div className="flex items-center gap-2.5 md:hidden">
+        <div className="flex items-center gap-2 md:hidden">
           {languages && <LanguageSwitcher />}
-          {portal && <NotificationBell portal={portal} />}
-          {(links || user || portal || right) && (
+          {portal === "applicant" && <NotificationBell portal={portal} />}
+          {user && <ProfileDropdown user={user} portal={portal ?? "staff"} isMobile />}
+          {(links || (!user && portal) || right) && (
             <button
               type="button"
               className="rounded border border-slate-300 p-2 text-slate-600"
@@ -123,7 +120,9 @@ export function SiteHeader({
               <div className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Signed in as</div>
               <div className="mt-0.5 text-sm font-bold text-slate-900">{user.name}</div>
               {(user.role || user.email) && (
-                <div className="text-xs text-slate-500">{user.role || user.email}</div>
+                <div className="text-xs text-slate-500">
+                  {user.role?.replace(/Super Administrator/g, "Super Admin") || user.email}
+                </div>
               )}
             </div>
           )}
@@ -157,7 +156,7 @@ export function SiteHeader({
 
           {portal && (
             <div className="mt-4 border-t border-slate-100 pt-3">
-              <LogoutButton portal={portal} fullWidth />
+              <LogoutButton portal={portal} fullWidth red={portal === "staff"} />
             </div>
           )}
         </div>
@@ -176,12 +175,131 @@ export function SiteFooter() {
   );
 }
 
-export function LogoutButton({ portal, fullWidth = false }: { portal: "staff" | "applicant"; fullWidth?: boolean }) {
+function ProfileDropdown({
+  user,
+  portal,
+  isMobile = false,
+}: {
+  user: { name: string; role?: string; serviceNumber?: string; email?: string };
+  portal: "staff" | "applicant";
+  isMobile?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
+
+  // Normalize role label: replace "Super Administrator" with "Super Admin"
+  const rawRole = user.role?.replace(/Super Administrator/g, "Super Admin") || user.email;
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative inline-block text-left" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label={t("User profile menu")}
+        className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors hover:bg-slate-200/60 focus:outline-none focus:ring-2 focus:ring-nis-primary/30"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-nis-mint text-nis-primary font-bold text-sm border border-nis-primary/20 shadow-sm">
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        {!isMobile && (
+          <div className="text-right text-sm leading-tight max-w-[200px]">
+            <div className="truncate font-semibold text-slate-800">{user.name}</div>
+            {rawRole && <div className="truncate text-xs text-slate-500">{rawRole}</div>}
+          </div>
+        )}
+        <svg
+          className={`h-4 w-4 text-slate-500 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-50 mt-2 w-64 origin-top-right rounded-2xl border border-slate-200 bg-white py-2 shadow-xl ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t("Signed in as")}</p>
+            <p className="mt-0.5 truncate text-sm font-bold text-slate-900">{user.name}</p>
+            {rawRole && <p className="truncate text-xs text-slate-500 mt-0.5">{rawRole}</p>}
+          </div>
+          <div className="p-1.5">
+            <LogoutButton portal={portal} fullWidth red onAfterClick={() => setOpen(false)} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function LogoutButton({
+  portal,
+  fullWidth = false,
+  red = false,
+  onAfterClick,
+}: {
+  portal: "staff" | "applicant";
+  fullWidth?: boolean;
+  red?: boolean;
+  onAfterClick?: () => void;
+}) {
   const { t } = useI18n();
   return (
-    <form action={`/api/auth/logout/${portal}`} method="post" className={fullWidth ? "w-full" : undefined}>
-      <button className={`rounded-md bg-nis-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-nis-primary-dark ${fullWidth ? "w-full text-center" : ""}`}>
-        {t("Sign out")}
+    <form action={`/api/auth/logout/${portal}`} method="post" className={fullWidth ? "w-full" : undefined} onSubmit={() => onAfterClick?.()}>
+      <button
+        type="submit"
+        className={
+          red
+            ? `flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${
+                fullWidth ? "w-full text-left" : ""
+              }`
+            : `rounded-md bg-nis-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-nis-primary-dark ${
+                fullWidth ? "w-full text-center" : ""
+              }`
+        }
+      >
+        <svg
+          className={`h-4 w-4 shrink-0 ${red ? "text-red-500" : ""}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        <span>{t("Sign out")}</span>
       </button>
     </form>
   );

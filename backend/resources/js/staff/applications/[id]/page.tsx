@@ -73,7 +73,7 @@ export default function StaffApplicationPage() {
 
       <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
 
-      <ExternalChecks checks={detail.integration_checks}
+      <ExternalChecks checks={detail.integration_checks} quota={a.quota_reference ?? null}
         canRun={hasRole(user, "VettingOfficer", "ApprovingOfficer", "SuperAdmin")} busy={busy} onRun={() => act("integration-checks")} />
 
       {a.sla && (
@@ -102,16 +102,86 @@ export default function StaffApplicationPage() {
         </Alert>
       )}
 
+      {/* A. Applicant Information */}
+      <Panel title="Applicant Information">
+        <div className="flex flex-col gap-6 sm:flex-row">
+          {detail.photo_url && (
+            <div className="shrink-0 space-y-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={detail.photo_url}
+                alt="Applicant"
+                className="h-48 w-40 rounded-xl border border-slate-200 bg-slate-50 object-cover shadow-sm"
+              />
+              <span className="block text-center text-xs font-medium text-slate-500">Applicant Photo</span>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <Dl
+              items={[
+                ["Full Name", `${a.surname}, ${a.forenames}`],
+                ["Application Ref.", a.application_number],
+                ["Category / Type", `${a.category || "General"} · ${applicationType(a, true)}`],
+                ["Nationality", a.nationality],
+                ["Sex", a.sex],
+                ["Date of Birth", nisDate(a.date_of_birth)],
+                ["Place of Birth", a.place_of_birth],
+                ["Passport / Travel Doc", `${a.passport_number} (expires ${nisDate(a.passport_expiry)})`],
+                ["Profession / Employer", `${a.profession || "—"}${a.employer_name ? ` · ${a.employer_name}` : ""}${a.quota_reference ? ` (Quota Ref: ${a.quota_reference})` : ""}`],
+                ["Phone", a.phone],
+                ["E-mail", a.email],
+                ["Residential Address", a.domicile],
+                ["Physical Features", `Height: ${a.height ?? "—"} · Complexion: ${a.complexion ?? "—"} · Eyes: ${a.eye_color ?? "—"} · Hair: ${a.hair_color ?? "—"}`],
+                ["Emergency Contact", `${a.emergency_contact_name || "—"} (${a.emergency_contact_relation || "—"}) ${a.emergency_contact_phone || ""}`],
+              ]}
+            />
+          </div>
+        </div>
+      </Panel>
+
+      {/* B. Application Information */}
+      <Panel title="Application & Appointment Information">
+        <Dl
+          items={[
+            ["Application Type", `${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true)}`],
+            ["Submission Date", dateTime(a.submitted_at)],
+            ["Current Status", a.status_label || a.status],
+            ["Enrollment Center", a.enrollment_center?.name || "—"],
+            ["Appointment", a.appointment_date ? `${nisDate(a.appointment_date)} at ${a.appointment_time}` : "Not scheduled"],
+            ["Fee & Payment", `${naira(a.fee_amount_naira)} — ${a.payment_status}`],
+            ...detail.payments.map((p) => [`Payment ${p.reference}`, `${p.status}${p.verified_at ? " (verified)" : ""}`] as [string, string]),
+          ]}
+        />
+      </Panel>
+
+      {/* C. Supporting Documents */}
+      <Panel title="Supporting Documents" subtitle="Review uploaded supporting documents, identify requirements, and verify validity.">
+        <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} />
+      </Panel>
+
+      {/* Workflow History */}
+      <Panel title="Workflow history">{a.history && <History history={a.history} />}</Panel>
+
+      {/* D. Vetting and Approval Controls (placed at the bottom after complete review) */}
       {canDecide && (
-        <Panel title="Vetting & Decision" subtitle="Cross-check all documents and applicant particulars. If verified and correct, click Vetted to approve for biometrics. If corrections are needed, enter reasons and click Query.">
+        <Panel
+          title="Vetting & Decision"
+          subtitle="Cross-check all applicant particulars and supporting documents above. If verified and correct, click Vetted to approve for biometrics. If corrections are needed, enter reasons and click Query."
+        >
           <div className="space-y-3">
             <Field label="Notes / Reason for Query" hint="Required when querying or rejecting. The applicant receives this reason by e-mail and on their portal dashboard.">
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Enter details or reason if querying applicant..." />
             </Field>
             <div className="flex flex-wrap gap-2">
-              <Button disabled={busy} onClick={() => act("decision", { decision: "APPROVE", notes: notes || "Application verified and vetted by immigration vetting officer." })}>✓ Vetted (Approve for biometrics)</Button>
-              <Button variant="gold" disabled={busy || !notes.trim()} onClick={() => act("decision", { decision: "QUERY", notes })}>Query applicant</Button>
-              <Button variant="danger" disabled={busy || !notes.trim()} onClick={() => confirm("Reject this application? This cannot be undone.") && act("decision", { decision: "REJECT", notes })}>Reject</Button>
+              <Button disabled={busy} onClick={() => act("decision", { decision: "APPROVE", notes: notes || "Application verified and vetted by immigration vetting officer." })}>
+                ✓ Vetted (Approve for biometrics)
+              </Button>
+              <Button variant="gold" disabled={busy || !notes.trim()} onClick={() => act("decision", { decision: "QUERY", notes })}>
+                Query applicant
+              </Button>
+              <Button variant="danger" disabled={busy || !notes.trim()} onClick={() => confirm("Reject this application? This cannot be undone.") && act("decision", { decision: "REJECT", notes })}>
+                Reject
+              </Button>
             </div>
           </div>
         </Panel>
@@ -123,42 +193,6 @@ export default function StaffApplicationPage() {
           <button className="font-semibold underline" disabled={busy} onClick={() => act("collect")}>record collection</button>.
         </Alert>
       )}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Panel title="Particulars" className="lg:col-span-2">
-          <div className="flex flex-col gap-5 sm:flex-row">
-            {detail.photo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={detail.photo_url} alt="Applicant" className="h-44 w-36 shrink-0 rounded-lg border object-cover" />
-            )}
-            <Dl
-              items={[
-                ["Surname", a.surname], ["Other names", a.forenames], ["Nationality", a.nationality], ["Sex", a.sex],
-                ["Date of birth", nisDate(a.date_of_birth)], ["Place of birth", a.place_of_birth], ["Profession", a.profession],
-                ["Passport", `${a.passport_number} (expires ${nisDate(a.passport_expiry)})`], ["Domicile", a.domicile],
-                ["Phone", a.phone], ["E-mail", a.email],
-                ["Emergency contact", `${a.emergency_contact_name} (${a.emergency_contact_relation}) ${a.emergency_contact_phone}`],
-                ["Height / complexion", `${a.height ?? "—"} / ${a.complexion ?? "—"}`],
-                ["Eyes / hair", `${a.eye_color ?? "—"} / ${a.hair_color ?? "—"}`],
-              ]}
-            />
-          </div>
-        </Panel>
-        <div className="space-y-6">
-          <Panel title="Appointment & payment">
-            <Dl
-              items={[
-                ["Center", a.enrollment_center?.name], ["Date", `${nisDate(a.appointment_date)} ${a.appointment_time}`],
-                ["Fee", `${naira(a.fee_amount_naira)} — ${a.payment_status}`],
-                ...detail.payments.map((p) => [`Payment ${p.reference}`, `${p.status}${p.verified_at ? " (verified)" : ""}`] as [string, string]),
-              ]}
-            />
-          </Panel>
-          <Panel title="Documents"><DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} /></Panel>
-        </div>
-      </div>
-
-      <Panel title="Workflow history">{a.history && <History history={a.history} />}</Panel>
     </div>
   );
 }

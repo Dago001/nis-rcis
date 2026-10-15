@@ -133,7 +133,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
           user
             ? {
                 name: user.fullname,
-                role: `${user.role_label} · ${user.service_number}`,
+                role: `${user.role === "SuperAdmin" || user.role_label === "Super Administrator" ? "Super Admin" : user.role_label} · ${user.service_number}`,
               }
             : undefined
         }

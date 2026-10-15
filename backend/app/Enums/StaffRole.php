@@ -20,7 +20,7 @@ enum StaffRole: string
     public function label(): string
     {
         return match ($this) {
-            self::SuperAdmin => 'Super Administrator',
+            self::SuperAdmin => 'Super Admin',
             self::Admin => 'Admin',
             self::Supervisor => 'Supervisor',
             self::VettingOfficer, self::DataEntryOfficer => 'Vetting Officer',
