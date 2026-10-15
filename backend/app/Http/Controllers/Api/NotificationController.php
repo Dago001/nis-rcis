@@ -23,8 +23,13 @@ class NotificationController
 
     public function markRead(Request $request): JsonResponse
     {
-        $request->user()->unreadNotifications()->update(['read_at' => now()]);
+        $user = $request->user();
+        if ($id = $request->input('id')) {
+            $user->unreadNotifications()->where('id', $id)->update(['read_at' => now()]);
+        } else {
+            $user->unreadNotifications()->update(['read_at' => now()]);
+        }
 
-        return response()->json(['unread' => 0]);
+        return response()->json(['unread' => $user->unreadNotifications()->count()]);
     }
 }

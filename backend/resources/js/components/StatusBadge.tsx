@@ -1,4 +1,8 @@
 const styles: Record<string, string> = {
+  DRAFT: "bg-slate-100 text-slate-700 border border-slate-200",
+  Draft: "bg-slate-100 text-slate-700 border border-slate-200",
+  PENDING_PAYMENT: "bg-amber-100 text-amber-900",
+  SUBMITTED: "bg-blue-100 text-blue-900",
   PENDING_APPROVAL: "bg-amber-100 text-amber-900",
   QUERIED: "bg-orange-100 text-orange-900",
   REJECTED: "bg-red-100 text-red-800",

@@ -297,8 +297,9 @@ function Wizard() {
           restored.phone = me.phone;
           restored.email = me.email;
         } else {
-          if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
-          if (draft) {
+          const shouldResumeDraft = params.get("resume") === "1" || params.get("payment") === "callback";
+          if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
+          if (draft && shouldResumeDraft) {
             restored = { ...restored, ...draft.data };
             setType(draft.type);
             setStep(draft.current_step);

@@ -6,33 +6,13 @@ import { I18nProvider } from '@/components/I18nProvider';
 
 function ensureFavicon() {
   if (typeof document === 'undefined') return;
-  const iconUrl = '/images/nis-logo.png';
-  
-  let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-  if (!link) {
-    link = document.createElement('link');
+  if (!document.querySelector("link[rel*='icon']")) {
+    const link = document.createElement('link');
     link.rel = 'icon';
+    link.type = 'image/x-icon';
+    link.href = '/favicon.ico?v=1.1';
     document.head.appendChild(link);
   }
-  link.type = 'image/png';
-  link.href = iconUrl;
-
-  let shortcut = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement | null;
-  if (!shortcut) {
-    shortcut = document.createElement('link');
-    shortcut.rel = 'shortcut icon';
-    document.head.appendChild(shortcut);
-  }
-  shortcut.type = 'image/png';
-  shortcut.href = iconUrl;
-
-  let apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
-  if (!apple) {
-    apple = document.createElement('link');
-    apple.rel = 'apple-touch-icon';
-    document.head.appendChild(apple);
-  }
-  apple.href = '/icons/apple-touch-icon.png';
 }
 
 ensureFavicon();

@@ -8,9 +8,14 @@ import { withBase } from "@/lib/base-path";
 export const metadata: Metadata = {
   title: { default: "NIS ECOWAS Residence Card Portal", template: "%s · NIS-RCIS" },
   description: "Nigeria Immigration Service — ECOWAS Residence Card Issuance Portal",
-  appleWebApp: { capable: true, title: "NIS Residence", statusBarStyle: "default" },
-  icons: { apple: withBase("/icons/apple-touch-icon.png") },
-};
+  icons: {
+    icon: [
+      { url: withBase("/favicon.ico?v=1.1"), type: "image/x-icon" },
+      { url: withBase("/favicon-32x32.png?v=1.1"), sizes: "32x32", type: "image/png" },
+    ],
+    shortcut: withBase("/favicon.ico?v=1.1"),
+    apple: withBase("/icons/apple-touch-icon.png?v=1.1"),
+  },
 
 export const viewport: Viewport = { themeColor: "#1f6b1f" };
 
