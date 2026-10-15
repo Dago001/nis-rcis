@@ -12,7 +12,10 @@ use App\Models\EnrollmentCenter;
 use App\Models\Payment;
 use App\Models\ResidenceCard;
 use App\Models\User;
+use App\Support\ApplicationRules;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -37,6 +40,7 @@ class ApplicationSubmission
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
             $requiredTypes[] = DocumentType::CacCertificate;
+            $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'STUDENT') {
             $requiredTypes[] = DocumentType::AdmissionLetter;
         } elseif ($category === 'WORK') {
@@ -47,6 +51,9 @@ class ApplicationSubmission
             ->reject(fn (DocumentType $t) => $documents->contains('type', $t))
             ->map->label();
         if ($missing->isNotEmpty()) {
+            if ($missing->count() === 1) {
+                throw ValidationException::withMessages(['documents' => 'Please upload '.$missing->first().'.']);
+            }
             throw ValidationException::withMessages(['documents' => 'Please upload: '.$missing->implode(', ').'.']);
         }
 
@@ -106,6 +113,61 @@ class ApplicationSubmission
     public function feeKobo(): int
     {
         return config('nis.fee_naira') * 100;
+    }
+
+    /**
+     * Validate the applicant's draft particulars and required documents
+     * BEFORE payment can be initialized.
+     */
+    public function assertPrePaymentValid(Applicant $applicant): void
+    {
+        $draft = $applicant->draft()->with('documents')->first();
+        if (! $draft) {
+            throw ValidationException::withMessages(['general' => 'No active application draft found. Please complete the application particulars first.']);
+        }
+
+        $data = $draft->data ?? [];
+        $data = ApplicationRules::normalise(collect($data)->except(['phone', 'email'])->all());
+
+        // Validate particulars
+        $rules = ApplicationRules::particulars();
+        if (! empty($data['principal_application_id']) && ($data['dependant_relationship'] ?? '') === 'CHILD') {
+            $rules['date_of_birth'] = ['required', 'date', 'before:today', 'after:1900-01-01'];
+        }
+
+        $validator = Validator::make($data, [
+            ...$rules,
+            ...ApplicationRules::quota(),
+            'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
+            'renewal_card_number' => ['required_if:type,RENEWAL,REPLACE', 'nullable', 'string', 'max:20'],
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        // Validate required documents
+        $documents = $draft->documents ?? collect();
+        $category = strtoupper($data['category'] ?? 'WORK');
+        $requiredTypes = DocumentType::requiredForSubmission();
+        if ($category === 'BUSINESS') {
+            $requiredTypes[] = DocumentType::CacCertificate;
+            $requiredTypes[] = DocumentType::AppointmentLetter;
+        } elseif ($category === 'STUDENT') {
+            $requiredTypes[] = DocumentType::AdmissionLetter;
+        } elseif ($category === 'WORK') {
+            $requiredTypes[] = DocumentType::AppointmentLetter;
+        }
+
+        $missing = collect($requiredTypes)
+            ->reject(fn (DocumentType $t) => $documents->contains('type', $t))
+            ->map->label();
+        if ($missing->isNotEmpty()) {
+            if ($missing->count() === 1) {
+                throw ValidationException::withMessages(['documents' => 'Please upload '.$missing->first().'.']);
+            }
+            throw ValidationException::withMessages(['documents' => 'Please upload: '.$missing->implode(', ').'.']);
+        }
     }
 
     private function create(array $data, string $channel, ?Applicant $applicant, ?User $officer, ?ResidenceCard $renewalCard, string $paymentStatus): Application

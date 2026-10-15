@@ -82,9 +82,6 @@ function select(
         onChange={(e) => {
           const val = e.target.value;
           props.set(name, val);
-          if (val) {
-            props.touch?.(name);
-          }
         }}
         onBlur={() => {
           props.focus?.(null);
@@ -138,9 +135,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             className={errors.nationality ? "!border-red-500" : ""}
             onFocus={() => focus?.("nationality")}
             onChange={(e) => {
-              const val = e.target.value;
-              set("nationality", val);
-              if (val) touch?.("nationality");
+              set("nationality", e.target.value);
             }}
             onBlur={() => {
               focus?.(null);
@@ -170,9 +165,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             className={errors.category ? "!border-red-500" : ""}
             onFocus={() => focus?.("category")}
             onChange={(e) => {
-              const val = e.target.value;
-              set("category", val);
-              if (val) touch?.("category");
+              set("category", e.target.value);
             }}
             onBlur={() => {
               focus?.(null);
@@ -200,9 +193,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               className={errors.travel_document_type ? "!border-red-500" : ""}
               onFocus={() => focus?.("travel_document_type")}
               onChange={(e) => {
-                const val = e.target.value;
-                set("travel_document_type", val);
-                if (val) touch?.("travel_document_type");
+                set("travel_document_type", e.target.value);
               }}
               onBlur={() => {
                 focus?.(null);
@@ -326,7 +317,6 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
                 value={data.phone ?? ""}
                 onChange={(v) => {
                   set("phone", v);
-                  if (v) touch?.("phone");
                 }}
               />
             </Field>
@@ -363,7 +353,6 @@ export function PassportFields(props: Props) {
             onFocus={() => focus?.("travel_document_type")}
             onChange={(e) => {
               set("travel_document_type", e.target.value);
-              touch?.("travel_document_type");
             }}
             onBlur={() => {
               focus?.(null);
@@ -426,7 +415,6 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
           onChange={(e) => {
             set(stateField, e.target.value);
             set(lgaField, "");
-            if (e.target.value) touch?.(stateField);
           }}
           onBlur={() => {
             focus?.(null);
@@ -467,23 +455,23 @@ export function ContactFields(props: Props) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {/* Home country residential address - max 10 characters */}
+      {/* Home country residential address - max 10 words */}
       <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Home Country</h3>
       <div className="sm:col-span-2">
         <Field
           label="Address in country of origin"
           required
           error={errors.home_country_address}
-          hint="Permanent residential address in your home country (Maximum 10 characters)"
+          hint="Permanent residential address in your home country (Maximum 10 words)"
         >
           <Input
             name="home_country_address"
             value={data.home_country_address ?? ""}
-            maxLength={10}
+            maxLength={300}
             aria-invalid={Boolean(errors.home_country_address)}
             className={errors.home_country_address ? "!border-red-500" : ""}
             onFocus={() => focus?.("home_country_address")}
-            onChange={(e) => set("home_country_address", e.target.value.slice(0, 10))}
+            onChange={(e) => set("home_country_address", e.target.value)}
             onBlur={() => {
               focus?.(null);
               touch?.("home_country_address");
@@ -542,7 +530,6 @@ export function ContactFields(props: Props) {
           onChange={(e) => {
             set("domicile_state", e.target.value);
             set("domicile_lga", "");
-            if (e.target.value) touch?.("domicile_state");
           }}
           onBlur={() => {
             focus?.(null);
@@ -583,7 +570,6 @@ export function ContactFields(props: Props) {
             } else {
               set("emergency_contact_relation_other", "");
               set("emergency_contact_relation", e.target.value);
-              touch?.("emergency_contact_relation");
             }
           }}
           onBlur={() => {
@@ -610,7 +596,6 @@ export function ContactFields(props: Props) {
             value={data.emergency_contact_phone ?? ""}
             onChange={(v) => {
               set("emergency_contact_phone", v);
-              if (v) touch?.("emergency_contact_phone");
             }}
           />
         </Field>

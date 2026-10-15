@@ -39,30 +39,40 @@ const PHOTO: DocSpec = {
 /** Category-dependent document requirements */
 function getDocuments(category?: string): DocSpec[] {
   const cat = (category || "WORK").toUpperCase();
-  const catDoc: DocSpec =
-    cat === "STUDENT"
-      ? {
-          type: "admission_letter",
-          label: "Institution Admission Letter",
-          required: true,
-          accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-          kinds: "JPG, JPEG, PNG or PDF",
-        }
-      : cat === "BUSINESS"
-      ? {
-          type: "cac_certificate",
-          label: "CAC Business Registration Certificate / Documents",
-          required: true,
-          accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-          kinds: "JPG, JPEG, PNG or PDF",
-        }
-      : {
-          type: "appointment_letter",
-          label: "Employment Appointment / Offer Letter",
-          required: true,
-          accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-          kinds: "JPG, JPEG, PNG or PDF",
-        };
+  const catDocs: DocSpec[] = [];
+
+  if (cat === "STUDENT") {
+    catDocs.push({
+      type: "admission_letter",
+      label: "Institution Admission Letter",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+  } else if (cat === "BUSINESS") {
+    catDocs.push({
+      type: "cac_certificate",
+      label: "CAC Business Registration Certificate / Documents",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+    catDocs.push({
+      type: "appointment_letter",
+      label: "Employment Appointment / Offer Letter",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+  } else {
+    catDocs.push({
+      type: "appointment_letter",
+      label: "Employment Appointment / Offer Letter",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+  }
 
   return [
     {
@@ -79,7 +89,7 @@ function getDocuments(category?: string): DocSpec[] {
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
     },
-    catDoc,
+    ...catDocs,
     {
       type: "residence_visa",
       label: "Subject-to-Regularization / Entry visa (if applicable)",
@@ -205,7 +215,11 @@ function Wizard() {
       if (n === 5) {
         const requiredDocs = getDocuments(data.category);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
-        if (absent.length) e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
+        if (absent.length === 1) {
+          e.documents = `Please upload ${absent[0].label}.`;
+        } else if (absent.length > 1) {
+          e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
+        }
       }
       if (n === 6 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
       if (n === 7 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
@@ -218,8 +232,8 @@ function Wizard() {
   const errors = useMemo(() => {
     const shown: Record<string, string> = {};
     for (const field of touched) {
-      // Suppress premature errors while user is actively focused on field and typing
-      if (focusedField === field && (data[field]?.trim()?.length ?? 0) > 0) {
+      // Suppress premature errors while user is actively focused on field
+      if (focusedField === field) {
         continue;
       }
       const message = fieldError(field, data);
@@ -350,9 +364,24 @@ function Wizard() {
   function checkStep(n: number): boolean {
     const fields = stepFields(n);
     setTouched((t) => new Set([...t, ...fields]));
-    const problems = { ...validate(fields, data), ...extraErrors(n) };
-    setStepError(extraErrors(n));
-    return Object.keys(problems).length === 0;
+    const fieldProblems = validate(fields, data);
+    const extra = extraErrors(n);
+    const problems = { ...fieldProblems, ...extra };
+    setStepError(extra);
+
+    if (Object.keys(problems).length > 0) {
+      setFocusedField(null);
+      const firstInvalidField = fields.find((f) => Boolean(problems[f]));
+      if (firstInvalidField) {
+        const el = document.querySelector(`[name="${firstInvalidField}"]`) as HTMLElement;
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.focus?.();
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return false;
+    }
+    return true;
   }
 
   function goTo(n: number) {
@@ -368,9 +397,25 @@ function Wizard() {
       return;
     }
     if (!checkStep(step)) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+
+    // Pre-Payment Validation Guard:
+    // When completing Step 6 (Review & Declaration), ensure all pre-payment steps (1 to 6)
+    // and compulsory documents are complete and valid before advancing to Step 7 (Payment).
+    if (step === 6) {
+      for (let s = 1; s <= 6; s++) {
+        if (!checkStep(s)) {
+          goTo(s);
+          setNotice({
+            tone: "danger",
+            text: "Please complete all compulsory fields and document uploads before proceeding to payment.",
+          });
+          return;
+        }
+      }
+    }
+
     setBusy(true);
     try {
       await saveDraft(step + 1);
@@ -628,6 +673,18 @@ function Wizard() {
   }
 
   async function pay() {
+    // Pre-Payment Client Validation Guard across steps 1 through 6
+    for (let s = 1; s <= 6; s++) {
+      if (!checkStep(s)) {
+        goTo(s);
+        setNotice({
+          tone: "danger",
+          text: "Please complete all required fields and compulsory document uploads before making payment.",
+        });
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
@@ -643,7 +700,15 @@ function Wizard() {
         window.location.href = payment.authorization_url;
       }
     } catch (e) {
-      setNotice({ tone: "danger", text: (e as Error).message });
+      if (e instanceof ApiError && e.status === 422) {
+        const fieldErrors = e.fieldErrors();
+        setServerErrors(fieldErrors);
+        const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 6));
+        goTo(first);
+        setNotice({ tone: "danger", text: "Please complete all required application details before proceeding to payment." });
+      } else {
+        setNotice({ tone: "danger", text: (e as Error).message });
+      }
       setBusy(false);
     }
   }
@@ -776,9 +841,10 @@ function Wizard() {
                 const isPdf = state?.isPdf ?? (current?.mime_type === "application/pdf" || current?.original_name?.toLowerCase().endsWith(".pdf"));
                 const previewUrl = state?.previewUrl || (current as any)?.url;
 
+                const isAbsent = Boolean(errors.documents && d.required && !isUploaded);
                 let cardStyle = "border-slate-200 bg-white hover:border-slate-300";
                 if (isUploading) cardStyle = "border-blue-300 bg-blue-50/20";
-                else if (isError) cardStyle = "border-red-300 bg-red-50/20";
+                else if (isError || isAbsent) cardStyle = "border-red-300 bg-red-50/20";
                 else if (isUploaded) cardStyle = "border-emerald-300 bg-emerald-50/20";
 
                 return (
@@ -840,6 +906,9 @@ function Wizard() {
                         <div className="text-sm font-semibold text-slate-900">
                           {d.label} {d.required ? <span className="text-red-600">*</span> : <span className="text-xs font-normal text-slate-500">(Optional)</span>}
                         </div>
+                        {isAbsent && (
+                          <p className="text-xs font-medium text-red-600">Please upload this compulsory document.</p>
+                        )}
 
                         {/* Status lines */}
                         {isUploading && (

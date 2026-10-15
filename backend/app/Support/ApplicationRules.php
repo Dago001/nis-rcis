@@ -50,7 +50,18 @@ class ApplicationRules
             'distinguished_features' => ['nullable', 'string', 'max:150', 'regex:'.self::TEXT],
             'blood_group' => ['nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'])],
             'profession' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
-            'home_country_address' => ['required', 'string', 'max:10', 'regex:'.self::ADDRESS],
+            'home_country_address' => [
+                'required',
+                'string',
+                'max:500',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    $words = preg_split('/\s+/', trim((string) $value), -1, PREG_SPLIT_NO_EMPTY);
+                    if (count($words) > 10) {
+                        $fail('Address must not exceed 10 words.');
+                    }
+                },
+                'regex:'.self::ADDRESS,
+            ],
             'domicile' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
             'domicile_state' => ['required', 'string', Rule::in(NigeriaLgas::states())],
             'domicile_lga' => ['required', 'string', new NigerianLga('domicile_state')],
@@ -118,6 +129,12 @@ class ApplicationRules
 
         if (isset($data['email'])) {
             $data['email'] = strtolower(trim($data['email']));
+        }
+
+        foreach (['home_country_address', 'domicile', 'emergency_contact_address', 'change_of_address'] as $addrKey) {
+            if (isset($data[$addrKey]) && is_string($data[$addrKey])) {
+                $data[$addrKey] = trim($data[$addrKey]);
+            }
         }
 
         $data['distinguished_features'] = ($data['distinguished_features'] ?? null) ?: 'NONE';

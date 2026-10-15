@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppointmentPicker } from "@/components/AppointmentPicker";
 import { ContactFields, GeneralInfoFields, PassportFields, PersonalFields } from "@/components/ParticularsFields";
 import { Alert, Button, Field, Input, Panel, Spinner } from "@/components/ui";
@@ -28,24 +28,82 @@ const MAX_BYTES = 2 * 1024 * 1024;
 
 type DocSpec = { type: string; label: string; required: boolean; accept: string; kinds: string };
 
-const PHOTO: DocSpec = { type: "photo", label: "Passport photograph (white background)", required: true, accept: "image/jpeg,image/png", kinds: "JPG or PNG" };
+const PHOTO: DocSpec = {
+  type: "photo",
+  label: "Passport photograph (white background)",
+  required: true,
+  accept: ".jpg,.jpeg,.png,image/jpeg,image/png",
+  kinds: "JPG or PNG",
+};
 
 /** Category-dependent document requirements */
 function getDocuments(category?: string): DocSpec[] {
   const cat = (category || "WORK").toUpperCase();
-  const catDoc: DocSpec =
-    cat === "STUDENT"
-      ? { type: "admission_letter", label: "Institution Admission Letter", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" }
-      : cat === "BUSINESS"
-      ? { type: "cac_certificate", label: "CAC Business Registration Certificate / Documents", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" }
-      : { type: "appointment_letter", label: "Employment Appointment / Offer Letter", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" };
+  const catDocs: DocSpec[] = [];
+
+  if (cat === "STUDENT") {
+    catDocs.push({
+      type: "admission_letter",
+      label: "Institution Admission Letter",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+  } else if (cat === "BUSINESS") {
+    catDocs.push({
+      type: "cac_certificate",
+      label: "CAC Business Registration Certificate / Documents",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+    catDocs.push({
+      type: "appointment_letter",
+      label: "Employment Appointment / Offer Letter",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+  } else {
+    catDocs.push({
+      type: "appointment_letter",
+      label: "Employment Appointment / Offer Letter",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    });
+  }
 
   return [
-    { type: "passport_copy", label: "International Passport data page OR ECOWAS Travel Certificate", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-    { type: "domicile_proof", label: "Proof of domicile in Nigeria (Utility bill / Tenancy)", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-    catDoc,
-    { type: "residence_visa", label: "Subject-to-Regularization / Entry visa (if applicable)", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-    { type: "additional", label: "Additional supporting document", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+    {
+      type: "passport_copy",
+      label: "International Passport data page OR ECOWAS Travel Certificate",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    {
+      type: "domicile_proof",
+      label: "Proof of domicile in Nigeria (Utility bill / Tenancy)",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    ...catDocs,
+    {
+      type: "residence_visa",
+      label: "Subject-to-Regularization / Entry visa (if applicable)",
+      required: false,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    {
+      type: "additional",
+      label: "Additional supporting document",
+      required: false,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
   ];
 }
 
@@ -67,6 +125,16 @@ const FIELD_STEP: Record<string, number> = {
 type DraftDoc = { id: number; type: string; label: string; original_name: string; size_bytes: number; mime_type: string };
 type AppType = "NEW" | "RENEWAL" | "REPLACE";
 type Draft = { type: AppType; current_step: number; data: Record<string, string>; documents: DraftDoc[]; saved_at: string };
+
+type DocUploadState = {
+  status: "idle" | "uploading" | "success" | "error";
+  fileName?: string;
+  fileSize?: number;
+  previewUrl?: string;
+  isPdf?: boolean;
+  error?: string;
+  pendingFile?: File;
+};
 
 function kb(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -94,6 +162,8 @@ function Wizard() {
   });
   const [documents, setDocuments] = useState<DraftDoc[]>([]);
   const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [docStates, setDocStates] = useState<Record<string, DocUploadState>>({});
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [stepError, setStepError] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<{ tone: "success" | "danger" | "info"; text: string } | null>(null);
@@ -101,7 +171,13 @@ function Wizard() {
   const [paid, setPaid] = useState(false);
   const [fee, setFee] = useState<number | null>(null);
   const [photoLink, setPhotoLink] = useState<{ id: number; url: string } | null>(null);
+  const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
+  const [photoUploadStatus, setPhotoUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+
+  const initialLoadedRef = useRef(false);
+  const isUploadingPhotoRef = useRef(false);
+  const uploadingDocsRef = useRef<Set<string>>(new Set());
 
   const set = useCallback((key: string, value: string) => {
     setData((d) => ({ ...d, [key]: value }));
@@ -135,34 +211,46 @@ function Wizard() {
   const extraErrors = useCallback(
     (n: number): Record<string, string> => {
       const e: Record<string, string> = {};
-      if (n === 2 && !photo) e.photo = "Upload your passport photograph.";
+      if (n === 2 && !photo && !localPhotoPreview) e.photo = "Upload your passport photograph.";
       if (n === 5) {
         const requiredDocs = getDocuments(data.category);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
-        if (absent.length) e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
+        if (absent.length === 1) {
+          e.documents = `Please upload ${absent[0].label}.`;
+        } else if (absent.length > 1) {
+          e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
+        }
       }
       if (n === 6 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
       if (n === 7 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, documents, paid, data.declaration, data.category],
+    [photo, localPhotoPreview, documents, paid, data.declaration, data.category],
   );
 
-  // Errors shown now: every visited field is checked as the applicant types.
+  // Errors shown: fields are validated on blur or step submit; in-progress typing is not prematurely flagged red.
   const errors = useMemo(() => {
     const shown: Record<string, string> = {};
     for (const field of touched) {
+      // Suppress premature errors while user is actively focused on field
+      if (focusedField === field) {
+        continue;
+      }
       const message = fieldError(field, data);
       if (message) shown[field] = message;
     }
-    for (const [field, message] of Object.entries(serverErrors)) if (message) shown[field] = message;
+    for (const [field, message] of Object.entries(serverErrors)) {
+      if (message && focusedField !== field) shown[field] = message;
+    }
     for (const [field, message] of Object.entries(stepError)) {
       if (message && (!data[field] || ["photo", "documents", "declaration", "payment_reference"].includes(field))) {
-        shown[field] = message;
+        if (focusedField !== field || !data[field]) {
+          shown[field] = message;
+        }
       }
     }
     return shown;
-  }, [touched, data, serverErrors, stepError]);
+  }, [touched, data, serverErrors, stepError, focusedField]);
 
   const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration"].some((f) => errors[f] && FIELD_STEP[f] === step);
 
@@ -178,82 +266,122 @@ function Wizard() {
 
   // Load draft (or pre-fill from the profile) and handle the Paystack return.
   useEffect(() => {
+    if (initialLoadedRef.current) return;
+    initialLoadedRef.current = true;
+
     (async () => {
-      const [{ draft }, me, centerList] = await Promise.all([
-        api<{ draft: Draft | null }>("applicant", "draft"),
-        api<{ surname: string; forenames: string; email: string; phone: string }>("applicant", "me"),
-        api<{ data: EnrollmentCenter[]; fee_naira: number }>("public", "enrollment-centers"),
-      ]);
-      setFee(centerList.fee_naira);
+      try {
+        const [{ draft }, me, centerList] = await Promise.all([
+          api<{ draft: Draft | null }>("applicant", "draft"),
+          api<{ surname: string; forenames: string; email: string; phone: string }>("applicant", "me"),
+          api<{ data: EnrollmentCenter[]; fee_naira: number }>("public", "enrollment-centers"),
+        ]);
+        setFee(centerList.fee_naira);
 
-      // A new application for a spouse or child (from the portal home page).
-      const relationship = (params.get("for") ?? "").toUpperCase();
-      const isDependantFlow = Boolean(params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship));
+        // A new application for a spouse or child (from the portal home page).
+        const relationship = (params.get("for") ?? "").toUpperCase();
+        const isDependantFlow = Boolean(params.get("principal") && ["SPOUSE", "CHILD"].includes(relationship));
 
-      let restored: Record<string, string> = {
-        nationality: "",
-        category: "WORK",
-        travel_document_type: "PASSPORT",
-        surname: me.surname,
-        forenames: isDependantFlow ? "" : me.forenames,
-      };
+        let restored: Record<string, string> = {
+          nationality: "",
+          category: "WORK",
+          travel_document_type: "PASSPORT",
+          surname: me.surname,
+          forenames: isDependantFlow ? "" : me.forenames,
+        };
 
-      if (isDependantFlow) {
-        restored.principal_application_id = params.get("principal") as string;
-        restored.dependant_relationship = relationship;
-        // Dependant flow starts afresh: previous draft of principal is not loaded
-        restored.phone = me.phone;
-        restored.email = me.email;
-      } else {
-        if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
-        if (draft) {
-          restored = { ...restored, ...draft.data };
-          setType(draft.type);
-          setStep(draft.current_step);
-          setDocuments(draft.documents);
-          setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
-        }
-        restored.phone = me.phone;
-        restored.email = me.email;
-      }
-
-      const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
-      if (reference) {
-        const payment = await api<{ paid: boolean; used: boolean }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
-        if (payment?.paid && !payment.used) {
-          restored.payment_reference = reference;
-          setPaid(true);
-          if (params.get("payment") === "callback") {
-            setStep(7);
-            setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
+        if (isDependantFlow) {
+          restored.principal_application_id = params.get("principal") as string;
+          restored.dependant_relationship = relationship;
+          // Dependant flow starts afresh: previous draft of principal is not loaded
+          restored.phone = me.phone;
+          restored.email = me.email;
+        } else {
+          if (!draft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
+          if (draft) {
+            restored = { ...restored, ...draft.data };
+            setType(draft.type);
+            setStep(draft.current_step);
+            setDocuments(draft.documents);
+            setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
           }
-        } else if (params.get("payment") === "callback") {
-          setStep(7);
-          setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
+          restored.phone = me.phone;
+          restored.email = me.email;
         }
-      }
-      setData(restored);
-      setLoaded(true);
-    })();
-  }, [params]);
 
-  // Passport photograph preview.
+        const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
+        if (reference) {
+          const payment = await api<{ paid: boolean; used: boolean }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
+          if (payment?.paid && !payment.used) {
+            restored.payment_reference = reference;
+            setPaid(true);
+            if (params.get("payment") === "callback") {
+              setStep(7);
+              setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
+            }
+          } else if (params.get("payment") === "callback") {
+            setStep(7);
+            setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
+          }
+        }
+        setData(restored);
+      } catch (err) {
+        setNotice({ tone: "danger", text: (err as Error).message || "Failed to load application data." });
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  // Clean up temporary local preview object URL to prevent memory leaks
   useEffect(() => {
-    if (!photo) return;
+    return () => {
+      if (localPhotoPreview) {
+        URL.revokeObjectURL(localPhotoPreview);
+      }
+    };
+  }, [localPhotoPreview]);
+
+  // Passport photograph server link (only needed when no local preview is already showing)
+  useEffect(() => {
+    if (!photo || localPhotoPreview) return;
+    if (photoLink?.id === photo.id && photoLink.url) return;
     let cancelled = false;
-    documentUrl(photo.id).then((url) => !cancelled && setPhotoLink({ id: photo.id, url })).catch(() => undefined);
+    documentUrl(photo.id)
+      .then((url) => {
+        if (!cancelled) {
+          setPhotoLink({ id: photo.id, url });
+          setPhotoUploadStatus("success");
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [photo]);
+  }, [photo, localPhotoPreview, photoLink?.id, photoLink?.url]);
 
   /** Check a whole step; shows every problem at once. */
   function checkStep(n: number): boolean {
     const fields = stepFields(n);
     setTouched((t) => new Set([...t, ...fields]));
-    const problems = { ...validate(fields, data), ...extraErrors(n) };
-    setStepError(extraErrors(n));
-    return Object.keys(problems).length === 0;
+    const fieldProblems = validate(fields, data);
+    const extra = extraErrors(n);
+    const problems = { ...fieldProblems, ...extra };
+    setStepError(extra);
+
+    if (Object.keys(problems).length > 0) {
+      setFocusedField(null);
+      const firstInvalidField = fields.find((f) => Boolean(problems[f]));
+      if (firstInvalidField) {
+        const el = document.querySelector(`[name="${firstInvalidField}"]`) as HTMLElement;
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.focus?.();
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return false;
+    }
+    return true;
   }
 
   function goTo(n: number) {
@@ -263,10 +391,31 @@ function Wizard() {
   }
 
   async function next() {
-    if (!checkStep(step)) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    const isAnyDocUploading = Object.values(docStates).some((s) => s.status === "uploading") || photoUploadStatus === "uploading";
+    if (isAnyDocUploading) {
+      setNotice({ tone: "danger", text: "Please wait for files to finish uploading before proceeding." });
       return;
     }
+    if (!checkStep(step)) {
+      return;
+    }
+
+    // Pre-Payment Validation Guard:
+    // When completing Step 6 (Review & Declaration), ensure all pre-payment steps (1 to 6)
+    // and compulsory documents are complete and valid before advancing to Step 7 (Payment).
+    if (step === 6) {
+      for (let s = 1; s <= 6; s++) {
+        if (!checkStep(s)) {
+          goTo(s);
+          setNotice({
+            tone: "danger",
+            text: "Please complete all compulsory fields and document uploads before proceeding to payment.",
+          });
+          return;
+        }
+      }
+    }
+
     setBusy(true);
     try {
       await saveDraft(step + 1);
@@ -291,26 +440,225 @@ function Wizard() {
     router.push("/portal");
   }
 
-  async function uploadDocument(spec: DocSpec, file: File) {
-    const key = spec.type === "photo" ? "photo" : "documents";
+  async function uploadPhotograph(file: File) {
+    if (isUploadingPhotoRef.current) return;
+
     if (file.size > MAX_BYTES) {
-      setStepError({ [key]: `${spec.label}: the file is ${kb(file.size)}. Please upload a file smaller than 2 MB.` });
+      setStepError((prev) => ({ ...prev, photo: `Passport photograph: the file is ${kb(file.size)}. Please upload a file smaller than 2 MB.` }));
+      setPhotoUploadStatus("error");
       return;
     }
-    if (!spec.accept.split(",").includes(file.type)) {
-      setStepError({ [key]: `${spec.label}: please upload a ${spec.kinds} file.` });
+
+    const validMimes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!validMimes.includes(file.type.toLowerCase())) {
+      setStepError((prev) => ({ ...prev, photo: "Passport photograph: please upload a JPEG or PNG image." }));
+      setPhotoUploadStatus("error");
       return;
     }
+
+    if (localPhotoPreview) {
+      URL.revokeObjectURL(localPhotoPreview);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPhotoPreview(objectUrl);
+    setPhotoUploadStatus("uploading");
+    setStepError((prev) => {
+      const next = { ...prev };
+      delete next.photo;
+      return next;
+    });
+
+    isUploadingPhotoRef.current = true;
     setBusy(true);
-    setStepError({});
+
+    try {
+      await saveDraft(step);
+      const result = await upload<{ draft: Draft; uploaded_document?: { id: number; url: string } }>(
+        "applicant",
+        "draft/documents",
+        { type: "photo", file }
+      );
+      setDocuments(result.draft.documents);
+      const uploadedDoc = result.draft.documents.find((d) => d.type === "photo");
+      if (uploadedDoc) {
+        setPhotoLink({ id: uploadedDoc.id, url: result.uploaded_document?.url || objectUrl });
+      }
+      setPhotoUploadStatus("success");
+    } catch (e) {
+      setPhotoUploadStatus("error");
+      if (e instanceof ApiError) {
+        setStepError((prev) => ({
+          ...prev,
+          photo: e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message,
+        }));
+      } else {
+        setStepError((prev) => ({ ...prev, photo: (e as Error).message }));
+      }
+    } finally {
+      isUploadingPhotoRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function uploadDocFile(spec: DocSpec, file: File) {
+    if (spec.type === "photo") {
+      return uploadPhotograph(file);
+    }
+
+    if (uploadingDocsRef.current.has(spec.type)) {
+      return;
+    }
+
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = [
+      "image/jpeg",
+      "image/jpg",
+      "image/pjpeg",
+      "image/png",
+      "image/x-png",
+    ].includes(file.type.toLowerCase()) || /\.(jpe?g|png)$/i.test(file.name);
+
+    if (file.size > MAX_BYTES) {
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "error",
+          fileName: file.name,
+          fileSize: file.size,
+          isPdf,
+          error: `File size (${kb(file.size)}) exceeds maximum limit of 2 MB. Please select a smaller file.`,
+          pendingFile: file,
+        },
+      }));
+      return;
+    }
+
+    if (!isPdf && !isImage) {
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "error",
+          fileName: file.name,
+          fileSize: file.size,
+          isPdf: false,
+          error: "Invalid file format. Please upload a PDF, JPG, or PNG document.",
+          pendingFile: file,
+        },
+      }));
+      return;
+    }
+
+    uploadingDocsRef.current.add(spec.type);
+    const objectUrl = isImage ? URL.createObjectURL(file) : undefined;
+
+    setDocStates((prev) => {
+      if (prev[spec.type]?.previewUrl && prev[spec.type]?.previewUrl?.startsWith("blob:")) {
+        try { URL.revokeObjectURL(prev[spec.type].previewUrl!); } catch (_) {}
+      }
+      return {
+        ...prev,
+        [spec.type]: {
+          status: "uploading",
+          fileName: file.name,
+          fileSize: file.size,
+          previewUrl: objectUrl,
+          isPdf,
+          pendingFile: file,
+        },
+      };
+    });
+
     try {
       await saveDraft(step);
       const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
       setDocuments(result.draft.documents);
+      const uploaded = result.draft.documents.find((d) => d.type === spec.type);
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "success",
+          fileName: uploaded?.original_name || file.name,
+          fileSize: uploaded?.size_bytes || file.size,
+          previewUrl: objectUrl || (uploaded as any)?.url,
+          isPdf,
+        },
+      }));
+      setStepError((prev) => {
+        const next = { ...prev };
+        delete next.documents;
+        return next;
+      });
     } catch (e) {
-      if (e instanceof ApiError) setStepError({ [key]: e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message });
+      let errorMsg = (e as Error).message;
+      if (e instanceof ApiError) {
+        errorMsg = e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message;
+      }
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "error",
+          fileName: file.name,
+          fileSize: file.size,
+          previewUrl: objectUrl,
+          isPdf,
+          error: errorMsg,
+          pendingFile: file,
+        },
+      }));
+    } finally {
+      uploadingDocsRef.current.delete(spec.type);
+    }
+  }
+
+  async function removeDoc(spec: DocSpec) {
+    const current = documents.find((x) => x.type === spec.type);
+    if (!confirm(`Are you sure you want to remove ${spec.label}?`)) return;
+    setBusy(true);
+    try {
+      if (current) {
+        const result = await api<{ draft: Draft }>("applicant", `draft/documents/${current.id}`, { method: "DELETE" });
+        setDocuments(result.draft.documents);
+      }
+      setDocStates((prev) => {
+        const next = { ...prev };
+        if (next[spec.type]?.previewUrl) {
+          try { URL.revokeObjectURL(next[spec.type].previewUrl!); } catch (_) {}
+        }
+        delete next[spec.type];
+        return next;
+      });
+      setNotice({ tone: "info", text: `${spec.label} removed.` });
+    } catch (e) {
+      setNotice({ tone: "danger", text: (e as Error).message });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function viewDoc(spec: DocSpec) {
+    const current = documents.find((x) => x.type === spec.type);
+    const localState = docStates[spec.type];
+    if (localState?.previewUrl) {
+      if (localState.isPdf) {
+        window.open(localState.previewUrl, "_blank", "noopener");
+      } else {
+        setPreview({ url: localState.previewUrl, name: localState.fileName || spec.label });
+      }
+      return;
+    }
+    if (current) {
+      try {
+        const url = await documentUrl(current.id);
+        const isPdf = current.mime_type === "application/pdf" || current.original_name.toLowerCase().endsWith(".pdf");
+        if (isPdf) {
+          window.open(url, "_blank", "noopener");
+        } else {
+          setPreview({ url, name: current.original_name });
+        }
+      } catch (e) {
+        setNotice({ tone: "danger", text: (e as Error).message });
+      }
     }
   }
 
@@ -325,6 +673,18 @@ function Wizard() {
   }
 
   async function pay() {
+    // Pre-Payment Client Validation Guard across steps 1 through 6
+    for (let s = 1; s <= 6; s++) {
+      if (!checkStep(s)) {
+        goTo(s);
+        setNotice({
+          tone: "danger",
+          text: "Please complete all required fields and compulsory document uploads before making payment.",
+        });
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
@@ -340,12 +700,21 @@ function Wizard() {
         window.location.href = payment.authorization_url;
       }
     } catch (e) {
-      setNotice({ tone: "danger", text: (e as Error).message });
+      if (e instanceof ApiError && e.status === 422) {
+        const fieldErrors = e.fieldErrors();
+        setServerErrors(fieldErrors);
+        const first = Math.min(...Object.keys(fieldErrors).map((f) => FIELD_STEP[f] ?? 6));
+        goTo(first);
+        setNotice({ tone: "danger", text: "Please complete all required application details before proceeding to payment." });
+      } else {
+        setNotice({ tone: "danger", text: (e as Error).message });
+      }
       setBusy(false);
     }
   }
 
   async function submit() {
+    if (busy) return;
     if (!checkStep(8)) return;
     // The declaration (step 6) and payment (step 7) must both be complete.
     for (const n of [6, 7]) {
@@ -378,7 +747,7 @@ function Wizard() {
 
   if (!loaded) return <Spinner label={t("Loading…")} />;
 
-  const props = { data, errors, set, touch };
+  const props = { data, errors, set, touch, focus: setFocusedField };
 
   return (
     <div className="space-y-6">
@@ -407,7 +776,22 @@ function Wizard() {
         {/* Step 2: Personal details */}
         {step === 2 && (
           <div className="space-y-6">
-            <PhotoUpload photo={photo} url={photoUrl} error={errors.photo} busy={busy} onUpload={(f) => uploadDocument(PHOTO, f)} onView={() => photo && view(photo)} />
+            <PhotoUpload
+              photo={photo}
+              url={photoUrl}
+              localPreview={localPhotoPreview}
+              uploadStatus={photoUploadStatus}
+              error={errors.photo}
+              busy={busy}
+              onUpload={uploadPhotograph}
+              onView={() => {
+                if (localPhotoPreview) {
+                  setPreview({ url: localPhotoPreview, name: "Passport photograph" });
+                } else if (photo) {
+                  view(photo);
+                }
+              }}
+            />
             {data.dependant_relationship && (
               <Alert tone="info">
                 This application is for your <strong>{data.dependant_relationship === "CHILD" ? "child" : "spouse"}</strong> and is linked to your own application.
@@ -434,36 +818,224 @@ function Wizard() {
         {step === 5 && (
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
-              <div className="text-sm font-semibold text-nis-primary-dark">Required Documents for {data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work"} Category</div>
+              <div className="text-sm font-semibold text-nis-primary-dark">
+                Required Documents for {data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work"} Category
+              </div>
               <p className="mt-1 text-xs text-slate-600">
-                Each file must be <strong>smaller than 2 MB</strong> (JPG, PNG or PDF). Your passport photograph was uploaded in step 2.
+                Official Document Verification: Each file must be <strong>smaller than 2 MB</strong> in <strong>PDF, JPG, or PNG</strong> format.
+                Ensure all documents are clear, fully legible, and upright. Your passport photograph was uploaded in step 2.
               </p>
             </div>
+
             {errors.documents && <Alert tone="danger">{errors.documents}</Alert>}
-            <ul className="divide-y divide-slate-100">
+
+            <div className="grid gap-3.5">
               {currentDocs.map((d) => {
                 const current = documents.find((x) => x.type === d.type);
+                const state = docStates[d.type];
+                const isUploading = state?.status === "uploading";
+                const isError = state?.status === "error";
+                const isUploaded = (state?.status === "success" || Boolean(current)) && !isError && !isUploading;
+                const fileName = state?.fileName || current?.original_name;
+                const fileSize = state?.fileSize || current?.size_bytes;
+                const isPdf = state?.isPdf ?? (current?.mime_type === "application/pdf" || current?.original_name?.toLowerCase().endsWith(".pdf"));
+                const previewUrl = state?.previewUrl || (current as any)?.url;
+
+                const isAbsent = Boolean(errors.documents && d.required && !isUploaded);
+                let cardStyle = "border-slate-200 bg-white hover:border-slate-300";
+                if (isUploading) cardStyle = "border-blue-300 bg-blue-50/20";
+                else if (isError || isAbsent) cardStyle = "border-red-300 bg-red-50/20";
+                else if (isUploaded) cardStyle = "border-emerald-300 bg-emerald-50/20";
+
                 return (
-                  <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    <div>
-                      <div className="text-sm font-medium">{d.label}{d.required && <span className="text-red-600"> *</span>}</div>
-                      <div className={`text-xs ${current ? "text-nis-primary" : "text-slate-500"}`}>{current ? `✓ ${current.original_name} (${kb(current.size_bytes)})` : "Not uploaded"}</div>
+                  <div
+                    key={d.type}
+                    className={`flex flex-col gap-4 rounded-xl border p-4 shadow-sm transition-all sm:flex-row sm:items-center sm:justify-between ${cardStyle}`}
+                  >
+                    {/* Left: Thumbnail / Badge & metadata */}
+                    <div className="flex items-start gap-3.5">
+                      {/* Document icon / preview box */}
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-slate-400">
+                        {isUploaded && !isPdf && previewUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={previewUrl} alt={fileName || d.label} className="h-full w-full object-cover" />
+                        ) : isUploaded && !isPdf ? (
+                          <div className="flex flex-col items-center justify-center text-emerald-600">
+                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            <span className="text-[8px] font-bold tracking-tight">IMG</span>
+                          </div>
+                        ) : isUploaded && isPdf ? (
+                          <div className="flex flex-col items-center justify-center text-red-600">
+                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <line x1="16" y1="13" x2="8" y2="13" />
+                              <line x1="16" y1="17" x2="8" y2="17" />
+                              <polyline points="10 9 9 9 8 9" />
+                            </svg>
+                            <span className="text-[8px] font-bold tracking-tight">PDF</span>
+                          </div>
+                        ) : isUploaded ? (
+                          <svg className="h-6 w-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="18" x2="12" y2="12" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                          </svg>
+                        ) : isUploading ? (
+                          <svg className="h-6 w-6 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-6 w-6 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="12" x2="12" y2="18" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Details */}
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-slate-900">
+                          {d.label} {d.required ? <span className="text-red-600">*</span> : <span className="text-xs font-normal text-slate-500">(Optional)</span>}
+                        </div>
+                        {isAbsent && (
+                          <p className="text-xs font-medium text-red-600">Please upload this compulsory document.</p>
+                        )}
+
+                        {/* Status lines */}
+                        {isUploading && (
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            <span>Uploading document…</span>
+                            {fileName && <span className="truncate max-w-[200px] text-slate-500">({fileName})</span>}
+                          </div>
+                        )}
+
+                        {isUploaded && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              Document uploaded successfully
+                            </span>
+                            <span className="truncate max-w-[240px] text-xs font-medium text-slate-700">{fileName}</span>
+                            {fileSize && <span className="text-xs text-slate-400">({kb(fileSize)})</span>}
+                          </div>
+                        )}
+
+                        {isError && (
+                          <div className="space-y-0.5">
+                            <div className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              Upload Failed
+                            </div>
+                            <p className="text-xs text-red-700">{state?.error || "Please select a valid document."}</p>
+                          </div>
+                        )}
+
+                        {!isUploading && !isUploaded && !isError && (
+                          <p className="text-xs text-slate-500">PDF, JPG or PNG up to 2 MB</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      {current && <Button variant="secondary" onClick={() => view(current)}>View</Button>}
-                      <UploadButton label={current ? "Replace" : "Upload"} accept={d.accept} disabled={busy} onFile={(f) => uploadDocument(d, f)} />
+
+                    {/* Right: Actions */}
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                      {isUploaded && (
+                        <>
+                          <Button
+                            variant="secondary"
+                            type="button"
+                            onClick={() => viewDoc(d)}
+                            className="!text-xs !py-1.5 !px-3"
+                          >
+                            View
+                          </Button>
+                          <UploadButton
+                            label="Replace"
+                            accept={d.accept}
+                            disabled={busy || isUploading}
+                            onFile={(f) => uploadDocFile(d, f)}
+                            className="!text-xs !py-1.5 !px-3"
+                          />
+                          <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={() => removeDoc(d)}
+                            disabled={busy || isUploading}
+                            className="!text-xs !py-1.5 !px-3 !text-red-700 hover:!bg-red-50"
+                          >
+                            Remove
+                          </Button>
+                        </>
+                      )}
+
+                      {isError && (
+                        <>
+                          {state?.pendingFile && (
+                            <Button
+                              variant="primary"
+                              type="button"
+                              onClick={() => uploadDocFile(d, state.pendingFile!)}
+                              disabled={busy || isUploading}
+                              className="!text-xs !py-1.5 !px-3"
+                            >
+                              Retry
+                            </Button>
+                          )}
+                          <UploadButton
+                            label="Choose file"
+                            accept={d.accept}
+                            disabled={busy || isUploading}
+                            onFile={(f) => uploadDocFile(d, f)}
+                            className="!text-xs !py-1.5 !px-3"
+                          />
+                        </>
+                      )}
+
+                      {!isUploaded && !isError && (
+                        <UploadButton
+                          label={isUploading ? "Uploading…" : "Upload document"}
+                          accept={d.accept}
+                          disabled={busy || isUploading}
+                          onFile={(f) => uploadDocFile(d, f)}
+                          className="!text-xs !py-1.5 !px-3 !bg-nis-primary !text-white hover:!bg-nis-primary-dark"
+                        />
+                      )}
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           </div>
         )}
 
         {/* Step 6: Review & declaration */}
         {step === 6 && (
           <div className="space-y-6">
-            <p className="text-sm text-slate-600">Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</p>
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs text-slate-600 sm:text-sm">
+              <svg className="h-4 w-4 shrink-0 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <span>Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</span>
+            </div>
+
             <ReviewSection title="General Information" onEdit={() => goTo(1)}>
               <ReviewGrid
                 items={[
@@ -476,10 +1048,14 @@ function Wizard() {
             </ReviewSection>
 
             <ReviewSection title="Personal details" onEdit={() => goTo(2)}>
-              <div className="flex flex-col gap-5 sm:flex-row">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                 {photoUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoUrl} alt="Passport photograph" className="h-40 w-32 shrink-0 rounded-lg border object-cover" />
+                  <div className="shrink-0 self-start">
+                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-1 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photoUrl} alt="Passport photograph" className="h-36 w-28 rounded object-cover" />
+                    </div>
+                  </div>
                 )}
                 <ReviewGrid
                   items={[
@@ -500,7 +1076,7 @@ function Wizard() {
                 items={[
                   ["Document type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "International Passport"],
                   [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
-                  ["Issue date", nisDate(data.passport_issue_date)], ["Expiry date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
+                  ["Issue Date", nisDate(data.passport_issue_date)], ["Expiring Date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
                 ]}
               />
             </ReviewSection>
@@ -530,9 +1106,26 @@ function Wizard() {
                   const current = documents.find((x) => x.type === d.type);
                   if (!current && !d.required) return null;
                   return (
-                    <li key={d.type} className="flex items-center justify-between gap-3 py-2">
-                      <span>{d.label}: <span className={current ? "text-slate-700" : "text-red-700"}>{current ? current.original_name : "missing"}</span></span>
-                      {current && <button type="button" onClick={() => view(current)} className="text-sm font-medium text-nis-primary hover:underline">View</button>}
+                    <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-slate-800 font-medium">{d.label}:</span>
+                        <span className={`truncate text-xs font-medium ${current ? "text-slate-600" : "text-red-600"}`}>
+                          {current ? current.original_name : "missing"}
+                        </span>
+                      </div>
+                      {current && (
+                        <button
+                          type="button"
+                          onClick={() => view(current)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary transition hover:text-nis-primary-dark hover:underline"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          <span>View</span>
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -549,14 +1142,35 @@ function Wizard() {
               />
             </ReviewSection>
 
-            <label className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${errors.declaration ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}>
-              <input type="checkbox" className="mt-1" checked={data.declaration === "1"} onChange={(e) => { set("declaration", e.target.checked ? "1" : ""); setStepError({}); }} />
-              <span>
-                I solemnly declare that the particulars given in this application are true and correct. I understand that giving false
-                information is an offence under the Immigration Act 2015.
-              </span>
-            </label>
-            {errors.declaration && <p className="text-sm text-red-700">{errors.declaration}</p>}
+            <div
+              className={`rounded-xl border p-4 sm:p-5 transition shadow-sm ${
+                errors.declaration ? "border-red-300 bg-red-50/50" : "border-slate-200 bg-nis-mint/60"
+              }`}
+            >
+              <label className="flex items-start gap-3.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-nis-primary focus:ring-nis-primary/30"
+                  checked={data.declaration === "1"}
+                  onChange={(e) => {
+                    set("declaration", e.target.checked ? "1" : "");
+                    setStepError({});
+                  }}
+                />
+                <span className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                  I solemnly declare that the particulars given in this application are true and correct. I understand that giving false
+                  information is an offence under the Immigration Act 2015.
+                </span>
+              </label>
+              {errors.declaration && (
+                <p className="mt-2 text-xs font-semibold text-red-700 flex items-center gap-1.5 pl-7">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span>{errors.declaration}</span>
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -634,11 +1248,11 @@ function Summary({ label, value }: { label: string; value: ReactNode }) {
 
 function ReviewGrid({ items }: { items: [string, string | undefined][] }) {
   return (
-    <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+    <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map(([k, v]) => (
-        <div key={k}>
-          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
-          <dd className="mt-0.5 break-words text-sm text-slate-900">{v || "—"}</dd>
+        <div key={k} className="flex flex-col">
+          <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{k}</dt>
+          <dd className="mt-1 break-words text-sm font-medium text-slate-900 leading-snug">{v || "—"}</dd>
         </div>
       ))}
     </dl>
@@ -647,19 +1261,29 @@ function ReviewGrid({ items }: { items: [string, string | undefined][] }) {
 
 function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200">
-      <header className="flex items-center justify-between bg-nis-mint px-4 py-2.5">
-        <h3 className="text-sm font-semibold text-nis-primary-dark">{title}</h3>
-        <button type="button" onClick={onEdit} className="text-sm font-medium text-nis-primary hover:underline">Edit</button>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300">
+      <header className="flex items-center justify-between border-b border-slate-200/80 bg-nis-mint/60 px-5 py-3">
+        <h3 className="text-sm font-bold text-nis-primary-dark">{title}</h3>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary transition hover:text-nis-primary-dark hover:underline"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          <span>Edit</span>
+        </button>
       </header>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
 
-function UploadButton({ label, accept, disabled, onFile }: { label: string; accept: string; disabled?: boolean; onFile: (file: File) => void }) {
+function UploadButton({ label, accept, disabled, className, onFile }: { label: string; accept: string; disabled?: boolean; className?: string; onFile: (file: File) => void }) {
   return (
-    <label className={`inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""}`}>
+    <label className={`inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""} ${className ?? ""}`}>
       {label}
       <input
         type="file"
@@ -676,27 +1300,99 @@ function UploadButton({ label, accept, disabled, onFile }: { label: string; acce
   );
 }
 
-function PhotoUpload({ photo, url, error, busy, onUpload, onView }: { photo?: DraftDoc; url: string | null; error?: string; busy: boolean; onUpload: (f: File) => void; onView: () => void }) {
+function PhotoUpload({
+  photo,
+  url,
+  localPreview,
+  uploadStatus,
+  error,
+  busy,
+  onUpload,
+  onView,
+}: {
+  photo?: DraftDoc;
+  url: string | null;
+  localPreview?: string | null;
+  uploadStatus: "idle" | "uploading" | "success" | "error";
+  error?: string;
+  busy: boolean;
+  onUpload: (f: File) => void;
+  onView: () => void;
+}) {
+  const displayUrl = localPreview || url;
+
   return (
     <div className={`flex flex-col gap-5 rounded-xl border p-4 sm:flex-row sm:items-center ${error ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}>
-      <div className="flex h-40 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white">
-        {url ? (
+      <div className="relative flex h-40 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white shadow-inner">
+        {displayUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="Your passport photograph" className="h-full w-full object-cover" />
+          <img src={displayUrl} alt="Your passport photograph" className="h-full w-full object-cover" />
         ) : (
           <svg className="h-14 w-14 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
           </svg>
         )}
+        {uploadStatus === "uploading" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-[1px]">
+            <svg className="h-6 w-6 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            <span className="mt-1.5 text-[11px] font-medium tracking-wide">Uploading…</span>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
-        <div className="font-semibold text-slate-900">Passport photograph <span className="text-red-600">*</span></div>
+        <div className="font-semibold text-slate-900">
+          Passport photograph <span className="text-red-600">*</span>
+        </div>
         <p className="text-sm text-slate-600">A recent colour photograph of your face on a white background. JPG or PNG, smaller than 2 MB.</p>
-        {photo && <p className="text-xs text-nis-primary">✓ {photo.original_name}</p>}
-        {error && <p className="text-sm text-red-700">{error}</p>}
-        <div className="flex gap-2">
-          <UploadButton label={photo ? "Change photograph" : "Upload photograph"} accept={PHOTO.accept} disabled={busy} onFile={onUpload} />
-          {photo && <Button variant="secondary" onClick={onView}>View</Button>}
+
+        {/* Status badges */}
+        {uploadStatus === "uploading" && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">
+            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Uploading photograph…
+          </div>
+        )}
+        {uploadStatus !== "uploading" && (uploadStatus === "success" || (photo && !error)) && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            Upload Successful {photo ? `(${photo.original_name})` : ""}
+          </div>
+        )}
+        {uploadStatus === "error" && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Upload Failed — please select a valid photo
+          </div>
+        )}
+        {displayUrl && uploadStatus === "idle" && (
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+            Photograph Selected
+          </div>
+        )}
+
+        {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <UploadButton
+            label={displayUrl ? "Change photograph" : "Upload photograph"}
+            accept={PHOTO.accept}
+            disabled={busy || uploadStatus === "uploading"}
+            onFile={onUpload}
+          />
+          {displayUrl && (
+            <Button variant="secondary" onClick={onView} disabled={uploadStatus === "uploading"}>
+              View
+            </Button>
+          )}
         </div>
       </div>
     </div>

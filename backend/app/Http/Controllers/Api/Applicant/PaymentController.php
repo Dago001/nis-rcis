@@ -12,8 +12,11 @@ class PaymentController
 {
     public function initialize(Request $request, PaystackGateway $gateway, ApplicationSubmission $submission): JsonResponse
     {
+        $applicant = $request->user();
+        $submission->assertPrePaymentValid($applicant);
+
         $result = $gateway->initialize(
-            $request->user(),
+            $applicant,
             $submission->feeKobo(),
             config('nis.frontend_url').'/portal/apply?payment=callback',
         );

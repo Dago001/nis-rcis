@@ -8,7 +8,19 @@ import { Field, Input, Select } from "./ui";
 type Slot = { time: string; remaining: number };
 
 /** Enrollment center, date and capacity-aware time slot selection. */
-export function AppointmentPicker({ data, errors, set, touch }: { data: Record<string, string>; errors: Record<string, string>; set: (k: string, v: string) => void; touch?: (k: string) => void }) {
+export function AppointmentPicker({
+  data,
+  errors,
+  set,
+  touch,
+  focus,
+}: {
+  data: Record<string, string>;
+  errors: Record<string, string>;
+  set: (k: string, v: string) => void;
+  touch?: (k: string) => void;
+  focus?: (k: string | null) => void;
+}) {
   const [centers, setCenters] = useState<EnrollmentCenter[]>([]);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [weekend, setWeekend] = useState(false);
@@ -16,10 +28,9 @@ export function AppointmentPicker({ data, errors, set, touch }: { data: Record<s
   useEffect(() => {
     api<{ data: EnrollmentCenter[] }>("public", "enrollment-centers").then((r) => {
       setCenters(r.data);
-      // Only one centre (NIS Headquarters, Abuja): choose it automatically.
+      // Only one centre (NIS Headquarters, Abuja): choose it automatically without premature touch.
       if (r.data.length === 1 && data.enrollment_center_id !== String(r.data[0].id)) {
         set("enrollment_center_id", String(r.data[0].id));
-        touch?.("enrollment_center_id");
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,12 +59,18 @@ export function AppointmentPicker({ data, errors, set, touch }: { data: Record<s
       <div className="sm:col-span-2">
         <Field label="Enrollment center" required error={errors.enrollment_center_id}>
           <Select
+            name="enrollment_center_id"
             value={data.enrollment_center_id ?? ""}
+            aria-invalid={Boolean(errors.enrollment_center_id)}
+            className={errors.enrollment_center_id ? "!border-red-500" : ""}
+            onFocus={() => focus?.("enrollment_center_id")}
             onChange={(e) => {
               set("enrollment_center_id", e.target.value);
+            }}
+            onBlur={() => {
+              focus?.(null);
               touch?.("enrollment_center_id");
             }}
-            onBlur={() => touch?.("enrollment_center_id")}
             required
             disabled={centers.length === 1}
           >
@@ -66,25 +83,37 @@ export function AppointmentPicker({ data, errors, set, touch }: { data: Record<s
       <Field label="Appointment date" required error={errors.appointment_date} hint="Weekdays only, within the next 60 days">
         <Input
           type="date"
+          name="appointment_date"
           min={tomorrow}
           value={data.appointment_date ?? ""}
+          aria-invalid={Boolean(errors.appointment_date)}
+          className={errors.appointment_date ? "!border-red-500" : ""}
+          onFocus={() => focus?.("appointment_date")}
           onChange={(e) => {
             set("appointment_date", e.target.value);
             set("appointment_time", "");
+          }}
+          onBlur={() => {
+            focus?.(null);
             touch?.("appointment_date");
           }}
-          onBlur={() => touch?.("appointment_date")}
           required
         />
       </Field>
       <Field label="Time slot" required error={errors.appointment_time}>
         <Select
+          name="appointment_time"
           value={data.appointment_time ?? ""}
+          aria-invalid={Boolean(errors.appointment_time)}
+          className={errors.appointment_time ? "!border-red-500" : ""}
+          onFocus={() => focus?.("appointment_time")}
           onChange={(e) => {
             set("appointment_time", e.target.value);
+          }}
+          onBlur={() => {
+            focus?.(null);
             touch?.("appointment_time");
           }}
-          onBlur={() => touch?.("appointment_time")}
           required
           disabled={!slots || weekend}
         >
