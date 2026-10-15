@@ -10,6 +10,9 @@ enum DocumentType: string
     case ResidenceVisa = 'residence_visa';
     case QuotaApproval = 'quota_approval';
     case DomicileProof = 'domicile_proof';
+    case CacCertificate = 'cac_certificate';
+    case AdmissionLetter = 'admission_letter';
+    case AppointmentLetter = 'appointment_letter';
     case Additional = 'additional';
 
     public function label(): string
@@ -21,6 +24,9 @@ enum DocumentType: string
             self::ResidenceVisa => 'Subject-to-Regularization / residence visa',
             self::QuotaApproval => 'Expatriate quota approval',
             self::DomicileProof => 'Proof of domicile (Utility bill)',
+            self::CacCertificate => 'CAC Business Registration Certificate / Documents',
+            self::AdmissionLetter => 'Institution Admission Letter',
+            self::AppointmentLetter => 'Employment Appointment / Offer Letter',
             self::Additional => 'Additional document',
         };
     }
@@ -34,7 +40,17 @@ enum DocumentType: string
     /** Types applicants may upload (signature is captured at the desk). */
     public static function applicantUploadable(): array
     {
-        return [self::Photo, self::PassportCopy, self::ResidenceVisa, self::QuotaApproval, self::DomicileProof, self::Additional];
+        return [
+            self::Photo,
+            self::PassportCopy,
+            self::ResidenceVisa,
+            self::QuotaApproval,
+            self::DomicileProof,
+            self::CacCertificate,
+            self::AdmissionLetter,
+            self::AppointmentLetter,
+            self::Additional,
+        ];
     }
 
     /** @return list<string> */
