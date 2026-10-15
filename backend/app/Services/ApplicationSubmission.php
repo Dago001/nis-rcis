@@ -33,7 +33,17 @@ class ApplicationSubmission
         $draft = $applicant->draft()->with('documents')->first();
         $documents = $draft?->documents ?? collect();
 
-        $missing = collect(DocumentType::requiredForSubmission())
+        $category = strtoupper($data['category'] ?? 'WORK');
+        $requiredTypes = DocumentType::requiredForSubmission();
+        if ($category === 'BUSINESS') {
+            $requiredTypes[] = DocumentType::CacCertificate;
+        } elseif ($category === 'STUDENT') {
+            $requiredTypes[] = DocumentType::AdmissionLetter;
+        } elseif ($category === 'WORK') {
+            $requiredTypes[] = DocumentType::AppointmentLetter;
+        }
+
+        $missing = collect($requiredTypes)
             ->reject(fn (DocumentType $t) => $documents->contains('type', $t))
             ->map->label();
         if ($missing->isNotEmpty()) {

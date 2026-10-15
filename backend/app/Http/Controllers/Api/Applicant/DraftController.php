@@ -109,14 +109,30 @@ class DraftController
 
     private function present(ApplicationDraft $draft): array
     {
+        $storage = app(DocumentStorage::class);
+
         return [
             'type' => $draft->type,
             'current_step' => $draft->current_step,
             'data' => $draft->data,
-            'documents' => $draft->documents->map(fn ($d) => [
-                'id' => $d->id, 'type' => $d->type->value, 'label' => $d->type->label(),
-                'original_name' => $d->original_name, 'size_bytes' => $d->size_bytes, 'mime_type' => $d->mime_type,
-            ])->values(),
+            'documents' => $draft->documents->map(function ($d) use ($storage) {
+                $url = null;
+                try {
+                    $url = $storage->temporaryUrl($d);
+                } catch (\Throwable) {
+                    $url = null;
+                }
+
+                return [
+                    'id' => $d->id,
+                    'type' => $d->type->value,
+                    'label' => $d->type->label(),
+                    'original_name' => $d->original_name,
+                    'size_bytes' => $d->size_bytes,
+                    'mime_type' => $d->mime_type,
+                    'url' => $url,
+                ];
+            })->values(),
             'saved_at' => $draft->updated_at,
         ];
     }

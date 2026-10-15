@@ -28,24 +28,72 @@ const MAX_BYTES = 2 * 1024 * 1024;
 
 type DocSpec = { type: string; label: string; required: boolean; accept: string; kinds: string };
 
-const PHOTO: DocSpec = { type: "photo", label: "Passport photograph (white background)", required: true, accept: "image/jpeg,image/png", kinds: "JPG or PNG" };
+const PHOTO: DocSpec = {
+  type: "photo",
+  label: "Passport photograph (white background)",
+  required: true,
+  accept: ".jpg,.jpeg,.png,image/jpeg,image/png",
+  kinds: "JPG or PNG",
+};
 
 /** Category-dependent document requirements */
 function getDocuments(category?: string): DocSpec[] {
   const cat = (category || "WORK").toUpperCase();
   const catDoc: DocSpec =
     cat === "STUDENT"
-      ? { type: "admission_letter", label: "Institution Admission Letter", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" }
+      ? {
+          type: "admission_letter",
+          label: "Institution Admission Letter",
+          required: true,
+          accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+          kinds: "JPG, JPEG, PNG or PDF",
+        }
       : cat === "BUSINESS"
-      ? { type: "cac_certificate", label: "CAC Business Registration Certificate / Documents", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" }
-      : { type: "appointment_letter", label: "Employment Appointment / Offer Letter", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" };
+      ? {
+          type: "cac_certificate",
+          label: "CAC Business Registration Certificate / Documents",
+          required: true,
+          accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+          kinds: "JPG, JPEG, PNG or PDF",
+        }
+      : {
+          type: "appointment_letter",
+          label: "Employment Appointment / Offer Letter",
+          required: true,
+          accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+          kinds: "JPG, JPEG, PNG or PDF",
+        };
 
   return [
-    { type: "passport_copy", label: "International Passport data page OR ECOWAS Travel Certificate", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-    { type: "domicile_proof", label: "Proof of domicile in Nigeria (Utility bill / Tenancy)", required: true, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+    {
+      type: "passport_copy",
+      label: "International Passport data page OR ECOWAS Travel Certificate",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    {
+      type: "domicile_proof",
+      label: "Proof of domicile in Nigeria (Utility bill / Tenancy)",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
     catDoc,
-    { type: "residence_visa", label: "Subject-to-Regularization / Entry visa (if applicable)", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
-    { type: "additional", label: "Additional supporting document", required: false, accept: "image/jpeg,image/png,application/pdf", kinds: "JPG, PNG or PDF" },
+    {
+      type: "residence_visa",
+      label: "Subject-to-Regularization / Entry visa (if applicable)",
+      required: false,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    {
+      type: "additional",
+      label: "Additional supporting document",
+      required: false,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
   ];
 }
 
@@ -119,6 +167,7 @@ function Wizard() {
 
   const initialLoadedRef = useRef(false);
   const isUploadingPhotoRef = useRef(false);
+  const uploadingDocsRef = useRef<Set<string>>(new Set());
 
   const set = useCallback((key: string, value: string) => {
     setData((d) => ({ ...d, [key]: value }));
@@ -412,9 +461,18 @@ function Wizard() {
       return uploadPhotograph(file);
     }
 
+    if (uploadingDocsRef.current.has(spec.type)) {
+      return;
+    }
+
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    const isImage = ["image/jpeg", "image/jpg", "image/png"].includes(file.type.toLowerCase()) ||
-                    /\.(jpe?g|png)$/i.test(file.name);
+    const isImage = [
+      "image/jpeg",
+      "image/jpg",
+      "image/pjpeg",
+      "image/png",
+      "image/x-png",
+    ].includes(file.type.toLowerCase()) || /\.(jpe?g|png)$/i.test(file.name);
 
     if (file.size > MAX_BYTES) {
       setDocStates((prev) => ({
@@ -446,9 +504,11 @@ function Wizard() {
       return;
     }
 
-    const objectUrl = URL.createObjectURL(file);
+    uploadingDocsRef.current.add(spec.type);
+    const objectUrl = isImage ? URL.createObjectURL(file) : undefined;
+
     setDocStates((prev) => {
-      if (prev[spec.type]?.previewUrl) {
+      if (prev[spec.type]?.previewUrl && prev[spec.type]?.previewUrl?.startsWith("blob:")) {
         try { URL.revokeObjectURL(prev[spec.type].previewUrl!); } catch (_) {}
       }
       return {
@@ -475,7 +535,7 @@ function Wizard() {
           status: "success",
           fileName: uploaded?.original_name || file.name,
           fileSize: uploaded?.size_bytes || file.size,
-          previewUrl: objectUrl,
+          previewUrl: objectUrl || (uploaded as any)?.url,
           isPdf,
         },
       }));
@@ -501,6 +561,8 @@ function Wizard() {
           pendingFile: file,
         },
       }));
+    } finally {
+      uploadingDocsRef.current.delete(spec.type);
     }
   }
 
@@ -712,7 +774,7 @@ function Wizard() {
                 const fileName = state?.fileName || current?.original_name;
                 const fileSize = state?.fileSize || current?.size_bytes;
                 const isPdf = state?.isPdf ?? (current?.mime_type === "application/pdf" || current?.original_name?.toLowerCase().endsWith(".pdf"));
-                const previewUrl = state?.previewUrl;
+                const previewUrl = state?.previewUrl || (current as any)?.url;
 
                 let cardStyle = "border-slate-200 bg-white hover:border-slate-300";
                 if (isUploading) cardStyle = "border-blue-300 bg-blue-50/20";
@@ -731,6 +793,15 @@ function Wizard() {
                         {isUploaded && !isPdf && previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={previewUrl} alt={fileName || d.label} className="h-full w-full object-cover" />
+                        ) : isUploaded && !isPdf ? (
+                          <div className="flex flex-col items-center justify-center text-emerald-600">
+                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            <span className="text-[8px] font-bold tracking-tight">IMG</span>
+                          </div>
                         ) : isUploaded && isPdf ? (
                           <div className="flex flex-col items-center justify-center text-red-600">
                             <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

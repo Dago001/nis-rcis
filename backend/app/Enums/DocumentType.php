@@ -57,8 +57,21 @@ enum DocumentType: string
     public function allowedMimeTypes(): array
     {
         return match ($this) {
-            self::Photo, self::Signature => ['image/jpeg', 'image/png'],
-            default => ['image/jpeg', 'image/png', 'application/pdf'],
+            self::Photo, self::Signature => [
+                'image/jpeg',
+                'image/jpg',
+                'image/pjpeg',
+                'image/png',
+                'image/x-png',
+            ],
+            default => [
+                'image/jpeg',
+                'image/jpg',
+                'image/pjpeg',
+                'image/png',
+                'image/x-png',
+                'application/pdf',
+            ],
         };
     }
 }

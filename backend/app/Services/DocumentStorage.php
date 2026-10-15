@@ -24,7 +24,10 @@ class DocumentStorage
 {
     private const EXTENSIONS = [
         'image/jpeg' => 'jpg',
+        'image/jpg' => 'jpg',
+        'image/pjpeg' => 'jpg',
         'image/png' => 'png',
+        'image/x-png' => 'png',
         'application/pdf' => 'pdf',
     ];
 
