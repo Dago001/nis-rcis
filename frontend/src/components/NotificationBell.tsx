@@ -174,40 +174,74 @@ export function NotificationBell({ portal = "applicant" }: { portal?: "applicant
             ) : (
               notifications.map((n) => {
                 const isUnread = !n.read_at;
+                const isQueried = n.data?.status === "QUERIED";
+                const refNo = n.data?.application_number || n.data?.reference_number;
                 return (
                   <div
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
                     className={`flex items-start gap-3 p-3.5 text-left transition hover:bg-slate-50 cursor-pointer ${
-                      isUnread ? "bg-emerald-50/40" : "bg-white"
+                      isUnread ? (isQueried ? "bg-amber-50/50" : "bg-emerald-50/40") : "bg-white"
                     }`}
                   >
                     <div className="pt-1">
                       {isUnread ? (
-                        <span className="block h-2 w-2 rounded-full bg-nis-primary ring-2 ring-emerald-200" />
+                        <span
+                          className={`block h-2.5 w-2.5 rounded-full ring-2 ${
+                            isQueried
+                              ? "bg-amber-500 ring-amber-200"
+                              : "bg-nis-primary ring-emerald-200"
+                          }`}
+                        />
                       ) : (
                         <span className="block h-2 w-2 rounded-full bg-slate-300" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={`text-xs truncate ${isUnread ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>
-                          {n.data?.title || t("Application Update")}
+                        <p
+                          className={`text-xs truncate ${
+                            isUnread
+                              ? isQueried
+                                ? "font-bold text-amber-950"
+                                : "font-bold text-slate-900"
+                              : "font-medium text-slate-700"
+                          }`}
+                        >
+                          {n.data?.title || (isQueried ? t("Application Requires Your Attention") : t("Application Update"))}
                         </p>
                         <span className="shrink-0 text-[10px] text-slate-400 whitespace-nowrap">
                           {dateTime(n.created_at)}
                         </span>
                       </div>
-                      {n.data?.application_number && (
-                        <p className="text-[11px] font-semibold text-nis-primary mt-0.5">
-                          Ref: {n.data.application_number}
+                      {refNo && (
+                        <p className={`text-[11px] font-semibold mt-0.5 ${isQueried ? "text-amber-800" : "text-nis-primary"}`}>
+                          Ref: {refNo}
                         </p>
                       )}
-                      {n.data?.notes && (
-                        <p className="mt-1 text-xs text-slate-600 line-clamp-3">
-                          {n.data.notes}
-                        </p>
+                      {isQueried && (n.data?.query_reason || n.data?.notes) ? (
+                        <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50/80 p-2 text-xs text-amber-900">
+                          <span className="font-semibold">{t("Query reason")}: </span>
+                          <span>{n.data.query_reason || n.data.notes}</span>
+                        </div>
+                      ) : (
+                        n.data?.notes && (
+                          <p className="mt-1 text-xs text-slate-600 line-clamp-3">
+                            {n.data.notes}
+                          </p>
+                        )
                       )}
+                      <div className="mt-2.5">
+                        {isQueried ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs hover:bg-amber-700 transition">
+                            {t("Respond to Query →")}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-nis-green hover:underline">
+                            {t("View Application →")}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

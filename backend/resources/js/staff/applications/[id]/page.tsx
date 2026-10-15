@@ -49,6 +49,10 @@ export default function StaffApplicationPage() {
   const canCapture = hasRole(user, "EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "APPROVED_FOR_BIOMETRICS";
   const canCollect = hasRole(user, "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "READY_FOR_COLLECTION";
 
+  const lastQuery = [...(a.history ?? [])].reverse().find((h) => h.to === "QUERIED");
+  const lastApplicantResponse = [...(a.history ?? [])].reverse().find((h) => h.notes?.startsWith("Applicant response:"));
+  const hasRespondedToQuery = a.status === "PENDING_APPROVAL" && Boolean(lastQuery && lastApplicantResponse);
+
   return (
     <div className="space-y-6">
       <PageTitle
@@ -70,6 +74,50 @@ export default function StaffApplicationPage() {
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
+
+      {a.status === "QUERIED" && (
+        <Alert tone="warning">
+          <div className="space-y-1">
+            <div className="font-semibold text-sm">Application Currently Queried</div>
+            <p className="text-xs text-slate-800">
+              <strong>Query instructions issued to applicant:</strong> {a.decision_notes || "Action required"}
+            </p>
+            <p className="text-xs text-slate-600">
+              This application has been returned to the applicant and is awaiting their response or document replacements. It will automatically reappear in the approval queue once the applicant responds.
+            </p>
+          </div>
+        </Alert>
+      )}
+
+      {hasRespondedToQuery && (
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/70 p-5 space-y-3 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-amber-600 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                Applicant Query Response — Re-Vetting Required
+              </span>
+            </div>
+            {lastApplicantResponse?.at && (
+              <span className="text-xs font-medium text-amber-800">
+                Responded: {dateTime(lastApplicantResponse.at)}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-700">
+            <span className="font-semibold text-amber-950">Original Officer Query:</span>{" "}
+            <span className="italic">{lastQuery?.notes || a.decision_notes || "Action required"}</span>
+            {lastQuery?.at && <span className="ml-1 text-slate-500">({dateTime(lastQuery.at)})</span>}
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-white p-3.5 text-sm text-slate-900">
+            <span className="font-bold text-nis-primary block mb-1">Applicant&apos;s Response:</span>
+            <p className="whitespace-pre-wrap">{lastApplicantResponse?.notes?.replace(/^Applicant response:\s*/, "")}</p>
+          </div>
+          <p className="text-xs text-slate-500">
+            Please cross-check any re-uploaded supporting documents above. When satisfied, click &ldquo;Approve for Biometrics&rdquo;. If further corrections are required, you may query the applicant again with reasons.
+          </p>
+        </div>
+      )}
 
       <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
 
@@ -162,26 +210,78 @@ export default function StaffApplicationPage() {
       {/* Workflow History */}
       <Panel title="Workflow history">{a.history && <History history={a.history} />}</Panel>
 
-      {/* D. Vetting and Approval Controls (placed at the bottom after complete review) */}
+      {/* D. Vetting and Approval Controls */}
       {canDecide && (
         <Panel
           title="Vetting & Decision"
-          subtitle="Cross-check all applicant particulars and supporting documents above. If verified and correct, click Vetted to approve for biometrics. If corrections are needed, enter reasons and click Query."
+          subtitle="Review all applicant particulars and supporting documents above before making a decision."
         >
-          <div className="space-y-3">
-            <Field label="Notes / Reason for Query" hint="Required when querying or rejecting. The applicant receives this reason by e-mail and on their portal dashboard.">
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Enter details or reason if querying applicant..." />
+          <div className="space-y-4">
+            <Field
+              label="Notes / Reason for Query or Rejection"
+              hint="Required when querying or rejecting. The applicant receives this message by email and on their portal notification bell."
+            >
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Enter query instructions (e.g. Please upload a clear, legible copy of your passport data page) or rejection grounds..."
+                rows={3}
+              />
             </Field>
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={busy} onClick={() => act("decision", { decision: "APPROVE", notes: notes || "Application verified and vetted by immigration vetting officer." })}>
-                ✓ Vetted (Approve for biometrics)
-              </Button>
-              <Button variant="gold" disabled={busy || !notes.trim()} onClick={() => act("decision", { decision: "QUERY", notes })}>
-                Query applicant
-              </Button>
-              <Button variant="danger" disabled={busy || !notes.trim()} onClick={() => confirm("Reject this application? This cannot be undone.") && act("decision", { decision: "REJECT", notes })}>
-                Reject
-              </Button>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {/* Option 1: Approve for Biometrics */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 flex flex-col justify-between shadow-xs">
+                <div>
+                  <div className="font-semibold text-sm text-slate-900">Approve Application</div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Application and documents are verified and vetted. Clears applicant for physical biometrics capture.
+                  </p>
+                </div>
+                <Button
+                  disabled={busy}
+                  onClick={() => confirm("Approve this application for physical biometrics capture?") && act("decision", { decision: "APPROVE", notes: notes.trim() || "Application verified and vetted by immigration vetting officer." })}
+                  className="w-full justify-center"
+                >
+                  ✓ Approve for Biometrics
+                </Button>
+              </div>
+
+              {/* Option 2: Query Application */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3 flex flex-col justify-between shadow-xs">
+                <div>
+                  <div className="font-semibold text-sm text-amber-950">Query Application</div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Requires correction or document replacement from the applicant. Moves out of approval queue until answered.
+                  </p>
+                </div>
+                <Button
+                  variant="gold"
+                  disabled={busy || !notes.trim()}
+                  onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
+                  className="w-full justify-center"
+                >
+                  Query Applicant
+                </Button>
+              </div>
+
+              {/* Option 3: Reject Application */}
+              <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 space-y-3 flex flex-col justify-between shadow-xs">
+                <div>
+                  <div className="font-semibold text-sm text-red-950">Reject Application</div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Application is ineligible or rejected permanently. This cannot be undone.
+                  </p>
+                </div>
+                <Button
+                  variant="danger"
+                  disabled={busy || !notes.trim()}
+                  onClick={() => confirm("Reject this application permanently? This cannot be undone.") && act("decision", { decision: "REJECT", notes: notes.trim() })}
+                  className="w-full justify-center"
+                >
+                  Reject Application
+                </Button>
+              </div>
             </div>
           </div>
         </Panel>

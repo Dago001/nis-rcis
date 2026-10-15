@@ -14,7 +14,7 @@ use Illuminate\Notifications\Notification;
  * Tells the applicant about every step of their application (the legacy
  * system only notified the officer who made the decision).
  */
-class ApplicationStatusChanged extends Notification implements ShouldQueue
+class ApplicationStatusChanged extends Notification
 {
     use PushesToDevices, Queueable;
 
@@ -23,12 +23,11 @@ class ApplicationStatusChanged extends Notification implements ShouldQueue
     public function __construct(public Application $application, public ?string $notes = null)
     {
         $this->status = $application->status;
-        $this->afterCommit();
     }
 
     public function via(object $notifiable): array
     {
-        return $this->withPush($notifiable, ['mail', 'database']);
+        return $this->withPush($notifiable, ['database', 'mail']);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -70,12 +69,18 @@ class ApplicationStatusChanged extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
+        $isQueried = $this->status === ApplicationStatus::Queried;
+
         return [
             'application_id' => $this->application->id,
             'application_number' => $this->application->application_number,
+            'reference_number' => $this->application->reference_number,
             'status' => $this->status->value,
-            'title' => $this->status->label(),
+            'title' => $isQueried ? 'Application Requires Your Attention' : ($this->status === ApplicationStatus::ApprovedForBiometrics ? 'Application Approved for Biometrics' : $this->status->label()),
             'notes' => $this->notes,
+            'query_reason' => $this->notes,
+            'action_url' => "/portal/applications/{$this->application->id}",
+            'action_label' => $isQueried ? 'Respond to Query' : 'View Application',
         ];
     }
 }

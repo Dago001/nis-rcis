@@ -9,16 +9,19 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Tracker } from "@/components/Tracker";
 import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError, upload } from "@/lib/api-client";
-import { naira, nisDate, applicationType } from "@/lib/format";
+import { naira, nisDate, applicationType, dateTime } from "@/lib/format";
 import type { Application } from "@/lib/types";
 
 const UPLOADABLE = [
   ["photo", "Passport photograph"],
-  ["passport_copy", "Passport data page"],
-  ["residence_visa", "Residence visa"],
+  ["passport_copy", "International passport data page / ECOWAS Travel Certificate"],
+  ["residence_visa", "Subject-to-Regularization / residence visa"],
   ["quota_approval", "Expatriate quota approval"],
-  ["domicile_proof", "Proof of domicile"],
-  ["additional", "Additional document"],
+  ["domicile_proof", "Proof of domicile (Utility bill)"],
+  ["cac_certificate", "CAC Business Registration Certificate"],
+  ["admission_letter", "Institution Admission Letter"],
+  ["appointment_letter", "Employment Appointment / Offer Letter"],
+  ["additional", "Additional supporting document"],
 ];
 
 function ApplicationDetail() {
@@ -26,8 +29,10 @@ function ApplicationDetail() {
   const submitted = useSearchParams().get("submitted") === "1";
   const [app, setApp] = useState<Application | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [respondSuccess, setRespondSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [docType, setDocType] = useState("residence_visa");
+  const [docType, setDocType] = useState("passport_copy");
   const [response, setResponse] = useState("");
 
   const load = useCallback(() => api<{ data: Application }>("applicant", `applications/${id}`).then((r) => setApp(r.data)), [id]);
@@ -38,9 +43,12 @@ function ApplicationDetail() {
   async function reupload(file: File) {
     setBusy(true);
     setError(null);
+    setUploadSuccess(null);
     try {
       const r = await upload<{ data: Application }>("applicant", `applications/${id}/documents`, { type: docType, file });
       setApp(r.data);
+      const docLabel = UPLOADABLE.find(([v]) => v === docType)?.[1] || docType;
+      setUploadSuccess(`Uploaded replacement for "${docLabel}" successfully. You can replace more documents or submit your response below.`);
     } catch (e) {
       setError(e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message : String(e));
     } finally {
@@ -50,10 +58,12 @@ function ApplicationDetail() {
 
   async function respond() {
     setBusy(true);
+    setError(null);
     try {
       const r = await api<{ data: Application }>("applicant", `applications/${id}/respond`, { method: "POST", json: { response } });
       setApp(r.data);
       setResponse("");
+      setRespondSuccess("Your query response has been submitted successfully and returned to the review queue. An immigration officer will re-vet your submission.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -65,6 +75,7 @@ function ApplicationDetail() {
   if (!app) return <Spinner />;
 
   const appointmentReady = ["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
+  const queryEntry = [...(app.history ?? [])].reverse().find((h) => h.to === "QUERIED");
 
   return (
     <div className="space-y-6">
@@ -83,6 +94,7 @@ function ApplicationDetail() {
       />
 
       {submitted && <Alert tone="success">Your application has been submitted. We have e-mailed you a confirmation.</Alert>}
+      {respondSuccess && <Alert tone="success">{respondSuccess}</Alert>}
 
       <Panel title={<>Status <StatusBadge status={app.status} label={app.status_label} /></>}>
         <div className="space-y-5">
@@ -103,27 +115,66 @@ function ApplicationDetail() {
       <FamilyPanel app={app} />
 
       {app.status === "QUERIED" && (
-        <Panel title="Action required: respond to query">
-          <div className="space-y-4">
-            <Alert tone="warning"><strong>Officer&apos;s query:</strong> {app.decision_notes}</Alert>
-            {error && <Alert tone="danger">{error}</Alert>}
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <Field label="Upload a corrected document">
-                <Select value={docType} onChange={(e) => setDocType(e.target.value)}>
-                  {UPLOADABLE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </Select>
-              </Field>
-              <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold hover:bg-slate-50">
-                Choose file
-                <input type="file" className="sr-only" accept="image/jpeg,image/png,application/pdf" disabled={busy} onChange={(e) => e.target.files?.[0] && reupload(e.target.files[0])} />
-              </label>
+        <div id="query-response">
+          <Panel title="Action Required: Respond to Application Query">
+            <div className="space-y-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2 mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                    Query Instructions from Vetting Officer
+                  </span>
+                  {queryEntry?.at && (
+                    <span className="text-xs text-amber-800">
+                      Issued: {dateTime(queryEntry.at)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-slate-800">
+                  {app.decision_notes || "Please review and address the requested items below."}
+                </p>
+              </div>
+
+              {error && <Alert tone="danger">{error}</Alert>}
+              {uploadSuccess && <Alert tone="success">{uploadSuccess}</Alert>}
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  Step 1: Replace or Re-Upload Requested Documents (Optional)
+                </div>
+                <p className="text-xs text-slate-500">
+                  If the officer requested a clearer or corrected document, select the document type and upload it here. Your unaffected documents remain valid.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <Field label="Select document type to replace">
+                    <Select value={docType} onChange={(e) => { setDocType(e.target.value); setUploadSuccess(null); }}>
+                      {UPLOADABLE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </Select>
+                  </Field>
+                  <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold hover:bg-slate-50 shadow-xs">
+                    Choose &amp; Upload File
+                    <input type="file" className="sr-only" accept="image/jpeg,image/png,application/pdf" disabled={busy} onChange={(e) => e.target.files?.[0] && reupload(e.target.files[0])} />
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  Step 2: Written Explanation &amp; Resubmission (Compulsory)
+                </div>
+                <Field label="Your response to the officer" required hint="Provide a clear explanation of what was corrected or any additional context for the officer.">
+                  <Textarea
+                    value={response}
+                    onChange={(e) => setResponse(e.target.value)}
+                    placeholder="E.g., I have re-uploaded a clear copy of my passport data page as requested..."
+                  />
+                </Field>
+                <Button onClick={respond} disabled={busy || response.trim().length < 3}>
+                  Submit Response &amp; Resubmit for Approval
+                </Button>
+              </div>
             </div>
-            <Field label="Your response to the officer" required>
-              <Textarea value={response} onChange={(e) => setResponse(e.target.value)} />
-            </Field>
-            <Button onClick={respond} disabled={busy || response.trim().length < 3}>Send response and resubmit</Button>
-          </div>
-        </Panel>
+          </Panel>
+        </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">

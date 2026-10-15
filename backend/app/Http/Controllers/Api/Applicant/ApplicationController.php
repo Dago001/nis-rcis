@@ -132,8 +132,38 @@ class ApplicationController
 
         $data = $request->validate(['response' => ['required', 'string', 'max:2000']]);
 
-        $application = $workflow->transition($application, ApplicationStatus::PendingApproval, $this->applicant($request),
-            'Applicant response: '.$data['response']);
+        $applicant = $this->applicant($request);
+
+        $application = $workflow->transition(
+            $application,
+            ApplicationStatus::PendingApproval,
+            $applicant,
+            'Applicant response: '.$data['response'],
+            function (Application $a) {
+                $a->decided_by = null;
+                $a->decided_at = null;
+            }
+        );
+
+        try {
+            $applicant->notifications()->create([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'type' => \App\Notifications\ApplicationStatusChanged::class,
+                'data' => [
+                    'application_id' => $application->id,
+                    'application_number' => $application->application_number,
+                    'reference_number' => $application->reference_number,
+                    'status' => 'PENDING_APPROVAL',
+                    'title' => 'Query Response Submitted',
+                    'notes' => 'Your response to application '.$application->application_number.' has been submitted and is awaiting officer re-vetting.',
+                    'action_url' => "/portal/applications/{$application->id}",
+                    'action_label' => 'View Application',
+                ],
+                'read_at' => null,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to create query response notification: '.$e->getMessage());
+        }
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
     }

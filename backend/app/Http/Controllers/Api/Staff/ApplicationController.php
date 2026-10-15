@@ -232,10 +232,17 @@ class ApplicationController
         };
         $notes = $data['notes'] ?? 'Approved for physical biometrics capture at the enrollment center.';
 
-        $application = $workflow->transition(Application::findOrFail($id), $to, $officer, $notes, function (Application $a) use ($officer, $notes) {
-            $a->decided_by = $officer->id;
-            $a->decided_at = now();
-            $a->decision_notes = $notes;
+        $application = $workflow->transition(Application::findOrFail($id), $to, $officer, $notes, function (Application $a) use ($to, $officer, $notes) {
+            if ($to === ApplicationStatus::Queried) {
+                // A query is not a final decision; the application remains pending further action.
+                $a->decided_by = null;
+                $a->decided_at = null;
+                $a->decision_notes = $notes;
+            } else {
+                $a->decided_by = $officer->id;
+                $a->decided_at = now();
+                $a->decision_notes = $notes;
+            }
         });
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));

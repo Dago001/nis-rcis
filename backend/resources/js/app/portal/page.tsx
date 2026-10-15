@@ -290,12 +290,21 @@ export default function PortalHome() {
                             <StatusBadge status={a.status} label={compactStatusLabel(a.status, a.status_label)} />
                           </td>
                           <td className="px-3.5 py-3 text-right whitespace-nowrap">
-                            <Link
-                              href={`/portal/applications/${a.id}`}
-                              className="font-semibold text-xs sm:text-sm text-nis-green hover:underline"
-                            >
-                              {t("View")}
-                            </Link>
+                            {a.status === "QUERIED" ? (
+                              <Link
+                                href={`/portal/applications/${a.id}#query-response`}
+                                className="inline-flex items-center gap-1 rounded bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs transition hover:bg-amber-700"
+                              >
+                                {t("Respond to Query")}
+                              </Link>
+                            ) : (
+                              <Link
+                                href={`/portal/applications/${a.id}`}
+                                className="font-semibold text-xs sm:text-sm text-nis-green hover:underline"
+                              >
+                                {t("View")}
+                              </Link>
+                            )}
                           </td>
                         </tr>
                       );
