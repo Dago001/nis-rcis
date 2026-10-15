@@ -34,13 +34,13 @@ Route::middleware('web')->group(function () {
     Route::get('/verify', fn () => Inertia::render('Public/Verify'))->name('verify');
     Route::get('/queue-display/{center}', fn ($center) => Inertia::render('Public/QueueDisplay', ['center' => $center]))->name('queue-display');
     Route::get('/favicon.ico', function () {
-        $path = public_path('favicon.ico');
+        $path = public_path('images/nis-logo.png');
         if (! file_exists($path)) {
-            $path = public_path('favicon.png');
+            $path = public_path('favicon.ico');
         }
         return response()->file($path, [
-            'Content-Type' => 'image/x-icon',
-            'Cache-Control' => 'public, max-age=86400',
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=604800',
         ]);
     });
 

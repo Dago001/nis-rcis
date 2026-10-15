@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { LanguageSwitcher, useI18n } from "@/components/I18nProvider";
-import { NotificationBell } from "@/components/NotificationBell";
 import { withBase } from "@/lib/base-path";
 
 export type SiteHeaderLink = {
@@ -80,7 +79,6 @@ export function SiteHeader({
 
         {/* Desktop right section */}
         <div className="hidden items-center gap-4 md:flex">
-          {portal === "applicant" && <NotificationBell />}
           {user && (
             <div className="text-right text-sm">
               <div className="font-medium text-slate-800">{user.name}</div>
@@ -94,24 +92,21 @@ export function SiteHeader({
           {right}
         </div>
 
-        {/* Mobile controls */}
-        <div className="flex items-center gap-2 md:hidden">
-          {portal === "applicant" && <NotificationBell />}
-          {(links || user || portal || languages || right) && (
-            <button
-              type="button"
-              className="rounded border border-slate-300 p-2 text-slate-600"
-              aria-expanded={open}
-              aria-controls="mobile-portal-nav"
-              aria-label={open ? t("Close menu") : t("Open menu")}
-              onClick={() => setOpen(!open)}
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-              </svg>
-            </button>
-          )}
-        </div>
+        {/* Mobile hamburger button */}
+        {(links || user || portal || languages || right) && (
+          <button
+            type="button"
+            className="rounded border border-slate-300 p-2 text-slate-600 md:hidden"
+            aria-expanded={open}
+            aria-controls="mobile-portal-nav"
+            aria-label={open ? t("Close menu") : t("Open menu")}
+            onClick={() => setOpen(!open)}
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
+          </button>
+        )}
       </nav>
 
       {/* Mobile drawer */}
