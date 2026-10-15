@@ -36,6 +36,10 @@ class ApplicationSubmission
         $draft = $applicant->draft()->with('documents')->first();
         $documents = $draft?->documents ?? collect();
 
+        if (empty($data['type'])) {
+            $data['type'] = $draft?->type ?: 'NEW';
+        }
+
         $category = strtoupper($data['category'] ?? 'WORK');
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
@@ -126,6 +130,9 @@ class ApplicationSubmission
         }
 
         $data = $draft->data ?? [];
+        if (empty($data['type'])) {
+            $data['type'] = $draft->type ?: 'NEW';
+        }
         $data = ApplicationRules::normalise(collect($data)->except(['phone', 'email'])->all());
 
         // Validate particulars
@@ -139,6 +146,9 @@ class ApplicationSubmission
             ...ApplicationRules::quota(),
             'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
             'renewal_card_number' => ['required_if:type,RENEWAL,REPLACE', 'nullable', 'string', 'max:20'],
+        ], [], [
+            'type' => 'application type',
+            'renewal_card_number' => 'previous residence card number',
         ]);
 
         if ($validator->fails()) {

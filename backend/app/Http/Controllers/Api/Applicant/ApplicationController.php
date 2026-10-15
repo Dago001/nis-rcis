@@ -44,6 +44,10 @@ class ApplicationController
     public function store(Request $request, ApplicationSubmission $submission): JsonResponse
     {
         $applicant = $this->applicant($request);
+        if (! $request->filled('type')) {
+            $draft = $applicant->draft()->first();
+            $request->merge(['type' => $draft?->type ?: 'NEW']);
+        }
         $request->merge(ApplicationRules::normalise($request->except(['phone', 'email'])));
 
         $rules = ApplicationRules::particulars();

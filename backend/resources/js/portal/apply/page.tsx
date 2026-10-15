@@ -101,7 +101,7 @@ function getDocuments(category?: string): DocSpec[] {
 
 /** Which step each field lives on (to jump back when the API rejects one). */
 const FIELD_STEP: Record<string, number> = {
-  nationality: 1, category: 1, travel_document_type: 1,
+  type: 1, nationality: 1, category: 1, travel_document_type: 1,
   passport_number: 1, passport_issue_date: 1, passport_expiry: 1, national_id_number: 1, tax_id_number: 1,
   ...Object.fromEntries(PERSONAL_FIELDS.filter((f) => f !== "nationality").map((f) => [f, 2])),
   blood_group: 2, renewal_card_number: 2, photo: 2, principal_application_id: 2, dependant_relationship: 2, phone: 2, email: 2,
@@ -245,7 +245,7 @@ function Wizard() {
 
   const saveDraft = useCallback(
     async (nextStep: number, patch: Record<string, string> = {}) => {
-      const body = { type, current_step: nextStep, data: { ...data, ...patch } };
+      const body = { type, current_step: nextStep, data: { ...data, type, ...patch } };
       const result = await api<{ draft: Draft }>("applicant", "draft", { method: "PUT", json: body });
       setDocuments(result.draft.documents);
       return result.draft;
@@ -681,8 +681,9 @@ function Wizard() {
 
     setBusy(true);
     try {
+      await saveDraft(step, { type });
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
-      await saveDraft(6, { payment_reference: payment.reference });
+      await saveDraft(6, { type, payment_reference: payment.reference });
       if (payment.fake) {
         const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
         setData((d) => ({ ...d, payment_reference: payment.reference }));

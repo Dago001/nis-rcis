@@ -34,9 +34,12 @@ class DraftController
             'data.*' => ['nullable'],
         ]);
 
+        $payloadData = $data['data'];
+        $payloadData['type'] = $data['type'];
+
         $draft = ApplicationDraft::updateOrCreate(
             ['applicant_id' => $this->applicant($request)->id],
-            ['type' => $data['type'], 'current_step' => $data['current_step'], 'data' => $data['data']],
+            ['type' => $data['type'], 'current_step' => $data['current_step'], 'data' => $payloadData],
         );
 
         return response()->json(['draft' => $this->present($draft->load('documents'))]);
