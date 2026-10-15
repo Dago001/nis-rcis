@@ -153,10 +153,13 @@ class CardIssuance
             fn (Application $a) => $a->ready_at = now());
     }
 
-    public function markCollected(Application $application, User $officer): Application
+    public function markCollected(Application $application, User $officer, ?string $notes = null): Application
     {
-        return $this->workflow->transition($application, ApplicationStatus::Issued, $officer, 'Card collected by holder',
+        return $this->workflow->transition($application, ApplicationStatus::Issued, $officer, $notes ?? 'Card collected by holder',
             function (Application $a) use ($officer) {
+                if (! $a->ready_at) {
+                    $a->ready_at = now();
+                }
                 $a->collected_at = now();
                 $a->collected_by = $officer->id;
             });

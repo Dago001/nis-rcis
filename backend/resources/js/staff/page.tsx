@@ -155,7 +155,7 @@ export default function StaffDashboard() {
           <Tile label="Queried" value={s.queue?.QUERIED ?? 0} href="/staff/applications?status=QUERIED" />
           <Tile label="Biometrics today" value={s.todays_appointments ?? 0} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
           <Tile label="Cards to approve" value={s.cards?.APPROVED ?? 0} href="/staff/cards?status=APPROVED" tone="amber" />
-          <Tile label="Ready for collection" value={s.queue?.READY_FOR_COLLECTION ?? 0} href="/staff/applications?status=READY_FOR_COLLECTION" tone="green" />
+          <Tile label="Ready for collection" value={s.queue?.READY_FOR_COLLECTION ?? 0} href="/staff/card-issuance?stage=awaiting_collection" tone="green" />
           <Tile label="Active cards" value={(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} href="/staff/cards" tone="green" />
           <Tile label="Expiring in 30 days" value={s.cards_expiring_30_days ?? 0} />
           <Tile label="Expired cards" value={s.cards_expired ?? 0} href="/staff/cards?expired=1" />

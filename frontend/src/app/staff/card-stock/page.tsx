@@ -48,7 +48,16 @@ export default function CardStockPage() {
       <PageTitle
         title="Card stock and printing"
         subtitle={`${s.remaining} blank cards left · ${s.received} received · ${s.printed} printed · ${s.spoiled} spoiled`}
-        actions={<Link href="/staff/cards?unprinted=1" className="rounded-lg bg-nis-primary px-3 py-2 text-sm font-medium text-white">Print waiting cards</Link>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link href="/staff/card-issuance" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Card issuance &amp; collection
+            </Link>
+            <Link href="/staff/cards?unprinted=1" className="rounded-lg bg-nis-primary px-3 py-2 text-sm font-medium text-white">
+              Print waiting cards
+            </Link>
+          </div>
+        }
       />
       {s.low && <Alert tone="danger">Low stock: fewer than {s.threshold} blank cards left. Order more card stock.</Alert>}
       {notice && <Alert tone="success">{notice}</Alert>}

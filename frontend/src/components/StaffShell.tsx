@@ -61,6 +61,7 @@ const navSections: NavSection[] = [
     title: "Residence Cards",
     items: [
       { href: "/staff/cards", label: "Residence cards", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6") },
+      { href: "/staff/card-issuance", label: "Card issuance", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"), roles: ["IssuingOfficer", "ApprovingOfficer", "ProductionOfficer", "Supervisor", "Admin"] },
       { href: "/staff/card-stock", label: "Stock & printing", icon: icon("M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"), roles: ["ProductionOfficer", "IssuingOfficer", "ApprovingOfficer", "Supervisor", "Admin"] },
     ],
   },

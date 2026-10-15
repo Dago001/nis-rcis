@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Staff\ApplicationController as StaffApplications;
 use App\Http\Controllers\Api\Staff\ApprovalController;
 use App\Http\Controllers\Api\Staff\AuditLogController;
 use App\Http\Controllers\Api\Staff\CardController;
+use App\Http\Controllers\Api\Staff\CardIssuanceController;
 use App\Http\Controllers\Api\Staff\CardStockController;
 use App\Http\Controllers\Api\Staff\DashboardController;
 use App\Http\Controllers\Api\Staff\DataBreachController;
@@ -181,6 +182,17 @@ Route::prefix('v1')->group(function () {
         // Residence card register
         Route::get('cards', [CardController::class, 'index']);
         Route::get('cards/{id}', [CardController::class, 'show'])->whereNumber('id');
+
+        // Card issuance desk (ready for collection and handover)
+        Route::prefix('card-issuance')->group(function () {
+            Route::get('/', [CardIssuanceController::class, 'index']);
+            Route::middleware('role:IssuingOfficer,ApprovingOfficer,ProductionOfficer,Supervisor,Admin')->group(function () {
+                Route::post('{id}/ready', [CardIssuanceController::class, 'markReady'])->whereNumber('id');
+                Route::post('{id}/issue-out', [CardIssuanceController::class, 'issueOut'])->whereNumber('id');
+                Route::post('batch-ready', [CardIssuanceController::class, 'batchReady']);
+                Route::post('batch-issue', [CardIssuanceController::class, 'batchIssue']);
+            });
+        });
 
         Route::middleware('role:ProductionOfficer,IssuingOfficer,ApprovingOfficer')->group(function () {
             Route::get('cards/{id}/print', [CardController::class, 'print'])->whereNumber('id');

@@ -106,7 +106,16 @@ function ApplicationDetail() {
             </Alert>
           )}
           {app.status === "READY_FOR_COLLECTION" && (
-            <Alert tone="success">Your residence card is ready for collection at {app.enrollment_center?.name}.</Alert>
+            <Alert tone="success">
+              <strong>Your residence card is ready for collection</strong> at {app.enrollment_center?.name || "your designated centre"}. Please bring your original travel document (passport) and your application slip.
+            </Alert>
+          )}
+          {app.status === "ISSUED" && (
+            <Alert tone="success">
+              ✓ <strong>Your residence card has been successfully issued and collected.</strong>
+              {app.card?.card_number && <> Card Number: <strong>{app.card.card_number}</strong>.</>}
+              {app.collected_at && <> Collected on {dateTime(app.collected_at)}.</>} Thank you.
+            </Alert>
           )}
           {app.status === "REJECTED" && <Alert tone="danger">Reason: {app.decision_notes}</Alert>}
         </div>

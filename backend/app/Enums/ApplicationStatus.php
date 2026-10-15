@@ -32,7 +32,7 @@ enum ApplicationStatus: string
             self::PendingApproval => [self::ApprovedForBiometrics, self::Queried, self::Rejected],
             self::Queried => [self::PendingApproval, self::Rejected],
             self::ApprovedForBiometrics => [self::BiometricsCaptured],
-            self::BiometricsCaptured => [self::ReadyForCollection],
+            self::BiometricsCaptured => [self::ReadyForCollection, self::Issued],
             self::ReadyForCollection => [self::Issued],
             self::Rejected, self::Issued => [],
         };

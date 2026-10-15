@@ -63,7 +63,8 @@ class ApplicationStatusChanged extends Notification
                 ->line('Bring your original passport and your application slip.')
                 ->action('View collection details', $url),
             ApplicationStatus::Issued => $mail
-                ->line('Your residence card has been collected. Thank you.'),
+                ->line('Your ECOWAS Residence Card has been issued and collected. Thank you.')
+                ->action('View application details', $url),
         };
     }
 
@@ -71,16 +72,30 @@ class ApplicationStatusChanged extends Notification
     {
         $isQueried = $this->status === ApplicationStatus::Queried;
 
+        $title = match ($this->status) {
+            ApplicationStatus::Queried => 'Application Requires Your Attention',
+            ApplicationStatus::ApprovedForBiometrics => 'Application Approved for Biometrics',
+            ApplicationStatus::ReadyForCollection => 'Card Ready for Collection',
+            ApplicationStatus::Issued => 'Card Issued & Collected',
+            default => $this->status->label(),
+        };
+
+        $notes = match ($this->status) {
+            ApplicationStatus::ReadyForCollection => $this->notes ?? "Your residence card is ready for collection at {$this->application->enrollmentCenter?->name}. Bring your original passport and application slip.",
+            ApplicationStatus::Issued => $this->notes ?? 'Your residence card has been successfully issued and collected. Thank you.',
+            default => $this->notes,
+        };
+
         return [
             'application_id' => $this->application->id,
             'application_number' => $this->application->application_number,
             'reference_number' => $this->application->reference_number,
             'status' => $this->status->value,
-            'title' => $isQueried ? 'Application Requires Your Attention' : ($this->status === ApplicationStatus::ApprovedForBiometrics ? 'Application Approved for Biometrics' : $this->status->label()),
-            'notes' => $this->notes,
+            'title' => $title,
+            'notes' => $notes,
             'query_reason' => $this->notes,
             'action_url' => "/portal/applications/{$this->application->id}",
-            'action_label' => $isQueried ? 'Respond to Query' : 'View Application',
+            'action_label' => $isQueried ? 'Respond to Query' : ($this->status === ApplicationStatus::ReadyForCollection ? 'View Collection Details' : 'View Application'),
         ];
     }
 }

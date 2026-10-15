@@ -30,6 +30,9 @@ function CardRegister() {
         title="ECOWAS residence card register"
         actions={
           <div className="flex flex-wrap gap-2">
+            <Link href="/staff/card-issuance" className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800">
+              Card issuance &amp; collection
+            </Link>
             <Link href={unprinted ? "/staff/cards" : "/staff/cards?unprinted=1"} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium">
               {unprinted ? "Show all cards" : "Cards waiting to be printed"}
             </Link>

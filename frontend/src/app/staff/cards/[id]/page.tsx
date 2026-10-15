@@ -261,7 +261,10 @@ export default function CardDetailPage() {
           <button className="font-semibold underline" disabled={busy} onClick={() => act("ready-for-collection", {}, "Applicant notified: card ready for collection.")}>
             Mark ready for collection
           </button>{" "}
-          — the applicant will be notified by e-mail.
+          or manage handover under{" "}
+          <Link href="/staff/card-issuance" className="font-semibold underline">
+            Card Issuance &amp; Collection
+          </Link>.
         </Alert>
       )}
     </div>
