@@ -36,8 +36,14 @@ const PHOTO: DocSpec = {
 };
 
 /** Category-dependent document requirements */
-function getDocuments(category?: string): DocSpec[] {
-  const cat = (category || "WORK").toUpperCase();
+function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
+  let cat = (category || "").toUpperCase();
+  if (!["WORK", "BUSINESS", "STUDENT"].includes(cat)) {
+    if (docs?.some((d) => d.type === "admission_letter")) cat = "STUDENT";
+    else if (docs?.some((d) => d.type === "cac_certificate")) cat = "BUSINESS";
+    else cat = "WORK";
+  }
+
   const catDocs: DocSpec[] = [];
 
   if (cat === "STUDENT") {
@@ -56,7 +62,7 @@ function getDocuments(category?: string): DocSpec[] {
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
     });
-  } else {
+  } else if (cat === "WORK") {
     catDocs.push({
       type: "appointment_letter",
       label: "Employment Appointment / Offer Letter",
@@ -179,7 +185,16 @@ function Wizard() {
 
   const photo = documents.find((d) => d.type === "photo");
   const photoUrl = photo && photoLink?.id === photo.id ? photoLink.url : null;
-  const currentDocs = useMemo(() => getDocuments(data.category), [data.category]);
+
+  const resolvedCategory = useMemo(() => {
+    const raw = (data.category || "").toUpperCase();
+    if (["WORK", "BUSINESS", "STUDENT"].includes(raw)) return raw;
+    if (documents.some((x) => x.type === "admission_letter")) return "STUDENT";
+    if (documents.some((x) => x.type === "cac_certificate")) return "BUSINESS";
+    return "WORK";
+  }, [data.category, documents]);
+
+  const currentDocs = useMemo(() => getDocuments(resolvedCategory, documents), [resolvedCategory, documents]);
 
   /** Fields validated on each step. */
   const stepFields = useCallback(
@@ -202,7 +217,7 @@ function Wizard() {
       const e: Record<string, string> = {};
       if (n === 2 && !photo && !localPhotoPreview) e.photo = "Upload your passport photograph.";
       if (n === 4) {
-        const requiredDocs = getDocuments(data.category);
+        const requiredDocs = getDocuments(resolvedCategory, documents);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
         if (absent.length === 1) {
           e.documents = `Please upload ${absent[0].label}.`;
@@ -214,7 +229,7 @@ function Wizard() {
       if (n === 6 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, localPhotoPreview, documents, paid, data.declaration, data.category],
+    [photo, localPhotoPreview, documents, paid, data.declaration, resolvedCategory],
   );
 
   // Errors shown: fields are validated on blur or step submit; in-progress typing is not prematurely flagged red.
@@ -245,12 +260,13 @@ function Wizard() {
 
   const saveDraft = useCallback(
     async (nextStep: number, patch: Record<string, string> = {}) => {
-      const body = { type, current_step: nextStep, data: { ...data, type, ...patch } };
+      const activeCat = patch.category || resolvedCategory;
+      const body = { type, current_step: nextStep, data: { ...data, category: activeCat, type, ...patch } };
       const result = await api<{ draft: Draft }>("applicant", "draft", { method: "PUT", json: body });
       setDocuments(result.draft.documents);
       return result.draft;
     },
-    [type, data],
+    [type, data, resolvedCategory],
   );
 
   // Load draft (or pre-fill from the profile) and handle the Paystack return.
@@ -290,6 +306,15 @@ function Wizard() {
           if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
           if (draft && shouldResumeDraft) {
             restored = { ...restored, ...draft.data };
+            if (!restored.category || !["WORK", "BUSINESS", "STUDENT"].includes(restored.category.toUpperCase())) {
+              if (draft.documents.some((d) => d.type === "admission_letter")) {
+                restored.category = "STUDENT";
+              } else if (draft.documents.some((d) => d.type === "cac_certificate")) {
+                restored.category = "BUSINESS";
+              } else {
+                restored.category = "WORK";
+              }
+            }
             setType(draft.type);
             let resumedStep = draft.current_step;
             if (resumedStep > 3 && resumedStep <= 8) {
@@ -681,12 +706,12 @@ function Wizard() {
 
     setBusy(true);
     try {
-      await saveDraft(step, { type });
+      await saveDraft(step, { type, category: resolvedCategory });
       const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
-      await saveDraft(6, { type, payment_reference: payment.reference });
+      await saveDraft(6, { type, category: resolvedCategory, payment_reference: payment.reference });
       if (payment.fake) {
         const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
-        setData((d) => ({ ...d, payment_reference: payment.reference }));
+        setData((d) => ({ ...d, payment_reference: payment.reference, category: resolvedCategory }));
         setPaid(verified.paid);
         setStepError({});
         setNotice({ tone: "info", text: "Test mode: no Paystack keys are configured, so the payment was simulated." });
@@ -731,7 +756,7 @@ function Wizard() {
     try {
       const { data: application } = await api<{ data: Application }>("applicant", "applications", {
         method: "POST",
-        json: { ...data, type, declaration: true },
+        json: { ...data, category: resolvedCategory, type, declaration: true },
       });
       router.push(`/portal/applications/${application.id}?submitted=1`);
     } catch (e) {
@@ -819,7 +844,7 @@ function Wizard() {
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
               <div className="text-sm font-semibold text-nis-primary-dark">
-                Required Documents for {data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work"} Category
+                Required Documents for {resolvedCategory === "STUDENT" ? "Student" : resolvedCategory === "BUSINESS" ? "Business" : "Work"} Category
               </div>
               <p className="mt-1 text-xs text-slate-600">
                 Official Document Verification: Each file must be <strong>smaller than 2 MB</strong> in <strong>PDF, JPG, or PNG</strong> format.
@@ -1040,7 +1065,7 @@ function Wizard() {
               <ReviewGrid
                 items={[
                   ["Nationality", data.nationality],
-                  ["Category / Class", data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work (Employment)"],
+                  ["Category / Class", (data.category || resolvedCategory) === "STUDENT" ? "Student" : (data.category || resolvedCategory) === "BUSINESS" ? "Business" : "Work (Employment)"],
                   ["Document Type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "Passport"],
                   [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
                   ["Document Issue Date", nisDate(data.passport_issue_date)],

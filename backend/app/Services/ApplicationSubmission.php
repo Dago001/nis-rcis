@@ -40,7 +40,23 @@ class ApplicationSubmission
             $data['type'] = $draft?->type ?: 'NEW';
         }
 
-        $category = strtoupper($data['category'] ?? 'WORK');
+        $category = strtoupper($data['category'] ?? '');
+        if (! in_array($category, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+            $draftCategory = strtoupper($draft?->data['category'] ?? '');
+            if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+                $category = $draftCategory;
+            } elseif ($documents->contains('type', DocumentType::AdmissionLetter)) {
+                $category = 'STUDENT';
+            } elseif ($documents->contains('type', DocumentType::CacCertificate)) {
+                $category = 'BUSINESS';
+            } elseif ($documents->contains('type', DocumentType::AppointmentLetter)) {
+                $category = 'WORK';
+            } else {
+                $category = 'WORK';
+            }
+        }
+        $data['category'] = $category;
+
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
             $requiredTypes[] = DocumentType::CacCertificate;
@@ -157,7 +173,22 @@ class ApplicationSubmission
 
         // Validate required documents
         $documents = $draft->documents ?? collect();
-        $category = strtoupper($data['category'] ?? 'WORK');
+        $category = strtoupper($data['category'] ?? '');
+        if (! in_array($category, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+            $draftCategory = strtoupper($draft->data['category'] ?? '');
+            if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+                $category = $draftCategory;
+            } elseif ($documents->contains('type', DocumentType::AdmissionLetter)) {
+                $category = 'STUDENT';
+            } elseif ($documents->contains('type', DocumentType::CacCertificate)) {
+                $category = 'BUSINESS';
+            } elseif ($documents->contains('type', DocumentType::AppointmentLetter)) {
+                $category = 'WORK';
+            } else {
+                $category = 'WORK';
+            }
+        }
+
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
             $requiredTypes[] = DocumentType::CacCertificate;

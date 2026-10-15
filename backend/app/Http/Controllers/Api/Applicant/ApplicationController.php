@@ -48,6 +48,22 @@ class ApplicationController
             $draft = $applicant->draft()->first();
             $request->merge(['type' => $draft?->type ?: 'NEW']);
         }
+        if (! $request->filled('category')) {
+            $draft = $applicant->draft()->with('documents')->first();
+            $draftCat = strtoupper($draft?->data['category'] ?? '');
+            if (! in_array($draftCat, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+                if ($draft?->documents->contains('type', DocumentType::AdmissionLetter)) {
+                    $draftCat = 'STUDENT';
+                } elseif ($draft?->documents->contains('type', DocumentType::CacCertificate)) {
+                    $draftCat = 'BUSINESS';
+                } elseif ($draft?->documents->contains('type', DocumentType::AppointmentLetter)) {
+                    $draftCat = 'WORK';
+                } else {
+                    $draftCat = 'WORK';
+                }
+            }
+            $request->merge(['category' => $draftCat]);
+        }
         $request->merge(ApplicationRules::normalise($request->except(['phone', 'email'])));
 
         $rules = ApplicationRules::particulars();
@@ -60,6 +76,7 @@ class ApplicationController
             ...$rules,
             ...ApplicationRules::quota(),
             ...ApplicationRules::appointment(),
+            'category' => ['required', Rule::in(['WORK', 'BUSINESS', 'STUDENT'])],
             'type' => ['required', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
             'renewal_card_number' => ['required_if:type,RENEWAL,REPLACE', 'nullable', 'string', 'max:20'],
             'principal_application_id' => ['nullable', 'integer'],

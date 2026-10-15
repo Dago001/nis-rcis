@@ -36,6 +36,9 @@ class DraftController
 
         $payloadData = $data['data'];
         $payloadData['type'] = $data['type'];
+        if (! empty($payloadData['category']) && is_string($payloadData['category'])) {
+            $payloadData['category'] = strtoupper(trim($payloadData['category']));
+        }
 
         $draft = ApplicationDraft::updateOrCreate(
             ['applicant_id' => $this->applicant($request)->id],
