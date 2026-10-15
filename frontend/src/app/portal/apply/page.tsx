@@ -958,7 +958,15 @@ function Wizard() {
         {/* Step 6: Review & declaration */}
         {step === 6 && (
           <div className="space-y-6">
-            <p className="text-sm text-slate-600">Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</p>
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs text-slate-600 sm:text-sm">
+              <svg className="h-4 w-4 shrink-0 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <span>Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</span>
+            </div>
+
             <ReviewSection title="General Information" onEdit={() => goTo(1)}>
               <ReviewGrid
                 items={[
@@ -971,10 +979,14 @@ function Wizard() {
             </ReviewSection>
 
             <ReviewSection title="Personal details" onEdit={() => goTo(2)}>
-              <div className="flex flex-col gap-5 sm:flex-row">
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                 {photoUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoUrl} alt="Passport photograph" className="h-40 w-32 shrink-0 rounded-lg border object-cover" />
+                  <div className="shrink-0 self-start">
+                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-1 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photoUrl} alt="Passport photograph" className="h-36 w-28 rounded object-cover" />
+                    </div>
+                  </div>
                 )}
                 <ReviewGrid
                   items={[
@@ -1025,9 +1037,26 @@ function Wizard() {
                   const current = documents.find((x) => x.type === d.type);
                   if (!current && !d.required) return null;
                   return (
-                    <li key={d.type} className="flex items-center justify-between gap-3 py-2">
-                      <span>{d.label}: <span className={current ? "text-slate-700" : "text-red-700"}>{current ? current.original_name : "missing"}</span></span>
-                      {current && <button type="button" onClick={() => view(current)} className="text-sm font-medium text-nis-primary hover:underline">View</button>}
+                    <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-slate-800 font-medium">{d.label}:</span>
+                        <span className={`truncate text-xs font-medium ${current ? "text-slate-600" : "text-red-600"}`}>
+                          {current ? current.original_name : "missing"}
+                        </span>
+                      </div>
+                      {current && (
+                        <button
+                          type="button"
+                          onClick={() => view(current)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary transition hover:text-nis-primary-dark hover:underline"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          <span>View</span>
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -1044,14 +1073,35 @@ function Wizard() {
               />
             </ReviewSection>
 
-            <label className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${errors.declaration ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}>
-              <input type="checkbox" className="mt-1" checked={data.declaration === "1"} onChange={(e) => { set("declaration", e.target.checked ? "1" : ""); setStepError({}); }} />
-              <span>
-                I solemnly declare that the particulars given in this application are true and correct. I understand that giving false
-                information is an offence under the Immigration Act 2015.
-              </span>
-            </label>
-            {errors.declaration && <p className="text-sm text-red-700">{errors.declaration}</p>}
+            <div
+              className={`rounded-xl border p-4 sm:p-5 transition shadow-sm ${
+                errors.declaration ? "border-red-300 bg-red-50/50" : "border-slate-200 bg-nis-mint/60"
+              }`}
+            >
+              <label className="flex items-start gap-3.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-nis-primary focus:ring-nis-primary/30"
+                  checked={data.declaration === "1"}
+                  onChange={(e) => {
+                    set("declaration", e.target.checked ? "1" : "");
+                    setStepError({});
+                  }}
+                />
+                <span className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                  I solemnly declare that the particulars given in this application are true and correct. I understand that giving false
+                  information is an offence under the Immigration Act 2015.
+                </span>
+              </label>
+              {errors.declaration && (
+                <p className="mt-2 text-xs font-semibold text-red-700 flex items-center gap-1.5 pl-7">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span>{errors.declaration}</span>
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -1129,11 +1179,11 @@ function Summary({ label, value }: { label: string; value: ReactNode }) {
 
 function ReviewGrid({ items }: { items: [string, string | undefined][] }) {
   return (
-    <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+    <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map(([k, v]) => (
-        <div key={k}>
-          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
-          <dd className="mt-0.5 break-words text-sm text-slate-900">{v || "—"}</dd>
+        <div key={k} className="flex flex-col">
+          <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{k}</dt>
+          <dd className="mt-1 break-words text-sm font-medium text-slate-900 leading-snug">{v || "—"}</dd>
         </div>
       ))}
     </dl>
@@ -1142,12 +1192,22 @@ function ReviewGrid({ items }: { items: [string, string | undefined][] }) {
 
 function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200">
-      <header className="flex items-center justify-between bg-nis-mint px-4 py-2.5">
-        <h3 className="text-sm font-semibold text-nis-primary-dark">{title}</h3>
-        <button type="button" onClick={onEdit} className="text-sm font-medium text-nis-primary hover:underline">Edit</button>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300">
+      <header className="flex items-center justify-between border-b border-slate-200/80 bg-nis-mint/60 px-5 py-3">
+        <h3 className="text-sm font-bold text-nis-primary-dark">{title}</h3>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary transition hover:text-nis-primary-dark hover:underline"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          <span>Edit</span>
+        </button>
       </header>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
