@@ -40,7 +40,6 @@ class ApplicationSubmission
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
             $requiredTypes[] = DocumentType::CacCertificate;
-            $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'STUDENT') {
             $requiredTypes[] = DocumentType::AdmissionLetter;
         } elseif ($category === 'WORK') {
@@ -152,7 +151,6 @@ class ApplicationSubmission
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
             $requiredTypes[] = DocumentType::CacCertificate;
-            $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'STUDENT') {
             $requiredTypes[] = DocumentType::AdmissionLetter;
         } elseif ($category === 'WORK') {

@@ -69,8 +69,8 @@ class ApplicationRules
             'passport_number' => ['required', 'string', 'regex:/^[A-Z0-9-]{4,20}$/i'],
             'passport_issue_date' => ['required', 'date', 'before_or_equal:today', 'after:1900-01-01'],
             'passport_expiry' => ['required', 'date', 'after:passport_issue_date'],
-            'national_id_number' => ['nullable', 'string', 'regex:/^[0-9]{11}$/'],
-            'tax_id_number' => ['nullable', 'string', 'regex:/^[0-9-]{6,20}$/'],
+            'national_id_number' => ['nullable', 'string', 'max:50', 'regex:/^[A-Z0-9-]{4,30}$/i'],
+            'tax_id_number' => ['nullable', 'string', 'max:50', 'regex:/^[A-Z0-9-]{4,30}$/i'],
             'emergency_contact_name' => ['required', 'string', 'max:150', 'regex:'.self::NAME],
             'emergency_contact_relation' => ['required', 'string', 'max:50', 'regex:'.self::NAME],
             'emergency_contact_phone' => ['required', 'string', 'regex:'.self::PHONE],
@@ -114,10 +114,29 @@ class ApplicationRules
         $upper = ['quota_reference', 'employer_name', 'surname', 'forenames', 'nationality', 'place_of_birth', 'profession', 'passport_number',
             'emergency_contact_name', 'emergency_contact_relation', 'distinguished_features', 'complexion', 'eye_color', 'hair_color'];
 
+        // Convert empty strings for optional fields into null so validation passes
+        foreach (['national_id_number', 'tax_id_number', 'change_of_address', 'quota_reference', 'employer_name', 'height', 'complexion', 'eye_color', 'hair_color', 'distinguished_features', 'blood_group'] as $optKey) {
+            if (array_key_exists($optKey, $data) && (is_null($data[$optKey]) || trim((string) $data[$optKey]) === '')) {
+                $data[$optKey] = null;
+            }
+        }
+
         // Phone numbers are stored as + and digits only.
         foreach (['phone', 'emergency_contact_phone'] as $key) {
-            if (isset($data[$key]) && is_string($data[$key]) && preg_match('/^\s*\+?[0-9 ()-]+$/', $data[$key])) {
-                $data[$key] = '+'.preg_replace('/\D/', '', $data[$key]);
+            if (isset($data[$key]) && is_string($data[$key])) {
+                $raw = trim($data[$key]);
+                if (preg_match('/^\s*\+?[0-9 ()-]+$/', $raw)) {
+                    $digits = preg_replace('/\D/', '', $raw);
+                    if (str_starts_with($raw, '+')) {
+                        $data[$key] = '+'.$digits;
+                    } elseif (str_starts_with($digits, '0') && strlen($digits) === 11) {
+                        $data[$key] = '+234'.substr($digits, 1);
+                    } elseif (str_starts_with($digits, '234')) {
+                        $data[$key] = '+'.$digits;
+                    } else {
+                        $data[$key] = '+'.ltrim($digits, '0');
+                    }
+                }
             }
         }
 

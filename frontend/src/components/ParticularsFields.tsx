@@ -101,10 +101,11 @@ function select(
 
 const OTHER = "__OTHER__";
 
-/** Wizard step 1 of 8 — General Information (Nationality, Category, Document Type, Prescribed Fee). */
+/** Wizard step 1 — General Information (Nationality, Category, Document Type, Document Details, Fee). */
 export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
   const { data, errors, set, touch, focus, feeNaira } = props;
   const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
+  const today = new Date().toISOString().slice(0, 10);
 
   const normalizedNat = (data.nationality ?? "").trim();
   const matchedNat = ECOWAS_NATIONALITIES.find(
@@ -118,10 +119,18 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
   const rawDocType = (data.travel_document_type ?? "PASSPORT").trim().toUpperCase();
   const selectedDocType = rawDocType === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
 
+  const numLabel = selectedDocType === "ECOWAS_TC"
+    ? "ECOWAS Travel Certificate Number"
+    : "Passport Number";
+
+  const numHint = selectedDocType === "ECOWAS_TC"
+    ? "As printed on your ECOWAS Travel Certificate"
+    : "6–15 letters and digits, no spaces";
+
   return (
     <div className="space-y-6">
       <div className="grid gap-5 sm:grid-cols-2">
-        {/* Nationality - Complete Dropdown of Countries */}
+        {/* Row 1, Col 1: Nationality */}
         <Field
           label="Nationality"
           required
@@ -151,7 +160,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           </Select>
         </Field>
 
-        {/* Category / Class: Student, Work, Business */}
+        {/* Row 1, Col 2: Category / Class */}
         <Field
           label="Category / Class"
           required
@@ -178,54 +187,106 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           </Select>
         </Field>
 
-        {/* Document Type: Passport, ECOWAS Travel Certificate - Standard 1-col size */}
-        <div>
-          <Field
-            label="Documents / Other Documents"
-            required
-            error={errors.travel_document_type}
-            hint="Choose Passport or ECOWAS Travel Certificate only"
+        {/* Row 2, Col 1: Travel Document Type */}
+        <Field
+          label="Documents / Other Documents"
+          required
+          error={errors.travel_document_type}
+          hint="Choose Passport or ECOWAS Travel Certificate only"
+        >
+          <Select
+            name="travel_document_type"
+            value={selectedDocType}
+            aria-invalid={Boolean(errors.travel_document_type)}
+            className={errors.travel_document_type ? "!border-red-500" : ""}
+            onFocus={() => focus?.("travel_document_type")}
+            onChange={(e) => {
+              set("travel_document_type", e.target.value);
+            }}
+            onBlur={() => {
+              focus?.(null);
+              touch?.("travel_document_type");
+            }}
           >
-            <Select
-              name="travel_document_type"
-              value={selectedDocType}
-              aria-invalid={Boolean(errors.travel_document_type)}
-              className={errors.travel_document_type ? "!border-red-500" : ""}
-              onFocus={() => focus?.("travel_document_type")}
-              onChange={(e) => {
-                set("travel_document_type", e.target.value);
-              }}
-              onBlur={() => {
-                focus?.(null);
-                touch?.("travel_document_type");
-              }}
-            >
-              <option value="PASSPORT">Passport</option>
-              <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
-            </Select>
-          </Field>
+            <option value="PASSPORT">Passport</option>
+            <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
+          </Select>
+        </Field>
+
+        {/* Row 2, Col 2: Document Number */}
+        <Field label={numLabel} required error={errors.passport_number} hint={numHint}>
+          <Input
+            name="passport_number"
+            value={data.passport_number ?? ""}
+            maxLength={20}
+            aria-invalid={Boolean(errors.passport_number)}
+            className={errors.passport_number ? "!border-red-500" : ""}
+            onFocus={() => focus?.("passport_number")}
+            onChange={(e) => set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
+            onBlur={() => {
+              focus?.(null);
+              touch?.("passport_number");
+            }}
+          />
+        </Field>
+
+        {/* Row 3, Col 1: Document Issue Date */}
+        {text(props, "passport_issue_date", "Document Issue Date", {
+          required: true,
+          type: "date",
+          max: today,
+          hint: "Issue date cannot be in the future",
+        })}
+
+        {/* Row 3, Col 2: Document Expiring Date */}
+        {text(props, "passport_expiry", "Document Expiring Date", {
+          required: true,
+          type: "date",
+          min: data.passport_issue_date || today,
+          hint: "Must be later than issue date and valid for at least 6 months",
+        })}
+
+        {/* Row 4, Col 1: National Identification Number (if any) */}
+        {text(props, "national_id_number", "National Identification Number (if any)", {
+          required: false,
+          maxLength: 30,
+          hint: "Optional national ID number from country of origin or Nigeria",
+        })}
+
+        {/* Row 4, Col 2: Tax Identification Number (if any) */}
+        {text(props, "tax_id_number", "Tax Identification Number (if any)", {
+          required: false,
+          maxLength: 30,
+          hint: "Optional tax identification number",
+        })}
+      </div>
+
+      {/* Dynamic Document Notice depending on Category - Subtle, high-trust informational presentation */}
+      <div className="rounded-xl border border-nis-primary/20 bg-nis-mint/30 p-4 text-sm text-slate-800">
+        <div className="flex items-start gap-2.5">
+          <svg className="h-5 w-5 text-nis-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <div className="font-semibold text-nis-primary-dark">
+              {data.category === "STUDENT"
+                ? "Required Document: Admission Letter"
+                : data.category === "BUSINESS"
+                ? "Required Document: CAC Business Registration Certificate"
+                : "Required Document: Employment Appointment Letter"}
+            </div>
+            <p className="mt-0.5 text-xs text-slate-600">
+              {data.category === "STUDENT"
+                ? "Applicants under the Student category must upload a valid admission letter before proceeding."
+                : data.category === "BUSINESS"
+                ? "Applicants under the Business category must upload a valid CAC business registration certificate / documents before proceeding."
+                : "Applicants under the Work category must upload a valid employment appointment letter before proceeding."}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Dynamic Document Notice depending on Category */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-slate-800">
-        <div className="font-semibold text-blue-900 mb-1">
-          {data.category === "STUDENT"
-            ? "Student Category: Admission Letter is Required"
-            : data.category === "BUSINESS"
-            ? "Business Category: CAC Registration Letter is Required"
-            : "Work Category: Appointment Letter is Required"}
-        </div>
-        <p className="text-xs text-blue-800">
-          {data.category === "STUDENT"
-            ? "You will upload your valid Institution Admission Letter in Step 5 (Documents)."
-            : data.category === "BUSINESS"
-            ? "You will upload your CAC Business Registration Letter / Certificate in Step 5 (Documents)."
-            : "You will upload your official Employment Appointment Letter in Step 5 (Documents)."}
-        </p>
-      </div>
-
-      {/* Application Fee Notice Before Moving to Next Step */}
+      {/* Application Fee Notice */}
       <div className="rounded-xl border border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm">
         <div>
           <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Application Fee</span>
@@ -328,125 +389,12 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
   );
 }
 
-/** Wizard step 3 — Passport or ECOWAS Travel Certificate only. */
-export function PassportFields(props: Props) {
-  const { data, errors, set, touch, focus } = props;
-  const today = new Date().toISOString().slice(0, 10);
-  const docType = data.travel_document_type === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
-
-  const numLabel = docType === "ECOWAS_TC"
-    ? "ECOWAS Travel Certificate Number"
-    : "Passport Number";
-
-  const numHint = docType === "ECOWAS_TC"
-    ? "As printed on your ECOWAS Travel Certificate"
-    : "6–15 letters and digits, no spaces";
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {/* Documents / Other Documents - 1 column to match standard field size */}
-      <div>
-        <Field label="Documents / Other Documents" required hint="Passport or ECOWAS Travel Certificate only">
-          <Select
-            name="travel_document_type"
-            value={docType}
-            onFocus={() => focus?.("travel_document_type")}
-            onChange={(e) => {
-              set("travel_document_type", e.target.value);
-            }}
-            onBlur={() => {
-              focus?.(null);
-              touch?.("travel_document_type");
-            }}
-          >
-            <option value="PASSPORT">Passport</option>
-            <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
-          </Select>
-        </Field>
-      </div>
-
-      <Field label={numLabel} required error={errors.passport_number} hint={numHint}>
-        <Input
-          name="passport_number"
-          value={data.passport_number ?? ""}
-          maxLength={20}
-          aria-invalid={Boolean(errors.passport_number)}
-          className={errors.passport_number ? "!border-red-500" : ""}
-          onFocus={() => focus?.("passport_number")}
-          onChange={(e) => set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
-          onBlur={() => {
-            focus?.(null);
-            touch?.("passport_number");
-          }}
-        />
-      </Field>
-
-      {/* Document Issue Date -> Issue Date (compulsory, date picker) */}
-      {text(props, "passport_issue_date", "Issue Date", { required: true, type: "date", max: today })}
-
-      {/* Document Expiring Date -> Expiring Date (compulsory, cannot be earlier than issue date) */}
-      {text(props, "passport_expiry", "Expiring Date", {
-        required: true,
-        type: "date",
-        min: data.passport_issue_date || today,
-        hint: "Must be later than issue date and valid for at least 6 months",
-      })}
-
-      {text(props, "national_id_number", "National Identification Number (NIN, if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
-      {text(props, "tax_id_number", "Tax identification number (if any)", { maxLength: 20 })}
-    </div>
-  );
+/** @deprecated Kept for backward compatibility. Document fields are now in GeneralInfoFields. */
+export function PassportFields(_props: Props) {
+  return null;
 }
 
-/** State, then its local government areas, then the street address. */
-function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"; streetField: string; streetLabel: string }) {
-  const { data, set, touch, focus, prefix, streetField, streetLabel, errors } = props;
-  const stateField = `${prefix}_state`;
-  const lgaField = `${prefix}_lga`;
-  const lgas = NIGERIA_LGAS[data[stateField] ?? ""] ?? [];
-  return (
-    <>
-      <Field label="State" required error={errors[stateField]}>
-        <Select
-          name={stateField}
-          value={data[stateField] ?? ""}
-          className={errors[stateField] ? "!border-red-500" : ""}
-          onFocus={() => focus?.(stateField)}
-          onChange={(e) => {
-            set(stateField, e.target.value);
-            set(lgaField, "");
-          }}
-          onBlur={() => {
-            focus?.(null);
-            touch?.(stateField);
-          }}
-        >
-          <option value="">Select state…</option>
-          {NIGERIA_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </Select>
-      </Field>
-      {select(props, lgaField, "Local government area", lgas, { required: true, disabled: !lgas.length, placeholder: lgas.length ? "Select LGA…" : "Select a state first" })}
-      <div className="sm:col-span-2">
-        <Field label={streetLabel} required error={errors[streetField]} hint="House number, street and area / town">
-          <Input
-            name={streetField}
-            value={data[streetField] ?? ""}
-            maxLength={150}
-            className={errors[streetField] ? "!border-red-500" : ""}
-            onFocus={() => focus?.(streetField)}
-            onChange={(e) => set(streetField, e.target.value)}
-            onBlur={() => {
-              focus?.(null);
-              touch?.(streetField);
-            }}
-          />
-        </Field>
-      </div>
-    </>
-  );
-}
-
-/** Wizard step 4 — residence and contacts. */
+/** Wizard step 3 — residence and contacts. */
 export function ContactFields(props: Props) {
   const { data, errors, set, touch, focus } = props;
   const rawRelation = (data.emergency_contact_relation ?? "").trim();
@@ -582,14 +530,19 @@ export function ContactFields(props: Props) {
           <option value={OTHER}>OTHER</option>
         </Select>
       </Field>
-      {otherRelation && text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50 })}
+      {otherRelation && (
+        <div className="sm:col-span-2">
+          {text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50 })}
+        </div>
+      )}
+
+      {/* Row 2: Phone number & State */}
       <div
         onFocus={() => focus?.("emergency_contact_phone")}
         onBlur={() => {
           focus?.(null);
           touch?.("emergency_contact_phone");
         }}
-        className={otherRelation ? "sm:col-span-2" : ""}
       >
         <Field label="Phone number" required error={errors.emergency_contact_phone}>
           <PhoneInput
@@ -600,7 +553,67 @@ export function ContactFields(props: Props) {
           />
         </Field>
       </div>
-      <AddressFields {...props} prefix="emergency_contact" streetField="emergency_contact_address" streetLabel="Street address" />
+
+      <Field label="State" required error={errors.emergency_contact_state}>
+        <Select
+          name="emergency_contact_state"
+          value={data.emergency_contact_state ?? ""}
+          aria-invalid={Boolean(errors.emergency_contact_state)}
+          className={errors.emergency_contact_state ? "!border-red-500" : ""}
+          onFocus={() => focus?.("emergency_contact_state")}
+          onChange={(e) => {
+            set("emergency_contact_state", e.target.value);
+            set("emergency_contact_lga", "");
+          }}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("emergency_contact_state");
+          }}
+        >
+          <option value="">Select state…</option>
+          {NIGERIA_STATES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </Select>
+      </Field>
+
+      {/* Row 3: Local Government & Street Address side by side on same row */}
+      <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2">
+        {select(
+          props,
+          "emergency_contact_lga",
+          "Local government area",
+          NIGERIA_LGAS[data.emergency_contact_state ?? ""] ?? [],
+          {
+            required: true,
+            disabled: !(NIGERIA_LGAS[data.emergency_contact_state ?? ""] ?? []).length,
+            placeholder: (NIGERIA_LGAS[data.emergency_contact_state ?? ""] ?? []).length
+              ? "Select LGA…"
+              : "Select a state first",
+          }
+        )}
+
+        <Field
+          label="Street address"
+          required
+          error={errors.emergency_contact_address}
+          hint="House number, street and area / town"
+        >
+          <Input
+            name="emergency_contact_address"
+            value={data.emergency_contact_address ?? ""}
+            maxLength={150}
+            aria-invalid={Boolean(errors.emergency_contact_address)}
+            className={errors.emergency_contact_address ? "!border-red-500" : ""}
+            onFocus={() => focus?.("emergency_contact_address")}
+            onChange={(e) => set("emergency_contact_address", e.target.value)}
+            onBlur={() => {
+              focus?.(null);
+              touch?.("emergency_contact_address");
+            }}
+          />
+        </Field>
+      </div>
     </div>
   );
 }

@@ -81,8 +81,8 @@ export const RULES: Record<string, Check> = {
       return v <= addMonths(6) ? "Must be valid for at least 6 more months." : undefined;
     }
   ),
-  national_id_number: pattern(/^[0-9]{11}$/, "The NIN is 11 digits."),
-  tax_id_number: pattern(/^[0-9-]{6,20}$/, "Digits only (hyphens allowed)."),
+  national_id_number: pattern(/^[A-Za-z0-9-]{4,30}$/, "Use letters, numbers and hyphens only."),
+  tax_id_number: pattern(/^[A-Za-z0-9-]{4,30}$/, "Use letters, numbers and hyphens only."),
 
   home_country_address: all(
     required("Address in country of origin"),
@@ -110,6 +110,16 @@ export const RULES: Record<string, Check> = {
   appointment_time: required("Time slot"),
 };
 
+export const GENERAL_FIELDS = [
+  "nationality",
+  "category",
+  "travel_document_type",
+  "passport_number",
+  "passport_issue_date",
+  "passport_expiry",
+  "national_id_number",
+  "tax_id_number",
+];
 export const PERSONAL_FIELDS = [
   "surname", "forenames", "nationality", "sex", "date_of_birth", "place_of_birth", "profession",
   "phone", "email",
