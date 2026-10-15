@@ -177,6 +177,7 @@ class ApplicationSubmission
 
         $application = new Application([
             ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time', 'quota_reference', 'employer_name'])->all(),
+            'category' => strtoupper($data['category'] ?? 'WORK'),
             'applicant_id' => $applicant?->id,
             'type' => $renewalCard ? $data['type'] : 'NEW',
             'renewal_of_card_id' => $renewalCard?->id,

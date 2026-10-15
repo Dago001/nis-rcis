@@ -24,9 +24,13 @@ const styles: Record<string, string> = {
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
+  const display = label ?? status.replaceAll("_", " ");
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status] ?? "bg-slate-100 text-slate-700"}`}>
-      {label ?? status.replaceAll("_", " ")}
+    <span
+      title={display}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${styles[status] ?? "bg-slate-100 text-slate-700"}`}
+    >
+      {display}
     </span>
   );
 }

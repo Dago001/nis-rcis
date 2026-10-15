@@ -24,7 +24,7 @@ class ApplicationController
     public function index(Request $request): AnonymousResourceCollection
     {
         $applications = $this->applicant($request)->applications()
-            ->with(['enrollmentCenter', 'card'])
+            ->with(['enrollmentCenter', 'card', 'documents'])
             ->latest('id')
             ->get();
 

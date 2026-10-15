@@ -8,8 +8,7 @@ import { Alert, Panel, Spinner } from "@/components/ui";
 import { useI18n } from "@/components/I18nProvider";
 import { PushToggle } from "@/components/PushToggle";
 import { api } from "@/lib/api-client";
-import { dateTime, nisDate, applicationType } from "@/lib/format";
-import type { AppNotification, Application } from "@/lib/types";
+import type { Application } from "@/lib/types";
 import { withBase } from "@/lib/base-path";
 
 type Me = { forenames: string; surname: string; email: string; has_draft: boolean };
@@ -21,6 +20,45 @@ type DraftInfo = {
   documents: any[];
   saved_at: string;
 };
+
+const PAGE_SIZE = 10;
+
+/** Format category/class name consistently (e.g. Work, Business, Student, or Not specified). */
+function formatCategory(cat?: string | null): string {
+  if (!cat || !cat.trim()) return "Not specified";
+  const upper = cat.trim().toUpperCase();
+  if (upper === "WORK" || upper.includes("WORK") || upper.includes("EMPLOY")) return "Work";
+  if (upper === "BUSINESS" || upper.includes("BUSI") || upper.includes("INVEST")) return "Business";
+  if (upper === "STUDENT" || upper.includes("STUD")) return "Student";
+  return cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
+}
+
+/** Format dates compactly as '15 Oct 2026' without timestamps or suffix clutter. */
+function compactDate(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  if (Number.isNaN(d.getTime())) return value;
+  const day = d.getDate();
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** Map long statuses to compact, professional display labels. */
+function compactStatusLabel(status: string, label?: string): string {
+  const s = status.toUpperCase();
+  if (s === "DRAFT") return "Draft";
+  if (s === "SUBMITTED") return "Submitted";
+  if (s === "PENDING_APPROVAL") return "Pending";
+  if (s === "APPROVED" || s === "APPROVED_FOR_BIOMETRICS") return "Approved";
+  if (s === "BIOMETRICS_CAPTURED") return "Biometrics Captured";
+  if (s === "CARD_IN_PRODUCTION" || s === "IN_PRODUCTION") return "In Production";
+  if (s === "READY_FOR_COLLECTION") return "Ready";
+  if (s === "ISSUED") return "Issued";
+  if (s === "QUERIED") return "Queried";
+  if (s === "REJECTED") return "Rejected";
+  if (s === "RENEWED") return "Renewed";
+  return label || status.replaceAll("_", " ");
+}
 
 export default function PortalHome() {
   const [me, setMe] = useState<Me | null>(() => {
@@ -50,16 +88,9 @@ export default function PortalHome() {
       return null;
     }
   });
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const cached = sessionStorage.getItem("nis_applicant_notifs");
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
   const [activeTab, setActiveTab] = useState<"all" | "drafts">("all");
+  const [pageAll, setPageAll] = useState(1);
+  const [pageDrafts, setPageDrafts] = useState(1);
   const { t } = useI18n();
 
   useEffect(() => {
@@ -67,8 +98,7 @@ export default function PortalHome() {
       api<Me>("applicant", "me").catch(() => null),
       api<{ data: Application[] }>("applicant", "applications").catch(() => null),
       api<{ draft: DraftInfo | null }>("applicant", "draft").catch(() => null),
-      api<{ data: AppNotification[] }>("applicant", "notifications").catch(() => null),
-    ]).then(([meData, appsData, draftData, notifsData]) => {
+    ]).then(([meData, appsData, draftData]) => {
       if (meData) {
         setMe(meData);
         try { sessionStorage.setItem("nis_applicant_me", JSON.stringify(meData)); } catch {}
@@ -81,17 +111,44 @@ export default function PortalHome() {
         setDraft(draftData.draft);
         try { sessionStorage.setItem("nis_applicant_draft", JSON.stringify(draftData.draft)); } catch {}
       }
-      if (notifsData) {
-        setNotifications(notifsData.data);
-        try { sessionStorage.setItem("nis_applicant_notifs", JSON.stringify(notifsData.data)); } catch {}
-      }
     });
   }, []);
 
   if (!me || !applications) return <Spinner label={t("Loading…")} />;
 
   const queried = applications.filter((a) => a.status === "QUERIED");
-  const totalAllCount = applications.length + (draft ? 1 : 0);
+
+  // Tab switching with page reset
+  const handleTabChange = (tab: "all" | "drafts") => {
+    setActiveTab(tab);
+    if (tab === "all") setPageAll(1);
+    else setPageDrafts(1);
+  };
+
+  // Build items for All Applications (including draft at top if present)
+  type TableRowItem =
+    | { isDraft: true; draft: DraftInfo }
+    | { isDraft: false; app: Application };
+
+  const allItems: TableRowItem[] = [
+    ...(draft ? [{ isDraft: true as const, draft }] : []),
+    ...applications.map((app) => ({ isDraft: false as const, app })),
+  ];
+
+  const totalAllCount = allItems.length;
+  const totalPagesAll = Math.max(1, Math.ceil(totalAllCount / PAGE_SIZE));
+  const currentPageAll = Math.min(pageAll, totalPagesAll);
+  const paginatedAll = allItems.slice((currentPageAll - 1) * PAGE_SIZE, currentPageAll * PAGE_SIZE);
+
+  // Build items for Draft Applications
+  const draftItems: DraftInfo[] = draft ? [draft] : [];
+  const totalDraftsCount = draftItems.length;
+  const totalPagesDrafts = Math.max(1, Math.ceil(totalDraftsCount / PAGE_SIZE));
+  const currentPageDrafts = Math.min(pageDrafts, totalPagesDrafts);
+  const paginatedDrafts = draftItems.slice(
+    (currentPageDrafts - 1) * PAGE_SIZE,
+    currentPageDrafts * PAGE_SIZE
+  );
 
   return (
     <div className="space-y-6">
@@ -129,7 +186,7 @@ export default function PortalHome() {
         <div className="flex border-b border-slate-200 mb-4 gap-6 text-sm font-medium">
           <button
             type="button"
-            onClick={() => setActiveTab("all")}
+            onClick={() => handleTabChange("all")}
             className={`pb-2.5 transition-colors relative flex items-center gap-1.5 ${
               activeTab === "all"
                 ? "text-nis-green font-semibold border-b-2 border-nis-green -mb-[2px]"
@@ -143,7 +200,7 @@ export default function PortalHome() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("drafts")}
+            onClick={() => handleTabChange("drafts")}
             className={`pb-2.5 transition-colors relative flex items-center gap-1.5 ${
               activeTab === "drafts"
                 ? "text-nis-green font-semibold border-b-2 border-nis-green -mb-[2px]"
@@ -172,64 +229,67 @@ export default function PortalHome() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wider text-slate-600">
-                      <th scope="col" className="px-3.5 py-3 text-center w-12">{t("S/N")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Application Reference")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Application Type")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Date")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Status")}</th>
-                      <th scope="col" className="px-3.5 py-3 text-right">{t("Action")}</th>
+                      <th scope="col" className="px-3.5 py-3 text-center w-12 sm:w-14">{t("S/N")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Application Reference")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Application Type")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Date")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Status")}</th>
+                      <th scope="col" className="px-3.5 py-3 text-right whitespace-nowrap">{t("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {/* Display draft first if exists */}
-                    {draft && (
-                      <tr className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-3.5 py-3 text-center text-xs font-medium text-slate-500">1</td>
-                        <td className="px-3.5 py-3 font-semibold text-slate-700">
-                          {draft.data?.reference_number || draft.data?.application_number || "Draft"}
-                        </td>
-                        <td className="px-3.5 py-3 text-slate-600">
-                          {draft.type === "RENEWAL" ? t("Renewal") : draft.type === "REPLACE" ? t("Card Replacement") : t("New Application")}
-                        </td>
-                        <td className="px-3.5 py-3 text-slate-500 text-xs">{nisDate(draft.saved_at)}</td>
-                        <td className="px-3.5 py-3">
-                          <StatusBadge status="DRAFT" label={t("Draft")} />
-                        </td>
-                        <td className="px-3.5 py-3 text-right">
-                          <Link
-                            href="/portal/apply?resume=1"
-                            className="inline-flex items-center gap-1 rounded bg-nis-green px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-nis-green/90"
-                          >
-                            {t("Continue")}
-                          </Link>
-                        </td>
-                      </tr>
-                    )}
+                    {paginatedAll.map((item, idx) => {
+                      const sn = (currentPageAll - 1) * PAGE_SIZE + idx + 1;
+                      if (item.isDraft) {
+                        const d = item.draft;
+                        const categoryLabel = formatCategory(d.data?.category);
+                        return (
+                          <tr key="draft-row" className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-3.5 py-3 text-center text-xs font-medium text-slate-500">{sn}</td>
+                            <td className="px-3.5 py-3 font-semibold text-slate-700 whitespace-nowrap">
+                              {d.data?.reference_number || d.data?.application_number || "Draft"}
+                            </td>
+                            <td className="px-3.5 py-3 font-medium text-slate-700 whitespace-nowrap">
+                              {categoryLabel}
+                            </td>
+                            <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap">
+                              {compactDate(d.saved_at)}
+                            </td>
+                            <td className="px-3.5 py-3 whitespace-nowrap">
+                              <StatusBadge status="DRAFT" label={t("Draft")} />
+                            </td>
+                            <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                              <Link
+                                href="/portal/apply?resume=1"
+                                className="inline-flex items-center gap-1 rounded bg-nis-green px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-nis-green/90"
+                              >
+                                {t("Continue")}
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      }
 
-                    {/* Display submitted applications */}
-                    {applications.map((a, idx) => {
-                      const sn = (draft ? 1 : 0) + idx + 1;
+                      const a = item.app;
+                      const categoryLabel = formatCategory(a.category);
                       return (
                         <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
                           <td className="px-3.5 py-3 text-center text-xs font-medium text-slate-500">{sn}</td>
-                          <td className="px-3.5 py-3">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
                             <Link href={`/portal/applications/${a.id}`} className="font-semibold text-nis-green hover:underline">
                               {a.application_number || a.reference_number}
                             </Link>
                           </td>
-                          <td className="px-3.5 py-3 text-slate-600">{applicationType(a)}</td>
-                          <td className="px-3.5 py-3 text-slate-500 text-xs">
-                            {nisDate(a.submitted_at || a.created_at)}
-                            {a.status === "APPROVED_FOR_BIOMETRICS" && a.appointment_date && (
-                              <div className="text-[11px] text-slate-400">
-                                {t("Biometrics: {d}", { d: nisDate(a.appointment_date) })}
-                              </div>
-                            )}
+                          <td className="px-3.5 py-3 font-medium text-slate-700 whitespace-nowrap">
+                            {categoryLabel}
                           </td>
-                          <td className="px-3.5 py-3">
-                            <StatusBadge status={a.status} label={a.status_label} />
+                          <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap">
+                            {compactDate(a.submitted_at || a.created_at)}
                           </td>
-                          <td className="px-3.5 py-3 text-right">
+                          <td className="px-3.5 py-3 whitespace-nowrap">
+                            <StatusBadge status={a.status} label={compactStatusLabel(a.status, a.status_label)} />
+                          </td>
+                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
                             <Link
                               href={`/portal/applications/${a.id}`}
                               className="font-semibold text-xs sm:text-sm text-nis-green hover:underline"
@@ -242,6 +302,51 @@ export default function PortalHome() {
                     })}
                   </tbody>
                 </table>
+
+                {/* Pagination Controls for All Applications */}
+                {totalAllCount > PAGE_SIZE && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/60 px-4 py-3 text-xs text-slate-600">
+                    <div>
+                      {t("Showing {start}–{end} of {total} applications", {
+                        start: (currentPageAll - 1) * PAGE_SIZE + 1,
+                        end: Math.min(currentPageAll * PAGE_SIZE, totalAllCount),
+                        total: totalAllCount,
+                      })}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPageAll((p) => Math.max(1, p - 1))}
+                        disabled={currentPageAll === 1}
+                        className="rounded border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {t("Previous")}
+                      </button>
+                      {Array.from({ length: totalPagesAll }, (_, i) => i + 1).map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setPageAll(pageNum)}
+                          className={`min-w-[28px] rounded px-2 py-1 font-semibold transition ${
+                            pageNum === currentPageAll
+                              ? "bg-nis-green text-white shadow-sm"
+                              : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setPageAll((p) => Math.min(totalPagesAll, p + 1))}
+                        disabled={currentPageAll === totalPagesAll}
+                        className="rounded border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {t("Next")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -250,7 +355,7 @@ export default function PortalHome() {
         {/* Tab 2: Draft Applications */}
         {activeTab === "drafts" && (
           <div>
-            {!draft ? (
+            {totalDraftsCount === 0 ? (
               <div className="py-8 text-center text-sm text-slate-500">
                 <p className="font-medium text-slate-700">{t("No draft applications.")}</p>
                 <p className="text-xs text-slate-400 mt-1">{t("You do not have any saved draft applications.")}</p>
@@ -260,65 +365,102 @@ export default function PortalHome() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wider text-slate-600">
-                      <th scope="col" className="px-3.5 py-3 text-center w-12">{t("S/N")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Application Reference")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Application Type")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Date")}</th>
-                      <th scope="col" className="px-3.5 py-3">{t("Status")}</th>
-                      <th scope="col" className="px-3.5 py-3 text-right">{t("Action")}</th>
+                      <th scope="col" className="px-3.5 py-3 text-center w-12 sm:w-14">{t("S/N")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Application Reference")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Application Type")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Date")}</th>
+                      <th scope="col" className="px-3.5 py-3 whitespace-nowrap">{t("Status")}</th>
+                      <th scope="col" className="px-3.5 py-3 text-right whitespace-nowrap">{t("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    <tr className="hover:bg-slate-50/60 transition-colors">
-                      <td className="px-3.5 py-3 text-center text-xs font-medium text-slate-500">1</td>
-                      <td className="px-3.5 py-3 font-semibold text-slate-700">
-                        {draft.data?.reference_number || draft.data?.application_number || "Draft"}
-                      </td>
-                      <td className="px-3.5 py-3 text-slate-600">
-                        {draft.type === "RENEWAL" ? t("Renewal") : draft.type === "REPLACE" ? t("Card Replacement") : t("New Application")}
-                      </td>
-                      <td className="px-3.5 py-3 text-slate-500 text-xs">{nisDate(draft.saved_at)}</td>
-                      <td className="px-3.5 py-3">
-                        <StatusBadge status="DRAFT" label={t("Draft")} />
-                      </td>
-                      <td className="px-3.5 py-3 text-right">
-                        <Link
-                          href="/portal/apply?resume=1"
-                          className="inline-flex items-center gap-1 rounded bg-nis-green px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-nis-green/90"
-                        >
-                          {t("Continue")}
-                        </Link>
-                      </td>
-                    </tr>
+                    {paginatedDrafts.map((d, idx) => {
+                      const sn = (currentPageDrafts - 1) * PAGE_SIZE + idx + 1;
+                      const categoryLabel = formatCategory(d.data?.category);
+                      return (
+                        <tr key="draft-tab-row" className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-3.5 py-3 text-center text-xs font-medium text-slate-500">{sn}</td>
+                          <td className="px-3.5 py-3 font-semibold text-slate-700 whitespace-nowrap">
+                            {d.data?.reference_number || d.data?.application_number || "Draft"}
+                          </td>
+                          <td className="px-3.5 py-3 font-medium text-slate-700 whitespace-nowrap">
+                            {categoryLabel}
+                          </td>
+                          <td className="px-3.5 py-3 text-slate-600 text-xs whitespace-nowrap">
+                            {compactDate(d.saved_at)}
+                          </td>
+                          <td className="px-3.5 py-3 whitespace-nowrap">
+                            <StatusBadge status="DRAFT" label={t("Draft")} />
+                          </td>
+                          <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                            <Link
+                              href="/portal/apply?resume=1"
+                              className="inline-flex items-center gap-1 rounded bg-nis-green px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-nis-green/90"
+                            >
+                              {t("Continue")}
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+
+                {/* Pagination Controls for Draft Applications (if > 10) */}
+                {totalDraftsCount > PAGE_SIZE && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/60 px-4 py-3 text-xs text-slate-600">
+                    <div>
+                      {t("Showing {start}–{end} of {total} draft applications", {
+                        start: (currentPageDrafts - 1) * PAGE_SIZE + 1,
+                        end: Math.min(currentPageDrafts * PAGE_SIZE, totalDraftsCount),
+                        total: totalDraftsCount,
+                      })}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPageDrafts((p) => Math.max(1, p - 1))}
+                        disabled={currentPageDrafts === 1}
+                        className="rounded border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {t("Previous")}
+                      </button>
+                      {Array.from({ length: totalPagesDrafts }, (_, i) => i + 1).map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setPageDrafts(pageNum)}
+                          className={`min-w-[28px] rounded px-2 py-1 font-semibold transition ${
+                            pageNum === currentPageDrafts
+                              ? "bg-nis-green text-white shadow-sm"
+                              : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setPageDrafts((p) => Math.min(totalPagesDrafts, p + 1))}
+                        disabled={currentPageDrafts === totalPagesDrafts}
+                        className="rounded border border-slate-300 bg-white px-2.5 py-1 font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {t("Next")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
       </Panel>
 
-      <Panel title={t("Notifications")}>
-        {notifications.length === 0 ? (
-          <p className="text-sm text-slate-600">{t("No notifications yet.")}</p>
-        ) : (
-          <ul className="space-y-3">
-            {notifications.slice(0, 10).map((n) => (
-              <li key={n.id} className="text-sm">
-                <span className="font-medium">{n.data.title}</span>
-                {n.data.application_number && <span className="text-slate-500"> — {n.data.application_number}</span>}
-                {n.data.notes && <p className="text-slate-600">{n.data.notes}</p>}
-                <p className="text-xs text-slate-400">{dateTime(n.created_at)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
       <PushToggle />
       <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm" aria-label="Your personal data">
         <h2 className="text-[15px] font-medium text-nis-primary-dark">{t("Your personal data")}</h2>
         <p className="mt-1 text-slate-600">
-          Under the Nigeria Data Protection Act 2023 you can download everything we hold about you. See the <Link href="/privacy" className="text-nis-primary underline">privacy notice</Link> for how your data is used and kept.
+          Under the Nigeria Data Protection Act 2023 you can download everything we hold about you. See the <Link href="/privacy" className="text-nis-primary underline">{t("privacy notice")}</Link> for how your data is used and kept.
         </p>
         <a href={withBase("/api/bff/applicant/my-data")} download="my-nis-rcis-data.json" className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Download my data")}</a>
       </section>

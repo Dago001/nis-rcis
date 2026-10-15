@@ -125,4 +125,27 @@ class Application extends Model
     {
         return trim("{$this->forenames} {$this->surname}");
     }
+
+    public function getCategoryAttribute(?string $value): ?string
+    {
+        if (! empty($value)) {
+            return strtoupper($value);
+        }
+
+        // Infer from documents if column is empty on older records
+        if ($this->relationLoaded('documents')) {
+            $docs = $this->documents;
+            if ($docs->contains('type', DocumentType::AdmissionLetter)) {
+                return 'STUDENT';
+            }
+            if ($docs->contains('type', DocumentType::CacCertificate)) {
+                return 'BUSINESS';
+            }
+            if ($docs->contains('type', DocumentType::AppointmentLetter)) {
+                return 'WORK';
+            }
+        }
+
+        return null;
+    }
 }

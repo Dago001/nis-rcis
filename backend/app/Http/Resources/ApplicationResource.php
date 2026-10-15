@@ -19,6 +19,7 @@ class ApplicationResource extends JsonResource
             'application_number' => $this->application_number,
             'reference_number' => $this->reference_number,
             'type' => $this->type,
+            'category' => $this->category,
             'channel' => $this->channel,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),

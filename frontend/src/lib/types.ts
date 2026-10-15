@@ -85,6 +85,7 @@ export type Application = Particulars & {
   application_number: string;
   reference_number: string;
   type: "NEW" | "RENEWAL" | "REPLACE";
+  category?: string | null;
   channel: "ONLINE" | "ASSISTED";
   status: ApplicationStatus;
   status_label: string;

@@ -80,8 +80,8 @@ export function SiteHeader({
 
         {/* Desktop right section */}
         <div className="hidden items-center gap-3.5 md:flex">
-          {languages && <LanguageSwitcher />}
           {portal === "applicant" && <NotificationBell portal={portal} />}
+          {languages && <LanguageSwitcher />}
           {user ? (
             <ProfileDropdown user={user} portal={portal ?? "staff"} />
           ) : (
@@ -92,8 +92,8 @@ export function SiteHeader({
 
         {/* Mobile controls */}
         <div className="flex items-center gap-2 md:hidden">
-          {languages && <LanguageSwitcher />}
           {portal === "applicant" && <NotificationBell portal={portal} />}
+          {languages && <LanguageSwitcher />}
           {user && <ProfileDropdown user={user} portal={portal ?? "staff"} isMobile />}
           {(links || (!user && portal) || right) && (
             <button
