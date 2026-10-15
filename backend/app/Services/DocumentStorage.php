@@ -125,4 +125,10 @@ class DocumentStorage
 
         return Storage::disk($this->disk())->temporaryUrl($path, now()->addMinutes(config('nis.document_url_ttl_minutes')));
     }
+
+    public function delete(ApplicationDocument $document): void
+    {
+        Storage::disk($document->disk)->delete($document->path);
+        $document->delete();
+    }
 }

@@ -68,6 +68,16 @@ type DraftDoc = { id: number; type: string; label: string; original_name: string
 type AppType = "NEW" | "RENEWAL" | "REPLACE";
 type Draft = { type: AppType; current_step: number; data: Record<string, string>; documents: DraftDoc[]; saved_at: string };
 
+type DocUploadState = {
+  status: "idle" | "uploading" | "success" | "error";
+  fileName?: string;
+  fileSize?: number;
+  previewUrl?: string;
+  isPdf?: boolean;
+  error?: string;
+  pendingFile?: File;
+};
+
 function kb(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
@@ -94,6 +104,8 @@ function Wizard() {
   });
   const [documents, setDocuments] = useState<DraftDoc[]>([]);
   const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [docStates, setDocStates] = useState<Record<string, DocUploadState>>({});
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [stepError, setStepError] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<{ tone: "success" | "danger" | "info"; text: string } | null>(null);
@@ -153,21 +165,29 @@ function Wizard() {
     [photo, localPhotoPreview, documents, paid, data.declaration, data.category],
   );
 
-  // Errors shown now: every visited field is checked as the applicant types.
+  // Errors shown: fields are validated on blur or step submit; in-progress typing is not prematurely flagged red.
   const errors = useMemo(() => {
     const shown: Record<string, string> = {};
     for (const field of touched) {
+      // Suppress premature errors while user is actively focused on field and typing
+      if (focusedField === field && (data[field]?.trim()?.length ?? 0) > 0) {
+        continue;
+      }
       const message = fieldError(field, data);
       if (message) shown[field] = message;
     }
-    for (const [field, message] of Object.entries(serverErrors)) if (message) shown[field] = message;
+    for (const [field, message] of Object.entries(serverErrors)) {
+      if (message && focusedField !== field) shown[field] = message;
+    }
     for (const [field, message] of Object.entries(stepError)) {
       if (message && (!data[field] || ["photo", "documents", "declaration", "payment_reference"].includes(field))) {
-        shown[field] = message;
+        if (focusedField !== field || !data[field]) {
+          shown[field] = message;
+        }
       }
     }
     return shown;
-  }, [touched, data, serverErrors, stepError]);
+  }, [touched, data, serverErrors, stepError, focusedField]);
 
   const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration"].some((f) => errors[f] && FIELD_STEP[f] === step);
 
@@ -293,6 +313,11 @@ function Wizard() {
   }
 
   async function next() {
+    const isAnyDocUploading = Object.values(docStates).some((s) => s.status === "uploading") || photoUploadStatus === "uploading";
+    if (isAnyDocUploading) {
+      setNotice({ tone: "danger", text: "Please wait for files to finish uploading before proceeding." });
+      return;
+    }
     if (!checkStep(step)) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -382,29 +407,151 @@ function Wizard() {
     }
   }
 
-  async function uploadDocument(spec: DocSpec, file: File) {
+  async function uploadDocFile(spec: DocSpec, file: File) {
     if (spec.type === "photo") {
       return uploadPhotograph(file);
     }
-    const key = "documents";
+
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = ["image/jpeg", "image/jpg", "image/png"].includes(file.type.toLowerCase()) ||
+                    /\.(jpe?g|png)$/i.test(file.name);
+
     if (file.size > MAX_BYTES) {
-      setStepError({ [key]: `${spec.label}: the file is ${kb(file.size)}. Please upload a file smaller than 2 MB.` });
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "error",
+          fileName: file.name,
+          fileSize: file.size,
+          isPdf,
+          error: `File size (${kb(file.size)}) exceeds maximum limit of 2 MB. Please select a smaller file.`,
+          pendingFile: file,
+        },
+      }));
       return;
     }
-    if (!spec.accept.split(",").includes(file.type)) {
-      setStepError({ [key]: `${spec.label}: please upload a ${spec.kinds} file.` });
+
+    if (!isPdf && !isImage) {
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "error",
+          fileName: file.name,
+          fileSize: file.size,
+          isPdf: false,
+          error: "Invalid file format. Please upload a PDF, JPG, or PNG document.",
+          pendingFile: file,
+        },
+      }));
       return;
     }
-    setBusy(true);
-    setStepError({});
+
+    const objectUrl = URL.createObjectURL(file);
+    setDocStates((prev) => {
+      if (prev[spec.type]?.previewUrl) {
+        try { URL.revokeObjectURL(prev[spec.type].previewUrl!); } catch (_) {}
+      }
+      return {
+        ...prev,
+        [spec.type]: {
+          status: "uploading",
+          fileName: file.name,
+          fileSize: file.size,
+          previewUrl: objectUrl,
+          isPdf,
+          pendingFile: file,
+        },
+      };
+    });
+
     try {
       await saveDraft(step);
       const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
       setDocuments(result.draft.documents);
+      const uploaded = result.draft.documents.find((d) => d.type === spec.type);
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "success",
+          fileName: uploaded?.original_name || file.name,
+          fileSize: uploaded?.size_bytes || file.size,
+          previewUrl: objectUrl,
+          isPdf,
+        },
+      }));
+      setStepError((prev) => {
+        const next = { ...prev };
+        delete next.documents;
+        return next;
+      });
     } catch (e) {
-      if (e instanceof ApiError) setStepError({ [key]: e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message });
+      let errorMsg = (e as Error).message;
+      if (e instanceof ApiError) {
+        errorMsg = e.errors.file?.join(" ") ?? Object.values(e.fieldErrors())[0] ?? e.message;
+      }
+      setDocStates((prev) => ({
+        ...prev,
+        [spec.type]: {
+          status: "error",
+          fileName: file.name,
+          fileSize: file.size,
+          previewUrl: objectUrl,
+          isPdf,
+          error: errorMsg,
+          pendingFile: file,
+        },
+      }));
+    }
+  }
+
+  async function removeDoc(spec: DocSpec) {
+    const current = documents.find((x) => x.type === spec.type);
+    if (!confirm(`Are you sure you want to remove ${spec.label}?`)) return;
+    setBusy(true);
+    try {
+      if (current) {
+        const result = await api<{ draft: Draft }>("applicant", `draft/documents/${current.id}`, { method: "DELETE" });
+        setDocuments(result.draft.documents);
+      }
+      setDocStates((prev) => {
+        const next = { ...prev };
+        if (next[spec.type]?.previewUrl) {
+          try { URL.revokeObjectURL(next[spec.type].previewUrl!); } catch (_) {}
+        }
+        delete next[spec.type];
+        return next;
+      });
+      setNotice({ tone: "info", text: `${spec.label} removed.` });
+    } catch (e) {
+      setNotice({ tone: "danger", text: (e as Error).message });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function viewDoc(spec: DocSpec) {
+    const current = documents.find((x) => x.type === spec.type);
+    const localState = docStates[spec.type];
+    if (localState?.previewUrl) {
+      if (localState.isPdf) {
+        window.open(localState.previewUrl, "_blank", "noopener");
+      } else {
+        setPreview({ url: localState.previewUrl, name: localState.fileName || spec.label });
+      }
+      return;
+    }
+    if (current) {
+      try {
+        const url = await documentUrl(current.id);
+        const isPdf = current.mime_type === "application/pdf" || current.original_name.toLowerCase().endsWith(".pdf");
+        if (isPdf) {
+          window.open(url, "_blank", "noopener");
+        } else {
+          setPreview({ url, name: current.original_name });
+        }
+      } catch (e) {
+        setNotice({ tone: "danger", text: (e as Error).message });
+      }
     }
   }
 
@@ -473,7 +620,7 @@ function Wizard() {
 
   if (!loaded) return <Spinner label={t("Loading…")} />;
 
-  const props = { data, errors, set, touch };
+  const props = { data, errors, set, touch, focus: setFocusedField };
 
   return (
     <div className="space-y-6">
@@ -544,29 +691,196 @@ function Wizard() {
         {step === 5 && (
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
-              <div className="text-sm font-semibold text-nis-primary-dark">Required Documents for {data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work"} Category</div>
+              <div className="text-sm font-semibold text-nis-primary-dark">
+                Required Documents for {data.category === "STUDENT" ? "Student" : data.category === "BUSINESS" ? "Business" : "Work"} Category
+              </div>
               <p className="mt-1 text-xs text-slate-600">
-                Each file must be <strong>smaller than 2 MB</strong> (JPG, PNG or PDF). Your passport photograph was uploaded in step 2.
+                Official Document Verification: Each file must be <strong>smaller than 2 MB</strong> in <strong>PDF, JPG, or PNG</strong> format.
+                Ensure all documents are clear, fully legible, and upright. Your passport photograph was uploaded in step 2.
               </p>
             </div>
+
             {errors.documents && <Alert tone="danger">{errors.documents}</Alert>}
-            <ul className="divide-y divide-slate-100">
+
+            <div className="grid gap-3.5">
               {currentDocs.map((d) => {
                 const current = documents.find((x) => x.type === d.type);
+                const state = docStates[d.type];
+                const isUploading = state?.status === "uploading";
+                const isError = state?.status === "error";
+                const isUploaded = (state?.status === "success" || Boolean(current)) && !isError && !isUploading;
+                const fileName = state?.fileName || current?.original_name;
+                const fileSize = state?.fileSize || current?.size_bytes;
+                const isPdf = state?.isPdf ?? (current?.mime_type === "application/pdf" || current?.original_name?.toLowerCase().endsWith(".pdf"));
+                const previewUrl = state?.previewUrl;
+
+                let cardStyle = "border-slate-200 bg-white hover:border-slate-300";
+                if (isUploading) cardStyle = "border-blue-300 bg-blue-50/20";
+                else if (isError) cardStyle = "border-red-300 bg-red-50/20";
+                else if (isUploaded) cardStyle = "border-emerald-300 bg-emerald-50/20";
+
                 return (
-                  <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                    <div>
-                      <div className="text-sm font-medium">{d.label}{d.required && <span className="text-red-600"> *</span>}</div>
-                      <div className={`text-xs ${current ? "text-nis-primary" : "text-slate-500"}`}>{current ? `✓ ${current.original_name} (${kb(current.size_bytes)})` : "Not uploaded"}</div>
+                  <div
+                    key={d.type}
+                    className={`flex flex-col gap-4 rounded-xl border p-4 shadow-sm transition-all sm:flex-row sm:items-center sm:justify-between ${cardStyle}`}
+                  >
+                    {/* Left: Thumbnail / Badge & metadata */}
+                    <div className="flex items-start gap-3.5">
+                      {/* Document icon / preview box */}
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-slate-400">
+                        {isUploaded && !isPdf && previewUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={previewUrl} alt={fileName || d.label} className="h-full w-full object-cover" />
+                        ) : isUploaded && isPdf ? (
+                          <div className="flex flex-col items-center justify-center text-red-600">
+                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <line x1="16" y1="13" x2="8" y2="13" />
+                              <line x1="16" y1="17" x2="8" y2="17" />
+                              <polyline points="10 9 9 9 8 9" />
+                            </svg>
+                            <span className="text-[8px] font-bold tracking-tight">PDF</span>
+                          </div>
+                        ) : isUploaded ? (
+                          <svg className="h-6 w-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="18" x2="12" y2="12" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                          </svg>
+                        ) : isUploading ? (
+                          <svg className="h-6 w-6 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-6 w-6 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="12" x2="12" y2="18" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Details */}
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-slate-900">
+                          {d.label} {d.required ? <span className="text-red-600">*</span> : <span className="text-xs font-normal text-slate-500">(Optional)</span>}
+                        </div>
+
+                        {/* Status lines */}
+                        {isUploading && (
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            <span>Uploading document…</span>
+                            {fileName && <span className="truncate max-w-[200px] text-slate-500">({fileName})</span>}
+                          </div>
+                        )}
+
+                        {isUploaded && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              Document uploaded successfully
+                            </span>
+                            <span className="truncate max-w-[240px] text-xs font-medium text-slate-700">{fileName}</span>
+                            {fileSize && <span className="text-xs text-slate-400">({kb(fileSize)})</span>}
+                          </div>
+                        )}
+
+                        {isError && (
+                          <div className="space-y-0.5">
+                            <div className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              Upload Failed
+                            </div>
+                            <p className="text-xs text-red-700">{state?.error || "Please select a valid document."}</p>
+                          </div>
+                        )}
+
+                        {!isUploading && !isUploaded && !isError && (
+                          <p className="text-xs text-slate-500">PDF, JPG or PNG up to 2 MB</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      {current && <Button variant="secondary" onClick={() => view(current)}>View</Button>}
-                      <UploadButton label={current ? "Replace" : "Upload"} accept={d.accept} disabled={busy} onFile={(f) => uploadDocument(d, f)} />
+
+                    {/* Right: Actions */}
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                      {isUploaded && (
+                        <>
+                          <Button
+                            variant="secondary"
+                            type="button"
+                            onClick={() => viewDoc(d)}
+                            className="!text-xs !py-1.5 !px-3"
+                          >
+                            View
+                          </Button>
+                          <UploadButton
+                            label="Replace"
+                            accept={d.accept}
+                            disabled={busy || isUploading}
+                            onFile={(f) => uploadDocFile(d, f)}
+                            className="!text-xs !py-1.5 !px-3"
+                          />
+                          <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={() => removeDoc(d)}
+                            disabled={busy || isUploading}
+                            className="!text-xs !py-1.5 !px-3 !text-red-700 hover:!bg-red-50"
+                          >
+                            Remove
+                          </Button>
+                        </>
+                      )}
+
+                      {isError && (
+                        <>
+                          {state?.pendingFile && (
+                            <Button
+                              variant="primary"
+                              type="button"
+                              onClick={() => uploadDocFile(d, state.pendingFile!)}
+                              disabled={busy || isUploading}
+                              className="!text-xs !py-1.5 !px-3"
+                            >
+                              Retry
+                            </Button>
+                          )}
+                          <UploadButton
+                            label="Choose file"
+                            accept={d.accept}
+                            disabled={busy || isUploading}
+                            onFile={(f) => uploadDocFile(d, f)}
+                            className="!text-xs !py-1.5 !px-3"
+                          />
+                        </>
+                      )}
+
+                      {!isUploaded && !isError && (
+                        <UploadButton
+                          label={isUploading ? "Uploading…" : "Upload document"}
+                          accept={d.accept}
+                          disabled={busy || isUploading}
+                          onFile={(f) => uploadDocFile(d, f)}
+                          className="!text-xs !py-1.5 !px-3 !bg-nis-primary !text-white hover:!bg-nis-primary-dark"
+                        />
+                      )}
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           </div>
         )}
 
@@ -610,7 +924,7 @@ function Wizard() {
                 items={[
                   ["Document type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "International Passport"],
                   [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
-                  ["Issue date", nisDate(data.passport_issue_date)], ["Expiry date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
+                  ["Issue Date", nisDate(data.passport_issue_date)], ["Expiring Date", nisDate(data.passport_expiry)], ["NIN", data.national_id_number], ["Tax ID", data.tax_id_number]
                 ]}
               />
             </ReviewSection>
@@ -767,9 +1081,9 @@ function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () 
   );
 }
 
-function UploadButton({ label, accept, disabled, onFile }: { label: string; accept: string; disabled?: boolean; onFile: (file: File) => void }) {
+function UploadButton({ label, accept, disabled, className, onFile }: { label: string; accept: string; disabled?: boolean; className?: string; onFile: (file: File) => void }) {
   return (
-    <label className={`inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""}`}>
+    <label className={`inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-50 ${disabled ? "pointer-events-none opacity-50" : ""} ${className ?? ""}`}>
       {label}
       <input
         type="file"

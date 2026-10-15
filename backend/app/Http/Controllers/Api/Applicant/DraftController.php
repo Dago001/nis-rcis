@@ -51,10 +51,17 @@ class DraftController
 
     public function uploadDocument(Request $request, DocumentStorage $storage): JsonResponse
     {
+        $mimes = $request->input('type') === DocumentType::Photo->value
+            ? 'mimes:jpg,jpeg,png'
+            : 'mimes:pdf,jpg,jpeg,png';
+
         $data = $request->validate([
             'type' => ['required', Rule::enum(DocumentType::class)->only(DocumentType::applicantUploadable())],
-            'file' => ['required', 'file', 'max:'.config('nis.max_upload_kb')],
-        ], ['file.max' => 'The file must be smaller than '.(config('nis.max_upload_kb') / 1024).' MB.']);
+            'file' => ['required', 'file', $mimes, 'max:'.config('nis.max_upload_kb')],
+        ], [
+            'file.max' => 'The file must be smaller than '.(config('nis.max_upload_kb') / 1024).' MB.',
+            'file.mimes' => 'Unsupported format. Allowed formats: '.($request->input('type') === DocumentType::Photo->value ? 'JPG, PNG' : 'PDF, JPG, PNG').'.',
+        ]);
 
         $applicant = $this->applicant($request);
         $draft = ApplicationDraft::firstOrCreate(['applicant_id' => $applicant->id], ['type' => 'NEW', 'current_step' => 1, 'data' => []]);
@@ -73,6 +80,20 @@ class DraftController
                 'mime_type' => $uploaded->mime_type,
             ],
         ], 201);
+    }
+
+    /**
+     * Delete an uploaded draft document.
+     */
+    public function deleteDocument(Request $request, int $document, DocumentStorage $storage): JsonResponse
+    {
+        $draft = $this->applicant($request)->draft()->firstOrFail();
+        $file = $draft->documents()->findOrFail($document);
+        $storage->delete($file);
+
+        return response()->json([
+            'draft' => $this->present($draft->load('documents')),
+        ]);
     }
 
     /**

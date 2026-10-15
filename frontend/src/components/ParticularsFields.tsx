@@ -13,11 +13,14 @@ type Props = {
   set: (key: string, value: string) => void;
   /** Marks a field as visited so its error shows straight away. */
   touch?: (key: string) => void;
+  /** Marks a field as actively focused so validation does not trigger prematurely. */
+  focus?: (key: string | null) => void;
 };
 
 type TextOptions = { required?: boolean; type?: string; hint?: string; upper?: boolean; letters?: boolean; digits?: boolean; maxLength?: number; max?: string; min?: string };
 
 function text(props: Props, name: string, label: string, opts: TextOptions = {}) {
+  const hasError = Boolean(props.errors[name]);
   return (
     <Field label={label} required={opts.required} error={props.errors[name]} hint={opts.hint}>
       <Input
@@ -28,15 +31,19 @@ function text(props: Props, name: string, label: string, opts: TextOptions = {})
         maxLength={opts.maxLength ?? 150}
         max={opts.max}
         min={opts.min}
-        aria-invalid={Boolean(props.errors[name])}
-        className={props.errors[name] ? "!border-red-500" : ""}
+        aria-invalid={hasError}
+        className={hasError ? "!border-red-500" : ""}
+        onFocus={() => props.focus?.(name)}
         onChange={(e) => {
           let value = e.target.value;
           if (opts.letters) value = lettersOnly(value);
           if (opts.digits) value = value.replace(/\D/g, "");
           props.set(name, opts.upper ? value.toUpperCase() : value);
         }}
-        onBlur={() => props.touch?.(name)}
+        onBlur={() => {
+          props.focus?.(null);
+          props.touch?.(name);
+        }}
         required={opts.required}
       />
     </Field>
@@ -61,6 +68,7 @@ function select(
     (o) => o.value.toLowerCase() === rawValue.toLowerCase()
   );
   const selectedValue = matched ? matched.value : rawValue;
+  const hasError = Boolean(props.errors[name]);
 
   return (
     <Field label={label} required={opts.required} error={props.errors[name]}>
@@ -68,14 +76,20 @@ function select(
         name={name}
         value={selectedValue}
         disabled={opts.disabled}
-        aria-invalid={Boolean(props.errors[name])}
-        className={props.errors[name] ? "!border-red-500" : ""}
+        aria-invalid={hasError}
+        className={hasError ? "!border-red-500" : ""}
+        onFocus={() => props.focus?.(name)}
         onChange={(e) => {
           const val = e.target.value;
           props.set(name, val);
+          if (val) {
+            props.touch?.(name);
+          }
+        }}
+        onBlur={() => {
+          props.focus?.(null);
           props.touch?.(name);
         }}
-        onBlur={() => props.touch?.(name)}
       >
         <option value="">{opts.placeholder ?? "Select…"}</option>
         {normalizedOptions.map((o) => (
@@ -92,7 +106,7 @@ const OTHER = "__OTHER__";
 
 /** Wizard step 1 of 8 — General Information (Nationality, Category, Document Type, Prescribed Fee). */
 export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
-  const { data, errors, set, touch, feeNaira } = props;
+  const { data, errors, set, touch, focus, feeNaira } = props;
   const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
 
   const normalizedNat = (data.nationality ?? "").trim();
@@ -122,12 +136,16 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             value={selectedNat}
             aria-invalid={Boolean(errors.nationality)}
             className={errors.nationality ? "!border-red-500" : ""}
+            onFocus={() => focus?.("nationality")}
             onChange={(e) => {
               const val = e.target.value;
               set("nationality", val);
+              if (val) touch?.("nationality");
+            }}
+            onBlur={() => {
+              focus?.(null);
               touch?.("nationality");
             }}
-            onBlur={() => touch?.("nationality")}
           >
             <option value="">Select country…</option>
             {ECOWAS_NATIONALITIES.map((n) => (
@@ -150,12 +168,16 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             value={selectedCat}
             aria-invalid={Boolean(errors.category)}
             className={errors.category ? "!border-red-500" : ""}
+            onFocus={() => focus?.("category")}
             onChange={(e) => {
               const val = e.target.value;
               set("category", val);
+              if (val) touch?.("category");
+            }}
+            onBlur={() => {
+              focus?.(null);
               touch?.("category");
             }}
-            onBlur={() => touch?.("category")}
           >
             <option value="WORK">Work (Employment)</option>
             <option value="BUSINESS">Business (Trade / Enterprise)</option>
@@ -163,10 +185,10 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           </Select>
         </Field>
 
-        {/* Document Type: Passport, ECOWAS Travel Certificate */}
-        <div className="sm:col-span-2">
+        {/* Document Type: Passport, ECOWAS Travel Certificate - Standard 1-col size */}
+        <div>
           <Field
-            label="Passport/Other Documents"
+            label="Documents / Other Documents"
             required
             error={errors.travel_document_type}
             hint="Choose Passport or ECOWAS Travel Certificate only"
@@ -176,12 +198,16 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               value={selectedDocType}
               aria-invalid={Boolean(errors.travel_document_type)}
               className={errors.travel_document_type ? "!border-red-500" : ""}
+              onFocus={() => focus?.("travel_document_type")}
               onChange={(e) => {
                 const val = e.target.value;
                 set("travel_document_type", val);
+                if (val) touch?.("travel_document_type");
+              }}
+              onBlur={() => {
+                focus?.(null);
                 touch?.("travel_document_type");
               }}
-              onBlur={() => touch?.("travel_document_type")}
             >
               <option value="PASSPORT">Passport</option>
               <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
@@ -221,7 +247,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
 
 /** Wizard step 2 — personal particulars. */
 export function PersonalFields(props: Props & { lockContact?: boolean }) {
-  const { data, errors, set, touch, lockContact } = props;
+  const { data, errors, set, touch, focus, lockContact } = props;
   const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
   const isDependant = Boolean(data.dependant_relationship || data.principal_application_id);
 
@@ -288,9 +314,21 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
         </>
       ) : (
         <>
-          <div onBlur={() => touch?.("phone")}>
+          <div
+            onFocus={() => focus?.("phone")}
+            onBlur={() => {
+              focus?.(null);
+              touch?.("phone");
+            }}
+          >
             <Field label="Phone number" required error={errors.phone}>
-              <PhoneInput value={data.phone ?? ""} onChange={(v) => set("phone", v)} />
+              <PhoneInput
+                value={data.phone ?? ""}
+                onChange={(v) => {
+                  set("phone", v);
+                  if (v) touch?.("phone");
+                }}
+              />
             </Field>
           </div>
           {text(props, "email", "E-mail address", { required: true, type: "email", maxLength: 255 })}
@@ -300,15 +338,15 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
   );
 }
 
-/** Wizard step 3 — Passport or ECOWAS Travel Certificate only (National ID removed). */
+/** Wizard step 3 — Passport or ECOWAS Travel Certificate only. */
 export function PassportFields(props: Props) {
-  const { data, errors, set, touch } = props;
+  const { data, errors, set, touch, focus } = props;
   const today = new Date().toISOString().slice(0, 10);
   const docType = data.travel_document_type === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
 
   const numLabel = docType === "ECOWAS_TC"
-    ? "ECOWAS Travel Certificate number"
-    : "Passport number";
+    ? "ECOWAS Travel Certificate Number"
+    : "Passport Number";
 
   const numHint = docType === "ECOWAS_TC"
     ? "As printed on your ECOWAS Travel Certificate"
@@ -316,12 +354,19 @@ export function PassportFields(props: Props) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <div className="sm:col-span-2">
-        <Field label="Passport/Other Documents" required hint="Passport or ECOWAS Travel Certificate only">
+      {/* Documents / Other Documents - 1 column to match standard field size */}
+      <div>
+        <Field label="Documents / Other Documents" required hint="Passport or ECOWAS Travel Certificate only">
           <Select
+            name="travel_document_type"
             value={docType}
+            onFocus={() => focus?.("travel_document_type")}
             onChange={(e) => {
               set("travel_document_type", e.target.value);
+              touch?.("travel_document_type");
+            }}
+            onBlur={() => {
+              focus?.(null);
               touch?.("travel_document_type");
             }}
           >
@@ -333,17 +378,30 @@ export function PassportFields(props: Props) {
 
       <Field label={numLabel} required error={errors.passport_number} hint={numHint}>
         <Input
+          name="passport_number"
           value={data.passport_number ?? ""}
           maxLength={20}
+          aria-invalid={Boolean(errors.passport_number)}
           className={errors.passport_number ? "!border-red-500" : ""}
+          onFocus={() => focus?.("passport_number")}
           onChange={(e) => set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
-          onBlur={() => touch?.("passport_number")}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("passport_number");
+          }}
         />
       </Field>
 
-      {text(props, "passport_issue_date", "Document issue date", { type: "date", max: today })}
+      {/* Document Issue Date -> Issue Date (compulsory, date picker) */}
+      {text(props, "passport_issue_date", "Issue Date", { required: true, type: "date", max: today })}
 
-      {text(props, "passport_expiry", "Document expiry date", { required: true, type: "date", min: today, hint: "Must be valid for at least 6 more months" })}
+      {/* Document Expiring Date -> Expiring Date (compulsory, cannot be earlier than issue date) */}
+      {text(props, "passport_expiry", "Expiring Date", {
+        required: true,
+        type: "date",
+        min: data.passport_issue_date || today,
+        hint: "Must be later than issue date and valid for at least 6 months",
+      })}
 
       {text(props, "national_id_number", "National Identification Number (NIN, if any)", { digits: true, maxLength: 11, hint: "11 digits (Nigerian NIN)" })}
       {text(props, "tax_id_number", "Tax identification number (if any)", { maxLength: 20 })}
@@ -353,7 +411,7 @@ export function PassportFields(props: Props) {
 
 /** State, then its local government areas, then the street address. */
 function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"; streetField: string; streetLabel: string }) {
-  const { data, set, touch, prefix, streetField, streetLabel, errors } = props;
+  const { data, set, touch, focus, prefix, streetField, streetLabel, errors } = props;
   const stateField = `${prefix}_state`;
   const lgaField = `${prefix}_lga`;
   const lgas = NIGERIA_LGAS[data[stateField] ?? ""] ?? [];
@@ -361,11 +419,17 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
     <>
       <Field label="State" required error={errors[stateField]}>
         <Select
+          name={stateField}
           value={data[stateField] ?? ""}
           className={errors[stateField] ? "!border-red-500" : ""}
+          onFocus={() => focus?.(stateField)}
           onChange={(e) => {
             set(stateField, e.target.value);
             set(lgaField, "");
+            if (e.target.value) touch?.(stateField);
+          }}
+          onBlur={() => {
+            focus?.(null);
             touch?.(stateField);
           }}
         >
@@ -376,13 +440,17 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
       {select(props, lgaField, "Local government area", lgas, { required: true, disabled: !lgas.length, placeholder: lgas.length ? "Select LGA…" : "Select a state first" })}
       <div className="sm:col-span-2">
         <Field label={streetLabel} required error={errors[streetField]} hint="House number, street and area / town">
-          <Textarea
+          <Input
+            name={streetField}
             value={data[streetField] ?? ""}
-            maxLength={300}
-            rows={2}
+            maxLength={150}
             className={errors[streetField] ? "!border-red-500" : ""}
+            onFocus={() => focus?.(streetField)}
             onChange={(e) => set(streetField, e.target.value)}
-            onBlur={() => touch?.(streetField)}
+            onBlur={() => {
+              focus?.(null);
+              touch?.(streetField);
+            }}
           />
         </Field>
       </div>
@@ -390,37 +458,116 @@ function AddressFields(props: Props & { prefix: "domicile" | "emergency_contact"
   );
 }
 
-/** Wizard step 3 — residence and contacts. */
+/** Wizard step 4 — residence and contacts. */
 export function ContactFields(props: Props) {
-  const { data, errors, set, touch } = props;
+  const { data, errors, set, touch, focus } = props;
   const rawRelation = (data.emergency_contact_relation ?? "").trim();
   const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === rawRelation.toLowerCase());
   const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(rawRelation && !matchedRelation);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {/* Home country residential address - max 10 characters */}
       <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Home Country</h3>
       <div className="sm:col-span-2">
-        <Field label="Address in country of origin" required error={errors.home_country_address} hint="Permanent residential address in your home country">
-          <Textarea
+        <Field
+          label="Address in country of origin"
+          required
+          error={errors.home_country_address}
+          hint="Permanent residential address in your home country (Maximum 10 characters)"
+        >
+          <Input
+            name="home_country_address"
             value={data.home_country_address ?? ""}
-            maxLength={300}
-            rows={2}
+            maxLength={10}
+            aria-invalid={Boolean(errors.home_country_address)}
             className={errors.home_country_address ? "!border-red-500" : ""}
-            onChange={(e) => set("home_country_address", e.target.value)}
-            onBlur={() => touch?.("home_country_address")}
+            onFocus={() => focus?.("home_country_address")}
+            onChange={(e) => set("home_country_address", e.target.value.slice(0, 10))}
+            onBlur={() => {
+              focus?.(null);
+              touch?.("home_country_address");
+            }}
           />
         </Field>
       </div>
 
+      {/* Residential address in Nigeria:
+          Row 1: Street Address & Change of Address side-by-side on same row.
+          Row 2: State & LGA side-by-side. */}
       <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Nigeria (domicile)</h3>
-      <AddressFields {...props} prefix="domicile" streetField="domicile" streetLabel="Street address" />
-      <div className="sm:col-span-2">
-        <Field label="Change of address (if any)" error={errors.change_of_address}>
-          <Textarea value={data.change_of_address ?? ""} maxLength={300} onChange={(e) => set("change_of_address", e.target.value)} onBlur={() => touch?.("change_of_address")} rows={2} />
-        </Field>
-      </div>
 
+      {/* Row 1, Column 1: Street Address */}
+      <Field label="Street address" required error={errors.domicile} hint="House number, street and area / town">
+        <Input
+          name="domicile"
+          value={data.domicile ?? ""}
+          maxLength={150}
+          aria-invalid={Boolean(errors.domicile)}
+          className={errors.domicile ? "!border-red-500" : ""}
+          onFocus={() => focus?.("domicile")}
+          onChange={(e) => set("domicile", e.target.value)}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("domicile");
+          }}
+        />
+      </Field>
+
+      {/* Row 1, Column 2: Change of Address (if any) */}
+      <Field label="Change of address (if any)" error={errors.change_of_address} hint="If your address has changed recently">
+        <Input
+          name="change_of_address"
+          value={data.change_of_address ?? ""}
+          maxLength={150}
+          aria-invalid={Boolean(errors.change_of_address)}
+          className={errors.change_of_address ? "!border-red-500" : ""}
+          onFocus={() => focus?.("change_of_address")}
+          onChange={(e) => set("change_of_address", e.target.value)}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("change_of_address");
+          }}
+        />
+      </Field>
+
+      {/* Row 2, Column 1: State */}
+      <Field label="State" required error={errors.domicile_state}>
+        <Select
+          name="domicile_state"
+          value={data.domicile_state ?? ""}
+          aria-invalid={Boolean(errors.domicile_state)}
+          className={errors.domicile_state ? "!border-red-500" : ""}
+          onFocus={() => focus?.("domicile_state")}
+          onChange={(e) => {
+            set("domicile_state", e.target.value);
+            set("domicile_lga", "");
+            if (e.target.value) touch?.("domicile_state");
+          }}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("domicile_state");
+          }}
+        >
+          <option value="">Select state…</option>
+          {NIGERIA_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
+      </Field>
+
+      {/* Row 2, Column 2: Local Government Area */}
+      {select(
+        props,
+        "domicile_lga",
+        "Local government area",
+        NIGERIA_LGAS[data.domicile_state ?? ""] ?? [],
+        {
+          required: true,
+          disabled: !(NIGERIA_LGAS[data.domicile_state ?? ""] ?? []).length,
+          placeholder: (NIGERIA_LGAS[data.domicile_state ?? ""] ?? []).length ? "Select LGA…" : "Select a state first",
+        }
+      )}
+
+      {/* Emergency contact in Nigeria */}
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">Emergency contact in Nigeria</h3>
       {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
       <Field label="Relationship" required error={otherRelation ? undefined : errors.emergency_contact_relation}>
@@ -428,6 +575,7 @@ export function ContactFields(props: Props) {
           name="emergency_contact_relation"
           value={otherRelation ? OTHER : matchedRelation ?? ""}
           className={!otherRelation && errors.emergency_contact_relation ? "!border-red-500" : ""}
+          onFocus={() => focus?.("emergency_contact_relation")}
           onChange={(e) => {
             if (e.target.value === OTHER) {
               set("emergency_contact_relation_other", "1");
@@ -438,7 +586,10 @@ export function ContactFields(props: Props) {
               touch?.("emergency_contact_relation");
             }
           }}
-          onBlur={() => touch?.("emergency_contact_relation")}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("emergency_contact_relation");
+          }}
         >
           <option value="">Select relationship…</option>
           {RELATIONSHIPS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -446,9 +597,22 @@ export function ContactFields(props: Props) {
         </Select>
       </Field>
       {otherRelation && text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50 })}
-      <div onBlur={() => touch?.("emergency_contact_phone")} className={otherRelation ? "sm:col-span-2" : ""}>
+      <div
+        onFocus={() => focus?.("emergency_contact_phone")}
+        onBlur={() => {
+          focus?.(null);
+          touch?.("emergency_contact_phone");
+        }}
+        className={otherRelation ? "sm:col-span-2" : ""}
+      >
         <Field label="Phone number" required error={errors.emergency_contact_phone}>
-          <PhoneInput value={data.emergency_contact_phone ?? ""} onChange={(v) => set("emergency_contact_phone", v)} />
+          <PhoneInput
+            value={data.emergency_contact_phone ?? ""}
+            onChange={(v) => {
+              set("emergency_contact_phone", v);
+              if (v) touch?.("emergency_contact_phone");
+            }}
+          />
         </Field>
       </div>
       <AddressFields {...props} prefix="emergency_contact" streetField="emergency_contact_address" streetLabel="Street address" />

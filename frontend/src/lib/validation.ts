@@ -41,8 +41,7 @@ export const RULES: Record<string, Check> = {
   surname: all(required("Surname"), pattern(NAME, lettersOnly)),
   forenames: all(required("Other names"), pattern(NAME, lettersOnly)),
   nationality: all(
-    required("Nationality"),
-    pattern(TEXT, "Use letters only."),
+    (v) => (!v || !v.trim() ? "Select your country of origin." : undefined),
     (v) => (/^NIGERIA(N)?$/i.test(v.trim()) ? "Nigerian citizens do not need a residence card." : undefined),
   ),
   sex: required("Sex"),
@@ -63,16 +62,28 @@ export const RULES: Record<string, Check> = {
     (v, d) => (!v.trim() ? `${d.travel_document_type === "NATIONAL_ID" ? "National ID number" : d.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number"} is required.` : undefined),
     pattern(/^[A-Za-z0-9-]{4,20}$/, "4–20 letters and digits (hyphens allowed), no spaces.")
   ),
-  passport_issue_date: (v) => (v && v > today() ? "The issue date cannot be in the future." : undefined),
-  passport_expiry: (v, d) => {
-    if (d.travel_document_type === "NATIONAL_ID" && !v) return undefined;
-    if (!v) return "Expiry date is required.";
-    return v <= addMonths(6) ? "Must be valid for at least 6 more months." : undefined;
-  },
+  passport_issue_date: all(
+    required("Issue date"),
+    (v) => (v > today() ? "The issue date cannot be in the future." : v < "1900-01-01" ? "Enter a valid date." : undefined)
+  ),
+  passport_expiry: all(
+    (v, d) => {
+      if (d.travel_document_type === "NATIONAL_ID" && !v) return undefined;
+      if (!v) return "Expiring date is required.";
+      if (d.passport_issue_date && v < d.passport_issue_date) {
+        return "Expiring date cannot be earlier than the issue date.";
+      }
+      return v <= addMonths(6) ? "Must be valid for at least 6 more months." : undefined;
+    }
+  ),
   national_id_number: pattern(/^[0-9]{11}$/, "The NIN is 11 digits."),
   tax_id_number: pattern(/^[0-9-]{6,20}$/, "Digits only (hyphens allowed)."),
 
-  home_country_address: all(required("Residential address in Home Country"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_address: all(
+    required("Address in country of origin"),
+    (v) => (v.length > 10 ? "Address must not exceed 10 characters." : undefined),
+    pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")
+  ),
   domicile_state: required("State"),
   domicile_lga: all(required("Local government area"), (v, d) => (d.domicile_state && !NIGERIA_LGAS[d.domicile_state]?.includes(v) ? "Select a local government area." : undefined)),
   domicile: all(required("Street address"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
