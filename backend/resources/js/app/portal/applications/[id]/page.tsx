@@ -141,6 +141,14 @@ function ApplicationDetail() {
                 <p className="text-sm font-medium text-slate-800">
                   {app.decision_notes || "Please review and address the requested items below."}
                 </p>
+                <div className="pt-2">
+                  <Link
+                    href={`/portal/apply?query_app=${app.id}&step=4`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition"
+                  >
+                    Open Document Upload Section in Application Form →
+                  </Link>
+                </div>
               </div>
 
               {error && <Alert tone="danger">{error}</Alert>}

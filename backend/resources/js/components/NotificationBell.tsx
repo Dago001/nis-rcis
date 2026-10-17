@@ -90,9 +90,12 @@ export function NotificationBell({ portal = "applicant" }: { portal?: "applicant
     }
     setOpen(false);
     if (n.data?.application_id) {
+      const isQueried = n.data.status === "QUERIED";
       const targetUrl = portal === "staff"
         ? `/staff/applications/${n.data.application_id}`
-        : `/portal/applications/${n.data.application_id}`;
+        : (isQueried
+            ? `/portal/apply?query_app=${n.data.application_id}&step=4`
+            : (n.data.action_url || `/portal/applications/${n.data.application_id}`));
       window.location.href = targetUrl;
     }
   }

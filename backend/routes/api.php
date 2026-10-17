@@ -100,6 +100,7 @@ Route::prefix('v1')->group(function () {
         Route::get('applications', [ApplicantApplications::class, 'index']);
         Route::post('applications', [ApplicantApplications::class, 'store']);
         Route::get('applications/{id}', [ApplicantApplications::class, 'show'])->whereNumber('id');
+        Route::match(['put', 'patch'], 'applications/{id}', [ApplicantApplications::class, 'update'])->whereNumber('id');
         Route::get('applications/{id}/slip', [ApplicantApplications::class, 'slip'])->whereNumber('id');
         Route::post('applications/{id}/documents', [ApplicantApplications::class, 'uploadDocument'])->whereNumber('id');
         Route::get('applications/{id}/documents/{document}', [ApplicantApplications::class, 'document'])->whereNumber(['id', 'document']);

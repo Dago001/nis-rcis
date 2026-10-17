@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LanguageSwitcher, useI18n } from "@/components/I18nProvider";
 import { NotificationBell } from "@/components/NotificationBell";
+import { api } from "@/lib/api-client";
 import { withBase } from "@/lib/base-path";
 
 export type SiteHeaderLink = {
@@ -30,6 +31,33 @@ export function SiteHeader({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { t } = useI18n();
+
+  const [applicantUser, setApplicantUser] = useState<{ name: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    if (portal === "applicant" && !user) {
+      try {
+        const cached = sessionStorage.getItem("nis_applicant_me");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const name = [parsed.forenames, parsed.surname].filter(Boolean).join(" ") || parsed.email || "Applicant";
+          setApplicantUser({ name, email: parsed.email });
+        } else {
+          api<{ surname?: string; forenames?: string; email?: string }>("applicant", "me")
+            .then((me) => {
+              if (me) {
+                const name = [me.forenames, me.surname].filter(Boolean).join(" ") || me.email || "Applicant";
+                setApplicantUser({ name, email: me.email });
+                try { sessionStorage.setItem("nis_applicant_me", JSON.stringify(me)); } catch {}
+              }
+            })
+            .catch(() => {});
+        }
+      } catch {}
+    }
+  }, [portal, user]);
+
+  const effectiveUser = user || applicantUser;
 
   return (
     <header className="no-print sticky top-0 z-40 border-b border-slate-200 bg-[#f6f6f6]">
@@ -82,8 +110,8 @@ export function SiteHeader({
         <div className="hidden items-center gap-3.5 md:flex">
           {portal === "applicant" && <NotificationBell portal={portal} />}
           {languages && <LanguageSwitcher />}
-          {user ? (
-            <ProfileDropdown user={user} portal={portal ?? "staff"} />
+          {effectiveUser ? (
+            <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} />
           ) : (
             portal && <LogoutButton portal={portal} />
           )}
@@ -94,8 +122,8 @@ export function SiteHeader({
         <div className="flex items-center gap-2 md:hidden">
           {portal === "applicant" && <NotificationBell portal={portal} />}
           {languages && <LanguageSwitcher />}
-          {user && <ProfileDropdown user={user} portal={portal ?? "staff"} isMobile />}
-          {(links || (!user && portal) || right) && (
+          {effectiveUser && <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} isMobile />}
+          {(links || (!effectiveUser && portal) || right) && (
             <button
               type="button"
               className="rounded border border-slate-300 p-2 text-slate-600"
@@ -115,13 +143,13 @@ export function SiteHeader({
       {/* Mobile drawer */}
       {open && (
         <div id="mobile-portal-nav" className="border-t border-slate-200 bg-white px-[5%] py-4 shadow-lg md:hidden">
-          {user && (
+          {effectiveUser && (
             <div className="mb-3 border-b border-slate-100 pb-3">
               <div className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Signed in as</div>
-              <div className="mt-0.5 text-sm font-bold text-slate-900">{user.name}</div>
-              {(user.role || user.email) && (
+              <div className="mt-0.5 text-sm font-bold text-slate-900">{effectiveUser.name}</div>
+              {(effectiveUser.role || effectiveUser.email) && (
                 <div className="text-xs text-slate-500">
-                  {user.role?.replace(/Super Administrator/g, "Super Admin") || user.email}
+                  {effectiveUser.role?.replace(/Super Administrator/g, "Super Admin") || effectiveUser.email}
                 </div>
               )}
             </div>
@@ -244,13 +272,13 @@ function ProfileDropdown({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-64 origin-top-right rounded-2xl border border-slate-200 bg-white py-2 shadow-xl ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
-          <div className="border-b border-slate-100 px-4 py-2.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t("Signed in as")}</p>
-            <p className="mt-0.5 truncate text-sm font-bold text-slate-900">{user.name}</p>
-            {rawRole && <p className="truncate text-xs text-slate-500 mt-0.5">{rawRole}</p>}
+        <div className="absolute right-0 z-50 mt-1.5 w-44 sm:w-48 origin-top-right rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
+          <div className="border-b border-slate-100 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t("Signed in as")}</p>
+            <p className="mt-0.5 truncate text-xs sm:text-sm font-semibold text-slate-900">{user.name}</p>
+            {rawRole && <p className="truncate text-[11px] text-slate-500 mt-0.5">{rawRole}</p>}
           </div>
-          <div className="p-1.5">
+          <div className="p-1">
             <LogoutButton portal={portal} fullWidth red onAfterClick={() => setOpen(false)} />
           </div>
         </div>
@@ -292,10 +320,10 @@ export function LogoutButton({
       }}
       className={
         red
-          ? `flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${
+          ? `flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${
               fullWidth ? "w-full text-left" : ""
             }`
-          : `rounded-md bg-nis-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-nis-primary-dark ${
+          : `rounded-md bg-nis-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-nis-primary-dark ${
               fullWidth ? "w-full text-center" : ""
             }`
       }

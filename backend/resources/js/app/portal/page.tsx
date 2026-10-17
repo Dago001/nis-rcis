@@ -177,7 +177,7 @@ export default function PortalHome() {
       {queried.map((a) => (
         <Alert key={a.id} tone="warning">
           Application <strong>{a.application_number}</strong> has been queried: {a.decision_notes}{" "}
-          <Link href={`/portal/applications/${a.id}`} className="font-semibold underline">{t("Respond now")}</Link>
+          <Link href={`/portal/apply?query_app=${a.id}&step=4`} className="font-semibold underline">{t("Respond now")}</Link>
         </Alert>
       ))}
 
@@ -292,7 +292,7 @@ export default function PortalHome() {
                           <td className="px-3.5 py-3 text-right whitespace-nowrap">
                             {a.status === "QUERIED" ? (
                               <Link
-                                href={`/portal/applications/${a.id}#query-response`}
+                                href={`/portal/apply?query_app=${a.id}&step=4`}
                                 className="inline-flex items-center gap-1 rounded bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs transition hover:bg-amber-700"
                               >
                                 {t("Respond to Query")}

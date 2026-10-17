@@ -33,7 +33,10 @@ class ApplicationStatusChanged extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $app = $this->application;
-        $url = config('nis.frontend_url')."/portal/applications/{$app->id}";
+        $isQueried = $this->status === ApplicationStatus::Queried;
+        $url = $isQueried
+            ? config('nis.frontend_url')."/portal/apply?query_app={$app->id}&step=4"
+            : config('nis.frontend_url')."/portal/applications/{$app->id}";
 
         $mail = (new MailMessage)
             ->subject("ECOWAS residence card application {$app->application_number}: {$this->status->label()}")
@@ -86,6 +89,10 @@ class ApplicationStatusChanged extends Notification
             default => $this->notes,
         };
 
+        $actionUrl = $isQueried
+            ? "/portal/apply?query_app={$this->application->id}&step=4"
+            : "/portal/applications/{$this->application->id}";
+
         return [
             'application_id' => $this->application->id,
             'application_number' => $this->application->application_number,
@@ -94,7 +101,7 @@ class ApplicationStatusChanged extends Notification
             'title' => $title,
             'notes' => $notes,
             'query_reason' => $this->notes,
-            'action_url' => "/portal/applications/{$this->application->id}",
+            'action_url' => $actionUrl,
             'action_label' => $isQueried ? 'Respond to Query' : ($this->status === ApplicationStatus::ReadyForCollection ? 'View Collection Details' : 'View Application'),
         ];
     }

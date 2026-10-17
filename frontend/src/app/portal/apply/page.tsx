@@ -137,9 +137,12 @@ function kb(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-/** Short-lived link to an uploaded draft document. */
-async function documentUrl(id: number): Promise<string> {
-  const { url } = await api<{ url: string }>("applicant", `draft/documents/${id}`);
+/** Short-lived link to an uploaded draft or queried application document. */
+async function documentUrl(id: number, applicationId?: number): Promise<string> {
+  const endpoint = applicationId
+    ? `applications/${applicationId}/documents/${id}`
+    : `draft/documents/${id}`;
+  const { url } = await api<{ url: string }>("applicant", endpoint);
   return url;
 }
 
@@ -171,6 +174,12 @@ function Wizard() {
   const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
   const [photoUploadStatus, setPhotoUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+
+  const [queriedApp, setQueriedApp] = useState<Application | null>(null);
+  const [queryResponseText, setQueryResponseText] = useState("");
+  const [submittingResponse, setSubmittingResponse] = useState(false);
+  const [queryResponseSuccess, setQueryResponseSuccess] = useState<string | null>(null);
+  const [queryResponseError, setQueryResponseError] = useState<string | null>(null);
 
   const initialLoadedRef = useRef(false);
   const isUploadingPhotoRef = useRef(false);
@@ -260,13 +269,23 @@ function Wizard() {
 
   const saveDraft = useCallback(
     async (nextStep: number, patch: Record<string, string> = {}) => {
+      if (queriedApp) {
+        try {
+          const res = await api<{ data: Application }>("applicant", `applications/${queriedApp.id}`, {
+            method: "PUT",
+            json: { ...data, ...patch },
+          });
+          setQueriedApp(res.data);
+        } catch (_) {}
+        return null;
+      }
       const activeCat = patch.category || resolvedCategory;
       const body = { type, current_step: nextStep, data: { ...data, category: activeCat, type, ...patch } };
       const result = await api<{ draft: Draft }>("applicant", "draft", { method: "PUT", json: body });
       setDocuments(result.draft.documents);
       return result.draft;
     },
-    [type, data, resolvedCategory],
+    [type, data, resolvedCategory, queriedApp],
   );
 
   // Load draft (or pre-fill from the profile) and handle the Paystack return.
@@ -276,6 +295,82 @@ function Wizard() {
 
     (async () => {
       try {
+        const queryAppId = params.get("query_app") || params.get("query_application");
+        if (queryAppId) {
+          const [appRes, centerList] = await Promise.all([
+            api<{ data: Application }>("applicant", `applications/${queryAppId}`),
+            api<{ data: EnrollmentCenter[]; fee_naira: number }>("public", "enrollment-centers"),
+          ]);
+          const app = appRes.data;
+          setQueriedApp(app);
+          setType(app.type || "NEW");
+          setFee(centerList.fee_naira);
+
+          const restored: Record<string, string> = {
+            category: (app.category || "WORK").toUpperCase(),
+            travel_document_type: (app as any).travel_document_type || "PASSPORT",
+            surname: app.surname || "",
+            forenames: app.forenames || "",
+            nationality: app.nationality || "",
+            date_of_birth: app.date_of_birth || "",
+            place_of_birth: app.place_of_birth || "",
+            sex: app.sex || "",
+            height: app.height || "",
+            complexion: app.complexion || "",
+            eye_color: app.eye_color || "",
+            hair_color: app.hair_color || "",
+            distinguished_features: app.distinguished_features || "",
+            blood_group: app.blood_group || "",
+            profession: app.profession || "",
+            home_country_address: (app as any).home_country_address || "",
+            domicile: app.domicile || "",
+            domicile_state: app.domicile_state || "",
+            domicile_lga: app.domicile_lga || "",
+            change_of_address: app.change_of_address || "",
+            passport_number: app.passport_number || "",
+            passport_issue_date: app.passport_issue_date || "",
+            passport_expiry: app.passport_expiry || "",
+            national_id_number: app.national_id_number || "",
+            tax_id_number: app.tax_id_number || "",
+            emergency_contact_name: app.emergency_contact_name || "",
+            emergency_contact_relation: app.emergency_contact_relation || "",
+            emergency_contact_phone: app.emergency_contact_phone || "",
+            emergency_contact_address: app.emergency_contact_address || "",
+            emergency_contact_state: app.emergency_contact_state || "",
+            emergency_contact_lga: app.emergency_contact_lga || "",
+            phone: app.phone || "",
+            email: app.email || "",
+          };
+          setData(restored);
+
+          const appDocs: DraftDoc[] = (app.documents || []).map((d) => ({
+            id: d.id,
+            type: d.type,
+            original_name: (d as any).file_name || d.label || d.type,
+            size_bytes: (d as any).file_size_bytes || 0,
+            mime_type: (d as any).mime_type || "application/pdf",
+          }));
+          setDocuments(appDocs);
+
+          const initialStates: Record<string, DocUploadState> = {};
+          for (const d of (app.documents || [])) {
+            const fileName = (d as any).file_name || d.label || d.type;
+            const isPdf = (d as any).mime_type === "application/pdf" || fileName.toLowerCase().endsWith(".pdf");
+            initialStates[d.type] = {
+              status: "success",
+              fileName,
+              fileSize: (d as any).file_size_bytes || 0,
+              isPdf,
+            };
+          }
+          setDocStates(initialStates);
+
+          const targetStep = parseInt(params.get("step") || "4", 10);
+          setStep(isNaN(targetStep) ? 4 : Math.min(Math.max(1, targetStep), 4));
+          setLoaded(true);
+          return;
+        }
+
         const [{ draft }, me, centerList] = await Promise.all([
           api<{ draft: Draft | null }>("applicant", "draft"),
           api<{ surname: string; forenames: string; email: string; phone: string }>("applicant", "me"),
@@ -366,7 +461,7 @@ function Wizard() {
     if (!photo || localPhotoPreview) return;
     if (photoLink?.id === photo.id && photoLink.url) return;
     let cancelled = false;
-    documentUrl(photo.id)
+    documentUrl(photo.id, queriedApp?.id)
       .then((url) => {
         if (!cancelled) {
           setPhotoLink({ id: photo.id, url });
@@ -377,7 +472,7 @@ function Wizard() {
     return () => {
       cancelled = true;
     };
-  }, [photo, localPhotoPreview, photoLink?.id, photoLink?.url]);
+  }, [photo, localPhotoPreview, photoLink?.id, photoLink?.url, queriedApp?.id]);
 
   /** Check a whole step; shows every problem at once. */
   function checkStep(n: number): boolean {
@@ -492,18 +587,42 @@ function Wizard() {
     setBusy(true);
 
     try {
-      await saveDraft(step);
-      const result = await upload<{ draft: Draft; uploaded_document?: { id: number; url: string } }>(
-        "applicant",
-        "draft/documents",
-        { type: "photo", file }
-      );
-      setDocuments(result.draft.documents);
-      const uploadedDoc = result.draft.documents.find((d) => d.type === "photo");
-      if (uploadedDoc) {
-        setPhotoLink({ id: uploadedDoc.id, url: result.uploaded_document?.url || objectUrl });
+      if (queriedApp) {
+        const result = await upload<{ data: Application }>(
+          "applicant",
+          `applications/${queriedApp.id}/documents`,
+          { type: "photo", file }
+        );
+        const updatedApp = result.data;
+        setQueriedApp(updatedApp);
+        const appDocs: DraftDoc[] = (updatedApp.documents || []).map((d) => ({
+          id: d.id,
+          type: d.type,
+          original_name: (d as any).file_name || d.label || d.type,
+          size_bytes: (d as any).file_size_bytes || file.size,
+          mime_type: (d as any).mime_type || file.type,
+        }));
+        setDocuments(appDocs);
+        const uploadedDoc = appDocs.find((d) => d.type === "photo");
+        if (uploadedDoc) {
+          setPhotoLink({ id: uploadedDoc.id, url: objectUrl });
+        }
+        setPhotoUploadStatus("success");
+        setNotice({ tone: "success", text: "Photograph updated successfully." });
+      } else {
+        await saveDraft(step);
+        const result = await upload<{ draft: Draft; uploaded_document?: { id: number; url: string } }>(
+          "applicant",
+          "draft/documents",
+          { type: "photo", file }
+        );
+        setDocuments(result.draft.documents);
+        const uploadedDoc = result.draft.documents.find((d) => d.type === "photo");
+        if (uploadedDoc) {
+          setPhotoLink({ id: uploadedDoc.id, url: result.uploaded_document?.url || objectUrl });
+        }
+        setPhotoUploadStatus("success");
       }
-      setPhotoUploadStatus("success");
     } catch (e) {
       setPhotoUploadStatus("error");
       if (e instanceof ApiError) {
@@ -589,20 +708,50 @@ function Wizard() {
     });
 
     try {
-      await saveDraft(step);
-      const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
-      setDocuments(result.draft.documents);
-      const uploaded = result.draft.documents.find((d) => d.type === spec.type);
-      setDocStates((prev) => ({
-        ...prev,
-        [spec.type]: {
-          status: "success",
-          fileName: uploaded?.original_name || file.name,
-          fileSize: uploaded?.size_bytes || file.size,
-          previewUrl: objectUrl || (uploaded as any)?.url,
-          isPdf,
-        },
-      }));
+      if (queriedApp) {
+        const result = await upload<{ data: Application }>(
+          "applicant",
+          `applications/${queriedApp.id}/documents`,
+          { type: spec.type, file }
+        );
+        const updatedApp = result.data;
+        setQueriedApp(updatedApp);
+        const mappedDocs: DraftDoc[] = (updatedApp.documents || []).map((d) => ({
+          id: d.id,
+          type: d.type,
+          original_name: (d as any).file_name || d.label || d.type,
+          size_bytes: (d as any).file_size_bytes || file.size,
+          mime_type: (d as any).mime_type || (isPdf ? "application/pdf" : file.type),
+        }));
+        setDocuments(mappedDocs);
+        const uploaded = mappedDocs.find((d) => d.type === spec.type);
+        setDocStates((prev) => ({
+          ...prev,
+          [spec.type]: {
+            status: "success",
+            fileName: uploaded?.original_name || file.name,
+            fileSize: uploaded?.size_bytes || file.size,
+            previewUrl: objectUrl,
+            isPdf,
+          },
+        }));
+        setNotice({ tone: "success", text: `${spec.label} uploaded successfully.` });
+      } else {
+        await saveDraft(step);
+        const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
+        setDocuments(result.draft.documents);
+        const uploaded = result.draft.documents.find((d) => d.type === spec.type);
+        setDocStates((prev) => ({
+          ...prev,
+          [spec.type]: {
+            status: "success",
+            fileName: uploaded?.original_name || file.name,
+            fileSize: uploaded?.size_bytes || file.size,
+            previewUrl: objectUrl || (uploaded as any)?.url,
+            isPdf,
+          },
+        }));
+      }
       setStepError((prev) => {
         const next = { ...prev };
         delete next.documents;
@@ -631,6 +780,7 @@ function Wizard() {
   }
 
   async function removeDoc(spec: DocSpec) {
+    if (queriedApp) return;
     const current = documents.find((x) => x.type === spec.type);
     if (!confirm(`Are you sure you want to remove ${spec.label}?`)) return;
     setBusy(true);
@@ -668,7 +818,7 @@ function Wizard() {
     }
     if (current) {
       try {
-        const url = await documentUrl(current.id);
+        const url = await documentUrl(current.id, queriedApp?.id);
         const isPdf = current.mime_type === "application/pdf" || current.original_name.toLowerCase().endsWith(".pdf");
         if (isPdf) {
           window.open(url, "_blank", "noopener");
@@ -683,11 +833,35 @@ function Wizard() {
 
   async function view(doc: DraftDoc) {
     try {
-      const url = await documentUrl(doc.id);
+      const url = await documentUrl(doc.id, queriedApp?.id);
       if (doc.mime_type?.startsWith("image/")) setPreview({ url, name: doc.original_name });
       else window.open(url, "_blank", "noopener");
     } catch (e) {
       setNotice({ tone: "danger", text: (e as Error).message });
+    }
+  }
+
+  async function handleSubmitQueryResponse() {
+    if (!queriedApp) return;
+    if (!queryResponseText.trim()) {
+      setQueryResponseError("Please provide an explanation or response to the officer's query.");
+      return;
+    }
+    setSubmittingResponse(true);
+    setQueryResponseError(null);
+    try {
+      await api<{ data: Application }>("applicant", `applications/${queriedApp.id}/respond`, {
+        method: "POST",
+        json: { response: queryResponseText.trim() },
+      });
+      setQueryResponseSuccess("Your query response has been submitted successfully and returned to the review queue. An immigration officer will re-vet your submission.");
+      setTimeout(() => {
+        router.push(`/portal/applications/${queriedApp.id}`);
+      }, 1500);
+    } catch (e) {
+      setQueryResponseError((e as Error).message || "Failed to submit query response.");
+    } finally {
+      setSubmittingResponse(false);
     }
   }
 
@@ -781,16 +955,82 @@ function Wizard() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">
-          {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
-          {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
+          {queriedApp ? (
+            <span className="text-amber-800 font-bold">
+              {t("Application Query Response")} · {queriedApp.application_number}
+            </span>
+          ) : (
+            <>
+              {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
+              {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
+            </>
+          )}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}</h1>
-        <ol className="mt-4 grid grid-cols-7 gap-1.5" aria-label="Progress">
-          {STEPS.map((label, i) => (
-            <li key={label} title={t(label)} aria-current={i + 1 === step ? "step" : undefined} className={`h-2 rounded-full ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`} />
+        <h1 className="mt-1 text-2xl font-semibold text-slate-900">
+          {queriedApp
+            ? t("Step {n} of 4 — {title}", { n: step, title: t(STEPS[step - 1]) })
+            : t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}
+        </h1>
+        <ol className={`mt-4 grid gap-1.5 ${queriedApp ? "grid-cols-4" : "grid-cols-7"}`} aria-label="Progress">
+          {(queriedApp ? STEPS.slice(0, 4) : STEPS).map((label, i) => (
+            <li
+              key={label}
+              title={t(label)}
+              aria-current={i + 1 === step ? "step" : undefined}
+              className={`h-2 rounded-full transition-colors ${
+                queriedApp ? "cursor-pointer" : ""
+              } ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? (queriedApp ? "bg-amber-500" : "bg-nis-orange") : "bg-slate-200"}`}
+              onClick={() => {
+                if (queriedApp) setStep(i + 1);
+              }}
+            />
           ))}
         </ol>
       </div>
+
+      {queriedApp && (
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm space-y-3">
+          <div className="flex items-start gap-3.5">
+            <div className="rounded-full bg-amber-200 p-2 text-amber-800 shrink-0 mt-0.5">
+              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-bold text-amber-900">
+                  {t("Application Query – Action Required")}
+                </h3>
+                <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+                  Application: {queriedApp.application_number}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-amber-800">
+                {t("Your application has been queried. Please review the officer's comments and upload or replace the requested documents below.")}
+              </p>
+              <div className="mt-3 rounded-xl border border-amber-200 bg-white/95 p-3.5 shadow-xs">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                  {t("Officer's Comment:")}
+                </span>
+                <p className="mt-1 text-sm font-semibold text-slate-800 whitespace-pre-wrap">
+                  {queriedApp.decision_notes || t("Please review and address the requested items.")}
+                </p>
+              </div>
+              {step !== 4 && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(4)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 underline hover:text-amber-700"
+                  >
+                    {t("Go to Document Upload (Step 4) →")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
       {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
@@ -997,15 +1237,17 @@ function Wizard() {
                             onFile={(f) => uploadDocFile(d, f)}
                             className="!text-xs !py-1.5 !px-3"
                           />
-                          <Button
-                            variant="ghost"
-                            type="button"
-                            onClick={() => removeDoc(d)}
-                            disabled={busy || isUploading}
-                            className="!text-xs !py-1.5 !px-3 !text-red-700 hover:!bg-red-50"
-                          >
-                            Remove
-                          </Button>
+                          {!queriedApp && (
+                            <Button
+                              variant="ghost"
+                              type="button"
+                              onClick={() => removeDoc(d)}
+                              disabled={busy || isUploading}
+                              className="!text-xs !py-1.5 !px-3 !text-red-700 hover:!bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          )}
                         </>
                       )}
 
@@ -1046,6 +1288,55 @@ function Wizard() {
                 );
               })}
             </div>
+
+            {queriedApp && (
+              <div className="mt-8 rounded-2xl border-2 border-nis-primary/30 bg-slate-50 p-5 space-y-4 shadow-xs">
+                <div>
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+                    {t("Applicant Query Response & Resubmission")}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1">
+                    {t("Please provide an explanatory response or note to the vetting officer regarding the documents uploaded or updated above.")}
+                  </p>
+                </div>
+                <textarea
+                  value={queryResponseText}
+                  onChange={(e) => {
+                    setQueryResponseText(e.target.value);
+                    setQueryResponseError(null);
+                  }}
+                  placeholder={t("Explain the corrections made or details of the re-uploaded documents (e.g. 'I have re-uploaded a clearer scan of my international passport data page as requested.').")}
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+                />
+                {queryResponseError && (
+                  <Alert tone="danger">{queryResponseError}</Alert>
+                )}
+                {queryResponseSuccess && (
+                  <Alert tone="success">{queryResponseSuccess}</Alert>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <p className="text-xs text-slate-500">
+                    {t("Submitting your response will return the application to the review queue for officer re-vetting. No additional fee is required.")}
+                  </p>
+                  <Button
+                    type="button"
+                    disabled={submittingResponse || !queryResponseText.trim()}
+                    onClick={handleSubmitQueryResponse}
+                    className="!bg-nis-primary hover:!bg-nis-primary-dark !text-white !font-bold !px-6 !py-2.5 !rounded-xl !shadow-md"
+                  >
+                    {submittingResponse ? (
+                      <>
+                        <Spinner className="mr-2 h-4 w-4" />
+                        {t("Submitting Response…")}
+                      </>
+                    ) : (
+                      t("Submit Query Response & Resubmit for Approval")
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1227,18 +1518,50 @@ function Wizard() {
         )}
       </Panel>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy}>{t("Back")}</Button>}
-          <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
-          <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">{t("Discard")}</Button>
+      {queriedApp ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            {step > 1 && (
+              <Button variant="secondary" onClick={() => setStep(step - 1)} disabled={busy}>
+                {t("Back")}
+              </Button>
+            )}
+            {step < 4 && (
+              <Button onClick={() => setStep(step + 1)} disabled={busy}>
+                {t("Next")}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              onClick={() => router.push(`/portal/applications/${queriedApp.id}`)}
+              disabled={busy}
+            >
+              {t("Return to Application")}
+            </Button>
+          </div>
+          {step !== 4 && (
+            <Button
+              onClick={() => setStep(4)}
+              className="!bg-amber-600 hover:!bg-amber-700 !text-white !font-bold"
+            >
+              {t("Go to Document Upload (Step 4) →")}
+            </Button>
+          )}
         </div>
-        {step < 7 ? (
-          <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
-        ) : (
-          <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
-        )}
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy}>{t("Back")}</Button>}
+            <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
+            <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">{t("Discard")}</Button>
+          </div>
+          {step < 7 ? (
+            <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
+          ) : (
+            <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
+          )}
+        </div>
+      )}
       <p className="text-xs text-slate-500">Need help? <Link href="/track" className="underline">Track an existing application</Link>.</p>
 
       {preview && (

@@ -122,6 +122,28 @@ class ApplicationController
         return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
     }
 
+    public function update(Request $request, int $id): ApplicationResource
+    {
+        $application = $this->owned($request, $id);
+        $this->assertQueried($application);
+
+        $allowed = [
+            'category', 'profession', 'domicile', 'domicile_state', 'domicile_lga',
+            'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
+            'national_id_number', 'tax_id_number', 'emergency_contact_name',
+            'emergency_contact_relation', 'emergency_contact_phone', 'emergency_contact_address',
+            'emergency_contact_state', 'emergency_contact_lga', 'height', 'complexion',
+            'eye_color', 'hair_color', 'distinguished_features', 'blood_group',
+        ];
+
+        $data = $request->only($allowed);
+        if (! empty($data)) {
+            $application->forceFill($data)->save();
+        }
+
+        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
+    }
+
     /**
      * Respond to a query: returns the application to the approval queue.
      */
