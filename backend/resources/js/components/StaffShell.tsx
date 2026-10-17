@@ -55,7 +55,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/staff/applications", label: "Vetting & Approvals", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
       { href: "/staff/approvals", label: "Officer approvals", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"), roles: ["ApprovingOfficer", "IssuingOfficer", "Supervisor", "Admin"] },
-      { href: "/staff/applications/new", label: "Assisted application", icon: icon("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"), roles: ["VettingOfficer", "DataEntryOfficer", "SuperAdmin", "Admin"] },
     ],
   },
   {
@@ -143,7 +142,8 @@ export function StaffShell({ children }: { children: ReactNode }) {
         }
       />
       <GlobalAnnouncements />
-      <div ref={area} className="staff-area flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
+      <div className="w-full flex-1 bg-[#f4f7f5]">
+        <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
         <nav className="no-print lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
           <div
             ref={menu}
@@ -200,6 +200,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
             <Spinner />
           )}
         </main>
+      </div>
       </div>
       <SiteFooter />
     </>

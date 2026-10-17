@@ -61,8 +61,6 @@ const PIPELINE: [string, string][] = [
 
 const monthLabel = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short" });
 const monthLong = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-const dayLabel = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
-const title = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 
 function Tile({ label, value, href, tone = "slate" }: { label: string; value: number; href?: string; tone?: "slate" | "amber" | "red" | "green" }) {
   const tones = { slate: "text-slate-900", amber: "text-nis-orange", red: "text-nis-red", green: "text-nis-primary" };
@@ -114,14 +112,6 @@ export default function StaffDashboard() {
   const delta = (t.applications_this_month ?? 0) - (t.applications_last_month ?? 0);
   const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
   const pipeline = PIPELINE.map(([key, label]) => ({ label, value: s.queue?.[key] ?? 0, href: `/staff/applications?status=${key}` }));
-  const days = a.processing_days ?? { submission_to_decision: 0, decision_to_biometrics: 0, biometrics_to_ready: 0, ready_to_collection: 0 };
-  const stages = [
-    { label: "Submission → decision", value: days.submission_to_decision },
-    { label: "Decision → biometrics", value: days.decision_to_biometrics },
-    { label: "Biometrics → card ready", value: days.biometrics_to_ready },
-    { label: "Ready → collected", value: days.ready_to_collection },
-  ];
-  const parts = (r: Record<string, number> = {}, names: Record<string, string> = {}) => Object.entries(r || {}).map(([k, v]) => ({ label: names[k] ?? title(k), value: v }));
 
   return (
     <div className="space-y-6">
@@ -196,24 +186,66 @@ export default function StaffDashboard() {
         </ChartCard>
       </div>
 
-      {/* Processing, mix, appointments */}
-      <div className="grid gap-6 xl:grid-cols-3">
-        <ChartCard title="Average processing time" subtitle="Days between workflow stages" table={<DataTable head={["Stage", "Average days"]} rows={stages.map((x) => [x.label, x.value])} />}>
-          <BarList stacked items={stages} format={(n) => `${n} day${n === 1 ? "" : "s"}`} />
-        </ChartCard>
-        <ChartCard title="Application mix" subtitle="All applications">
-          <div className="space-y-5">
-            <SplitBar title="Type" parts={parts(a.mix?.type, { NEW: "New card", RENEWAL: "Renewal" })} />
-            <SplitBar title="Channel" parts={parts(a.mix?.channel, { ONLINE: "Online", ASSISTED: "Assisted (walk-in)" })} />
-            <SplitBar title="Sex" parts={parts(a.mix?.sex)} />
+      {/* Applications by Type & Applications by Sex */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title="Applications by Type"
+          subtitle="New Card Applications vs Renewal Applications"
+          table={
+            <DataTable
+              head={["Application Type", "Total"]}
+              rows={[
+                ["New Card Applications", a.mix?.type?.NEW ?? 0],
+                ["Renewal Applications", a.mix?.type?.RENEWAL ?? 0],
+              ]}
+            />
+          }
+        >
+          <div className="space-y-4">
+            <SplitBar
+              title="Distribution"
+              parts={[
+                { label: "New Card Applications", value: a.mix?.type?.NEW ?? 0 },
+                { label: "Renewal Applications", value: a.mix?.type?.RENEWAL ?? 0 },
+              ]}
+            />
+            <BarList
+              items={[
+                { label: "New Card Applications", value: a.mix?.type?.NEW ?? 0 },
+                { label: "Renewal Applications", value: a.mix?.type?.RENEWAL ?? 0 },
+              ]}
+            />
           </div>
         </ChartCard>
+
         <ChartCard
-          title="Upcoming biometrics appointments"
-          subtitle="Next 10 working days, NIS Headquarters"
-          table={<DataTable head={["Day", "Appointments"]} rows={(a.appointments ?? []).map((d) => [dayLabel(d.date), d.total])} />}
+          title="Applications by Sex"
+          subtitle="Male vs Female"
+          table={
+            <DataTable
+              head={["Sex", "Total"]}
+              rows={[
+                ["Male", a.mix?.sex?.MALE ?? 0],
+                ["Female", a.mix?.sex?.FEMALE ?? 0],
+              ]}
+            />
+          }
         >
-          <ColumnChart name="Appointments per day" labels={(a.appointments ?? []).map((d) => dayLabel(d.date))} values={(a.appointments ?? []).map((d) => d.total)} />
+          <div className="space-y-4">
+            <SplitBar
+              title="Distribution"
+              parts={[
+                { label: "Male", value: a.mix?.sex?.MALE ?? 0 },
+                { label: "Female", value: a.mix?.sex?.FEMALE ?? 0 },
+              ]}
+            />
+            <BarList
+              items={[
+                { label: "Male", value: a.mix?.sex?.MALE ?? 0 },
+                { label: "Female", value: a.mix?.sex?.FEMALE ?? 0 },
+              ]}
+            />
+          </div>
         </ChartCard>
       </div>
 

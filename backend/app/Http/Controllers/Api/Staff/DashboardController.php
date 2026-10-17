@@ -174,7 +174,9 @@ class DashboardController
                     'biometrics_to_ready' => $avgDays('biometrics_captured_at', 'ready_at'),
                     'ready_to_collection' => $avgDays('ready_at', 'collected_at'),
                 ],
-                'nationalities' => Application::query()->selectRaw('nationality, count(*) as total')
+                'nationalities' => Application::query()
+                    ->whereIn('nationality', array_merge(config('nis.ecowas_member_states', []), config('nis.ecowas_legacy_names', [])))
+                    ->selectRaw('nationality, count(*) as total')
                     ->groupBy('nationality')->orderByDesc('total')->orderBy('nationality')->limit(8)->get()
                     ->map(fn ($r) => ['label' => $r->nationality, 'total' => (int) $r->total]),
                 'mix' => [
