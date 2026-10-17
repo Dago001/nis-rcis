@@ -48,8 +48,11 @@ body {
   padding: 0.6rem 1rem; font-size: 0.875rem; font-weight: 600; transition: top 0.15s;
 }
 .skip-link:focus { top: 1rem; }
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+:where(a, button, summary, [tabindex]):focus-visible {
   outline: 3px solid var(--color-nis-orange); outline-offset: 2px;
+}
+:where(input, select, textarea):focus-visible {
+  outline: none;
 }
 main:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {

@@ -45,6 +45,7 @@ class ApplicationController
         $data = $request->validate([
             'status' => ['nullable', Rule::enum(ApplicationStatus::class)],
             'search' => ['nullable', 'string', 'max:200'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'appointment_date' => ['nullable', 'date'],
             'enrollment_center_id' => ['nullable', 'integer'],
             'assigned' => ['nullable', Rule::in(['me', 'unassigned'])],
@@ -81,7 +82,9 @@ class ApplicationController
                     ->orWhere('passport_number', $term)
                     ->orWhereRaw("replace(application_number, '-', '') = ?", [preg_replace('/[^A-Z0-9]/', '', $term)])
                     ->orWhere('surname', 'ilike', Like::contains($term))
-                    ->orWhere('forenames', 'ilike', Like::contains($term));
+                    ->orWhere('forenames', 'ilike', Like::contains($term))
+                    ->orWhereRaw("concat(forenames, ' ', surname) ILIKE ?", ['%' . $term . '%'])
+                    ->orWhereRaw("concat(surname, ' ', forenames) ILIKE ?", ['%' . $term . '%']);
             });
         }
 
@@ -99,7 +102,9 @@ class ApplicationController
             $query->where('created_by', $currentUser->id);
         }
 
-        return ApplicationResource::collection($query->paginate(25));
+        $perPage = (int) ($data['per_page'] ?? 20);
+
+        return ApplicationResource::collection($query->paginate($perPage));
     }
 
     /** Internal notes: visible to staff only, never to the applicant. */

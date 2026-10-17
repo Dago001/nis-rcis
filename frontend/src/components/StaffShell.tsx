@@ -52,8 +52,8 @@ const navSections: NavSection[] = [
   {
     title: "Applications",
     items: [
-      { href: "/staff/applications", label: "Vetting & Approvals", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
-      { href: "/staff/approvals", label: "Officer approvals", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"), roles: ["ApprovingOfficer", "IssuingOfficer", "Supervisor", "Admin"] },
+      { href: "/staff/applications", label: "Vetting", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
+      { href: "/staff/approvals", label: "Approvers", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"), roles: ["ApprovingOfficer", "IssuingOfficer", "Supervisor", "Admin"] },
     ],
   },
   {
