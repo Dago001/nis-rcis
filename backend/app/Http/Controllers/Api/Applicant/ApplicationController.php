@@ -152,15 +152,19 @@ class ApplicationController
         $application = $this->owned($request, $id);
         $this->assertQueried($application);
 
-        $data = $request->validate(['response' => ['required', 'string', 'max:2000']]);
+        $data = $request->validate(['response' => ['nullable', 'string', 'max:2000']]);
 
         $applicant = $this->applicant($request);
+
+        $note = !empty($data['response'])
+            ? 'Applicant response: '.$data['response']
+            : 'Applicant submitted requested document(s) in response to query.';
 
         $application = $workflow->transition(
             $application,
             ApplicationStatus::PendingApproval,
             $applicant,
-            'Applicant response: '.$data['response'],
+            $note,
             function (Application $a) {
                 $a->decided_by = null;
                 $a->decided_at = null;

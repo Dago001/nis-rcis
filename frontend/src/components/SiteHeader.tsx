@@ -110,7 +110,9 @@ export function SiteHeader({
         <div className="hidden items-center gap-3.5 md:flex">
           {portal === "applicant" && <NotificationBell portal={portal} />}
           {languages && <LanguageSwitcher />}
-          {effectiveUser ? (
+          {portal === "applicant" ? (
+            <LogoutButton portal="applicant" />
+          ) : effectiveUser ? (
             <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} />
           ) : (
             portal && <LogoutButton portal={portal} />
@@ -122,7 +124,11 @@ export function SiteHeader({
         <div className="flex items-center gap-2 md:hidden">
           {portal === "applicant" && <NotificationBell portal={portal} />}
           {languages && <LanguageSwitcher />}
-          {effectiveUser && <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} isMobile />}
+          {portal === "applicant" ? (
+            <LogoutButton portal="applicant" />
+          ) : effectiveUser ? (
+            <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} isMobile />
+          ) : null}
           {(links || (!effectiveUser && portal) || right) && (
             <button
               type="button"
@@ -143,7 +149,7 @@ export function SiteHeader({
       {/* Mobile drawer */}
       {open && (
         <div id="mobile-portal-nav" className="border-t border-slate-200 bg-white px-[5%] py-4 shadow-lg md:hidden">
-          {effectiveUser && (
+          {effectiveUser && portal !== "applicant" && (
             <div className="mb-3 border-b border-slate-100 pb-3">
               <div className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Signed in as</div>
               <div className="mt-0.5 text-sm font-bold text-slate-900">{effectiveUser.name}</div>
@@ -325,13 +331,17 @@ export function LogoutButton({
           ? `flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${
               fullWidth ? "w-full text-left" : ""
             }`
-          : `rounded-md bg-nis-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-nis-primary-dark ${
-              fullWidth ? "w-full text-center" : ""
-            }`
+          : portal === "applicant"
+            ? `inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-nis-primary hover:border-slate-400 ${
+                fullWidth ? "w-full justify-center" : ""
+              }`
+            : `rounded-md bg-nis-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-nis-primary-dark ${
+                fullWidth ? "w-full text-center" : ""
+              }`
       }
     >
       <svg
-        className={`h-4 w-4 shrink-0 ${red ? "text-red-500" : ""}`}
+        className={`h-4 w-4 shrink-0 ${red ? "text-red-500" : "text-slate-500"}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -344,7 +354,7 @@ export function LogoutButton({
         <polyline points="16 17 21 12 16 7" />
         <line x1="21" y1="12" x2="9" y2="12" />
       </svg>
-      <span>{t("Sign out")}</span>
+      <span>{portal === "applicant" ? t("Logout") : t("Sign out")}</span>
     </button>
   );
 }

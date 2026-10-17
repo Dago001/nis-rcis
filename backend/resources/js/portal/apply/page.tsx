@@ -843,18 +843,14 @@ function Wizard() {
 
   async function handleSubmitQueryResponse() {
     if (!queriedApp) return;
-    if (!queryResponseText.trim()) {
-      setQueryResponseError("Please provide an explanation or response to the officer's query.");
-      return;
-    }
     setSubmittingResponse(true);
     setQueryResponseError(null);
     try {
       await api<{ data: Application }>("applicant", `applications/${queriedApp.id}/respond`, {
         method: "POST",
-        json: { response: queryResponseText.trim() },
+        json: { response: queryResponseText.trim() || undefined },
       });
-      setQueryResponseSuccess("Your query response has been submitted successfully and returned to the review queue. An immigration officer will re-vet your submission.");
+      setQueryResponseSuccess(t("Your query response has been submitted successfully and returned to the review queue."));
       setTimeout(() => {
         router.push(`/portal/applications/${queriedApp.id}`);
       }, 1500);
@@ -951,86 +947,270 @@ function Wizard() {
 
   const props = { data, errors, set, touch, focus: setFocusedField };
 
+  if (queriedApp) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {t("Application Query Response")} · {queriedApp.application_number}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {t("Please review the comments and provide the necessary information required.")}
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">{t("Comments")}</h2>
+          <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">
+            {queriedApp.decision_notes || t("Please review and address the requested items.")}
+          </p>
+        </div>
+
+        {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+        {queryResponseError && <Alert tone="danger">{queryResponseError}</Alert>}
+        {queryResponseSuccess && <Alert tone="success">{queryResponseSuccess}</Alert>}
+
+        <div>
+          <h2 className="mb-3 text-base font-semibold text-slate-900">{t("Documents")}</h2>
+          <div className="grid gap-3.5">
+            {currentDocs.map((d) => {
+              const current = documents.find((x) => x.type === d.type);
+              const state = docStates[d.type];
+              const isUploading = state?.status === "uploading";
+              const isError = state?.status === "error";
+              const isUploaded = (state?.status === "success" || Boolean(current)) && !isError && !isUploading;
+              const fileName = state?.fileName || current?.original_name;
+              const fileSize = state?.fileSize || current?.size_bytes;
+              const isPdf = state?.isPdf ?? (current?.mime_type === "application/pdf" || current?.original_name?.toLowerCase().endsWith(".pdf"));
+              const previewUrl = state?.previewUrl || (current as any)?.url;
+
+              let cardStyle = "border-slate-200 bg-white hover:border-slate-300";
+              if (isUploading) cardStyle = "border-blue-300 bg-blue-50/20";
+              else if (isError) cardStyle = "border-red-300 bg-red-50/20";
+              else if (isUploaded) cardStyle = "border-emerald-300 bg-emerald-50/20";
+
+              return (
+                <div
+                  key={d.type}
+                  className={`flex flex-col gap-4 rounded-xl border p-4 shadow-sm transition-all sm:flex-row sm:items-center sm:justify-between ${cardStyle}`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-slate-400">
+                      {isUploaded && !isPdf && previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={previewUrl} alt={fileName || d.label} className="h-full w-full object-cover" />
+                      ) : isUploaded && !isPdf ? (
+                        <div className="flex flex-col items-center justify-center text-emerald-600">
+                          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                          <span className="text-[8px] font-bold tracking-tight">IMG</span>
+                        </div>
+                      ) : isUploaded && isPdf ? (
+                        <div className="flex flex-col items-center justify-center text-red-600">
+                          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
+                          </svg>
+                          <span className="text-[8px] font-bold tracking-tight">PDF</span>
+                        </div>
+                      ) : isUploaded ? (
+                        <svg className="h-6 w-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="12" y1="18" x2="12" y2="12" />
+                          <line x1="9" y1="15" x2="15" y2="15" />
+                        </svg>
+                      ) : isUploading ? (
+                        <svg className="h-6 w-6 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-6 w-6 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="12" y1="12" x2="12" y2="18" />
+                          <line x1="9" y1="15" x2="15" y2="15" />
+                        </svg>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {d.label} {d.required ? <span className="text-red-600">*</span> : <span className="text-xs font-normal text-slate-500">({t("Optional")})</span>}
+                      </div>
+
+                      {isUploading && (
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          <span>{t("Uploading document…")}</span>
+                          {fileName && <span className="truncate max-w-[200px] text-slate-500">({fileName})</span>}
+                        </div>
+                      )}
+
+                      {isUploaded && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                            <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            {t("Document uploaded successfully")}
+                          </span>
+                          <span className="truncate max-w-[240px] text-xs font-medium text-slate-700">{fileName}</span>
+                          {fileSize && <span className="text-xs text-slate-400">({kb(fileSize)})</span>}
+                        </div>
+                      )}
+
+                      {isError && (
+                        <div className="space-y-0.5">
+                          <div className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                            <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {t("Upload Failed")}
+                          </div>
+                          <p className="text-xs text-red-700">{state?.error || t("Please select a valid document.")}</p>
+                        </div>
+                      )}
+
+                      {!isUploading && !isUploaded && !isError && (
+                        <p className="text-xs text-slate-500">PDF, JPG or PNG up to 2 MB</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                    {isUploaded && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          type="button"
+                          onClick={() => viewDoc(d)}
+                          className="!text-xs !py-1.5 !px-3"
+                        >
+                          {t("View")}
+                        </Button>
+                        <UploadButton
+                          label={t("Replace")}
+                          accept={d.accept}
+                          disabled={busy || isUploading}
+                          onFile={(f) => uploadDocFile(d, f)}
+                          className="!text-xs !py-1.5 !px-3"
+                        />
+                      </>
+                    )}
+
+                    {isError && (
+                      <>
+                        {state?.pendingFile && (
+                          <Button
+                            variant="primary"
+                            type="button"
+                            onClick={() => uploadDocFile(d, state.pendingFile!)}
+                            disabled={busy || isUploading}
+                            className="!text-xs !py-1.5 !px-3"
+                          >
+                            {t("Retry")}
+                          </Button>
+                        )}
+                        <UploadButton
+                          label={t("Choose file")}
+                          accept={d.accept}
+                          disabled={busy || isUploading}
+                          onFile={(f) => uploadDocFile(d, f)}
+                          className="!text-xs !py-1.5 !px-3"
+                        />
+                      </>
+                    )}
+
+                    {!isUploaded && !isError && (
+                      <UploadButton
+                        label={isUploading ? t("Uploading…") : t("Upload document")}
+                        accept={d.accept}
+                        disabled={busy || isUploading}
+                        onFile={(f) => uploadDocFile(d, f)}
+                        className="!text-xs !py-1.5 !px-3 !bg-nis-primary !text-white hover:!bg-nis-primary-dark"
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <Button
+            type="button"
+            disabled={submittingResponse}
+            onClick={handleSubmitQueryResponse}
+            className="!bg-nis-primary hover:!bg-nis-primary-dark !text-white !font-bold !px-8 !py-2.5 !rounded-xl !shadow-md"
+          >
+            {submittingResponse ? (
+              <>
+                <Spinner className="mr-2 h-4 w-4" />
+                {t("Submitting…")}
+              </>
+            ) : (
+              t("Submit")
+            )}
+          </Button>
+
+          <Button
+            variant="ghost"
+            onClick={() => router.push(`/portal/applications/${queriedApp.id}`)}
+            disabled={submittingResponse}
+          >
+            {t("Return to Application")}
+          </Button>
+        </div>
+
+        {preview && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-label={preview.name} onClick={() => setPreview(null)}>
+            <div className="max-h-full max-w-3xl overflow-auto rounded-xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-2 flex items-center justify-between gap-4">
+                <span className="truncate text-sm font-medium">{preview.name}</span>
+                <Button variant="secondary" onClick={() => setPreview(null)}>{t("Close")}</Button>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview.url} alt={preview.name} className="max-h-[75vh] w-auto rounded" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">
-          {queriedApp ? (
-            <span className="text-amber-800 font-bold">
-              {t("Application Query Response")} · {queriedApp.application_number}
-            </span>
-          ) : (
-            <>
-              {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
-              {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
-            </>
-          )}
+          {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
+          {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-slate-900">
-          {queriedApp
-            ? t("Step {n} of 4 — {title}", { n: step, title: t(STEPS[step - 1]) })
-            : t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}
+          {t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}
         </h1>
-        <ol className={`mt-4 grid gap-1.5 ${queriedApp ? "grid-cols-4" : "grid-cols-7"}`} aria-label="Progress">
-          {(queriedApp ? STEPS.slice(0, 4) : STEPS).map((label, i) => (
+        <ol className="mt-4 grid gap-1.5 grid-cols-7" aria-label="Progress">
+          {STEPS.map((label, i) => (
             <li
               key={label}
               title={t(label)}
               aria-current={i + 1 === step ? "step" : undefined}
-              className={`h-2 rounded-full transition-colors ${
-                queriedApp ? "cursor-pointer" : ""
-              } ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? (queriedApp ? "bg-amber-500" : "bg-nis-orange") : "bg-slate-200"}`}
-              onClick={() => {
-                if (queriedApp) setStep(i + 1);
-              }}
+              className={`h-2 rounded-full transition-colors ${i + 1 < step ? "bg-nis-primary" : i + 1 === step ? "bg-nis-orange" : "bg-slate-200"}`}
             />
           ))}
         </ol>
       </div>
-
-      {queriedApp && (
-        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm space-y-3">
-          <div className="flex items-start gap-3.5">
-            <div className="rounded-full bg-amber-200 p-2 text-amber-800 shrink-0 mt-0.5">
-              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-base font-bold text-amber-900">
-                  {t("Application Query – Action Required")}
-                </h3>
-                <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-xs font-bold text-amber-900">
-                  Application: {queriedApp.application_number}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-amber-800">
-                {t("Your application has been queried. Please review the officer's comments and upload or replace the requested documents below.")}
-              </p>
-              <div className="mt-3 rounded-xl border border-amber-200 bg-white/95 p-3.5 shadow-xs">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-amber-800">
-                  {t("Officer's Comment:")}
-                </span>
-                <p className="mt-1 text-sm font-semibold text-slate-800 whitespace-pre-wrap">
-                  {queriedApp.decision_notes || t("Please review and address the requested items.")}
-                </p>
-              </div>
-              {step !== 4 && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setStep(4)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 underline hover:text-amber-700"
-                  >
-                    {t("Go to Document Upload (Step 4) →")}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
       {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
@@ -1289,54 +1469,7 @@ function Wizard() {
               })}
             </div>
 
-            {queriedApp && (
-              <div className="mt-8 rounded-2xl border-2 border-nis-primary/30 bg-slate-50 p-5 space-y-4 shadow-xs">
-                <div>
-                  <h4 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                    {t("Applicant Query Response & Resubmission")}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-1">
-                    {t("Please provide an explanatory response or note to the vetting officer regarding the documents uploaded or updated above.")}
-                  </p>
-                </div>
-                <textarea
-                  value={queryResponseText}
-                  onChange={(e) => {
-                    setQueryResponseText(e.target.value);
-                    setQueryResponseError(null);
-                  }}
-                  placeholder={t("Explain the corrections made or details of the re-uploaded documents (e.g. 'I have re-uploaded a clearer scan of my international passport data page as requested.').")}
-                  rows={4}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
-                />
-                {queryResponseError && (
-                  <Alert tone="danger">{queryResponseError}</Alert>
-                )}
-                {queryResponseSuccess && (
-                  <Alert tone="success">{queryResponseSuccess}</Alert>
-                )}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                  <p className="text-xs text-slate-500">
-                    {t("Submitting your response will return the application to the review queue for officer re-vetting. No additional fee is required.")}
-                  </p>
-                  <Button
-                    type="button"
-                    disabled={submittingResponse || !queryResponseText.trim()}
-                    onClick={handleSubmitQueryResponse}
-                    className="!bg-nis-primary hover:!bg-nis-primary-dark !text-white !font-bold !px-6 !py-2.5 !rounded-xl !shadow-md"
-                  >
-                    {submittingResponse ? (
-                      <>
-                        <Spinner className="mr-2 h-4 w-4" />
-                        {t("Submitting Response…")}
-                      </>
-                    ) : (
-                      t("Submit Query Response & Resubmit for Approval")
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
+
           </div>
         )}
 
@@ -1518,38 +1651,7 @@ function Wizard() {
         )}
       </Panel>
 
-      {queriedApp ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-2">
-            {step > 1 && (
-              <Button variant="secondary" onClick={() => setStep(step - 1)} disabled={busy}>
-                {t("Back")}
-              </Button>
-            )}
-            {step < 4 && (
-              <Button onClick={() => setStep(step + 1)} disabled={busy}>
-                {t("Next")}
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              onClick={() => router.push(`/portal/applications/${queriedApp.id}`)}
-              disabled={busy}
-            >
-              {t("Return to Application")}
-            </Button>
-          </div>
-          {step !== 4 && (
-            <Button
-              onClick={() => setStep(4)}
-              className="!bg-amber-600 hover:!bg-amber-700 !text-white !font-bold"
-            >
-              {t("Go to Document Upload (Step 4) →")}
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2">
             {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy}>{t("Back")}</Button>}
             <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
@@ -1561,7 +1663,6 @@ function Wizard() {
             <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
           )}
         </div>
-      )}
       <p className="text-xs text-slate-500">Need help? <Link href="/track" className="underline">Track an existing application</Link>.</p>
 
       {preview && (
