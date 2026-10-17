@@ -327,21 +327,17 @@ export function LogoutButton({
         form.submit();
       }}
       className={
-        red
-          ? `flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${
-              fullWidth ? "w-full text-left" : ""
+        red || portal === "applicant"
+          ? `inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/70 px-3 py-1.5 text-xs font-semibold text-red-600 shadow-xs transition hover:bg-red-100 hover:text-red-700 hover:border-red-300 ${
+              fullWidth ? "w-full justify-center" : ""
             }`
-          : portal === "applicant"
-            ? `inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-nis-primary hover:border-slate-400 ${
-                fullWidth ? "w-full justify-center" : ""
-              }`
-            : `rounded-md bg-nis-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-nis-primary-dark ${
-                fullWidth ? "w-full text-center" : ""
-              }`
+          : `rounded-md bg-nis-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-nis-primary-dark ${
+              fullWidth ? "w-full text-center" : ""
+            }`
       }
     >
       <svg
-        className={`h-4 w-4 shrink-0 ${red ? "text-red-500" : "text-slate-500"}`}
+        className={`h-4 w-4 shrink-0 ${red || portal === "applicant" ? "text-red-500" : "text-slate-500"}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

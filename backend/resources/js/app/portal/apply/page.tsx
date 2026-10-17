@@ -960,10 +960,10 @@ function Wizard() {
         </div>
 
         <div>
-          <h2 className="text-base font-semibold text-slate-900">{t("Comments")}</h2>
-          <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">
+          <h2 className="mb-2 text-base font-semibold text-slate-900">{t("Comments")}</h2>
+          <div className="rounded-lg border border-[#FECACA] bg-[#FFF1F2] p-3.5 sm:p-4 text-sm text-[#7F1D1D] leading-relaxed whitespace-pre-wrap break-words">
             {queriedApp.decision_notes || t("Please review and address the requested items.")}
-          </p>
+          </div>
         </div>
 
         {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}

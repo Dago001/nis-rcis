@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Barcode } from "@/components/Barcode";
@@ -72,9 +73,19 @@ function SlipView() {
 
   return (
     <div className="space-y-4">
-      <div className="no-print flex justify-end gap-2">
-        <Button onClick={() => window.print()}>Print / save as PDF</Button>
+      {/* Top action buttons (excluded from print) */}
+      <div className="no-print mx-auto flex max-w-[210mm] flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/portal"
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors hover:border-nis-primary hover:text-nis-primary"
+        >
+          ← Back to Dashboard
+        </Link>
+        <Button onClick={() => window.print()}>
+          Print / Save as PDF
+        </Button>
       </div>
+
       <div className="w-full overflow-x-auto pb-6">
         {appointment ? <AppointmentSlip slip={slip} /> : <ApplicationSlip slip={slip} />}
       </div>
