@@ -143,15 +143,15 @@ export function StaffShell({ children }: { children: ReactNode }) {
         <nav className="no-print lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
           <div
             ref={menu}
-            className="relative flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7.5rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain"
+            className="relative flex gap-1 overflow-x-auto rounded-2xl border border-[#cde5d5] bg-[#EAF5EE] p-2.5 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7.5rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain"
           >
             {user &&
               navSections.map((sec, idx) => {
                 const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                 if (visible.length === 0) return null;
                 return (
-                  <div key={sec.title} className={idx > 0 ? "lg:border-t lg:border-slate-100 lg:pt-3" : ""}>
-                    <div className="hidden px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 lg:block">
+                  <div key={sec.title} className={idx > 0 ? "lg:border-t lg:border-[#d7ece0] lg:pt-3" : ""}>
+                    <div className="hidden px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:block">
                       {sec.title}
                     </div>
                     <ul className="flex gap-1 lg:flex-col">
@@ -172,7 +172,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                               className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
                                 active
                                   ? "bg-nis-primary font-medium text-white shadow-sm"
-                                  : "text-slate-700 hover:bg-nis-mint hover:text-nis-primary"
+                                  : "text-slate-800 hover:bg-white/70 hover:text-nis-primary"
                               }`}
                             >
                               {item.icon}

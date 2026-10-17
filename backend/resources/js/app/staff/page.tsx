@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BarList, ChartCard, ColumnChart, compact, DataTable, Legend, LineChart, Meter, SERIES, SplitBar } from "@/components/charts";
+import { BarList, ChartCard, ColumnChart, compact, DataTable, DoughnutChart, Legend, LineChart, Meter, SERIES, SplitBar, VerticalTwoBarChart } from "@/components/charts";
 import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Alert, Panel, Spinner } from "@/components/ui";
@@ -187,32 +187,26 @@ export default function StaffDashboard() {
       </div>
 
       {/* Applications by Type & Applications by Sex */}
+      {/* Applications by Type & Applications by Sex */}
       <div className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Applications by Type"
-          subtitle="New Card Applications vs Renewal Applications"
+          subtitle="New vs Renewal"
           table={
             <DataTable
               head={["Application Type", "Total"]}
               rows={[
-                ["New Card Applications", a.mix?.type?.NEW ?? 0],
-                ["Renewal Applications", a.mix?.type?.RENEWAL ?? 0],
+                ["New", a.mix?.type?.NEW ?? 0],
+                ["Renewal", a.mix?.type?.RENEWAL ?? 0],
               ]}
             />
           }
         >
-          <div className="space-y-4">
-            <SplitBar
-              title="Distribution"
-              parts={[
-                { label: "New Card Applications", value: a.mix?.type?.NEW ?? 0 },
-                { label: "Renewal Applications", value: a.mix?.type?.RENEWAL ?? 0 },
-              ]}
-            />
-            <BarList
+          <div className="py-2">
+            <VerticalTwoBarChart
               items={[
-                { label: "New Card Applications", value: a.mix?.type?.NEW ?? 0 },
-                { label: "Renewal Applications", value: a.mix?.type?.RENEWAL ?? 0 },
+                { label: "New", value: a.mix?.type?.NEW ?? 0, color: "#2b892b" },
+                { label: "Renewal", value: a.mix?.type?.RENEWAL ?? 0, color: "#58b258" },
               ]}
             />
           </div>
@@ -231,19 +225,14 @@ export default function StaffDashboard() {
             />
           }
         >
-          <div className="space-y-4">
-            <SplitBar
-              title="Distribution"
-              parts={[
-                { label: "Male", value: a.mix?.sex?.MALE ?? 0 },
-                { label: "Female", value: a.mix?.sex?.FEMALE ?? 0 },
-              ]}
-            />
-            <BarList
+          <div className="py-2">
+            <DoughnutChart
               items={[
-                { label: "Male", value: a.mix?.sex?.MALE ?? 0 },
-                { label: "Female", value: a.mix?.sex?.FEMALE ?? 0 },
+                { label: "Male", value: a.mix?.sex?.MALE ?? 0, color: "#2b892b" },
+                { label: "Female", value: a.mix?.sex?.FEMALE ?? 0, color: "#58b258" },
               ]}
+              centerTitle="Sex"
+              centerSubtitle="Distribution"
             />
           </div>
         </ChartCard>

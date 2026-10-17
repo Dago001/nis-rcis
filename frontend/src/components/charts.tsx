@@ -307,4 +307,255 @@ export function Meter({ value, label }: { value: number | null; label: string })
   );
 }
 
+/**
+ * Vertical two-bar chart for category comparison (e.g. New vs Renewal).
+ * Uses portal primary green for first bar and lighter shade for second bar.
+ */
+export function VerticalTwoBarChart({
+  items,
+  format = String,
+}: {
+  items: [
+    { label: string; value: number; color?: string },
+    { label: string; value: number; color?: string }
+  ];
+  format?: (n: number) => string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [ref, W] = useWidth(400);
+  const max = Math.max(1, items[0].value, items[1].value);
+  const ticks = niceTicks(max);
+  const top = ticks[ticks.length - 1];
+  const chartHeight = 220;
+  const pad = { top: 20, right: 24, bottom: 36, left: 48 };
+  const iw = W - pad.left - pad.right;
+  const ih = chartHeight - pad.top - pad.bottom;
+  const bw = Math.min(52, Math.max(36, iw * 0.24));
+  const cx0 = pad.left + iw * 0.3;
+  const cx1 = pad.left + iw * 0.7;
+  const centers = [cx0, cx1];
+  const y = (v: number) => pad.top + ih - (top > 0 ? (v / top) * ih : 0);
+  const colors = [items[0].color ?? "#2b892b", items[1].color ?? "#58b258"];
+  const id = useId();
+
+  return (
+    <div ref={ref} className="relative flex flex-col items-center justify-center">
+      <svg viewBox={`0 0 ${W} ${chartHeight}`} className="h-auto w-full select-none" role="img" aria-label="Applications by Type">
+        <defs>
+          <clipPath id={`${id}-clip`}>
+            <rect x={0} y={0} width={W} height={pad.top + ih} />
+          </clipPath>
+        </defs>
+
+        {/* Numeric Y-Axis Gridlines & Ticks */}
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? AXIS : GRID} strokeWidth={1} />
+            <text x={pad.left - 10} y={y(t) + 4} textAnchor="end" fontSize={11} fill={MUTED} className="tabular-nums">
+              {format(t)}
+            </text>
+          </g>
+        ))}
+
+        {/* Vertical Bars */}
+        {items.map((item, i) => {
+          const cx = centers[i];
+          const val = item.value;
+          const h = top > 0 ? (val / top) * ih : 0;
+          const isHovered = hover === null || hover === i;
+          return (
+            <g
+              key={item.label}
+              onPointerEnter={() => setHover(i)}
+              onPointerLeave={() => setHover(null)}
+              onFocus={() => setHover(i)}
+              onBlur={() => setHover(null)}
+              tabIndex={0}
+              className="cursor-pointer outline-none"
+              aria-label={`${item.label}: ${format(val)}`}
+            >
+              {/* Invisible touch/hover target */}
+              <rect x={cx - bw} y={pad.top} width={bw * 2} height={ih} fill="transparent" />
+
+              {/* Bar rectangle with rounded top */}
+              {val > 0 ? (
+                <rect
+                  x={cx - bw / 2}
+                  y={y(val)}
+                  width={bw}
+                  height={h + 4}
+                  rx={6}
+                  fill={colors[i]}
+                  opacity={isHovered ? 1 : 0.6}
+                  clipPath={`url(#${id}-clip)`}
+                  className="transition-opacity duration-150"
+                />
+              ) : (
+                /* Subtle baseline indicator for 0 records */
+                <rect
+                  x={cx - bw / 2}
+                  y={pad.top + ih - 2}
+                  width={bw}
+                  height={2}
+                  rx={1}
+                  fill={colors[i]}
+                  opacity={0.4}
+                />
+              )}
+
+              {/* Exact Value above bar */}
+              <text
+                x={cx}
+                y={val > 0 ? Math.max(pad.top + 14, y(val) - 6) : pad.top + ih - 6}
+                textAnchor="middle"
+                fontSize={12}
+                fontWeight={600}
+                fill="#1e293b"
+                className="tabular-nums"
+              >
+                {format(val)}
+              </text>
+
+              {/* Label below bar */}
+              <text x={cx} y={chartHeight - 12} textAnchor="middle" fontSize={12} fontWeight={500} fill="#475569">
+                {item.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {hover !== null && (
+        <Tooltip x={centers[hover]} y={((Math.max(10, y(items[hover].value) - 10)) / chartHeight) * 100} width={W}>
+          <div className="font-semibold text-slate-900">{format(items[hover].value)} applications</div>
+          <div className="text-slate-500">{items[hover].label}</div>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Doughnut chart with empty centre for distributions (e.g. Applications by Sex).
+ * Segments represent Male and Female, with center text "Sex Distribution" and legend.
+ */
+export function DoughnutChart({
+  items,
+  centerTitle = "Sex",
+  centerSubtitle = "Distribution",
+  format = String,
+}: {
+  items: [
+    { label: string; value: number; color?: string },
+    { label: string; value: number; color?: string }
+  ];
+  centerTitle?: string;
+  centerSubtitle?: string;
+  format?: (n: number) => string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const total = items.reduce((sum, it) => sum + it.value, 0);
+  const colors = [items[0].color ?? "#2b892b", items[1].color ?? "#58b258"];
+
+  const size = 200;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 74;
+  const strokeWidth = 24;
+  const circumference = 2 * Math.PI * r;
+
+  // Compute strokeDasharray and offsets
+  const pct0 = total > 0 ? items[0].value / total : 0;
+  const pct1 = total > 0 ? items[1].value / total : 0;
+  const len0 = circumference * pct0;
+  const len1 = circumference * pct1;
+  const offset0 = 0;
+  const offset1 = -len0;
+
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+        <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90 select-none" role="img" aria-label="Applications by Sex">
+          {/* Background track if 0 records */}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+
+          {total > 0 ? (
+            <>
+              {/* Segment 0 (Male) */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={colors[0]}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${len0} ${circumference - len0}`}
+                strokeDashoffset={offset0}
+                opacity={hover === null || hover === 0 ? 1 : 0.6}
+                className="cursor-pointer transition-opacity duration-150"
+                onPointerEnter={() => setHover(0)}
+                onPointerLeave={() => setHover(null)}
+              />
+              {/* Segment 1 (Female) */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={colors[1]}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${len1} ${circumference - len1}`}
+                strokeDashoffset={offset1}
+                opacity={hover === null || hover === 1 ? 1 : 0.6}
+                className="cursor-pointer transition-opacity duration-150"
+                onPointerEnter={() => setHover(1)}
+                onPointerLeave={() => setHover(null)}
+              />
+            </>
+          ) : (
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth} strokeDasharray="4 4" />
+          )}
+        </svg>
+
+        {/* Centre Content */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-800 leading-tight">
+            {centerTitle}
+          </span>
+          <span className="text-[11px] font-medium text-slate-500 leading-tight">
+            {centerSubtitle}
+          </span>
+          {hover !== null && (
+            <span className="mt-1 text-xs font-bold text-slate-900 tabular-nums">
+              {format(items[hover].value)} ({total > 0 ? Math.round((items[hover].value / total) * 100) : 0}%)
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Legend below the doughnut chart */}
+      <ul className="mt-4 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-700">
+        {items.map((item, i) => {
+          const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+          return (
+            <li
+              key={item.label}
+              className={`flex items-center gap-2 cursor-pointer transition-opacity ${
+                hover === null || hover === i ? "opacity-100" : "opacity-50"
+              }`}
+              onPointerEnter={() => setHover(i)}
+              onPointerLeave={() => setHover(null)}
+            >
+              <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ background: colors[i] }} aria-hidden="true" />
+              <span className="font-medium text-slate-800">{item.label}:</span>
+              <span className="tabular-nums font-semibold text-slate-900">{format(item.value)}</span>
+              <span className="tabular-nums text-slate-500">({pct}%)</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export { compact };
