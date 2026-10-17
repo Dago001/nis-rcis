@@ -207,9 +207,6 @@ export default function StaffApplicationPage() {
         <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} />
       </Panel>
 
-      {/* Workflow History */}
-      <Panel title="Workflow history">{a.history && <History history={a.history} />}</Panel>
-
       {/* D. Vetting and Approval Controls */}
       {canDecide && (
         <Panel
@@ -229,59 +226,36 @@ export default function StaffApplicationPage() {
               />
             </Field>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              {/* Option 1: Approve for Biometrics */}
-              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 flex flex-col justify-between shadow-xs">
-                <div>
-                  <div className="font-semibold text-sm text-slate-900">Approve Application</div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Application and documents are verified and vetted. Clears applicant for physical biometrics capture.
-                  </p>
-                </div>
-                <Button
-                  disabled={busy}
-                  onClick={() => confirm("Approve this application for physical biometrics capture?") && act("decision", { decision: "APPROVE", notes: notes.trim() || "Application verified and vetted by immigration vetting officer." })}
-                  className="w-full justify-center"
-                >
-                  ✓ Approve for Biometrics
-                </Button>
-              </div>
-
-              {/* Option 2: Query Application */}
-              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3 flex flex-col justify-between shadow-xs">
-                <div>
-                  <div className="font-semibold text-sm text-amber-950">Query Application</div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Requires correction or document replacement from the applicant. Moves out of approval queue until answered.
-                  </p>
-                </div>
-                <Button
-                  variant="gold"
-                  disabled={busy || !notes.trim()}
-                  onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
-                  className="w-full justify-center"
-                >
-                  Query Applicant
-                </Button>
-              </div>
-
-              {/* Option 3: Reject Application */}
-              <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 space-y-3 flex flex-col justify-between shadow-xs">
-                <div>
-                  <div className="font-semibold text-sm text-red-950">Reject Application</div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Application is ineligible or rejected permanently. This cannot be undone.
-                  </p>
-                </div>
-                <Button
-                  variant="danger"
-                  disabled={busy || !notes.trim()}
-                  onClick={() => confirm("Reject this application permanently? This cannot be undone.") && act("decision", { decision: "REJECT", notes: notes.trim() })}
-                  className="w-full justify-center"
-                >
-                  Reject Application
-                </Button>
-              </div>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  confirm("Approve this application for physical biometrics capture?") &&
+                  act("decision", {
+                    decision: "APPROVE",
+                    notes: notes.trim() || "Application verified and vetted by immigration vetting officer.",
+                  })
+                }
+              >
+                Approve
+              </Button>
+              <Button
+                variant="gold"
+                disabled={busy || !notes.trim()}
+                onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
+              >
+                Query
+              </Button>
+              <Button
+                variant="danger"
+                disabled={busy || !notes.trim()}
+                onClick={() =>
+                  confirm("Reject this application permanently? This cannot be undone.") &&
+                  act("decision", { decision: "REJECT", notes: notes.trim() })
+                }
+              >
+                Reject
+              </Button>
             </div>
           </div>
         </Panel>

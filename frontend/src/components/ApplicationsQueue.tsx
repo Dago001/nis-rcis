@@ -14,6 +14,7 @@ export interface ApplicationsQueueViewProps {
   pageTitle: string;
   pageSubtitle: string;
   basePath: string; // e.g. "/staff/applications" or "/staff/approvals"
+  defaultPerPage?: number;
 }
 
 const STATUS_FILTERS: { key: string; label: string }[] = [
@@ -25,7 +26,7 @@ const STATUS_FILTERS: { key: string; label: string }[] = [
   { key: "ISSUED", label: "Collected" },
 ];
 
-function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath }: ApplicationsQueueViewProps) {
+function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPerPage = 10 }: ApplicationsQueueViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -41,10 +42,10 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath }: Applica
     setSearchInput(currentSearch);
   }, [currentSearch]);
 
-  // Construct API query with 20 items per page
+  // Construct API query with specified items per page (default 10)
   const apiParams = new URLSearchParams({
     page: String(currentPage),
-    per_page: "20",
+    per_page: String(defaultPerPage),
     ...(currentStatus ? { status: currentStatus } : {}),
     ...(currentSearch ? { search: currentSearch } : {}),
     ...(assigned ? { assigned } : {}),
@@ -93,7 +94,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath }: Applica
 
   // Pagination calculation
   const total = result?.meta?.total ?? 0;
-  const perPage = result?.meta?.per_page ?? 20;
+  const perPage = result?.meta?.per_page ?? defaultPerPage;
   const lastPage = Math.max(1, result?.meta?.last_page ?? (Math.ceil(total / perPage) || 1));
   const from = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
   const to = Math.min(total, currentPage * perPage);

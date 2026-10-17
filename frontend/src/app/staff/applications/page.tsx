@@ -8,6 +8,7 @@ export default function VettingPage() {
       pageTitle="Vetting"
       pageSubtitle="Review and vet online and assisted residence card applications"
       basePath="/staff/applications"
+      defaultPerPage={10}
     />
   );
 }
