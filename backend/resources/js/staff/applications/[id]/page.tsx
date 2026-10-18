@@ -279,43 +279,59 @@ export default function StaffApplicationPage() {
       {/* Stage 2: Approver Review and Controls */}
       {a.status === "VETTED" && (
         <div className="space-y-5">
-          <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-5 space-y-3 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-2">
+          <div
+            className="rounded-2xl p-5 space-y-3 shadow-xs"
+            style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+          >
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 pb-2"
+              style={{ borderBottom: "1px solid #D4E8DA" }}
+            >
               <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-blue-600" />
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
-                  Stage 1 Completed: Vetted — Awaiting Final Approval
+                <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
+                  Stage One Completed
                 </span>
               </div>
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              >
+                Vetted – Awaiting Final Approval
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-700">
+              {a.vetted_by && (
+                <div>
+                  <span className="font-semibold text-slate-900">Vetted By:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
+                </div>
+              )}
               {a.vetted_at && (
-                <span className="text-xs font-medium text-blue-800">
-                  Vetted: {dateTime(a.vetted_at)}
-                </span>
+                <div>
+                  <span className="font-semibold text-slate-900">Date/Time:</span> {dateTime(a.vetted_at)}
+                </div>
               )}
             </div>
-            <div className="text-sm text-slate-800">
-              <span className="font-semibold text-blue-950">Vetted By:</span>{" "}
-              {a.vetted_by ? `${a.vetted_by.fullname} (${a.vetted_by.service_number})` : "Immigration Vetting Officer"}
-            </div>
             {a.vetting_notes && (
-              <div className="rounded-xl border border-blue-200 bg-white p-3 text-xs text-slate-800">
-                <span className="font-semibold text-nis-primary block mb-0.5">Vetting Notes:</span>
+              <div
+                className="rounded-xl bg-white p-3 text-xs text-slate-800"
+                style={{ border: "1px solid #D4E8DA" }}
+              >
+                <span className="font-semibold block mb-0.5" style={{ color: "#246B45" }}>Vetting Remarks:</span>
                 <p className="whitespace-pre-wrap">{a.vetting_notes}</p>
               </div>
             )}
             <p className="text-xs text-slate-600">
               This application has passed internal vetting and is currently in the Approvers queue. Final approval must be performed by an Approving Officer under the Approvers section. Biometrics attendance is not yet authorized.
             </p>
-            {isApprovingStaff && (
-              <div className="pt-2">
-                <Link
-                  href={`/staff/approvals/${a.id}`}
-                  className="inline-flex items-center justify-center rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
-                >
-                  Open in Approvers for Final Approval →
-                </Link>
-              </div>
-            )}
+            <div className="pt-2">
+              <Link
+                href={`/staff/approvals/${a.id}`}
+                className="inline-flex items-center justify-center rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
+              >
+                Open in Approvals for Final Review →
+              </Link>
+            </div>
           </div>
         </div>
       )}
