@@ -428,6 +428,33 @@ it('replaces a card reported lost and withdraws the old card when the new one is
         ->and($old->fresh()->revocation_reason)->toStartWith('REPLACED BY');
 });
 
+it('allows an applicant to apply for renewal even if previous application had card issued or ready for collection', function () {
+    Notification::fake();
+    $applicant = Applicant::factory()->create(['email' => 'renewal@example.com']);
+    $oldCard = ResidenceCard::factory()->issued()->create(['applicant_id' => $applicant->id, 'passport_number' => 'B6556610']);
+    $previousApp = Application::factory()->create([
+        'applicant_id' => $applicant->id,
+        'passport_number' => 'B6556610',
+        'status' => ApplicationStatus::ReadyForCollection,
+        'card_id' => $oldCard->id,
+    ]);
+    $oldCard->update(['decision_reference' => $previousApp->application_number]);
+
+    asApplicant($applicant);
+    uploadDraftDocs();
+
+    $renewal = particulars([
+        'type' => 'RENEWAL',
+        'renewal_card_number' => $oldCard->card_number,
+        'passport_number' => 'B6556610',
+        'payment_reference' => paidReference(),
+    ]);
+
+    $this->postJson('/api/v1/applicant/applications', $renewal)
+        ->assertCreated()
+        ->assertJsonPath('data.type', 'RENEWAL');
+});
+
 it('issues the ECOWAS residence card only to citizens of ECOWAS member states', function () {
     asApplicant(Applicant::factory()->create());
     uploadDraftDocs();

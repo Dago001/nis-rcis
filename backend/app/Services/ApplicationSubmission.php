@@ -77,8 +77,8 @@ class ApplicationSubmission
         }
 
         $principal = ! empty($data['principal_application_id']) ? $this->principal($applicant, $data) : null;
-        $this->assertNoOpenApplication($applicant, $data['passport_number'], $principal !== null);
         $renewalCard = in_array($data['type'], ['RENEWAL', 'REPLACE'], true) ? $this->claimRenewalCard($applicant, $data) : null;
+        $this->assertNoOpenApplication($applicant, $data['passport_number'], $principal !== null, $renewalCard);
 
         return $this->screen(DB::transaction(function () use ($applicant, $data, $draft, $documents, $renewalCard) {
             $payment = Payment::where('reference', $data['payment_reference'])->lockForUpdate()->first();
@@ -241,14 +241,31 @@ class ApplicationSubmission
      * dependant's (checked by passport, since one account may apply for a
      * spouse and children at the same time).
      */
-    private function assertNoOpenApplication(Applicant $applicant, string $passport, bool $forDependant = false): void
+    private function assertNoOpenApplication(Applicant $applicant, string $passport, bool $forDependant = false, ?ResidenceCard $renewalCard = null): void
     {
-        $open = Application::query()
+        $query = Application::query()
             ->where(fn ($q) => $forDependant
                 ? $q->where('passport_number', $passport)
                 : $q->where(fn ($own) => $own->where('applicant_id', $applicant->id)->whereNull('principal_application_id'))->orWhere('passport_number', $passport))
-            ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued])
-            ->first();
+            ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued]);
+
+        // When renewing or replacing an existing card, exclude the application that generated this card
+        if ($renewalCard) {
+            $ignoreAppId = $renewalCard->application?->id;
+            if ($ignoreAppId) {
+                $query->where('id', '!=', $ignoreAppId);
+            }
+            $query->where(function ($q) use ($renewalCard) {
+                $q->whereNull('card_id')->orWhere('card_id', '!=', $renewalCard->id);
+            });
+        }
+
+        // Applications with an active/issued card already produced are complete and do not block renewal/replacement
+        $query->whereDoesntHave('card', function ($cardQuery) {
+            $cardQuery->whereIn('status', [CardStatus::Issued, CardStatus::Renewed]);
+        });
+
+        $open = $query->first();
 
         if ($open) {
             throw ValidationException::withMessages([
