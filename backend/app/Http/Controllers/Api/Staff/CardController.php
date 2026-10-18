@@ -59,7 +59,7 @@ class CardController
                   ->orWhereHas('application', fn ($aq) => $aq->whereNotNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
             });
         } elseif ($activeFilter === 'damaged_cards') {
-            $query->whereHas('application', fn ($aq) => $aq->where('type', 'REPLACE')->where('lost_report_type', 'DAMAGED'));
+            $query->whereHas('application', fn ($aq) => $aq->where('type', 'REPLACE'));
         } elseif (! empty($data['status']) && in_array($data['status'], CardStatus::values(), true)) {
             $query->where('status', $data['status']);
         }
@@ -77,15 +77,17 @@ class CardController
             $likeOp = $driver === 'pgsql' ? 'ilike' : 'like';
             $pattern = Like::contains($term);
             $cleanNum = preg_replace('/[^A-Z0-9]/', '', strtoupper($term));
+            $concatSurnameForenames = $driver === 'sqlite' ? "(surname || ' ' || forenames)" : "CONCAT(surname, ' ', forenames)";
+            $concatForenamesSurname = $driver === 'sqlite' ? "(forenames || ' ' || surname)" : "CONCAT(forenames, ' ', surname)";
 
-            $query->where(function ($q) use ($term, $cleanNum, $likeOp, $pattern) {
+            $query->where(function ($q) use ($term, $cleanNum, $likeOp, $pattern, $concatSurnameForenames, $concatForenamesSurname) {
                 $q->where('card_number', $likeOp, $pattern)
                     ->orWhere('booklet_number', $likeOp, $pattern)
                     ->orWhere('passport_number', $likeOp, $pattern)
                     ->orWhere('surname', $likeOp, $pattern)
                     ->orWhere('forenames', $likeOp, $pattern)
-                    ->orWhereRaw("CONCAT(surname, ' ', forenames) {$likeOp} ?", [$pattern])
-                    ->orWhereRaw("CONCAT(forenames, ' ', surname) {$likeOp} ?", [$pattern])
+                    ->orWhereRaw("{$concatSurnameForenames} {$likeOp} ?", [$pattern])
+                    ->orWhereRaw("{$concatForenamesSurname} {$likeOp} ?", [$pattern])
                     ->orWhereHas('application', fn ($aq) => $aq->where('application_number', $likeOp, $pattern));
                 if ($cleanNum !== '') {
                     $q->orWhere('card_number', $likeOp, "%{$cleanNum}%")

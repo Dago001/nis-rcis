@@ -70,7 +70,7 @@ function CardIssuanceContent() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const currentStage = params.get("stage") || "awaiting_issuance";
+  const currentStage = params.get("stage") || "all";
   const initialSearch = params.get("search") || "";
   const pageParam = parseInt(params.get("page") || "1", 10);
   const currentPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
@@ -260,67 +260,43 @@ function CardIssuanceContent() {
 
       {/* KPI / Summary Tiles */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => handleStageChange("awaiting_issuance")}
-          className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
-            currentStage === "awaiting_issuance" || currentStage === "awaiting_collection"
-              ? "border-amber-500 bg-amber-50/80 ring-2 ring-amber-500/20"
-              : "border-slate-200 bg-white hover:border-amber-300"
-          }`}
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-amber-800">
+        <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
+          <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
             Awaiting Issuance
           </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">
+          <span className="mt-1 text-2xl font-medium text-slate-900">
             {stats.awaiting_issuance ?? stats.awaiting_collection ?? 0}
           </span>
           <span className="mt-0.5 text-xs text-slate-500">Printed cards ready for collection</span>
-        </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => handleStageChange("issued")}
-          className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
-            currentStage === "issued" || currentStage === "collected"
-              ? "border-emerald-600 bg-emerald-50/80 ring-2 ring-emerald-500/20"
-              : "border-slate-200 bg-white hover:border-emerald-300"
-          }`}
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+        <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
+          <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
             Issued Cards
           </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">
+          <span className="mt-1 text-2xl font-medium text-slate-900">
             {stats.issued_total ?? stats.collected_total ?? 0}
           </span>
           <span className="mt-0.5 text-xs text-slate-500">Successfully handed over to applicants</span>
-        </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => handleStageChange("all")}
-          className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
-            currentStage === "all"
-              ? "border-slate-500 bg-slate-100 ring-2 ring-slate-400/20"
-              : "border-slate-200 bg-white hover:border-slate-300"
-          }`}
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+        <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
+          <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
             All Printed Cards
           </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">
+          <span className="mt-1 text-2xl font-medium text-slate-900">
             {stats.total_printed ?? stats.total_produced ?? 0}
           </span>
           <span className="mt-0.5 text-xs text-slate-500">Total verified printed cards</span>
-        </button>
+        </div>
       </div>
 
       {notice && <Alert tone="success">{notice}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
 
       {/* Live Search & Filter Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div ref={searchContainerRef} className="relative w-full max-w-xl">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        <div ref={searchContainerRef} className="relative flex-1 min-w-[260px]">
           <form onSubmit={handleSearchSubmit} className="relative">
             <div className="relative flex items-center">
               <span className="pointer-events-none absolute left-3.5 text-slate-400">
@@ -328,14 +304,18 @@ function CardIssuanceContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </span>
-              <Input
+              <input
+                type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onFocus={() => {
                   if (suggestions.length > 0) setShowDropdown(true);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowDropdown(false);
+                }}
                 placeholder="Search by card number, passport number or applicant name"
-                className="w-full !pl-10 !pr-16 py-2.5 text-sm"
+                className="w-full rounded-md border border-slate-300 bg-white !pl-10 !pr-10 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
               />
               <div className="absolute right-2.5 flex items-center gap-1.5">
                 {isSearching && (
@@ -346,7 +326,7 @@ function CardIssuanceContent() {
                     type="button"
                     onClick={handleClearSearch}
                     aria-label="Clear search"
-                    className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
                   >
                     <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -399,29 +379,18 @@ function CardIssuanceContent() {
           )}
         </div>
 
-        {/* Filter Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-1">
-          {[
-            { id: "awaiting_issuance", label: "Awaiting Issuance" },
-            { id: "issued", label: "Issued Cards" },
-            { id: "all", label: "All Printed Cards" },
-          ].map((tab) => {
-            const active = currentStage === tab.id || (tab.id === "awaiting_issuance" && currentStage === "awaiting_collection");
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleStageChange(tab.id)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  active
-                    ? "bg-nis-primary text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+        {/* Card Issuance Dropdown Filter */}
+        <div className="w-full md:w-56 shrink-0">
+          <select
+            value={currentStage}
+            onChange={(e) => handleStageChange(e.target.value)}
+            aria-label="Issuance filter"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+          >
+            <option value="all">All Cards</option>
+            <option value="awaiting_issuance">Awaiting Issuance</option>
+            <option value="issued">Issued Cards</option>
+          </select>
         </div>
       </div>
 

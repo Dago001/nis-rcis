@@ -20,7 +20,7 @@ class CardIssuanceController
 {
     public function index(Request $request, DocumentStorage $storage): JsonResponse
     {
-        $stage = $request->input('stage', 'awaiting_issuance');
+        $stage = $request->input('stage', 'all');
         $search = $request->input('search');
         $centerId = $request->input('center_id');
         $perPage = (int) ($request->input('per_page', 10));
@@ -55,15 +55,17 @@ class CardIssuanceController
             $likeOp = $driver === 'pgsql' ? 'ilike' : 'like';
             $pattern = Like::contains($term);
             $cleanNum = preg_replace('/[^A-Z0-9]/', '', strtoupper($term));
+            $concatSurnameForenames = $driver === 'sqlite' ? "(surname || ' ' || forenames)" : "CONCAT(surname, ' ', forenames)";
+            $concatForenamesSurname = $driver === 'sqlite' ? "(forenames || ' ' || surname)" : "CONCAT(forenames, ' ', surname)";
 
-            $query->where(function ($q) use ($term, $cleanNum, $likeOp, $pattern) {
+            $query->where(function ($q) use ($term, $cleanNum, $likeOp, $pattern, $concatSurnameForenames, $concatForenamesSurname) {
                 $q->where('card_number', $likeOp, $pattern)
                     ->orWhere('booklet_number', $likeOp, $pattern)
                     ->orWhere('passport_number', $likeOp, $pattern)
                     ->orWhere('surname', $likeOp, $pattern)
                     ->orWhere('forenames', $likeOp, $pattern)
-                    ->orWhereRaw("CONCAT(surname, ' ', forenames) {$likeOp} ?", [$pattern])
-                    ->orWhereRaw("CONCAT(forenames, ' ', surname) {$likeOp} ?", [$pattern])
+                    ->orWhereRaw("{$concatSurnameForenames} {$likeOp} ?", [$pattern])
+                    ->orWhereRaw("{$concatForenamesSurname} {$likeOp} ?", [$pattern])
                     ->orWhereHas('application', fn ($sq) => $sq->where('application_number', $likeOp, $pattern)
                         ->orWhere('reference_number', $likeOp, $pattern));
                 if ($cleanNum !== '') {

@@ -69,26 +69,85 @@ class ApplicationController
                 ->where('submitted_at', '<', WorkingDays::cutoff(config('nis.sla_working_days')));
         }
 
-        if (! empty($data['status'])) {
-            $query->where('status', $data['status']);
-        } elseif (! empty($data['queue'])) {
-            if ($data['queue'] === 'approvals') {
+        $queue = $data['queue'] ?? null;
+        $status = ! empty($data['status']) ? ($data['status'] instanceof ApplicationStatus ? $data['status']->value : (string) $data['status']) : null;
+
+        if ($queue === 'vetting') {
+            if ($status === ApplicationStatus::PendingApproval->value) {
+                $query->where('status', ApplicationStatus::PendingApproval);
+            } elseif ($status === ApplicationStatus::Queried->value) {
+                $query->where('status', ApplicationStatus::Queried);
+            } elseif ($status === ApplicationStatus::Vetted->value) {
+                // Include records awaiting final approval and those subsequently processed, where they remain part of the Vetting history
+                $query->where(function ($q) {
+                    $q->where('status', ApplicationStatus::Vetted)
+                      ->orWhereNotNull('vetted_at')
+                      ->orWhereIn('status', [
+                          ApplicationStatus::ApprovedForBiometrics,
+                          ApplicationStatus::BiometricsCaptured,
+                          ApplicationStatus::ReadyForCollection,
+                          ApplicationStatus::Issued,
+                      ]);
+                });
+            } elseif ($status === ApplicationStatus::Rejected->value) {
+                $query->where('status', ApplicationStatus::Rejected);
+            } else {
+                // All: union of all authorized records covered by these statuses without duplicates
+                $query->where(function ($q) {
+                    $q->whereIn('status', [
+                        ApplicationStatus::PendingApproval,
+                        ApplicationStatus::Vetted,
+                        ApplicationStatus::Queried,
+                        ApplicationStatus::Rejected,
+                        ApplicationStatus::ApprovedForBiometrics,
+                        ApplicationStatus::BiometricsCaptured,
+                        ApplicationStatus::ReadyForCollection,
+                        ApplicationStatus::Issued,
+                    ])->orWhereNotNull('vetted_at');
+                });
+            }
+        } elseif ($queue === 'approvals') {
+            if ($status === ApplicationStatus::Vetted->value) {
+                // Awaiting Final Approval
+                $query->where('status', ApplicationStatus::Vetted);
+            } elseif ($status === ApplicationStatus::ApprovedForBiometrics->value) {
+                // Approved records (including subsequent historical processing)
+                $query->where(function ($q) {
+                    $q->where('status', ApplicationStatus::ApprovedForBiometrics)
+                      ->orWhere(function ($sub) {
+                          $sub->whereNotNull('decided_at')
+                              ->whereIn('status', [
+                                  ApplicationStatus::BiometricsCaptured,
+                                  ApplicationStatus::ReadyForCollection,
+                                  ApplicationStatus::Issued,
+                              ]);
+                      });
+                });
+            } elseif ($status === ApplicationStatus::Queried->value) {
+                $query->where('status', ApplicationStatus::Queried)->whereNotNull('vetted_at');
+            } elseif ($status === ApplicationStatus::Rejected->value) {
+                $query->where('status', ApplicationStatus::Rejected)->whereNotNull('vetted_at');
+            } else {
+                // All: all applications that have successfully completed Vetting and entered the Approval workflow
                 $query->where(function ($q) {
                     $q->where('status', ApplicationStatus::Vetted)
                       ->orWhere('status', ApplicationStatus::ApprovedForBiometrics)
+                      ->orWhere(function ($sub) {
+                          $sub->whereNotNull('decided_at')
+                              ->whereIn('status', [
+                                  ApplicationStatus::BiometricsCaptured,
+                                  ApplicationStatus::ReadyForCollection,
+                                  ApplicationStatus::Issued,
+                              ]);
+                      })
                       ->orWhere(function ($sub) {
                           $sub->whereIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected])
                               ->whereNotNull('vetted_at');
                       });
                 });
-            } elseif ($data['queue'] === 'vetting') {
-                $query->whereIn('status', [
-                    ApplicationStatus::PendingApproval,
-                    ApplicationStatus::Vetted,
-                    ApplicationStatus::Queried,
-                    ApplicationStatus::Rejected,
-                ]);
             }
+        } elseif (! empty($status)) {
+            $query->where('status', $status);
         }
 
         if (! empty($data['appointment_date'])) {
@@ -104,8 +163,10 @@ class ApplicationController
             $likeOp = $driver === 'pgsql' ? 'ilike' : 'like';
             $pattern = Like::contains($term);
             $cleanNum = preg_replace('/[^A-Z0-9]/', '', $term);
+            $concatForenamesSurname = $driver === 'sqlite' ? "(forenames || ' ' || surname)" : "concat(forenames, ' ', surname)";
+            $concatSurnameForenames = $driver === 'sqlite' ? "(surname || ' ' || forenames)" : "concat(surname, ' ', forenames)";
 
-            $query->where(function ($q) use ($term, $likeOp, $pattern, $cleanNum) {
+            $query->where(function ($q) use ($term, $likeOp, $pattern, $cleanNum, $concatForenamesSurname, $concatSurnameForenames) {
                 $q->where('application_number', $likeOp, $pattern)
                     ->orWhere('reference_number', $likeOp, $pattern)
                     ->orWhere('passport_number', $likeOp, $pattern)
@@ -117,8 +178,8 @@ class ApplicationController
                       ->orWhereRaw("replace(reference_number, '-', '') " . $likeOp . " ?", ['%' . $cleanNum . '%']);
                 }
 
-                $q->orWhereRaw("concat(forenames, ' ', surname) " . $likeOp . " ?", [$pattern])
-                  ->orWhereRaw("concat(surname, ' ', forenames) " . $likeOp . " ?", [$pattern]);
+                $q->orWhereRaw("{$concatForenamesSurname} {$likeOp} ?", [$pattern])
+                  ->orWhereRaw("{$concatSurnameForenames} {$likeOp} ?", [$pattern]);
             });
         }
 
@@ -136,7 +197,7 @@ class ApplicationController
             $query->where('created_by', $currentUser->id);
         }
 
-        $perPage = (int) ($data['per_page'] ?? 20);
+        $perPage = (int) ($data['per_page'] ?? 10);
 
         return ApplicationResource::collection($query->paginate($perPage));
     }

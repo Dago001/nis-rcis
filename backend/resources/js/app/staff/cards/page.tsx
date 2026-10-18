@@ -167,29 +167,44 @@ function CardProductionContent() {
         subtitle="Prepare, inspect and print official ECOWAS Residence Cards for verified applicants."
       />
 
-      {/* Live Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2">
-        <div ref={searchContainerRef} className="relative flex-1">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onFocus={() => {
-              if (searchInput.trim().length >= 1) setShowDropdown(true);
-            }}
-            placeholder="Search by card number, passport number or applicant name"
-            className="w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
-          />
-          {searchInput && (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-400 hover:text-slate-600 focus:outline-none"
-              title="Clear search"
-            >
-              ✕
-            </button>
-          )}
+      {/* Unified Search Bar & Dropdown Filter Row */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        {/* Search Bar with Live Suggestions */}
+        <div ref={searchContainerRef} className="relative flex-1 min-w-[260px]">
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-3.5 text-slate-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onFocus={() => {
+                  if (searchInput.trim().length >= 1) setShowDropdown(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowDropdown(false);
+                }}
+                placeholder="Search by card number, passport number or applicant name"
+                className="w-full rounded-md border border-slate-300 bg-white !pl-10 !pr-10 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+              />
+              {isSearching ? (
+                <span className="absolute right-3 h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
+              ) : searchInput ? (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute right-3 flex items-center text-xs text-slate-400 hover:text-slate-600 focus:outline-none"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+          </form>
 
           {/* Suggestions Dropdown */}
           {showDropdown && searchInput.trim().length >= 1 && (
@@ -237,28 +252,22 @@ function CardProductionContent() {
             </div>
           )}
         </div>
-        <Button type="submit">Search</Button>
-      </form>
 
-      {/* Production & Category Filter Buttons */}
-      <div className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-2.5 pt-1">
-        {FILTER_OPTIONS.map(({ key, label }) => {
-          const isActive = currentFilter === key;
-          return (
-            <button
-              key={key || "all"}
-              type="button"
-              onClick={() => handleFilterChange(key)}
-              className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                isActive
-                  ? "bg-nis-primary text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
+        {/* Card Production Dropdown Filter */}
+        <div className="w-full md:w-56 shrink-0">
+          <select
+            value={currentFilter}
+            onChange={(e) => handleFilterChange(e.target.value)}
+            aria-label="Card filter"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+          >
+            <option value="">All Cards</option>
+            <option value="awaiting_production">Awaiting Production</option>
+            <option value="new_cards">New Cards</option>
+            <option value="renewed_cards">Renewed Cards</option>
+            <option value="damaged_cards">Damaged Cards</option>
+          </select>
+        </div>
       </div>
 
       {/* Table Results */}
