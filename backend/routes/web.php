@@ -106,6 +106,7 @@ Route::middleware('web')->group(function () {
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Portal/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
         Route::get('/cards', fn () => Inertia::render('Portal/Cards'))->name('cards');
         Route::get('/payments', fn () => Inertia::render('Portal/Payments'))->name('payments');
+        Route::get('/notifications', fn () => Inertia::render('Portal/Notifications'))->name('notifications');
     });
 
     // ------------------------------------------------- Staff Console (Inertia)

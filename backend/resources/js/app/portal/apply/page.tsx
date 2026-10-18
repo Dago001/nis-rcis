@@ -411,11 +411,8 @@ function Wizard() {
               }
             }
             setType(draft.type);
-            let resumedStep = draft.current_step;
-            if (resumedStep > 3 && resumedStep <= 8) {
-              resumedStep = resumedStep === 3 ? 1 : resumedStep - 1;
-            }
-            setStep(Math.min(Math.max(1, resumedStep), 7));
+            const resumedStep = Math.min(Math.max(1, draft.current_step || 1), 7);
+            setStep(resumedStep);
             setDocuments(draft.documents);
             setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
           }
@@ -429,13 +426,33 @@ function Wizard() {
           if (payment?.paid && !payment.used) {
             restored.payment_reference = reference;
             setPaid(true);
-            if (params.get("payment") === "callback") {
-              setStep(6);
-              setNotice({ tone: "success", text: "Payment confirmed by Paystack. Click “Save & continue” to book your biometrics appointment." });
+            setStep(7);
+            await api("applicant", "draft", {
+              method: "PUT",
+              json: {
+                type,
+                current_step: 7,
+                data: { ...restored, type, category: (restored.category || "WORK").toUpperCase(), payment_reference: reference },
+              },
+            }).catch(() => null);
+            setNotice({
+              tone: "success",
+              text: "Payment confirmed by Paystack. Please choose an enrollment center and appointment date to complete your application.",
+            });
+            if (params.get("payment") === "callback" && typeof window !== "undefined" && window.history?.replaceState) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("payment");
+              url.searchParams.delete("trxref");
+              url.searchParams.delete("reference");
+              url.searchParams.set("resume", "1");
+              window.history.replaceState({}, "", url.toString());
             }
           } else if (params.get("payment") === "callback") {
             setStep(6);
-            setNotice({ tone: "danger", text: "We could not confirm your payment. If you were charged, contact support with your payment reference." });
+            setNotice({
+              tone: "danger",
+              text: "We could not confirm your payment. If you were charged, contact support with your payment reference.",
+            });
           }
         }
         setData(restored);
@@ -884,7 +901,16 @@ function Wizard() {
         setData((d) => ({ ...d, payment_reference: payment.reference, category: resolvedCategory }));
         setPaid(verified.paid);
         setStepError({});
-        setNotice({ tone: "info", text: "Test mode: no Paystack keys are configured, so the payment was simulated." });
+        if (verified.paid) {
+          await saveDraft(7, { type, category: resolvedCategory, payment_reference: payment.reference });
+          setStep(7);
+          setNotice({
+            tone: "success",
+            text: "Payment confirmed by Paystack. Please select your biometrics appointment date and center to complete your application.",
+          });
+        } else {
+          setNotice({ tone: "danger", text: "Payment verification failed. Please try again." });
+        }
         setBusy(false);
       } else if (payment.authorization_url) {
         window.location.href = payment.authorization_url;
@@ -1626,7 +1652,12 @@ function Wizard() {
               <Summary label="Payment reference" value={data.payment_reference ?? "Created when you pay"} />
             </div>
             {paid ? (
-              <Alert tone="success">Payment confirmed. Click “Save &amp; continue” to book your biometrics appointment.</Alert>
+              <div className="space-y-3">
+                <Alert tone="success">Payment confirmed by Paystack. Your payment has been verified.</Alert>
+                <Button onClick={() => setStep(7)} className="!bg-nis-green">
+                  {t("Continue to Biometrics Appointment →")}
+                </Button>
+              </div>
             ) : (
               <>
                 {errors.payment_reference && <Alert tone="danger">{errors.payment_reference}</Alert>}

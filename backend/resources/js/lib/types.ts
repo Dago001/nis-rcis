@@ -188,7 +188,7 @@ export type StaffUser = {
 
 export type Paginated<T> = {
   data: T[];
-  meta?: { current_page: number; last_page: number; total: number };
+  meta?: { current_page: number; last_page: number; total: number; from?: number; to?: number; per_page?: number };
   current_page?: number;
   last_page?: number;
   total?: number;
@@ -196,7 +196,16 @@ export type Paginated<T> = {
 
 export type AppNotification = {
   id: string;
-  data: { title: string; notes?: string | null; application_id?: number; application_number?: string; status?: string };
+  data: {
+    title?: string;
+    notes?: string | null;
+    application_id?: number;
+    application_number?: string;
+    reference_number?: string;
+    status?: string;
+    query_reason?: string | null;
+    action_url?: string | null;
+  };
   read_at: string | null;
   created_at: string;
 };
