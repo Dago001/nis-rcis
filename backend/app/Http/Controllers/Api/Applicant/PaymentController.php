@@ -12,6 +12,16 @@ class PaymentController
 {
     public function initialize(Request $request, PaystackGateway $gateway, ApplicationSubmission $submission): JsonResponse
     {
+        $ack = $request->validate([
+            'acknowledged_non_refundable' => ['required', 'accepted'],
+            'acknowledgement_text' => ['nullable', 'string'],
+            'acknowledged_at' => ['nullable', 'string'],
+            'version' => ['nullable', 'string'],
+        ], [
+            'acknowledged_non_refundable.required' => 'You must acknowledge that the application processing fee is non-refundable before proceeding.',
+            'acknowledged_non_refundable.accepted' => 'You must acknowledge that the application processing fee is non-refundable before proceeding.',
+        ]);
+
         $applicant = $request->user();
         $submission->assertPrePaymentValid($applicant);
 
@@ -20,6 +30,19 @@ class PaymentController
             $submission->feeKobo(),
             config('nis.frontend_url').'/portal/apply?payment=callback',
         );
+
+        $payment = $result['payment'];
+        $gatewayResponse = $payment->gateway_response ?? [];
+        $gatewayResponse['non_refundable_acknowledgement'] = [
+            'acknowledged' => true,
+            'acknowledged_at' => $ack['acknowledged_at'] ?? now()->toIso8601String(),
+            'text' => $ack['acknowledgement_text'] ?? 'I understand that the application processing fee is generally non-refundable once payment has been successfully processed, except where a refund is required by applicable law or the officially published refund policy.',
+            'version' => $ack['version'] ?? '1.0',
+            'applicant_ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ];
+        $payment->gateway_response = $gatewayResponse;
+        $payment->save();
 
         return response()->json([
             'reference' => $result['payment']->reference,

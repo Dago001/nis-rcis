@@ -38,9 +38,10 @@ const PHOTO: DocSpec = {
 /** Category-dependent document requirements */
 function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
   let cat = (category || "").toUpperCase();
-  if (!["WORK", "BUSINESS", "STUDENT"].includes(cat)) {
+  if (!["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(cat)) {
     if (docs?.some((d) => d.type === "admission_letter")) cat = "STUDENT";
     else if (docs?.some((d) => d.type === "cac_certificate")) cat = "BUSINESS";
+    else if (docs?.some((d) => d.type === "religious_invitation" || d.type === "religious_sponsorship")) cat = "RELIGIOUS";
     else cat = "WORK";
   }
 
@@ -70,6 +71,44 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
     });
+  } else if (cat === "RELIGIOUS") {
+    catDocs.push(
+      {
+        type: "religious_invitation",
+        label: "Letter of Invitation from Host Religious Organization",
+        required: true,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      },
+      {
+        type: "religious_sponsorship",
+        label: "Letter of Religious Assignment or Sponsorship",
+        required: true,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      },
+      {
+        type: "religious_activities_details",
+        label: "Details of Intended Religious Activities",
+        required: true,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      },
+      {
+        type: "religious_registration",
+        label: "Evidence of Host Organization Registration or Recognition",
+        required: false,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      },
+      {
+        type: "religious_affiliation",
+        label: "Evidence of Applicant's Religious Role or Affiliation",
+        required: false,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      }
+    );
   }
 
   return [
@@ -170,6 +209,8 @@ function Wizard() {
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(false);
   const [fee, setFee] = useState<number | null>(null);
+  const [paymentAcknowledged, setPaymentAcknowledged] = useState(false);
+  const [ackError, setAckError] = useState<string | null>(null);
   const [photoLink, setPhotoLink] = useState<{ id: number; url: string } | null>(null);
   const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
   const [photoUploadStatus, setPhotoUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -197,9 +238,10 @@ function Wizard() {
 
   const resolvedCategory = useMemo(() => {
     const raw = (data.category || "").toUpperCase();
-    if (["WORK", "BUSINESS", "STUDENT"].includes(raw)) return raw;
+    if (["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(raw)) return raw;
     if (documents.some((x) => x.type === "admission_letter")) return "STUDENT";
     if (documents.some((x) => x.type === "cac_certificate")) return "BUSINESS";
+    if (documents.some((x) => x.type === "religious_invitation" || x.type === "religious_sponsorship")) return "RELIGIOUS";
     return "WORK";
   }, [data.category, documents]);
 
@@ -516,6 +558,20 @@ function Wizard() {
   }
 
   function goTo(n: number) {
+    if (n > step) {
+      for (let s = 1; s < n; s++) {
+        if (!checkStep(s)) {
+          setNotice({
+            tone: "danger",
+            text: `Please complete all required fields in ${STEPS[s - 1]} before proceeding.`,
+          });
+          setStep(s);
+          setStepError({});
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
+    }
     setStep(n);
     setStepError({});
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -529,6 +585,39 @@ function Wizard() {
     }
     if (!checkStep(step)) {
       return;
+    }
+
+    // Step 1: Immediate server-side passport validation
+    if (step === 1 && data.passport_number) {
+      setBusy(true);
+      try {
+        await api<{ valid: boolean }>("applicant", "check-passport", {
+          method: "POST",
+          json: {
+            passport_number: data.passport_number,
+            travel_document_type: data.travel_document_type,
+            type,
+            renewal_card_number: data.renewal_card_number,
+            principal_application_id: data.principal_application_id,
+          },
+        });
+        setServerErrors((prev) => {
+          const next = { ...prev };
+          delete next.passport_number;
+          return next;
+        });
+      } catch (err) {
+        setBusy(false);
+        const msg = err instanceof ApiError && err.errors?.passport_number?.[0]
+          ? err.errors.passport_number[0]
+          : "This passport number is already associated with an existing record. Please review your details or contact support if you believe this is an error.";
+        setServerErrors((prev) => ({ ...prev, passport_number: msg }));
+        setNotice({ tone: "danger", text: msg });
+        const el = document.querySelector('[name="passport_number"]') as HTMLElement;
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.focus?.();
+        return;
+      }
     }
 
     // Pre-Payment Validation Guard:
@@ -879,6 +968,13 @@ function Wizard() {
   }
 
   async function pay() {
+    // Non-refundable payment acknowledgement check
+    if (!paymentAcknowledged) {
+      setAckError("Please acknowledge the non-refundable payment policy before proceeding.");
+      return;
+    }
+    setAckError(null);
+
     // Pre-Payment Client Validation Guard across steps 1 through 5
     for (let s = 1; s <= 5; s++) {
       if (!checkStep(s)) {
@@ -893,9 +989,33 @@ function Wizard() {
 
     setBusy(true);
     try {
-      await saveDraft(step, { type, category: resolvedCategory });
-      const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>("applicant", "payments", { method: "POST" });
-      await saveDraft(6, { type, category: resolvedCategory, payment_reference: payment.reference });
+      await saveDraft(step, {
+        type,
+        category: resolvedCategory,
+        payment_acknowledged: "1",
+        payment_acknowledged_at: new Date().toISOString(),
+      });
+      const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>(
+        "applicant",
+        "payments",
+        {
+          method: "POST",
+          json: {
+            acknowledged_non_refundable: true,
+            acknowledged_at: new Date().toISOString(),
+            acknowledgement_text:
+              "I understand that the application processing fee is generally non-refundable once payment has been successfully processed, except where a refund is required by applicable law or the officially published refund policy.",
+            version: "1.0",
+          },
+        }
+      );
+      await saveDraft(6, {
+        type,
+        category: resolvedCategory,
+        payment_reference: payment.reference,
+        payment_acknowledged: "1",
+        payment_acknowledged_at: new Date().toISOString(),
+      });
       if (payment.fake) {
         const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
         setData((d) => ({ ...d, payment_reference: payment.reference, category: resolvedCategory }));
@@ -1290,7 +1410,7 @@ function Wizard() {
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
               <div className="text-sm font-semibold text-nis-primary-dark">
-                Required Documents for {resolvedCategory === "STUDENT" ? "Student" : resolvedCategory === "BUSINESS" ? "Business" : "Work"} Category
+                Required Documents for {resolvedCategory === "STUDENT" ? "Student" : resolvedCategory === "BUSINESS" ? "Business" : resolvedCategory === "RELIGIOUS" ? "Religious Activities" : "Work"} Category
               </div>
               <p className="mt-1 text-xs text-slate-600">
                 Official Document Verification: Each file must be <strong>smaller than 2 MB</strong> in <strong>PDF, JPG, or PNG</strong> format.
@@ -1515,7 +1635,7 @@ function Wizard() {
               <ReviewGrid
                 items={[
                   ["Nationality", data.nationality],
-                  ["Category / Class", (data.category || resolvedCategory) === "STUDENT" ? "Student" : (data.category || resolvedCategory) === "BUSINESS" ? "Business" : "Work (Employment)"],
+                  ["Category / Class", (data.category || resolvedCategory) === "STUDENT" ? "Student" : (data.category || resolvedCategory) === "BUSINESS" ? "Business" : (data.category || resolvedCategory) === "RELIGIOUS" ? "Religious Activities" : "Work (Employment)"],
                   ["Document Type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "Passport"],
                   [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
                   ["Document Issue Date", nisDate(data.passport_issue_date)],
@@ -1661,7 +1781,40 @@ function Wizard() {
             ) : (
               <>
                 {errors.payment_reference && <Alert tone="danger">{errors.payment_reference}</Alert>}
-                <Button onClick={pay} disabled={busy} className="!bg-nis-orange hover:!brightness-95">{busy ? "Opening Paystack…" : t("Pay securely with Paystack")}</Button>
+
+                {/* Mandatory Non-Refundable Payment Acknowledgement */}
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-2">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    {t("Payment Acknowledgement")}
+                  </div>
+                  <label className="flex items-start gap-3 cursor-pointer text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={paymentAcknowledged}
+                      onChange={(e) => {
+                        setPaymentAcknowledged(e.target.checked);
+                        if (e.target.checked) setAckError(null);
+                      }}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-nis-green focus:ring-nis-green"
+                    />
+                    <span className="leading-relaxed">
+                      {t("I understand that the application processing fee is generally non-refundable once payment has been successfully processed, except where a refund is required by applicable law or the officially published refund policy.")}
+                    </span>
+                  </label>
+                  {ackError && (
+                    <p className="mt-1 text-xs font-semibold text-red-600">
+                      {ackError}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={pay}
+                  disabled={busy || !paymentAcknowledged}
+                  className="!bg-nis-orange hover:!brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busy ? t("Opening Paystack…") : t("Pay securely with Paystack")}
+                </Button>
                 <p className="text-xs text-slate-500">You pay on Paystack&apos;s secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.</p>
               </>
             )}

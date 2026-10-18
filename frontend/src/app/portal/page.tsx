@@ -30,6 +30,7 @@ function formatCategory(cat?: string | null): string {
   if (upper === "WORK" || upper.includes("WORK") || upper.includes("EMPLOY")) return "Work";
   if (upper === "BUSINESS" || upper.includes("BUSI") || upper.includes("INVEST")) return "Business";
   if (upper === "STUDENT" || upper.includes("STUD")) return "Student";
+  if (upper === "RELIGIOUS" || upper.includes("RELIG")) return "Religious Activities";
   return cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
 }
 
@@ -466,13 +467,16 @@ export default function PortalHome() {
       </Panel>
 
       <PushToggle />
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm" aria-label="Your personal data">
-        <h2 className="text-[15px] font-medium text-nis-primary-dark">{t("Your personal data")}</h2>
-        <p className="mt-1 text-slate-600">
-          Under the Nigeria Data Protection Act 2023 you can download everything we hold about you. See the <Link href="/privacy" className="text-nis-primary underline">{t("privacy notice")}</Link> for how your data is used and kept.
-        </p>
-        <a href={withBase("/api/bff/applicant/my-data")} download="my-nis-rcis-data.json" className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Download my data")}</a>
-      </section>
+      {/* NDPA 2023 Personal Data Download Section - Temporarily hidden via feature flag; underlying API (/api/bff/applicant/my-data) preserved */}
+      {false /* SHOW_PERSONAL_DATA_DOWNLOAD */ && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm" aria-label="Your personal data">
+          <h2 className="text-[15px] font-medium text-nis-primary-dark">{t("Your personal data")}</h2>
+          <p className="mt-1 text-slate-600">
+            Under the Nigeria Data Protection Act 2023 you can download everything we hold about you. See the <Link href="/privacy" className="text-nis-primary underline">{t("privacy notice")}</Link> for how your data is used and kept.
+          </p>
+          <a href={withBase("/api/bff/applicant/my-data")} download="my-nis-rcis-data.json" className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Download my data")}</a>
+        </section>
+      )}
     </div>
   );
 }

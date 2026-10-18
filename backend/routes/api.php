@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Applicant\AccountController;
 use App\Http\Controllers\Api\Applicant\ApplicationController as ApplicantApplications;
 use App\Http\Controllers\Api\Applicant\CardController as ApplicantCards;
+use App\Http\Controllers\Api\Applicant\CartController;
 use App\Http\Controllers\Api\Applicant\DraftController;
 use App\Http\Controllers\Api\Applicant\PaymentController;
 use App\Http\Controllers\Api\Applicant\PaymentRecordsController;
@@ -87,6 +88,8 @@ Route::prefix('v1')->group(function () {
         Route::get('my-data', [AccountController::class, 'myData'])->middleware('throttle:6,1');
         Route::post('oauth/revoke', RevokeTokenController::class);
 
+        Route::get('cart', [CartController::class, 'index']);
+        Route::post('check-passport', [DraftController::class, 'checkPassport']);
         Route::get('draft', [DraftController::class, 'show']);
         Route::put('draft', [DraftController::class, 'save']);
         Route::delete('draft', [DraftController::class, 'destroy']);

@@ -21,6 +21,11 @@ const UPLOADABLE = [
   ["cac_certificate", "CAC Business Registration Certificate"],
   ["admission_letter", "Institution Admission Letter"],
   ["appointment_letter", "Employment Appointment / Offer Letter"],
+  ["religious_invitation", "Letter of Invitation from Host Religious Organization"],
+  ["religious_sponsorship", "Letter of Religious Assignment or Sponsorship"],
+  ["religious_activities_details", "Details of Intended Religious Activities"],
+  ["religious_registration", "Evidence of Host Organization Registration or Recognition"],
+  ["religious_affiliation", "Evidence of Applicant's Religious Role or Affiliation"],
   ["additional", "Additional supporting document"],
 ];
 

@@ -114,7 +114,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
   const selectedNat = matchedNat ? matchedNat.value : normalizedNat;
 
   const rawCat = (data.category ?? "WORK").trim().toUpperCase();
-  const selectedCat = ["WORK", "BUSINESS", "STUDENT"].includes(rawCat) ? rawCat : "WORK";
+  const selectedCat = ["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(rawCat) ? rawCat : "WORK";
 
   const rawDocType = (data.travel_document_type ?? "PASSPORT").trim().toUpperCase();
   const selectedDocType = rawDocType === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
@@ -184,6 +184,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             <option value="WORK">Work (Employment)</option>
             <option value="BUSINESS">Business (Trade / Enterprise)</option>
             <option value="STUDENT">Student (Academic)</option>
+            <option value="RELIGIOUS">Religious Activities</option>
           </Select>
         </Field>
 
@@ -273,6 +274,8 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
                 ? "Required Document: Admission Letter"
                 : data.category === "BUSINESS"
                 ? "Required Document: CAC Business Registration Certificate"
+                : data.category === "RELIGIOUS"
+                ? "Required Documents: Host Invitation & Religious Assignment Letters"
                 : "Required Document: Employment Appointment Letter"}
             </div>
             <p className="mt-0.5 text-xs text-slate-600">
@@ -280,6 +283,8 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
                 ? "Applicants under the Student category must upload a valid admission letter before proceeding."
                 : data.category === "BUSINESS"
                 ? "Applicants under the Business category must upload a valid CAC business registration certificate / documents before proceeding."
+                : data.category === "RELIGIOUS"
+                ? "Applicants under the Religious Activities category must upload an official invitation letter from the host religious organization and a letter of religious assignment or sponsorship before proceeding."
                 : "Applicants under the Work category must upload a valid employment appointment letter before proceeding."}
             </p>
           </div>

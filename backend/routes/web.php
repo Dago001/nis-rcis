@@ -63,6 +63,11 @@ Route::middleware('web')->group(function () {
     Route::get('/reset-password', fn () => Inertia::render('Auth/ResetPassword'))->name('reset-password');
     Route::get('/auth-error', fn () => Inertia::render('Auth/AuthError'))->name('auth-error');
 
+    // Convenience redirects for applicant navigation
+    Route::get('/cart', fn () => redirect('/portal/cart'));
+    Route::get('/payment', fn () => redirect('/portal/payments'));
+    Route::get('/payments', fn () => redirect('/portal/payments'));
+
     // ------------------------------------------------ OAuth2 Authorization Server
     Route::prefix('oauth')->name('passport.')->group(function () {
         Route::get('/authorize', [AuthorizeController::class, 'authorize'])->name('authorizations.authorize');
@@ -103,6 +108,7 @@ Route::middleware('web')->group(function () {
     Route::middleware('auth:applicant')->prefix('portal')->name('portal.')->group(function () {
         Route::get('/', fn () => Inertia::render('Portal/Dashboard'))->name('dashboard');
         Route::get('/apply', fn () => Inertia::render('Portal/Apply'))->name('apply');
+        Route::get('/cart', fn () => Inertia::render('Portal/Cart'))->name('cart');
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Portal/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
         Route::get('/cards', fn () => Inertia::render('Portal/Cards'))->name('cards');
         Route::get('/payments', fn () => Inertia::render('Portal/Payments'))->name('payments');

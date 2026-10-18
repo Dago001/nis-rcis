@@ -41,9 +41,9 @@ class ApplicationSubmission
         }
 
         $category = strtoupper($data['category'] ?? '');
-        if (! in_array($category, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+        if (! in_array($category, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
             $draftCategory = strtoupper($draft?->data['category'] ?? '');
-            if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+            if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
                 $category = $draftCategory;
             } elseif ($documents->contains('type', DocumentType::AdmissionLetter)) {
                 $category = 'STUDENT';
@@ -51,6 +51,8 @@ class ApplicationSubmission
                 $category = 'BUSINESS';
             } elseif ($documents->contains('type', DocumentType::AppointmentLetter)) {
                 $category = 'WORK';
+            } elseif ($documents->contains('type', DocumentType::ReligiousInvitation) || $documents->contains('type', DocumentType::ReligiousAssignment)) {
+                $category = 'RELIGIOUS';
             } else {
                 $category = 'WORK';
             }
@@ -64,6 +66,10 @@ class ApplicationSubmission
             $requiredTypes[] = DocumentType::AdmissionLetter;
         } elseif ($category === 'WORK') {
             $requiredTypes[] = DocumentType::AppointmentLetter;
+        } elseif ($category === 'RELIGIOUS') {
+            $requiredTypes[] = DocumentType::ReligiousInvitation;
+            $requiredTypes[] = DocumentType::ReligiousAssignment;
+            $requiredTypes[] = DocumentType::ReligiousActivitiesDetails;
         }
 
         $missing = collect($requiredTypes)
@@ -174,9 +180,9 @@ class ApplicationSubmission
         // Validate required documents
         $documents = $draft->documents ?? collect();
         $category = strtoupper($data['category'] ?? '');
-        if (! in_array($category, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+        if (! in_array($category, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
             $draftCategory = strtoupper($draft->data['category'] ?? '');
-            if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT'], true)) {
+            if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
                 $category = $draftCategory;
             } elseif ($documents->contains('type', DocumentType::AdmissionLetter)) {
                 $category = 'STUDENT';
@@ -184,6 +190,8 @@ class ApplicationSubmission
                 $category = 'BUSINESS';
             } elseif ($documents->contains('type', DocumentType::AppointmentLetter)) {
                 $category = 'WORK';
+            } elseif ($documents->contains('type', DocumentType::ReligiousInvitation) || $documents->contains('type', DocumentType::ReligiousAssignment)) {
+                $category = 'RELIGIOUS';
             } else {
                 $category = 'WORK';
             }
@@ -196,6 +204,10 @@ class ApplicationSubmission
             $requiredTypes[] = DocumentType::AdmissionLetter;
         } elseif ($category === 'WORK') {
             $requiredTypes[] = DocumentType::AppointmentLetter;
+        } elseif ($category === 'RELIGIOUS') {
+            $requiredTypes[] = DocumentType::ReligiousInvitation;
+            $requiredTypes[] = DocumentType::ReligiousAssignment;
+            $requiredTypes[] = DocumentType::ReligiousActivitiesDetails;
         }
 
         $missing = collect($requiredTypes)
@@ -269,7 +281,7 @@ class ApplicationSubmission
 
         if ($open) {
             throw ValidationException::withMessages([
-                'passport_number' => "Application {$open->application_number} for this passport is still being processed.",
+                'passport_number' => 'This passport number is already associated with an existing record. Please review your details or contact support if you believe this is an error.',
             ]);
         }
     }

@@ -13,6 +13,11 @@ enum DocumentType: string
     case CacCertificate = 'cac_certificate';
     case AdmissionLetter = 'admission_letter';
     case AppointmentLetter = 'appointment_letter';
+    case ReligiousInvitation = 'religious_invitation';
+    case ReligiousAssignment = 'religious_sponsorship';
+    case ReligiousActivitiesDetails = 'religious_activities_details';
+    case ReligiousRegistration = 'religious_registration';
+    case ReligiousAffiliation = 'religious_affiliation';
     case Additional = 'additional';
 
     public function label(): string
@@ -27,6 +32,11 @@ enum DocumentType: string
             self::CacCertificate => 'CAC Business Registration Certificate / Documents',
             self::AdmissionLetter => 'Institution Admission Letter',
             self::AppointmentLetter => 'Employment Appointment / Offer Letter',
+            self::ReligiousInvitation => 'Letter of Invitation from Host Religious Organization',
+            self::ReligiousAssignment => 'Letter of Religious Assignment or Sponsorship',
+            self::ReligiousActivitiesDetails => 'Details of Intended Religious Activities',
+            self::ReligiousRegistration => 'Evidence of Host Organization Registration or Recognition',
+            self::ReligiousAffiliation => "Evidence of Applicant's Religious Role or Affiliation",
             self::Additional => 'Additional document',
         };
     }
@@ -49,6 +59,11 @@ enum DocumentType: string
             self::CacCertificate,
             self::AdmissionLetter,
             self::AppointmentLetter,
+            self::ReligiousInvitation,
+            self::ReligiousAssignment,
+            self::ReligiousActivitiesDetails,
+            self::ReligiousRegistration,
+            self::ReligiousAffiliation,
             self::Additional,
         ];
     }

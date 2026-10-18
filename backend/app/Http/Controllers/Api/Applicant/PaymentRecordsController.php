@@ -21,16 +21,23 @@ class PaymentRecordsController
     public function index(Request $request, RefundService $refunds): JsonResponse
     {
         $applicant = $this->applicant($request);
-        $payments = Payment::with('application:id,application_number,status')->where('applicant_id', $applicant->id)
-            ->whereIn('status', ['SUCCESS', 'REFUNDED'])->latest('id')->get();
+        $payments = Payment::with('application:id,application_number,reference_number,status')
+            ->where('applicant_id', $applicant->id)
+            ->latest('id')
+            ->get();
         $requests = Refund::where('applicant_id', $applicant->id)->get()->keyBy('payment_id');
 
         return response()->json(['data' => $payments->map(fn (Payment $p) => [
             'reference' => $p->reference,
             'amount_naira' => $p->amount_kobo / 100,
             'status' => $p->status,
-            'paid_at' => $p->paid_at?->toIso8601String(),
-            'application' => $p->application ? ['id' => $p->application->id, 'application_number' => $p->application->application_number, 'status' => $p->application->status->value] : null,
+            'paid_at' => $p->paid_at?->toIso8601String() ?? $p->created_at?->toIso8601String(),
+            'application' => $p->application ? [
+                'id' => $p->application->id,
+                'application_number' => $p->application->application_number,
+                'reference_number' => $p->application->reference_number,
+                'status' => $p->application->status->value,
+            ] : null,
             'refundable' => $refunds->eligible($p),
             'refund' => ($r = $requests->get($p->id)) ? ['status' => $r->status, 'reason' => $r->reason, 'decision_notes' => $r->decision_notes, 'requested_at' => $r->created_at?->toIso8601String()] : null,
         ])]);

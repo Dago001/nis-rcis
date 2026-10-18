@@ -25,6 +25,69 @@ class DraftController
         return response()->json(['draft' => $draft ? $this->present($draft) : null]);
     }
 
+    public function checkPassport(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'passport_number' => ['required', 'string', 'max:20'],
+            'travel_document_type' => ['nullable', 'string', 'max:20'],
+            'type' => ['nullable', 'string', Rule::in(['NEW', 'RENEWAL', 'REPLACE'])],
+            'renewal_card_number' => ['nullable', 'string', 'max:30'],
+            'principal_application_id' => ['nullable', 'integer'],
+        ]);
+
+        $passport = strtoupper(trim($data['passport_number']));
+        if (! preg_match('/^[A-Za-z0-9-]{4,20}$/', $passport)) {
+            return response()->json([
+                'valid' => false,
+                'message' => '4–20 letters and digits (hyphens allowed), no spaces.',
+                'errors' => ['passport_number' => ['4–20 letters and digits (hyphens allowed), no spaces.']],
+            ], 422);
+        }
+
+        $applicant = $this->applicant($request);
+        $type = strtoupper(trim($data['type'] ?? 'NEW'));
+        $forDependant = ! empty($data['principal_application_id']);
+
+        $renewalCard = null;
+        if (in_array($type, ['RENEWAL', 'REPLACE'], true) && ! empty($data['renewal_card_number'])) {
+            $renewalCard = \App\Models\ResidenceCard::where('card_number', $data['renewal_card_number'])->first();
+        }
+
+        $query = \App\Models\Application::query()
+            ->where(fn ($q) => $forDependant
+                ? $q->where('passport_number', $passport)
+                : $q->where(fn ($own) => $own->where('applicant_id', $applicant->id)->whereNull('principal_application_id'))->orWhere('passport_number', $passport))
+            ->whereNotIn('status', [\App\Enums\ApplicationStatus::Rejected, \App\Enums\ApplicationStatus::Issued]);
+
+        if ($renewalCard) {
+            $ignoreAppId = $renewalCard->application?->id;
+            if ($ignoreAppId) {
+                $query->where('id', '!=', $ignoreAppId);
+            }
+            $query->where(function ($q) use ($renewalCard) {
+                $q->whereNull('card_id')->orWhere('card_id', '!=', $renewalCard->id);
+            });
+        }
+
+        $query->whereDoesntHave('card', function ($cardQuery) {
+            $cardQuery->whereIn('status', [\App\Enums\CardStatus::Issued, \App\Enums\CardStatus::Renewed]);
+        });
+
+        $open = $query->first();
+
+        if ($open) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'This passport number is already associated with an existing record. Please review your details or contact support if you believe this is an error.',
+                'errors' => [
+                    'passport_number' => ['This passport number is already associated with an existing record. Please review your details or contact support if you believe this is an error.'],
+                ],
+            ], 422);
+        }
+
+        return response()->json(['valid' => true]);
+    }
+
     public function save(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -38,6 +101,22 @@ class DraftController
         $payloadData['type'] = $data['type'];
         if (! empty($payloadData['category']) && is_string($payloadData['category'])) {
             $payloadData['category'] = strtoupper(trim($payloadData['category']));
+        }
+
+        // Validate passport uniqueness when advancing beyond Step 1
+        if ($data['current_step'] > 1 && ! empty($payloadData['passport_number'])) {
+            $passportCheck = new Request([
+                'passport_number' => $payloadData['passport_number'],
+                'travel_document_type' => $payloadData['travel_document_type'] ?? null,
+                'type' => $data['type'],
+                'renewal_card_number' => $payloadData['renewal_card_number'] ?? null,
+                'principal_application_id' => $payloadData['principal_application_id'] ?? null,
+            ]);
+            $passportCheck->setUserResolver($request->getUserResolver());
+            $checkRes = $this->checkPassport($passportCheck);
+            if ($checkRes->getStatusCode() !== 200) {
+                return $checkRes;
+            }
         }
 
         $draft = ApplicationDraft::updateOrCreate(

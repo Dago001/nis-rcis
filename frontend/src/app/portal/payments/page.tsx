@@ -55,7 +55,7 @@ export default function PaymentsPage() {
         {loading || !data ? (
           <Spinner />
         ) : data.data.length === 0 ? (
-          <p className="text-sm text-slate-600">You have not made any payments yet.</p>
+          <p className="text-sm text-slate-600">{t("No payment records found.")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {data.data.map((p) => (
@@ -65,15 +65,25 @@ export default function PaymentsPage() {
                     <div className="font-medium">{naira(p.amount_naira)} · <span className="font-mono">{p.reference}</span></div>
                     <div className="text-xs text-slate-500">
                       Paid {dateTime(p.paid_at)} ·{" "}
-                      {p.application ? <Link href={`/portal/applications/${p.application.id}`} className="underline">{p.application.application_number}</Link> : "not used for an application"}
+                      {p.application ? (
+                        <Link href={`/portal/applications/${p.application.id}`} className="underline">
+                          {p.application.reference_number || p.application.application_number}
+                        </Link>
+                      ) : "not used for an application"}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {p.status === "REFUNDED" && <StatusBadge status="REFUNDED" label="Refunded" />}
+                    {p.status === "REFUNDED" ? (
+                      <StatusBadge status="REFUNDED" label="Refunded" />
+                    ) : (
+                      <StatusBadge status={p.status} label={p.status === "SUCCESS" ? "Successful" : p.status} />
+                    )}
                     {/* Plain link: a PDF download through the BFF. */}
-                    <a href={withBase(`/api/bff/applicant/payment-records/${encodeURIComponent(p.reference)}/receipt`)} className="rounded-md border border-slate-300 px-3 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">
-                      {t("Download receipt (PDF)")}
-                    </a>
+                    {(p.status === "SUCCESS" || p.status === "REFUNDED") && (
+                      <a href={withBase(`/api/bff/applicant/payment-records/${encodeURIComponent(p.reference)}/receipt`)} className="rounded-md border border-slate-300 px-3 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">
+                        {t("Download receipt (PDF)")}
+                      </a>
+                    )}
                     {p.refundable && refunding !== p.reference && (
                       <Button variant="secondary" onClick={() => { setRefunding(p.reference); setFormError(null); }}>{t("Request refund")}</Button>
                     )}

@@ -40,6 +40,8 @@ export function countWords(str: string): number {
 }
 
 export const RULES: Record<string, Check> = {
+  category: (v) => (!v || !v.trim() ? "Select a category." : !["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(v.trim().toUpperCase()) ? "Select a valid category." : undefined),
+  travel_document_type: (v) => (!v || !v.trim() ? "Select a travel document type." : !["PASSPORT", "ECOWAS_TC", "NATIONAL_ID"].includes(v.trim().toUpperCase()) ? "Select a valid travel document." : undefined),
   quota_reference: pattern(/^[A-Za-z0-9][A-Za-z0-9/ .-]*$/, "Use letters, numbers and / only, as printed on the quota approval."),
   employer_name: (v, d) => (d.quota_reference?.trim() && !v.trim() ? "Enter the employer named on the quota approval." : v.trim() && !TEXT.test(v.trim()) ? "Use letters only." : undefined),
   renewal_card_number: all(required("The card number"), pattern(/^[0-9]{3,12}$/, "Card numbers contain digits only.")),

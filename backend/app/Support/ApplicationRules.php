@@ -30,7 +30,7 @@ class ApplicationRules
     public static function particulars(?string $keepNationality = null): array
     {
         return [
-            'category' => ['sometimes', 'required', 'string', Rule::in(['WORK', 'BUSINESS', 'STUDENT'])],
+            'category' => ['sometimes', 'required', 'string', Rule::in(['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'])],
             'surname' => ['required', 'string', 'max:100', 'regex:'.self::NAME],
             'forenames' => ['required', 'string', 'max:150', 'regex:'.self::NAME],
             // ECOWAS residence card: citizens of ECOWAS member states only.

@@ -14,8 +14,9 @@ export default async function PortalLayout({ children }: LayoutProps<"/portal">)
         portal="applicant"
         links={[
           { href: "/portal", label: t("My applications") },
+          { href: "/portal/cart", label: t("My Cart") },
+          { href: "/portal/payments", label: t("Payment") },
           { href: "/portal/cards", label: t("My cards") },
-          { href: "/portal/payments", label: t("Payments") },
         ]}
       />
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">{children}</main>

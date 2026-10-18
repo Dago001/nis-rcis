@@ -45,6 +45,7 @@ function cardType(c: Card): string {
   const cat = (c.category || "").toUpperCase();
   if (cat === "BUSINESS") return "TYPE 02 - BUSINESS RESIDENCE";
   if (cat === "STUDENT") return "TYPE 03 - STUDENT RESIDENCE";
+  if (cat === "RELIGIOUS") return "TYPE 04 - RELIGIOUS RESIDENCE";
   return "TYPE 01 - RESIDENCE CARD";
 }
 

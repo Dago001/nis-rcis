@@ -150,6 +150,9 @@ class Application extends Model
             if ($docs->contains('type', DocumentType::AppointmentLetter)) {
                 return 'WORK';
             }
+            if ($docs->contains('type', DocumentType::ReligiousInvitation) || $docs->contains('type', DocumentType::ReligiousAssignment)) {
+                return 'RELIGIOUS';
+            }
         }
 
         return null;
