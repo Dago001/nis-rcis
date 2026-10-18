@@ -164,7 +164,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
   function handleSelectSuggestion(app: Application) {
     setShowDropdown(false);
-    router.push(`/staff/applications/${app.id}`);
+    router.push(`${basePath}/${app.id}`);
   }
 
   // Pagination calculation
@@ -195,36 +195,48 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
     <div className="space-y-5">
       <PageTitle title={pageTitle} subtitle={pageSubtitle} />
 
-      {/* Search Bar with Live Suggestions */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2">
-        <div ref={searchContainerRef} className="relative flex-1">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onFocus={() => {
-              if (searchInput.trim().length >= 1) {
-                setShowDropdown(true);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setShowDropdown(false);
-              }
-            }}
-            placeholder="Search by application number, passport number or applicant name"
-            className="w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nis-primary/20"
-          />
-          {searchInput && (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-400 hover:text-slate-600 focus:outline-none"
-              title="Clear search"
-            >
-              ✕
-            </button>
-          )}
+      {/* Unified Search Bar & Dropdown Filters Row */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        {/* Search Bar with Live Suggestions (reduced width, flexible) */}
+        <div ref={searchContainerRef} className="relative flex-1 min-w-[260px]">
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-3.5 text-slate-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onFocus={() => {
+                  if (searchInput.trim().length >= 1) {
+                    setShowDropdown(true);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setShowDropdown(false);
+                  }
+                }}
+                placeholder="Search by application number, passport number or applicant name"
+                className="w-full rounded-md border border-slate-300 bg-white !pl-10 !pr-10 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+              />
+              {isSearching ? (
+                <span className="absolute right-3 h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
+              ) : searchInput ? (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute right-3 flex items-center text-xs text-slate-400 hover:text-slate-600 focus:outline-none"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+          </form>
 
           {/* Live Suggestions Dropdown */}
           {showDropdown && searchInput.trim().length >= 1 && (
@@ -269,57 +281,57 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
             </div>
           )}
         </div>
-        <Button type="submit">Search</Button>
-      </form>
 
-      {/* Secondary quick filters */}
-      <div className="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Quick filters">
-        {([["me", "Assigned to me"], ["unassigned", "Unassigned"]] as const).map(([v, l]) => (
-          <Link
-            key={v}
-            href={buildUrl({ assigned: assigned === v ? "" : v, page: 1 })}
-            aria-pressed={assigned === v}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              assigned === v
-                ? "border-nis-primary bg-nis-mint text-nis-primary-dark"
-                : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
-            }`}
+        {/* First Dropdown: Status Filter */}
+        <div className="w-full md:w-56 shrink-0">
+          <select
+            value={currentStatus}
+            onChange={(e) => router.push(buildUrl({ status: e.target.value, page: 1 }))}
+            aria-label="Status filter"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
           >
-            {l}
-          </Link>
-        ))}
-        <Link
-          href={buildUrl({ overdue: !overdue, page: 1 })}
-          aria-pressed={overdue}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-            overdue
-              ? "border-red-400 bg-red-50 text-red-800"
-              : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
-          }`}
-        >
-          Past the service-level target
-        </Link>
-      </div>
+            <option value="">Status: All</option>
+            {isApprovers ? (
+              <>
+                <option value="VETTED">Awaiting Approval</option>
+                <option value="APPROVED_FOR_BIOMETRICS">Approved</option>
+                <option value="QUERIED">Queried</option>
+                <option value="REJECTED">Rejected</option>
+              </>
+            ) : (
+              <>
+                <option value="PENDING_APPROVAL">Awaiting Vetting</option>
+                <option value="QUERIED">Queried</option>
+                <option value="VETTED">Vetted</option>
+                <option value="REJECTED">Rejected</option>
+              </>
+            )}
+          </select>
+        </div>
 
-      {/* Application Status Filters */}
-      <div className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-2.5 pt-1">
-        {statusFilters.map(({ key, label }) => {
-          const isActive = currentStatus === key;
-          return (
-            <button
-              key={key || "all"}
-              type="button"
-              onClick={() => router.push(buildUrl({ status: key, page: 1 }))}
-              className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                isActive
-                  ? "bg-nis-primary text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
+        {/* Second Dropdown: Assignment / Workload Filter */}
+        <div className="w-full md:w-64 shrink-0">
+          <select
+            value={overdue ? "overdue" : assigned || ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "overdue") {
+                router.push(buildUrl({ assigned: "", overdue: true, page: 1 }));
+              } else if (val === "me" || val === "unassigned") {
+                router.push(buildUrl({ assigned: val, overdue: false, page: 1 }));
+              } else {
+                router.push(buildUrl({ assigned: "", overdue: false, page: 1 }));
+              }
+            }}
+            aria-label="Assignment / Workload filter"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+          >
+            <option value="">Assignment / Workload: All</option>
+            <option value="me">Assigned to Me</option>
+            <option value="unassigned">Unassigned</option>
+            <option value="overdue">Past Service Level Target</option>
+          </select>
+        </div>
       </div>
 
       {/* Applications Table / Results */}
@@ -363,19 +375,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/staff/applications/${a.id}`}
+                        href={`${basePath}/${a.id}`}
                         className="font-semibold text-nis-green hover:underline"
                       >
                         {a.application_number}
                       </Link>
-                      {(a.risk_flags?.length ?? 0) > 0 && (
-                        <span
-                          className="ml-2 rounded bg-nis-red px-1.5 text-[11px] font-semibold text-white"
-                          title={a.risk_flags!.map((f) => f.message).join("\n")}
-                        >
-                          ⚠ {a.risk_flags!.length}
-                        </span>
-                      )}
                       <div className="text-xs text-slate-500">
                         {a.channel === "ASSISTED" ? "Assisted" : "Online"} · {applicationType(a)}
                       </div>

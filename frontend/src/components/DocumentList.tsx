@@ -55,10 +55,7 @@ export function DocumentList({ scope, applicationId, documents }: { scope: ApiSc
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-slate-200">
           <tr>
-            <th className="px-4 py-3">Document Name</th>
-            <th className="px-4 py-3">File Type</th>
-            <th className="px-4 py-3">Size</th>
-            <th className="px-4 py-3">Upload Date</th>
+            <th className="px-4 py-3">Supporting Document</th>
             <th className="px-4 py-3 text-right">Action</th>
           </tr>
         </thead>
@@ -66,11 +63,11 @@ export function DocumentList({ scope, applicationId, documents }: { scope: ApiSc
           {documents.map((d) => (
             <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
               <td className="px-4 py-3 font-medium text-slate-900">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
-                  <span>{d.label}</span>
+                  <span className="text-sm text-slate-800">{d.label}</span>
                   {d.version > 1 && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">
                       v{d.version}
@@ -78,24 +75,15 @@ export function DocumentList({ scope, applicationId, documents }: { scope: ApiSc
                   )}
                 </div>
               </td>
-              <td className="px-4 py-3 text-xs text-slate-600 uppercase font-mono">
-                {d.mime_type ? d.mime_type.split("/")[1] || d.mime_type : "File"}
-              </td>
-              <td className="px-4 py-3 text-xs text-slate-600">
-                {formatBytes(d.size_bytes)}
-              </td>
-              <td className="px-4 py-3 text-xs text-slate-600">
-                {formatDate(d.uploaded_at)}
-              </td>
               <td className="px-4 py-3 text-right">
                 <button
                   type="button"
                   disabled={openingId === d.id}
                   onClick={() => open(d.id)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-nis-green hover:underline disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-nis-green hover:bg-slate-50 hover:border-nis-green hover:underline transition-colors disabled:opacity-50"
                 >
                   <span>{openingId === d.id ? "Opening..." : "View"}</span>
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </button>

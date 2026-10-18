@@ -7,7 +7,7 @@ import { DocumentList } from "@/components/DocumentList";
 import { PageTitle } from "@/components/PageTitle";
 import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Alert, Button, Dl, Field, Panel, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
@@ -30,20 +30,31 @@ type Detail = {
   payments: { reference: string; status: string; amount_kobo: number; verified_at: string | null }[];
 };
 
-export default function StaffApprovalDetailPage() {
-  const { id } = useParams<{ id: string }>();
+export default function StaffApprovalDetailPage({ id: propId }: { id?: string | number } = {}) {
+  const params = useParams<{ id: string }>();
+  const id = propId ? String(propId) : params?.id;
   const user = useStaff();
+
   const [detail, setDetail] = useState<Detail | null>(null);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => api<Detail>("staff", `applications/${id}`).then(setDetail), [id]);
+  const load = useCallback(() => {
+    if (!id) return Promise.reject(new Error("Application ID is required"));
+    return api<Detail>("staff", `applications/${id}`).then(setDetail);
+  }, [id]);
+
   useEffect(() => {
-    load().catch((e) => setError(e.message));
-  }, [load]);
+    if (id) {
+      load().catch((e) => setError(e.message));
+    } else {
+      setError("No valid application ID was provided.");
+    }
+  }, [id, load]);
 
   async function act(path: string, body?: unknown) {
+    if (!id) return;
     setBusy(true);
     setError(null);
     try {
@@ -57,7 +68,62 @@ export default function StaffApprovalDetailPage() {
     }
   }
 
-  if (!detail) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
+  if (!id) {
+    return (
+      <div className="space-y-4 p-6">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Link href="/staff/approvals" className="hover:text-nis-primary font-medium">← Back to Approvers</Link>
+        </div>
+        <Alert tone="danger">
+          <div className="space-y-2">
+            <div className="font-semibold text-base">Invalid or Missing Application Identifier</div>
+            <p className="text-sm">No valid application identifier was provided in the URL or request.</p>
+            <div className="pt-2">
+              <Link
+                href="/staff/approvals"
+                className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Return to Approvers Queue
+              </Link>
+            </div>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!detail) {
+    if (error) {
+      return (
+        <div className="space-y-4 p-6">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Link href="/staff/approvals" className="hover:text-nis-primary font-medium">← Back to Approvers</Link>
+          </div>
+          <Alert tone="danger">
+            <div className="space-y-2">
+              <div className="font-semibold text-base">Application Not Found or Inaccessible</div>
+              <p className="text-sm">{error}</p>
+              <div className="pt-2">
+                <Link
+                  href="/staff/approvals"
+                  className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Return to Approvers Queue
+                </Link>
+              </div>
+            </div>
+          </Alert>
+        </div>
+      );
+    }
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <Spinner />
+        <p className="text-xs text-slate-500">Loading application details for final approval review...</p>
+      </div>
+    );
+  }
+
   const a = detail.data;
   const isApprovingStaff = hasRole(user, "ApprovingOfficer", "SuperAdmin", "Admin");
   const isVetted = a.status === "VETTED";
@@ -80,12 +146,16 @@ export default function StaffApprovalDetailPage() {
         subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
             {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-              <Link href={`/portal/applications/${a.id}/slip?kind=appointment`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Appointment slip</Link>
+              <Link
+                href={`/portal/applications/${a.id}/slip?kind=appointment&from=staff&return_to=${encodeURIComponent(`/staff/approvals/${a.id}`)}`}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-800"
+              >
+                Appointment slip
+              </Link>
             )}
             {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-              <Link href={`/portal/applications/${a.id}/slip?kind=temporary`} target="_blank" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
+              <Link href={`/portal/applications/${a.id}/slip?kind=temporary&from=staff&return_to=${encodeURIComponent(`/staff/approvals/${a.id}`)}`} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
             )}
             {a.card && <Link href={`/staff/cards/${a.card.id}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Card {a.card.card_number}</Link>}
           </div>
@@ -96,34 +166,58 @@ export default function StaffApprovalDetailPage() {
 
       {/* Stage 1 Vetting Outcome Banner */}
       {a.status === "VETTED" && (
-        <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/80 p-5 space-y-3 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 pb-2">
+        <div
+          className="rounded-2xl p-5 space-y-3 shadow-xs"
+          style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+        >
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 pb-2"
+            style={{ borderBottom: "1px solid #D4E8DA" }}
+          >
             <div className="flex items-center gap-2">
-              <span className="flex h-3 w-3 rounded-full bg-emerald-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
-                Stage 1 Completed: Vetted by Vetting Officer — Ready for Final Approval
+              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
+                Stage One Completed
               </span>
             </div>
-            {a.vetted_at && (
-              <span className="text-xs font-medium text-emerald-800">
-                Vetted on {dateTime(a.vetted_at)}
-              </span>
-            )}
+            <span
+              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+            >
+              Vetted – Awaiting Final Approval
+            </span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 text-sm text-slate-800">
+          <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-800">
             <div>
-              <span className="font-semibold text-emerald-950">Vetting Officer:</span>{" "}
+              <span className="font-semibold text-slate-900">Vetted By:</span>{" "}
               {a.vetted_by ? `${a.vetted_by.fullname} (${a.vetted_by.service_number})` : "Immigration Vetting Officer"}
             </div>
             {a.vetted_at && (
               <div>
-                <span className="font-semibold text-emerald-950">Vetting Timestamp:</span> {dateTime(a.vetted_at)}
+                <span className="font-semibold text-slate-900">Date/Time:</span> {dateTime(a.vetted_at)}
+              </div>
+            )}
+            <div>
+              <span className="font-medium text-slate-600">Vetting Status:</span>{" "}
+              <span className="font-semibold text-slate-900">Vetted</span>
+            </div>
+            {a.vetted_at && (
+              <div>
+                <span className="font-medium text-slate-600">Vetting Time:</span>{" "}
+                <span className="font-semibold text-slate-900">
+                  {new Date(a.vetted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                </span>
               </div>
             )}
           </div>
           {a.vetting_notes && (
-            <div className="rounded-xl border border-emerald-200 bg-white p-3.5 text-sm text-slate-900">
-              <span className="font-bold text-nis-primary block mb-1">Vetting Verification Remarks:</span>
+            <div
+              className="rounded-xl bg-white p-3.5 text-xs text-slate-800"
+              style={{ border: "1px solid #D4E8DA" }}
+            >
+              <span className="font-semibold block mb-1" style={{ color: "#246B45" }}>
+                Vetting Remarks:
+              </span>
               <p className="whitespace-pre-wrap">{a.vetting_notes}</p>
             </div>
           )}
@@ -193,35 +287,53 @@ export default function StaffApprovalDetailPage() {
         onRun={() => act("integration-checks")}
       />
 
-      {/* 1. Applicant Information */}
+      {/* 1. Application Information */}
+      <Panel title="Application Information">
+        <Dl
+          items={[
+            ["Application Reference", a.application_number],
+            ["Application Type", `${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true)}`],
+            ["Category", a.category || "General"],
+            ["Classification", a.renewal_of_card_id ? "Renewal Application" : "New Application"],
+            ["Current Status", a.status === "VETTED" ? "Vetted – Awaiting Final Approval" : (a.status_label || a.status)],
+            ["Submission Date", dateTime(a.submitted_at)],
+            ["Enrollment Center", a.enrollment_center?.name || a.enrollment_center?.code || "—"],
+            ["Scheduled Appointment", a.appointment_date ? `${nisDate(a.appointment_date)} at ${a.appointment_time}` : "Not scheduled"],
+            ["Fee & Payment", `${naira(a.fee_amount_naira)} — ${a.payment_status}`],
+            ...detail.payments.map((p) => [`Payment Ref ${p.reference}`, `${p.status}${p.verified_at ? " (verified)" : ""}`] as [string, string]),
+          ]}
+        />
+      </Panel>
+
+      {/* 2. Applicant Personal Information */}
       <Panel title="Applicant Personal Information">
         <div className="flex flex-col gap-6 sm:flex-row">
-          {detail.photo_url && (
-            <div className="shrink-0 space-y-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <div className="shrink-0 space-y-2">
+            {detail.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={detail.photo_url}
                 alt="Applicant"
                 className="h-48 w-40 rounded-xl border border-slate-200 bg-slate-50 object-cover shadow-sm"
               />
-              <span className="block text-center text-xs font-medium text-slate-500">Applicant Photo</span>
-            </div>
-          )}
+            ) : (
+              <div className="flex h-48 w-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">
+                No Photo Uploaded
+              </div>
+            )}
+            <span className="block text-center text-xs font-medium text-slate-500">Applicant Photo</span>
+          </div>
           <div className="min-w-0 flex-1">
             <Dl
               items={[
                 ["Full Name", `${a.surname}, ${a.forenames}`],
-                ["Application Ref.", a.application_number],
-                ["Category / Type", `${a.category || "General"} · ${applicationType(a, true)}`],
-                ["Nationality", a.nationality],
                 ["Sex", a.sex],
                 ["Date of Birth", nisDate(a.date_of_birth)],
                 ["Place of Birth", a.place_of_birth],
-                ["Passport / Travel Doc", `${a.passport_number} (expires ${nisDate(a.passport_expiry)})`],
-                ["Profession / Employer", `${a.profession || "—"}${a.employer_name ? ` · ${a.employer_name}` : ""}${a.quota_reference ? ` (Quota Ref: ${a.quota_reference})` : ""}`],
-                ["Phone", a.phone],
-                ["E-mail", a.email],
-                ["Residential Address", a.domicile],
+                ["Nationality", a.nationality],
+                ["Phone Number", a.phone],
+                ["E-mail Address", a.email],
+                ["Residential Address", a.domicile ? `${a.domicile}${a.domicile_lga ? `, ${a.domicile_lga} LGA` : ""}${a.domicile_state ? `, ${a.domicile_state} State` : ""}` : "—"],
                 ["Physical Features", `Height: ${a.height ?? "—"} · Complexion: ${a.complexion ?? "—"} · Eyes: ${a.eye_color ?? "—"} · Hair: ${a.hair_color ?? "—"}`],
                 ["Emergency Contact", `${a.emergency_contact_name || "—"} (${a.emergency_contact_relation || "—"}) ${a.emergency_contact_phone || ""}`],
               ]}
@@ -230,40 +342,50 @@ export default function StaffApprovalDetailPage() {
         </div>
       </Panel>
 
-      {/* 2. Application & Appointment Information */}
-      <Panel title="Application, Payment & Appointment Details">
+      {/* 3. Passport & Travel Document Information */}
+      <Panel title="Passport and Travel Document Information">
         <Dl
           items={[
-            ["Application Type", `${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true)}`],
-            ["Submission Date", dateTime(a.submitted_at)],
-            ["Internal Vetting Outcome", a.vetted_at ? `Vetted on ${dateTime(a.vetted_at)} by ${a.vetted_by?.fullname || "Vetting Officer"}` : "Awaiting Vetting"],
-            ["Current Status", a.status === "VETTED" ? "Vetted – Awaiting Approval" : (a.status_label || a.status)],
-            ["Enrollment Center", a.enrollment_center?.name || "—"],
-            ["Scheduled Appointment", a.appointment_date ? `${nisDate(a.appointment_date)} at ${a.appointment_time}` : "Not scheduled"],
-            ["Fee & Payment", `${naira(a.fee_amount_naira)} — ${a.payment_status}`],
-            ...detail.payments.map((p) => [`Payment Reference ${p.reference}`, `${p.status}${p.verified_at ? " (verified)" : ""}`] as [string, string]),
+            ["Travel Document Type", "National Passport / ECOWAS Travel Certificate"],
+            ["Document / Passport Number", a.passport_number],
+            ["Date of Issue", nisDate(a.passport_issued_date) || "—"],
+            ["Expiry Date", `${nisDate(a.passport_expiry)}`],
+            ["Place of Issue", a.passport_issue_place || "—"],
           ]}
         />
       </Panel>
 
-      {/* 3. Supporting Documents */}
+      {/* 4. Application-Specific Information */}
+      {(a.profession || a.employer_name || a.employer_address || a.quota_reference || a.category) && (
+        <Panel title="Employment, Business & Institution Information">
+          <Dl
+            items={[
+              ["Application Class / Category", a.category || "General"],
+              ["Profession / Occupation", a.profession || "—"],
+              ["Employer / Business / School", a.employer_name || "—"],
+              ["Employer / Organization Address", a.employer_address || "—"],
+              ...(a.quota_reference ? [["Expatriate Quota Reference", a.quota_reference] as [string, string]] : []),
+            ]}
+          />
+        </Panel>
+      )}
+
+      {/* 5. Supporting Documents */}
       <Panel
         title="Supporting Documents"
-        subtitle="Inspect uploaded supporting documents thoroughly before granting final authorization."
       >
         <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} />
       </Panel>
 
-      {/* 4. Approving Officer Final Decision Controls */}
+      {/* 6. Approving Officer Final Decision Controls */}
       {isVetted && (
         <Panel
           title="Approving Officer Decision"
-          subtitle="Final administrative authorization. Approving authorizes the applicant to attend biometrics and triggers their official approval notification."
         >
           {canApprove ? (
             <div className="space-y-4">
               <Field
-                label="Decision Notes / Remarks"
+                label="Decision Remarks / Instructions"
                 hint="Required when querying or rejecting. Optional for final approval notes."
               >
                 <Textarea
@@ -316,33 +438,42 @@ export default function StaffApprovalDetailPage() {
 
       {/* Approved Status Audit Box */}
       {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-5 space-y-2.5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 pb-2">
+        <div
+          className="rounded-2xl p-5 space-y-3 shadow-xs"
+          style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+        >
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 pb-2"
+            style={{ borderBottom: "1px solid #D4E8DA" }}
+          >
             <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-sky-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-sky-900">
+              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
                 Application Approved — Authorized for Biometrics Attendance
               </span>
             </div>
             {a.decided_at && (
-              <span className="text-xs font-medium text-sky-800">
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              >
                 Approved: {dateTime(a.decided_at)}
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-700 space-y-1">
+          <div className="text-xs text-slate-800 space-y-1.5">
             {a.vetted_by && (
               <div>
                 <span className="font-semibold text-slate-900">Vetted by:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
-                {a.vetted_at && <span className="text-slate-500"> on {dateTime(a.vetted_at)}</span>}
-                {a.vetting_notes && <span className="italic text-slate-600"> — &quot;{a.vetting_notes}&quot;</span>}
+                {a.vetted_at && <span className="text-slate-600"> on {dateTime(a.vetted_at)}</span>}
+                {a.vetting_notes && <span className="italic text-slate-700"> — &quot;{a.vetting_notes}&quot;</span>}
               </div>
             )}
             {a.decided_by && (
               <div>
                 <span className="font-semibold text-slate-900">Approved by:</span> {a.decided_by.fullname} ({a.decided_by.service_number})
-                {a.decided_at && <span className="text-slate-500"> on {dateTime(a.decided_at)}</span>}
-                {a.decision_notes && <span className="italic text-slate-600"> — &quot;{a.decision_notes}&quot;</span>}
+                {a.decided_at && <span className="text-slate-600"> on {dateTime(a.decided_at)}</span>}
+                {a.decision_notes && <span className="italic text-slate-700"> — &quot;{a.decision_notes}&quot;</span>}
               </div>
             )}
           </div>

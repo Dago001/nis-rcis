@@ -66,7 +66,12 @@ export default function StaffApplicationPage() {
           <div className="flex flex-wrap gap-2">
             <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
             {["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-              <Link href={`/portal/applications/${a.id}/slip?kind=appointment`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Appointment slip</Link>
+              <Link
+                href={`/portal/applications/${a.id}/slip?kind=appointment&from=staff&return_to=${encodeURIComponent(`/staff/applications/${a.id}`)}`}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-800"
+              >
+                Appointment slip
+              </Link>
             )}
             {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
               <Link href={`/portal/applications/${a.id}/slip?kind=temporary`} target="_blank" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
@@ -122,8 +127,6 @@ export default function StaffApplicationPage() {
           </p>
         </div>
       )}
-
-      <RiskPanel flags={a.risk_flags ?? []} busy={busy} onRecheck={() => act("risk-check")} />
 
       <ExternalChecks checks={detail.integration_checks} quota={a.quota_reference ?? null}
         canRun={hasRole(user, "VettingOfficer", "ApprovingOfficer", "SuperAdmin")} busy={busy} onRun={() => act("integration-checks")} />
@@ -281,129 +284,101 @@ export default function StaffApplicationPage() {
       {/* Stage 2: Approver Review and Controls */}
       {a.status === "VETTED" && (
         <div className="space-y-5">
-          {/* Vetting Outcome Audit Box */}
-          <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-5 space-y-2.5 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-2">
+          <div
+            className="rounded-2xl p-5 space-y-3 shadow-xs"
+            style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+          >
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 pb-2"
+              style={{ borderBottom: "1px solid #D4E8DA" }}
+            >
               <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-blue-600" />
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
-                  Stage 1 Completed: Vetted — Awaiting Final Approval
+                <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
+                  Stage One Completed
                 </span>
               </div>
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              >
+                Vetted – Awaiting Final Approval
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-700">
+              {a.vetted_by && (
+                <div>
+                  <span className="font-semibold text-slate-900">Vetted By:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
+                </div>
+              )}
               {a.vetted_at && (
-                <span className="text-xs font-medium text-blue-800">
-                  Vetted: {dateTime(a.vetted_at)}
-                </span>
+                <div>
+                  <span className="font-semibold text-slate-900">Date/Time:</span> {dateTime(a.vetted_at)}
+                </div>
               )}
             </div>
-            <div className="text-sm text-slate-800">
-              <span className="font-semibold text-blue-950">Vetted By:</span>{" "}
-              {a.vetted_by ? `${a.vetted_by.fullname} (${a.vetted_by.service_number})` : "Immigration Vetting Officer"}
-            </div>
             {a.vetting_notes && (
-              <div className="rounded-xl border border-blue-200 bg-white p-3 text-xs text-slate-800">
-                <span className="font-semibold text-nis-primary block mb-0.5">Vetting Notes:</span>
+              <div
+                className="rounded-xl bg-white p-3 text-xs text-slate-800"
+                style={{ border: "1px solid #D4E8DA" }}
+              >
+                <span className="font-semibold block mb-0.5" style={{ color: "#246B45" }}>Vetting Remarks:</span>
                 <p className="whitespace-pre-wrap">{a.vetting_notes}</p>
               </div>
             )}
-            <p className="text-xs text-slate-500">
-              This application has passed initial vetting and is pending final authorization by an Approving Officer. Biometrics attendance is not yet authorized.
+            <p className="text-xs text-slate-600">
+              This application has passed internal vetting and is currently in the Approvers queue. Final approval must be performed by an Approving Officer under the Approvers section. Biometrics attendance is not yet authorized.
             </p>
+            <div className="pt-2">
+              <Link
+                href={`/staff/approvals/${a.id}`}
+                className="inline-flex items-center justify-center rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
+              >
+                Open in Approvals for Final Review →
+              </Link>
+            </div>
           </div>
-
-          {canApprove ? (
-            <Panel
-              title="Approval"
-              subtitle="Review the vetted particulars, supporting documents and vetting outcome before making a final approval decision."
-            >
-              <div className="space-y-4">
-                <Field
-                  label="Notes / Reason for Query or Rejection"
-                  hint="Required when querying or rejecting. Optional for approval notes."
-                >
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Enter query instructions, rejection grounds, or approval remarks..."
-                    rows={3}
-                  />
-                </Field>
-
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      confirm("Grant final approval for this application? This will authorize the applicant for biometrics attendance.") &&
-                      act("decision", {
-                        decision: "APPROVE",
-                        notes: notes.trim() || "Final approval granted for biometrics attendance.",
-                      })
-                    }
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    variant="gold"
-                    disabled={busy || !notes.trim()}
-                    onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
-                  >
-                    Query
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busy || !notes.trim()}
-                    onClick={() =>
-                      confirm("Reject this application permanently? This cannot be undone.") &&
-                      act("decision", { decision: "REJECT", notes: notes.trim() })
-                    }
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            </Panel>
-          ) : isVettingStaff ? (
-            <Alert tone="info">
-              <div className="space-y-1">
-                <div className="font-semibold text-sm">Application Vetted</div>
-                <p className="text-xs text-slate-800">
-                  This application has passed vetting and is currently in the Approvers queue awaiting final approval by an Approving Officer.
-                </p>
-              </div>
-            </Alert>
-          ) : null}
         </div>
       )}
 
       {/* Stage 3: Approved Status Audit Box */}
       {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-5 space-y-2.5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 pb-2">
+        <div
+          className="rounded-2xl p-5 space-y-3 shadow-xs"
+          style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+        >
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 pb-2"
+            style={{ borderBottom: "1px solid #D4E8DA" }}
+          >
             <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-sky-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-sky-900">
+              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
                 Application Approved — Authorized for Biometrics Attendance
               </span>
             </div>
             {a.decided_at && (
-              <span className="text-xs font-medium text-sky-800">
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              >
                 Approved: {dateTime(a.decided_at)}
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-700 space-y-1">
+          <div className="text-xs text-slate-800 space-y-1.5">
             {a.vetted_by && (
               <div>
                 <span className="font-semibold text-slate-900">Vetted by:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
-                {a.vetted_at && <span className="text-slate-500"> on {dateTime(a.vetted_at)}</span>}
-                {a.vetting_notes && <span className="italic text-slate-600"> — &quot;{a.vetting_notes}&quot;</span>}
+                {a.vetted_at && <span className="text-slate-600"> on {dateTime(a.vetted_at)}</span>}
+                {a.vetting_notes && <span className="italic text-slate-700"> — &quot;{a.vetting_notes}&quot;</span>}
               </div>
             )}
             {a.decided_by && (
               <div>
                 <span className="font-semibold text-slate-900">Approved by:</span> {a.decided_by.fullname} ({a.decided_by.service_number})
-                {a.decided_at && <span className="text-slate-500"> on {dateTime(a.decided_at)}</span>}
-                {a.decision_notes && <span className="italic text-slate-600"> — &quot;{a.decision_notes}&quot;</span>}
+                {a.decided_at && <span className="text-slate-600"> on {dateTime(a.decided_at)}</span>}
+                {a.decision_notes && <span className="italic text-slate-700"> — &quot;{a.decision_notes}&quot;</span>}
               </div>
             )}
           </div>
@@ -420,30 +395,6 @@ export default function StaffApplicationPage() {
   );
 }
 
-type RiskFlag = { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] };
-
-/** Fraud and duplicate checks (advisory; they never decide on their own). */
-function RiskPanel({ flags, busy, onRecheck }: { flags: RiskFlag[]; busy: boolean; onRecheck: () => void }) {
-  return (
-    <section className={`rounded-2xl border p-5 ${flags.length ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"}`} aria-label="Fraud and duplicate checks">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-medium text-slate-900">{flags.length ? `⚠ ${flags.length} fraud / duplicate warning${flags.length > 1 ? "s" : ""}` : "✓ No fraud or duplicate warnings"}</h2>
-        <Button variant="secondary" disabled={busy} onClick={onRecheck}>Re-run checks</Button>
-      </div>
-      {flags.length > 0 && (
-        <ul className="mt-3 space-y-2 text-sm">
-          {flags.map((f) => (
-            <li key={f.code} className="flex gap-2">
-              <span className={`mt-0.5 shrink-0 rounded px-1.5 text-[11px] font-semibold ${f.severity === "HIGH" ? "bg-nis-red text-white" : "bg-amber-200 text-amber-900"}`}>{f.severity}</span>
-              <span>{f.message}{f.related.length > 0 && <span className="text-slate-600"> Related: {f.related.join(", ")}</span>}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="mt-2 text-xs text-slate-500">Warnings are for the officer&apos;s judgement; verify the documents before deciding.</p>
-    </section>
-  );
-}
 
 type Note = { id: number; body: string; at: string; author: string | null };
 type Officer = { id: number; fullname: string; service_number: string; role: string };

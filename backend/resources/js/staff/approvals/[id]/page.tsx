@@ -146,12 +146,16 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
         subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
             {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-              <Link href={`/portal/applications/${a.id}/slip?kind=appointment`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Appointment slip</Link>
+              <Link
+                href={`/portal/applications/${a.id}/slip?kind=appointment&from=staff&return_to=${encodeURIComponent(`/staff/approvals/${a.id}`)}`}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-800"
+              >
+                Appointment slip
+              </Link>
             )}
             {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-              <Link href={`/portal/applications/${a.id}/slip?kind=temporary`} target="_blank" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
+              <Link href={`/portal/applications/${a.id}/slip?kind=temporary&from=staff&return_to=${encodeURIComponent(`/staff/approvals/${a.id}`)}`} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
             )}
             {a.card && <Link href={`/staff/cards/${a.card.id}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Card {a.card.card_number}</Link>}
           </div>
@@ -434,33 +438,42 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
 
       {/* Approved Status Audit Box */}
       {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-5 space-y-2.5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 pb-2">
+        <div
+          className="rounded-2xl p-5 space-y-3 shadow-xs"
+          style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+        >
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 pb-2"
+            style={{ borderBottom: "1px solid #D4E8DA" }}
+          >
             <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-sky-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-sky-900">
+              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
                 Application Approved — Authorized for Biometrics Attendance
               </span>
             </div>
             {a.decided_at && (
-              <span className="text-xs font-medium text-sky-800">
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              >
                 Approved: {dateTime(a.decided_at)}
               </span>
             )}
           </div>
-          <div className="text-xs text-slate-700 space-y-1">
+          <div className="text-xs text-slate-800 space-y-1.5">
             {a.vetted_by && (
               <div>
                 <span className="font-semibold text-slate-900">Vetted by:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
-                {a.vetted_at && <span className="text-slate-500"> on {dateTime(a.vetted_at)}</span>}
-                {a.vetting_notes && <span className="italic text-slate-600"> — &quot;{a.vetting_notes}&quot;</span>}
+                {a.vetted_at && <span className="text-slate-600"> on {dateTime(a.vetted_at)}</span>}
+                {a.vetting_notes && <span className="italic text-slate-700"> — &quot;{a.vetting_notes}&quot;</span>}
               </div>
             )}
             {a.decided_by && (
               <div>
                 <span className="font-semibold text-slate-900">Approved by:</span> {a.decided_by.fullname} ({a.decided_by.service_number})
-                {a.decided_at && <span className="text-slate-500"> on {dateTime(a.decided_at)}</span>}
-                {a.decision_notes && <span className="italic text-slate-600"> — &quot;{a.decision_notes}&quot;</span>}
+                {a.decided_at && <span className="text-slate-600"> on {dateTime(a.decided_at)}</span>}
+                {a.decision_notes && <span className="italic text-slate-700"> — &quot;{a.decision_notes}&quot;</span>}
               </div>
             )}
           </div>

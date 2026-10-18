@@ -59,27 +59,46 @@ const title = (v?: string | null) => (v ? v.toLowerCase().replace(/(^|[\s-])\p{L
 /** Application print-out and biometrics appointment slip. */
 function SlipView() {
   const { id } = useParams<{ id: string }>();
-  const appointment = useSearchParams().get("kind") === "appointment";
+  const searchParams = useSearchParams();
+  const appointment = searchParams.get("kind") === "appointment";
+  const fromStaff = searchParams.get("from") === "staff";
+  const returnTo = searchParams.get("return_to");
   const [slip, setSlip] = useState<Slip | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<Slip>("applicant", `applications/${id}/slip`).then(setSlip).catch((e) => setError(e.message));
-  }, [id]);
+    const isStaff = fromStaff || (returnTo && returnTo.startsWith("/staff/"));
+    const primaryScope = isStaff ? "staff" : "applicant";
+    const fallbackScope = isStaff ? "applicant" : "staff";
+
+    api<Slip>(primaryScope, `applications/${id}/slip`)
+      .then(setSlip)
+      .catch(() => {
+        api<Slip>(fallbackScope, `applications/${id}/slip`)
+          .then(setSlip)
+          .catch((e) => setError(e.message));
+      });
+  }, [id, fromStaff, returnTo]);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!slip) return <Spinner />;
   if (appointment && !slip.appointment_slip_available) return <Alert tone="warning">The appointment slip is available once your biometrics appointment is booked.</Alert>;
+
+  const isAdministrative = fromStaff || Boolean(returnTo && returnTo.startsWith("/staff/"));
+  const backHref = isAdministrative
+    ? (returnTo && returnTo.startsWith("/staff/") ? returnTo : (id ? `/staff/approvals/${id}` : "/staff/approvals"))
+    : "/portal";
+  const backLabel = isAdministrative ? "← Back" : "← Back to Dashboard";
 
   return (
     <div className="space-y-4">
       {/* Top action buttons (excluded from print) */}
       <div className="no-print mx-auto flex max-w-[210mm] flex-wrap items-center justify-between gap-3">
         <Link
-          href="/portal"
+          href={backHref}
           className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors hover:border-nis-primary hover:text-nis-primary"
         >
-          ← Back to Dashboard
+          {backLabel}
         </Link>
         <Button onClick={() => window.print()}>
           Print / Save as PDF
@@ -272,23 +291,19 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
   const a = slip.application;
   const center = a.enrollment_center;
 
-  let statusText = "Awaiting Vetting";
-  let clearanceText = "Pending Vetting & Final Approval (Not Cleared for Biometrics)";
+  let statusText = "Pending Approval";
   let isApproved = false;
 
-  if (a.status === "VETTED") {
-    statusText = "Vetted – Awaiting Approval";
-    clearanceText = "Pending Final Approval (Not Cleared for Biometrics)";
-  } else if (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status)) {
-    statusText = a.status === "APPROVED_FOR_BIOMETRICS" ? "Approved" : (a.status_label || a.status.replaceAll("_", " "));
-    clearanceText = "Cleared / Authorized for Biometrics Attendance";
+  if (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status)) {
+    statusText = "Approved for Biometrics";
     isApproved = true;
-  } else if (a.status === "PENDING_APPROVAL") {
-    statusText = "Awaiting Vetting";
-    clearanceText = "Pending Vetting & Final Approval (Not Cleared for Biometrics)";
+  } else if (a.status === "QUERIED") {
+    statusText = "Queried — Action Required";
+  } else if (a.status === "REJECTED") {
+    statusText = "Rejected";
   } else {
-    statusText = a.status_label || a.status.replaceAll("_", " ");
-    clearanceText = "Not Cleared for Biometrics";
+    // Both PENDING_APPROVAL and VETTED remain internal pending states to the applicant
+    statusText = "Pending Approval";
   }
 
   return (
@@ -305,15 +320,15 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
         <Barcode value={a.reference_number} height={48} moduleWidth={1.4} />
       </div>
 
-      {a.status === "VETTED" && (
+      {!isApproved && a.status !== "REJECTED" && a.status !== "QUERIED" && (
         <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
-          <strong>Important Notice:</strong> Your application has passed initial vetting and is currently awaiting final administrative approval by an Approving Officer. Biometrics center attendance is subject to final approval. Please verify that your status updates to &ldquo;Approved&rdquo; before visiting the enrollment center.
+          <strong>Important Notice:</strong> Your application is currently awaiting administrative approval. Attendance at the biometrics enrollment center is strictly subject to final approval. Please verify that your status updates to &ldquo;Approved for Biometrics&rdquo; before visiting the enrollment center.
         </div>
       )}
 
-      {a.status === "PENDING_APPROVAL" && (
-        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
-          <strong>Important Notice:</strong> Your application is currently awaiting examination and vetting by a Vetting Officer. Biometrics center attendance is subject to final approval.
+      {isApproved && (
+        <div className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3.5 text-xs text-emerald-900">
+          <strong>Clearance Granted:</strong> Your application has been approved. You are authorized to attend biometrics in accordance with your scheduled appointment details below.
         </div>
       )}
 
@@ -332,14 +347,6 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
             </span>
           }
         />
-        <Row
-          k="Attendance Clearance"
-          v={
-            <span className={`font-semibold ${isApproved ? "text-emerald-700" : "text-amber-800"}`}>
-              {clearanceText}
-            </span>
-          }
-        />
       </div>
 
       <h2 className="mt-8 border-b border-slate-200 pb-1 text-2xl font-semibold">Personal &amp; Contact Details</h2>
@@ -354,7 +361,7 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
       <ul className="mt-2 list-disc space-y-1 pl-6">
         <li>
           Ensure that you verify the status of your application in the applicant portal before your appointment date.
-          {!isApproved && " Attendance is subject to final administrative approval (Cleared / Authorized for Biometrics Attendance)."}
+          {!isApproved && " Attendance is subject to final administrative approval."}
         </li>
         <li>
           You must bring the following items for the appointment:

@@ -32,6 +32,28 @@ const defaultLabels: Record<string, string> = {
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const display = label ?? defaultLabels[status] ?? status.replaceAll("_", " ");
+  const isApproved =
+    status === "APPROVED" ||
+    status === "APPROVED_FOR_BIOMETRICS" ||
+    display === "Approved";
+
+  if (isApproved) {
+    return (
+      <span
+        title={display}
+        style={{
+          backgroundColor: "#E8F5EC",
+          color: "#216E3A",
+          border: "1px solid #C9E6D1",
+          borderRadius: "7px",
+        }}
+        className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap shadow-xs"
+      >
+        {display}
+      </span>
+    );
+  }
+
   return (
     <span
       title={display}
