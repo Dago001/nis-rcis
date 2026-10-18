@@ -120,6 +120,7 @@ Route::middleware('web')->group(function () {
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Staff/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
         Route::get('/applications/{id}/biometrics', fn ($id) => Inertia::render('Staff/Biometrics', ['id' => $id]))->whereNumber('id')->name('applications.biometrics');
         Route::get('/cards', fn () => Inertia::render('Staff/Cards'))->name('cards');
+        Route::get('/card-issuance', fn () => Inertia::render('Staff/CardIssuance'))->name('card-issuance');
         Route::get('/cards/print-batch', fn () => Inertia::render('Staff/CardPrintBatch'))->name('cards.print-batch');
         Route::get('/cards/{id}', fn ($id) => Inertia::render('Staff/CardDetail', ['id' => $id]))->whereNumber('id')->name('cards.show');
         Route::get('/cards/{id}/print', fn ($id) => Inertia::render('Staff/CardPrint', ['id' => $id]))->whereNumber('id')->name('cards.print');

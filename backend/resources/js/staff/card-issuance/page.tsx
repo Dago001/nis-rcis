@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PageTitle } from "@/components/PageTitle";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Alert, Button, Field, Input, Panel, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, Input, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime, nisDate } from "@/lib/format";
 import { useFetch } from "@/lib/use-fetch";
@@ -15,7 +14,10 @@ type CardIssuanceItem = {
   card_number: string;
   booklet_number: string;
   status: string;
+  issuance_status: "ISSUED" | "AWAITING_ISSUANCE";
+  issuance_status_label: string;
   verification_status: string;
+  card_category: string;
   surname: string;
   forenames: string;
   holder: string;
@@ -24,6 +26,8 @@ type CardIssuanceItem = {
   issued_on: string | null;
   expires_on: string | null;
   printed_count: number;
+  date_printed: string | null;
+  printed_by: string | null;
   photo_url: string | null;
   application: {
     id: number;
@@ -31,6 +35,7 @@ type CardIssuanceItem = {
     reference_number: string;
     status: string;
     status_label: string;
+    category: string;
     ready_at: string | null;
     collected_at: string | null;
     enrollment_center?: {
@@ -45,10 +50,13 @@ type CardIssuanceItem = {
 type CardIssuanceResponse = {
   data: CardIssuanceItem[];
   stats: {
-    awaiting_collection: number;
-    ready_to_notify: number;
-    collected_total: number;
-    total_produced: number;
+    awaiting_issuance: number;
+    issued_total: number;
+    total_printed: number;
+    awaiting_collection?: number;
+    ready_to_notify?: number;
+    collected_total?: number;
+    total_produced?: number;
   };
   meta: {
     current_page: number;
@@ -61,67 +69,161 @@ type CardIssuanceResponse = {
 function CardIssuanceContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const currentStage = params.get("stage") || "awaiting_collection";
-  const searchQuery = params.get("search") || "";
-  const page = params.get("page") || "1";
 
-  const { data: response, reload, loading } = useFetch<CardIssuanceResponse>(
-    "staff",
-    `card-issuance?stage=${encodeURIComponent(currentStage)}&search=${encodeURIComponent(searchQuery)}&page=${page}`
-  );
+  const currentStage = params.get("stage") || "awaiting_issuance";
+  const initialSearch = params.get("search") || "";
+  const pageParam = parseInt(params.get("page") || "1", 10);
+  const currentPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
+  const perPage = 10;
 
-  const [selected, setSelected] = useState<number[]>([]);
+  // Search state with debounce and suggestions
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [suggestions, setSuggestions] = useState<CardIssuanceItem[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const latestRequestRef = useRef(0);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Status & modal states
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Modal state for issuing out a card
+  // Modal for issuing card
   const [issuingCard, setIssuingCard] = useState<CardIssuanceItem | null>(null);
-  const [confirmedDocs, setConfirmedDocs] = useState(false);
+  const [confirmedIdentity, setConfirmedIdentity] = useState(false);
   const [issueNotes, setIssueNotes] = useState("");
 
-  const toggleSelect = (id: number) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  // Sync search input if URL changes
+  useEffect(() => {
+    setSearchInput(initialSearch);
+    setDebouncedSearch(initialSearch);
+  }, [initialSearch]);
+
+  // Click outside to dismiss suggestions dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+      const query = searchInput.trim();
+
+      if (query.length >= 2) {
+        setIsSearching(true);
+        setShowDropdown(true);
+        const reqId = ++latestRequestRef.current;
+        const endpoint = `card-issuance?stage=all&search=${encodeURIComponent(query)}&per_page=6`;
+        api<CardIssuanceResponse>("staff", endpoint)
+          .then((res) => {
+            if (reqId === latestRequestRef.current) {
+              setSuggestions(res.data ?? []);
+            }
+          })
+          .catch(() => {
+            if (reqId === latestRequestRef.current) {
+              setSuggestions([]);
+            }
+          })
+          .finally(() => {
+            if (reqId === latestRequestRef.current) {
+              setIsSearching(false);
+            }
+          });
+      } else {
+        setSuggestions([]);
+        setShowDropdown(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // URL builder helper
+  const buildUrl = (overrides: Record<string, string | number | boolean | null>) => {
+    const p = new URLSearchParams();
+    const stage = overrides.stage !== undefined ? overrides.stage : currentStage;
+    const search = overrides.search !== undefined ? overrides.search : debouncedSearch;
+    const page = overrides.page !== undefined ? overrides.page : currentPage;
+
+    if (stage) p.set("stage", String(stage));
+    if (search) p.set("search", String(search));
+    p.set("page", String(page));
+    p.set("per_page", String(perPage));
+
+    return `/staff/card-issuance?${p.toString()}`;
   };
 
-  const handleSearch = (e: FormEvent<HTMLFormElement>) => {
+  const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const s = (fd.get("search") as string)?.trim() || "";
-    const p = new URLSearchParams();
-    if (currentStage) p.set("stage", currentStage);
-    if (s) p.set("search", s);
-    router.push(`/staff/card-issuance?${p.toString()}`);
+    setShowDropdown(false);
+    router.push(buildUrl({ search: searchInput.trim(), page: 1 }));
   };
 
-  const changeStage = (newStage: string) => {
-    setSelected([]);
-    const p = new URLSearchParams();
-    p.set("stage", newStage);
-    if (searchQuery) p.set("search", searchQuery);
-    router.push(`/staff/card-issuance?${p.toString()}`);
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setDebouncedSearch("");
+    setShowDropdown(false);
+    setSuggestions([]);
+    router.push(buildUrl({ search: "", page: 1 }));
   };
 
-  const handleMarkReady = async (card: CardIssuanceItem) => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const res = await api<{ message: string }>("staff", `card-issuance/${card.id}/ready`, {
-        method: "POST",
-      });
-      setNotice(res.message);
-      reload();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
+  const handleStageChange = (newStage: string) => {
+    setShowDropdown(false);
+    router.push(buildUrl({ stage: newStage, page: 1 }));
+  };
+
+  const handleSelectSuggestion = (card: CardIssuanceItem) => {
+    setShowDropdown(false);
+    router.push(`/staff/cards/${card.id}`);
+  };
+
+  // Main data fetch
+  const queryUrl = `card-issuance?stage=${encodeURIComponent(currentStage)}&search=${encodeURIComponent(debouncedSearch)}&page=${currentPage}&per_page=${perPage}`;
+  const { data: response, reload, loading } = useFetch<CardIssuanceResponse>("staff", queryUrl);
+
+  const cards = response?.data ?? [];
+  const total = response?.meta?.total ?? 0;
+  const from = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const to = Math.min(currentPage * perPage, total);
+  const totalPages = Math.max(1, response?.meta?.last_page ?? Math.ceil(total / perPage));
+
+  const stats = response?.stats ?? {
+    awaiting_issuance: 0,
+    issued_total: 0,
+    total_printed: 0,
+  };
+
+  // Pagination helper
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
     }
+    return pages;
   };
 
+  // Issue card action handler
   const handleIssueOutSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!issuingCard || !confirmedDocs) return;
+    if (!issuingCard || !confirmedIdentity) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -132,7 +234,7 @@ function CardIssuanceContent() {
       });
       setNotice(res.message);
       setIssuingCard(null);
-      setConfirmedDocs(false);
+      setConfirmedIdentity(false);
       setIssueNotes("");
       reload();
     } catch (e) {
@@ -142,131 +244,54 @@ function CardIssuanceContent() {
     }
   };
 
-  const handleBatchReady = async () => {
-    if (selected.length === 0) return;
-    if (!confirm(`Mark ${selected.length} card(s) ready for collection and notify applicants?`)) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api<{ message: string }>("staff", "card-issuance/batch-ready", {
-        method: "POST",
-        json: { card_ids: selected },
-      });
-      setNotice(res.message);
-      setSelected([]);
-      reload();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleBatchIssue = async () => {
-    if (selected.length === 0) return;
-    if (!confirm(`Record handover / collection for ${selected.length} card(s) and notify applicants?`)) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api<{ message: string }>("staff", "card-issuance/batch-issue", {
-        method: "POST",
-        json: { card_ids: selected },
-      });
-      setNotice(res.message);
-      setSelected([]);
-      reload();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const stats = response?.stats ?? {
-    awaiting_collection: 0,
-    ready_to_notify: 0,
-    collected_total: 0,
-    total_produced: 0,
-  };
-
-  const cards = response?.data ?? [];
-
   return (
     <div className="space-y-6">
       <PageTitle
-        title="Card Issuance & Collection Desk"
-        subtitle="Issue out produced residence cards, record physical collection, and update applicant tracking via 'Ready / collected'."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/staff/cards"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              All residence cards
-            </Link>
-            <Link
-              href="/staff/card-stock"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Card stock &amp; printing
-            </Link>
-          </div>
-        }
+        title="Card Issuance"
+        subtitle="Manage printed residence cards and record authorized issuance to verified applicants."
       />
 
-      {/* KPI Summary Tiles */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* KPI / Summary Tiles */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <button
           type="button"
-          onClick={() => changeStage("awaiting_collection")}
+          onClick={() => handleStageChange("awaiting_issuance")}
           className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
-            currentStage === "awaiting_collection"
-              ? "border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20"
-              : "border-slate-200 bg-white hover:border-emerald-300"
-          }`}
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-            Awaiting Collection
-          </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">{stats.awaiting_collection}</span>
-          <span className="mt-0.5 text-xs text-slate-500">Ready to issue out</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => changeStage("ready_to_notify")}
-          className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
-            currentStage === "ready_to_notify"
+            currentStage === "awaiting_issuance" || currentStage === "awaiting_collection"
               ? "border-amber-500 bg-amber-50/80 ring-2 ring-amber-500/20"
               : "border-slate-200 bg-white hover:border-amber-300"
           }`}
         >
           <span className="text-xs font-semibold uppercase tracking-wider text-amber-800">
-            Produced (Notify Ready)
+            Awaiting Issuance
           </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">{stats.ready_to_notify}</span>
-          <span className="mt-0.5 text-xs text-slate-500">Cards printed</span>
+          <span className="mt-1 text-2xl font-bold text-slate-900">
+            {stats.awaiting_issuance ?? stats.awaiting_collection ?? 0}
+          </span>
+          <span className="mt-0.5 text-xs text-slate-500">Printed cards ready for collection</span>
         </button>
 
         <button
           type="button"
-          onClick={() => changeStage("collected")}
+          onClick={() => handleStageChange("issued")}
           className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
-            currentStage === "collected"
-              ? "border-nis-primary bg-nis-mint/60 ring-2 ring-nis-primary/20"
-              : "border-slate-200 bg-white hover:border-nis-primary/40"
+            currentStage === "issued" || currentStage === "collected"
+              ? "border-emerald-600 bg-emerald-50/80 ring-2 ring-emerald-500/20"
+              : "border-slate-200 bg-white hover:border-emerald-300"
           }`}
         >
-          <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary-dark">
-            Issued &amp; Collected
+          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+            Issued Cards
           </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">{stats.collected_total}</span>
-          <span className="mt-0.5 text-xs text-slate-500">Handed over to holders</span>
+          <span className="mt-1 text-2xl font-bold text-slate-900">
+            {stats.issued_total ?? stats.collected_total ?? 0}
+          </span>
+          <span className="mt-0.5 text-xs text-slate-500">Successfully handed over to applicants</span>
         </button>
 
         <button
           type="button"
-          onClick={() => changeStage("all")}
+          onClick={() => handleStageChange("all")}
           className={`flex flex-col rounded-xl border p-4 text-left transition-all ${
             currentStage === "all"
               ? "border-slate-500 bg-slate-100 ring-2 ring-slate-400/20"
@@ -274,386 +299,454 @@ function CardIssuanceContent() {
           }`}
         >
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-            Total Produced Cards
+            All Printed Cards
           </span>
-          <span className="mt-1 text-2xl font-bold text-slate-900">{stats.total_produced}</span>
-          <span className="mt-0.5 text-xs text-slate-500">All stages</span>
+          <span className="mt-1 text-2xl font-bold text-slate-900">
+            {stats.total_printed ?? stats.total_produced ?? 0}
+          </span>
+          <span className="mt-0.5 text-xs text-slate-500">Total verified printed cards</span>
         </button>
       </div>
 
       {notice && <Alert tone="success">{notice}</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
 
-      {/* Search and Filter Form */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <form onSubmit={handleSearch} className="flex flex-1 max-w-lg gap-2">
-          <Input
-            name="search"
-            defaultValue={searchQuery}
-            placeholder="Search Card No, Booklet, Passport, Name, or Application Ref..."
-          />
-          <Button type="submit" disabled={busy}>
-            Search
-          </Button>
-        </form>
+      {/* Live Search & Filter Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div ref={searchContainerRef} className="relative w-full max-w-xl">
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <div className="relative flex items-center">
+              <span className="pointer-events-none absolute left-3.5 text-slate-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onFocus={() => {
+                  if (suggestions.length > 0) setShowDropdown(true);
+                }}
+                placeholder="Search by card number, passport number or applicant name"
+                className="w-full !pl-10 !pr-16 py-2.5 text-sm"
+              />
+              <div className="absolute right-2.5 flex items-center gap-1.5">
+                {isSearching && (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
+                )}
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          </form>
 
-        {/* Batch Action Buttons */}
-        {selected.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">
-              {selected.length} selected
-            </span>
-            {currentStage === "ready_to_notify" && (
-              <Button variant="gold" onClick={handleBatchReady} disabled={busy}>
-                Notify Selected ({selected.length})
-              </Button>
-            )}
-            {(currentStage === "awaiting_collection" || currentStage === "ready_to_notify") && (
-              <Button variant="primary" onClick={handleBatchIssue} disabled={busy}>
-                Issue Selected ({selected.length})
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+          {/* Suggestions Dropdown */}
+          {showDropdown && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                Matching Printed Cards ({suggestions.length})
+              </div>
+              <ul className="divide-y divide-slate-100">
+                {suggestions.map((s) => (
+                  <li
+                    key={s.id}
+                    onClick={() => handleSelectSuggestion(s)}
+                    className="flex cursor-pointer items-center justify-between px-3 py-2.5 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
+                        {s.surname?.[0] || "?"}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">
+                          {s.surname}, {s.forenames}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Card: <span className="font-mono font-medium text-slate-700">{s.card_number}</span> · Passport: <span className="font-mono text-slate-700">{s.passport_number}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        s.issuance_status === "ISSUED"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {s.issuance_status === "ISSUED" ? "Issued" : "Awaiting Issuance"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
 
-      {/* Tabs */}
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex space-x-6" aria-label="Issuance stages">
+        {/* Filter Navigation Tabs */}
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-1">
           {[
-            { id: "awaiting_collection", label: "Awaiting Collection", count: stats.awaiting_collection },
-            { id: "ready_to_notify", label: "Produced (Notify Ready)", count: stats.ready_to_notify },
-            { id: "collected", label: "Issued & Collected", count: stats.collected_total },
-            { id: "all", label: "All Produced Cards", count: stats.total_produced },
+            { id: "awaiting_issuance", label: "Awaiting Issuance" },
+            { id: "issued", label: "Issued Cards" },
+            { id: "all", label: "All Printed Cards" },
           ].map((tab) => {
-            const active = currentStage === tab.id;
+            const active = currentStage === tab.id || (tab.id === "awaiting_issuance" && currentStage === "awaiting_collection");
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => changeStage(tab.id)}
-                className={`flex items-center gap-2 border-b-2 py-3 text-sm font-medium transition-colors ${
+                onClick={() => handleStageChange(tab.id)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active
-                    ? "border-nis-primary text-nis-primary"
-                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    ? "bg-nis-primary text-white shadow-xs"
+                    : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
                 }`}
               >
-                <span>{tab.label}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    active ? "bg-nis-primary text-white" : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {tab.count}
-                </span>
+                {tab.label}
               </button>
             );
           })}
-        </nav>
+        </div>
       </div>
 
-      {/* Cards Table */}
+      {/* Main Table */}
       {loading ? (
         <Spinner />
       ) : cards.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6" />
             </svg>
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-800">No cards in this category</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {searchQuery
-              ? `No results matching "${searchQuery}". Try clearing search.`
-              : currentStage === "awaiting_collection"
-              ? "There are currently no cards marked ready for collection."
-              : currentStage === "ready_to_notify"
-              ? "All printed cards have been notified."
-              : "No records found."}
+          <p className="mt-3 text-base font-semibold text-slate-900">No printed cards found</p>
+          <p className="mt-1 text-sm text-slate-500 max-w-md mx-auto">
+            {debouncedSearch
+              ? `No records matching "${debouncedSearch}". Try checking your search term or clearing filters.`
+              : currentStage === "awaiting_issuance"
+              ? "There are currently no printed residence cards awaiting issuance."
+              : currentStage === "issued"
+              ? "No issued cards recorded yet."
+              : "Cards will appear here once confirmed as printed in the Card Production module."}
           </p>
+          {debouncedSearch && (
+            <div className="mt-4">
+              <Button variant="secondary" onClick={handleClearSearch}>
+                Clear Search
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">
-              <tr>
-                <th className="w-10 px-4 py-3">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all"
-                    checked={cards.length > 0 && cards.every((c) => selected.includes(c.id))}
-                    onChange={(e) =>
-                      setSelected(e.target.checked ? cards.map((c) => c.id) : [])
-                    }
-                  />
-                </th>
-                <th className="px-4 py-3">Card &amp; Booklet</th>
-                <th className="px-4 py-3">Cardholder</th>
-                <th className="px-4 py-3">Application Ref</th>
-                <th className="px-4 py-3">Collection Centre</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {cards.map((card) => {
-                const app = card.application;
-                const isReady = app?.status === "READY_FOR_COLLECTION";
-                const isCollected = app?.status === "ISSUED";
-                const isProduced = app?.status === "BIOMETRICS_CAPTURED";
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                <tr>
+                  <th className="w-16 px-4 py-3.5 text-center">S/N</th>
+                  <th className="px-4 py-3.5">Card Number</th>
+                  <th className="px-4 py-3.5">Applicant Name</th>
+                  <th className="px-4 py-3.5">Passport Number</th>
+                  <th className="px-4 py-3.5">Card Category</th>
+                  <th className="px-4 py-3.5">Date Printed</th>
+                  <th className="px-4 py-3.5">Issuance Status</th>
+                  <th className="px-4 py-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {cards.map((card, idx) => {
+                  const serialNumber = (currentPage - 1) * perPage + idx + 1;
+                  const isIssued = card.issuance_status === "ISSUED" || card.status === "ISSUED";
 
-                return (
-                  <tr key={card.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(card.id)}
-                        onChange={() => toggleSelect(card.id)}
-                        aria-label={`Select card ${card.card_number}`}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/staff/cards/${card.id}`}
-                        className="font-bold text-nis-primary hover:underline"
-                      >
-                        {card.card_number}
-                      </Link>
-                      <div className="text-xs text-slate-500 font-mono">
-                        {card.booklet_number}
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        Expires: {card.expires_on ? nisDate(card.expires_on) : "—"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {card.photo_url ? (
-                          <img
-                            src={card.photo_url}
-                            alt=""
-                            className="h-9 w-9 rounded-full object-cover border border-slate-200"
-                          />
-                        ) : (
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                            {card.surname?.[0]}
-                            {card.forenames?.[0]}
+                  return (
+                    <tr key={card.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* S/N */}
+                      <td className="w-16 px-4 py-3.5 text-center text-xs font-mono font-medium text-slate-500">
+                        {serialNumber}
+                      </td>
+
+                      {/* Card Number */}
+                      <td className="px-4 py-3.5">
+                        <Link
+                          href={`/staff/cards/${card.id}`}
+                          className="font-bold text-nis-primary hover:underline hover:text-nis-primary-dark"
+                        >
+                          {card.card_number}
+                        </Link>
+                        {card.booklet_number && (
+                          <div className="text-[11px] font-mono text-slate-400">
+                            Booklet: {card.booklet_number}
                           </div>
                         )}
-                        <div>
-                          <div className="font-semibold text-slate-900">{card.holder}</div>
-                          <div className="text-xs text-slate-500">
-                            Passport: {card.passport_number} · {card.nationality}
+                      </td>
+
+                      {/* Applicant Name */}
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          {card.photo_url ? (
+                            <img
+                              src={card.photo_url}
+                              alt=""
+                              className="h-8 w-8 rounded-full object-cover border border-slate-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                              {card.surname?.[0] || "?"}
+                              {card.forenames?.[0] || ""}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-slate-900">
+                              {card.surname}, {card.forenames}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {card.nationality} · App: {card.application?.application_number ?? "—"}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {app ? (
-                        <>
-                          <Link
-                            href={`/staff/applications/${app.id}`}
-                            className="font-semibold text-slate-800 hover:text-nis-primary hover:underline"
-                          >
-                            {app.application_number}
-                          </Link>
-                          <div className="text-xs text-slate-500 font-mono">
-                            Ref: {app.reference_number}
+                      </td>
+
+                      {/* Passport Number */}
+                      <td className="px-4 py-3.5 font-mono text-xs text-slate-700">
+                        {card.passport_number || "—"}
+                      </td>
+
+                      {/* Card Category */}
+                      <td className="px-4 py-3.5 text-xs text-slate-700">
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          {card.card_category || "General"}
+                        </span>
+                      </td>
+
+                      {/* Date Printed */}
+                      <td className="px-4 py-3.5 text-xs text-slate-600">
+                        {card.date_printed ? (
+                          <div>
+                            <div className="font-medium text-slate-800">
+                              {dateTime(card.date_printed)}
+                            </div>
+                            {card.printed_by && (
+                              <div className="text-[11px] text-slate-400">
+                                By: {card.printed_by}
+                              </div>
+                            )}
                           </div>
-                        </>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">
-                        {app?.enrollment_center?.name || "Main Centre"}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        {app?.enrollment_center?.state || "State Command"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-1">
-                        {isReady && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-900">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                            Ready for Collection
-                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
                         )}
-                        {isCollected && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-nis-green-light px-2.5 py-0.5 text-xs font-bold text-nis-green-dark">
-                            ✓ Collected
-                          </span>
-                        )}
-                        {isProduced && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-900">
-                            Produced (Printed)
-                          </span>
-                        )}
-                        {app?.collected_at && (
-                          <div className="text-[11px] text-slate-500">
-                            {dateTime(app.collected_at)}
-                          </div>
-                        )}
-                        {app?.ready_at && !isCollected && (
-                          <div className="text-[11px] text-slate-500">
-                            Notified: {dateTime(app.ready_at)}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {isReady && (
-                          <Button
-                            variant="primary"
-                            className="text-xs px-3 py-1.5"
-                            onClick={() => {
-                              setIssuingCard(card);
-                              setConfirmedDocs(false);
-                              setIssueNotes("");
-                            }}
-                            disabled={busy}
-                          >
-                            ✓ Issue Out Card
-                          </Button>
-                        )}
-                        {isProduced && (
-                          <>
-                            <Button
-                              variant="gold"
-                              className="text-xs px-3 py-1.5"
-                              onClick={() => handleMarkReady(card)}
-                              disabled={busy}
-                            >
-                              Notify Ready
-                            </Button>
+                      </td>
+
+                      {/* Issuance Status */}
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            isIssued
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              isIssued ? "bg-emerald-500" : "bg-amber-500"
+                            }`}
+                          />
+                          {isIssued ? "Issued" : "Awaiting Issuance"}
+                        </span>
+                      </td>
+
+                      {/* Action */}
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!isIssued ? (
                             <Button
                               variant="primary"
-                              className="text-xs px-3 py-1.5"
                               onClick={() => {
                                 setIssuingCard(card);
-                                setConfirmedDocs(false);
+                                setConfirmedIdentity(false);
                                 setIssueNotes("");
                               }}
-                              disabled={busy}
+                              className="!px-3 !py-1.5 !text-xs bg-emerald-600 hover:bg-emerald-700"
                             >
-                              Issue Directly
+                              Issue Card
                             </Button>
-                          </>
-                        )}
-                        {isCollected && (
-                          <Link
-                            href={`/staff/cards/${card.id}`}
-                            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            View Card
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          ) : (
+                            <Link
+                              href={`/staff/cards/${card.id}`}
+                              className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              View Details
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-600">
+            <div>
+              Showing <span className="font-semibold text-slate-900">{from}</span> to{" "}
+              <span className="font-semibold text-slate-900">{to}</span> of{" "}
+              <span className="font-semibold text-slate-900">{total}</span> printed records
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="secondary"
+                disabled={currentPage <= 1 || loading}
+                onClick={() => router.push(buildUrl({ page: currentPage - 1 }))}
+                className="!px-2.5 !py-1 !text-xs"
+              >
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((pNum, i) =>
+                  pNum === "..." ? (
+                    <span key={`ellipsis-${i}`} className="px-2 text-slate-400">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={`page-${pNum}`}
+                      type="button"
+                      onClick={() => router.push(buildUrl({ page: pNum }))}
+                      className={`h-7 w-7 rounded-md text-xs font-medium transition-colors ${
+                        currentPage === pNum
+                          ? "bg-nis-primary text-white"
+                          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {pNum}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <Button
+                variant="secondary"
+                disabled={currentPage >= totalPages || loading}
+                onClick={() => router.push(buildUrl({ page: currentPage + 1 }))}
+                className="!px-2.5 !py-1 !text-xs"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Handover & Issuance Confirmation Modal */}
+      {/* Issuance Confirmation Modal */}
       {issuingCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">
-                Confirm Residence Card Handover &amp; Issuance
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Record physical card collection and notify applicant via &quot;Ready / collected&quot;.
-              </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Confirm Card Issuance</h3>
+                <p className="text-xs text-slate-500">
+                  Record physical handover of the residence card to the applicant.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIssuingCard(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                ✕
+              </button>
             </div>
 
-            {/* Applicant Summary */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-              <div className="flex items-center gap-3">
-                {issuingCard.photo_url && (
-                  <img
-                    src={issuingCard.photo_url}
-                    alt=""
-                    className="h-12 w-12 rounded-lg object-cover border border-slate-200"
+            <form onSubmit={handleIssueOutSubmit} className="mt-4 space-y-4 text-sm">
+              {/* Card & Applicant Summary Card */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Residence Card No:</span>
+                  <span className="font-mono font-bold text-slate-900">{issuingCard.card_number}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Applicant:</span>
+                  <span className="font-semibold text-slate-900">
+                    {issuingCard.surname}, {issuingCard.forenames}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Passport Number:</span>
+                  <span className="font-mono text-slate-800">{issuingCard.passport_number}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Application Reference:</span>
+                  <span className="font-mono text-slate-800">
+                    {issuingCard.application?.application_number ?? "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Date Printed:</span>
+                  <span className="text-xs text-slate-700">
+                    {issuingCard.date_printed ? dateTime(issuingCard.date_printed) : "Confirmed Printed"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Handover Identity Verification Checkbox */}
+              <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3.5">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={confirmedIdentity}
+                    onChange={(e) => setConfirmedIdentity(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-nis-primary focus:ring-nis-primary"
+                    required
                   />
-                )}
-                <div>
-                  <div className="font-bold text-slate-900 text-base">{issuingCard.holder}</div>
-                  <div className="text-xs text-slate-600">
-                    Passport: <strong>{issuingCard.passport_number}</strong> · {issuingCard.nationality}
-                  </div>
-                </div>
+                  <span className="text-xs font-medium text-amber-900 leading-snug">
+                    I confirm that I have physically verified the applicant's travel document (passport)
+                    and appointment slip, and am handing over card{" "}
+                    <strong>{issuingCard.card_number}</strong> to the applicant.
+                  </span>
+                </label>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 text-xs">
-                <div>
-                  <span className="text-slate-500">Card Number:</span>{" "}
-                  <strong className="text-nis-primary">{issuingCard.card_number}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500">Booklet No:</span>{" "}
-                  <strong>{issuingCard.booklet_number}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500">Application No:</span>{" "}
-                  <strong>{issuingCard.application?.application_number}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500">Collection Centre:</span>{" "}
-                  <strong>{issuingCard.application?.enrollment_center?.name || "Main Centre"}</strong>
-                </div>
-              </div>
-            </div>
 
-            <form onSubmit={handleIssueOutSubmit} className="space-y-4">
-              <label className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  required
-                  checked={confirmedDocs}
-                  onChange={(e) => setConfirmedDocs(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-nis-primary focus:ring-nis-primary"
-                />
-                <span className="text-xs font-medium text-emerald-950">
-                  I confirm that the applicant has physically appeared, presented their valid original travel document (passport) and collection slip, and received their Residence Card.
-                </span>
-              </label>
-
-              <Field label="Handover Notes / Verification Remarks (Optional)">
-                <Textarea
+              {/* Optional Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Issuance / Collection Notes (Optional)
+                </label>
+                <Input
                   value={issueNotes}
                   onChange={(e) => setIssueNotes(e.target.value)}
-                  placeholder="e.g. Identity verified via passport and collection slip. Physical card handed over to holder."
-                  rows={2}
+                  placeholder="e.g. Card collected by applicant in person; identity checked."
                 />
-              </Field>
+              </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="secondary"
+                  onClick={() => setIssuingCard(null)}
                   disabled={busy}
-                  onClick={() => {
-                    setIssuingCard(null);
-                    setConfirmedDocs(false);
-                    setIssueNotes("");
-                  }}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={busy || !confirmedDocs}
+                  disabled={busy || !confirmedIdentity}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {busy ? "Processing..." : "✓ Confirm Handover & Issue Out"}
+                  {busy ? "Processing..." : "Confirm & Issue Card"}
                 </Button>
               </div>
             </form>
@@ -664,7 +757,7 @@ function CardIssuanceContent() {
   );
 }
 
-export default function CardIssuancePage() {
+export default function StaffCardIssuancePage() {
   return (
     <Suspense fallback={<Spinner />}>
       <CardIssuanceContent />

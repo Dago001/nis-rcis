@@ -27,44 +27,85 @@ class CardController
     public function index(Request $request): AnonymousResourceCollection
     {
         $data = $request->validate([
-            'status' => ['nullable', Rule::enum(CardStatus::class)],
+            'status' => ['nullable', 'string'],
+            'filter' => ['nullable', 'string'],
+            'category' => ['nullable', 'string'],
             'watchlisted' => ['nullable', 'boolean'],
             'expired' => ['nullable', 'boolean'],
             'unprinted' => ['nullable', 'boolean'],
             'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $query = ResidenceCard::query()->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])->latest('id');
+        $query = ResidenceCard::query()
+            ->with(['application.enrollmentCenter', 'application.renewalOfCard', 'renewals'])
+            ->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])
+            ->latest('id');
 
-        if (! empty($data['status'])) {
+        $activeFilter = $data['filter'] ?? $data['status'] ?? null;
+        if ($activeFilter === 'awaiting_production' || ! empty($data['unprinted'])) {
+            $query->whereDoesntHave('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
+        } elseif ($activeFilter === 'new_cards') {
+            $query->where(function ($q) {
+                $q->whereDoesntHave('renewals')
+                  ->where(function ($sq) {
+                      $sq->whereDoesntHave('application')
+                        ->orWhereHas('application', fn ($aq) => $aq->whereNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
+                  });
+            });
+        } elseif ($activeFilter === 'renewed_cards') {
+            $query->where(function ($q) {
+                $q->whereHas('renewals')
+                  ->orWhereHas('application', fn ($aq) => $aq->whereNotNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
+            });
+        } elseif ($activeFilter === 'damaged_cards') {
+            $query->whereHas('application', fn ($aq) => $aq->where('type', 'REPLACE')->where('lost_report_type', 'DAMAGED'));
+        } elseif (! empty($data['status']) && in_array($data['status'], CardStatus::values(), true)) {
             $query->where('status', $data['status']);
         }
+
         if (isset($data['watchlisted'])) {
             $query->where('is_watchlisted', (bool) $data['watchlisted']);
         }
         if (! empty($data['expired'])) {
             $query->where('expires_on', '<', today());
         }
-        if (! empty($data['unprinted'])) {
-            // Issued cards with no successful print yet: the batch printing list.
-            $query->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])
-                ->whereDoesntHave('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
-        }
+
         if (! empty($data['search'])) {
-            $term = strtoupper(trim($data['search']));
-            $query->where(fn ($q) => $q->where('card_number', $term)
-                ->orWhere('booklet_number', $term)
-                ->orWhere('passport_number', $term)
-                ->orWhere('surname', 'ilike', Like::contains($term))
-                ->orWhere('forenames', 'ilike', Like::contains($term)));
+            $term = trim($data['search']);
+            $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+            $likeOp = $driver === 'pgsql' ? 'ilike' : 'like';
+            $pattern = Like::contains($term);
+            $cleanNum = preg_replace('/[^A-Z0-9]/', '', strtoupper($term));
+
+            $query->where(function ($q) use ($term, $cleanNum, $likeOp, $pattern) {
+                $q->where('card_number', $likeOp, $pattern)
+                    ->orWhere('booklet_number', $likeOp, $pattern)
+                    ->orWhere('passport_number', $likeOp, $pattern)
+                    ->orWhere('surname', $likeOp, $pattern)
+                    ->orWhere('forenames', $likeOp, $pattern)
+                    ->orWhereRaw("CONCAT(surname, ' ', forenames) {$likeOp} ?", [$pattern])
+                    ->orWhereRaw("CONCAT(forenames, ' ', surname) {$likeOp} ?", [$pattern])
+                    ->orWhereHas('application', fn ($aq) => $aq->where('application_number', $likeOp, $pattern));
+                if ($cleanNum !== '') {
+                    $q->orWhere('card_number', $likeOp, "%{$cleanNum}%")
+                      ->orWhere('passport_number', $likeOp, "%{$cleanNum}%");
+                }
+            });
         }
 
-        return CardResource::collection($query->paginate(25));
+        $perPage = (int) ($data['per_page'] ?? 10);
+
+        return CardResource::collection($query->paginate($perPage));
     }
 
     public function show(int $id, DocumentStorage $storage): JsonResponse
     {
-        $card = ResidenceCard::with(['renewals', 'application', 'printJobs' => fn ($q) => $q->with('printer:id,fullname')->latest('id')])->findOrFail($id);
+        $card = ResidenceCard::with([
+            'renewals',
+            'application.enrollmentCenter',
+            'printJobs' => fn ($q) => $q->with('printer:id,fullname,service_number')->latest('id'),
+        ])->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])->findOrFail($id);
 
         return response()->json([
             'data' => new CardResource($card),
@@ -74,13 +115,17 @@ class CardController
     }
 
     /**
-     * Everything needed to print the card, booklet and certificate,
+     * Everything needed to view and print the card, booklet and certificate,
      * including the QR verification URL.
      */
     public function print(int $id, DocumentStorage $storage): JsonResponse
     {
-        $card = ResidenceCard::with('renewals')->findOrFail($id);
-        abort_unless($card->status->isActive(), 422, 'Only an approved and issued card can be printed.');
+        $card = ResidenceCard::with([
+            'renewals',
+            'application',
+            'printJobs' => fn ($q) => $q->with('printer:id,fullname,service_number')->latest('id'),
+        ])->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])->findOrFail($id);
+        abort_unless(in_array($card->status, [CardStatus::Approved, CardStatus::Issued, CardStatus::Renewed], true), 422, 'Only an approved card can be viewed and printed.');
 
         return response()->json([
             'data' => new CardResource($card),

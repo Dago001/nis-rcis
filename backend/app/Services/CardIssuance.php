@@ -143,7 +143,7 @@ class CardIssuance
      */
     public function markReadyForCollection(ResidenceCard $card, User $officer): Application
     {
-        if (! $card->status->isActive()) {
+        if (! $card->status->isActive() && $card->status !== CardStatus::Approved) {
             throw ValidationException::withMessages(['status' => 'Only an approved/issued card can be marked ready for collection.']);
         }
 
@@ -162,6 +162,18 @@ class CardIssuance
                 }
                 $a->collected_at = now();
                 $a->collected_by = $officer->id;
+
+                if ($a->card_id) {
+                    $card = ResidenceCard::find($a->card_id);
+                    if ($card && $card->status !== CardStatus::Revoked) {
+                        $card->status = CardStatus::Issued;
+                        $card->issued_on = $card->issued_on ?? today();
+                        $card->issuing_officer_id = $officer->id;
+                        $card->issuing_officer_name = $officer->fullname;
+                        $card->issuing_officer_service_no = $officer->service_number;
+                        $card->saveQuietly();
+                    }
+                }
             });
     }
 

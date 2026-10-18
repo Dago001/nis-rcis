@@ -20,30 +20,28 @@ class CardIssuanceController
 {
     public function index(Request $request, DocumentStorage $storage): JsonResponse
     {
-        $stage = $request->input('stage', 'awaiting_collection');
+        $stage = $request->input('stage', 'awaiting_issuance');
         $search = $request->input('search');
         $centerId = $request->input('center_id');
+        $perPage = (int) ($request->input('per_page', 10));
 
         $query = ResidenceCard::query()
             ->with([
                 'application.enrollmentCenter',
                 'application.statusHistory' => fn ($q) => $q->latest('id')->limit(5),
                 'issuingOfficer:id,fullname,service_number',
+                'printJobs' => fn ($q) => $q->where('outcome', 'PRINTED')->with('printer:id,fullname,service_number')->latest('id')->limit(1),
             ])
             ->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])
+            ->whereHas('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'))
             ->latest('id');
 
         // Filter by stage
-        match ($stage) {
-            'ready_to_notify' => $query->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::BiometricsCaptured)),
-            'awaiting_collection' => $query->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::ReadyForCollection)),
-            'collected' => $query->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::Issued)),
-            default => $query->whereHas('application', fn ($q) => $q->whereIn('status', [
-                ApplicationStatus::BiometricsCaptured,
-                ApplicationStatus::ReadyForCollection,
-                ApplicationStatus::Issued,
-            ])),
-        };
+        if ($stage === 'awaiting_issuance' || $stage === 'awaiting_collection') {
+            $query->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued));
+        } elseif ($stage === 'issued' || $stage === 'collected') {
+            $query->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::Issued));
+        }
 
         // Filter by enrollment center
         if (! empty($centerId)) {
@@ -52,41 +50,58 @@ class CardIssuanceController
 
         // Search
         if (! empty($search)) {
-            $term = strtoupper(trim($search));
-            $query->where(function ($q) use ($term) {
-                $q->where('card_number', $term)
-                    ->orWhere('booklet_number', $term)
-                    ->orWhere('passport_number', $term)
-                    ->orWhere('surname', 'ilike', Like::contains($term))
-                    ->orWhere('forenames', 'ilike', Like::contains($term))
-                    ->orWhereHas('application', fn ($sq) => $sq->where('application_number', $term)
-                        ->orWhere('reference_number', $term));
+            $term = trim($search);
+            $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+            $likeOp = $driver === 'pgsql' ? 'ilike' : 'like';
+            $pattern = Like::contains($term);
+            $cleanNum = preg_replace('/[^A-Z0-9]/', '', strtoupper($term));
+
+            $query->where(function ($q) use ($term, $cleanNum, $likeOp, $pattern) {
+                $q->where('card_number', $likeOp, $pattern)
+                    ->orWhere('booklet_number', $likeOp, $pattern)
+                    ->orWhere('passport_number', $likeOp, $pattern)
+                    ->orWhere('surname', $likeOp, $pattern)
+                    ->orWhere('forenames', $likeOp, $pattern)
+                    ->orWhereRaw("CONCAT(surname, ' ', forenames) {$likeOp} ?", [$pattern])
+                    ->orWhereRaw("CONCAT(forenames, ' ', surname) {$likeOp} ?", [$pattern])
+                    ->orWhereHas('application', fn ($sq) => $sq->where('application_number', $likeOp, $pattern)
+                        ->orWhere('reference_number', $likeOp, $pattern));
+                if ($cleanNum !== '') {
+                    $q->orWhere('card_number', $likeOp, "%{$cleanNum}%")
+                      ->orWhere('passport_number', $likeOp, "%{$cleanNum}%");
+                }
             });
         }
 
-        $paginated = $query->paginate(25);
+        $paginated = $query->paginate($perPage);
 
-        // Compute summary counts
+        // Compute summary counts for printed cards
+        $printedBase = ResidenceCard::query()->whereHas('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
         $stats = [
-            'awaiting_collection' => Application::where('status', ApplicationStatus::ReadyForCollection)->count(),
-            'ready_to_notify' => Application::where('status', ApplicationStatus::BiometricsCaptured)->whereNotNull('card_id')->count(),
-            'collected_total' => Application::where('status', ApplicationStatus::Issued)->count(),
-            'total_produced' => Application::whereIn('status', [
-                ApplicationStatus::BiometricsCaptured,
-                ApplicationStatus::ReadyForCollection,
-                ApplicationStatus::Issued,
-            ])->whereNotNull('card_id')->count(),
+            'awaiting_issuance' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued))->count(),
+            'issued_total' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::Issued))->count(),
+            'total_printed' => (clone $printedBase)->count(),
+            // Backwards compatibility keys
+            'awaiting_collection' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued))->count(),
+            'ready_to_notify' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::BiometricsCaptured))->count(),
+            'collected_total' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::Issued))->count(),
+            'total_produced' => (clone $printedBase)->count(),
         ];
 
         $items = collect($paginated->items())->map(function (ResidenceCard $card) use ($storage) {
             $app = $card->application;
+            $latestPrint = $card->printJobs->first();
+            $isIssued = $app?->status === ApplicationStatus::Issued || $card->status === \App\Enums\CardStatus::Issued;
 
             return [
                 'id' => $card->id,
                 'card_number' => $card->card_number,
                 'booklet_number' => $card->booklet_number,
                 'status' => $card->status->value,
+                'issuance_status' => $isIssued ? 'ISSUED' : 'AWAITING_ISSUANCE',
+                'issuance_status_label' => $isIssued ? 'Issued' : 'Awaiting Issuance',
                 'verification_status' => $card->verificationStatus(),
+                'card_category' => $card->category ?? ($app?->category ?? ($card->renewals()->exists() ? 'Renewal' : 'General')),
                 'surname' => $card->surname,
                 'forenames' => $card->forenames,
                 'holder' => "{$card->surname}, {$card->forenames}",
@@ -94,7 +109,9 @@ class CardIssuanceController
                 'nationality' => $card->nationality,
                 'issued_on' => $card->issued_on?->toDateString(),
                 'expires_on' => $card->expires_on?->toDateString(),
-                'printed_count' => (int) ($card->printed_count ?? 0),
+                'printed_count' => (int) ($card->printed_count ?? 1),
+                'date_printed' => $latestPrint?->created_at?->toIso8601String(),
+                'printed_by' => $latestPrint?->printer?->fullname,
                 'photo_url' => $card->photo_path ? $storage->temporaryUrlForPath($card->photo_path) : null,
                 'application' => $app ? [
                     'id' => $app->id,
@@ -102,6 +119,7 @@ class CardIssuanceController
                     'reference_number' => $app->reference_number,
                     'status' => $app->status->value,
                     'status_label' => $app->status->label(),
+                    'category' => $app->category,
                     'ready_at' => $app->ready_at?->toIso8601String(),
                     'collected_at' => $app->collected_at?->toIso8601String(),
                     'enrollment_center' => $app->enrollmentCenter?->only(['id', 'name', 'code', 'state']),

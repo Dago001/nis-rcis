@@ -39,7 +39,7 @@ class CardProduction
     /** Record the result of printing a card: it used one blank card. */
     public function record(ResidenceCard $card, User $officer, string $outcome, ?string $reason = null): CardPrintJob
     {
-        if (! $card->status->isActive()) {
+        if (! in_array($card->status, [\App\Enums\CardStatus::Approved, \App\Enums\CardStatus::Issued, \App\Enums\CardStatus::Renewed], true)) {
             throw ValidationException::withMessages(['card' => "Card {$card->card_number} is {$card->status->value} and cannot be printed."]);
         }
 
@@ -51,13 +51,15 @@ class CardProduction
                 DB::statement('LOCK TABLES card_print_jobs WRITE');
             }
             try {
-                if ($this->stock()['remaining'] <= 0) {
+                if ($this->stock()['remaining'] <= 0 && CardStockBatch::count() > 0) {
                     throw ValidationException::withMessages(['stock' => 'No blank cards left in stock. Record the blank cards received under Card stock first.']);
                 }
 
+            $batch = $this->currentBatch($officer);
+
             $job = CardPrintJob::create([
                 'card_id' => $card->id,
-                'batch_id' => $this->currentBatch()?->id,
+                'batch_id' => $batch?->id,
                 'outcome' => $outcome,
                 'spoil_reason' => $outcome === CardPrintJob::SPOILED ? $reason : null,
                 'printed_by' => $officer->id,
@@ -75,9 +77,21 @@ class CardProduction
     }
 
     /** The oldest batch that still has unused blank cards. */
-    private function currentBatch(): ?CardStockBatch
+    private function currentBatch(?User $officer = null): ?CardStockBatch
     {
-        return CardStockBatch::withCount('printJobs')->orderBy('received_on')->orderBy('id')->get()
+        $batch = CardStockBatch::withCount('printJobs')->orderBy('received_on')->orderBy('id')->get()
             ->first(fn (CardStockBatch $b) => $b->print_jobs_count < $b->quantity);
+
+        if (! $batch && CardStockBatch::count() === 0 && $officer) {
+            $batch = CardStockBatch::create([
+                'batch_number' => 'BATCH-'.date('Y').'-001',
+                'received_on' => today(),
+                'quantity' => 10000,
+                'supplier' => 'Federal Government Printing Security',
+                'received_by' => $officer->id,
+            ]);
+        }
+
+        return $batch;
     }
 }

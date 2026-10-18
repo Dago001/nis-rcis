@@ -60,7 +60,14 @@ class CardStockController
             'outcome' => ['required', Rule::in([CardPrintJob::PRINTED, CardPrintJob::SPOILED])],
             'reason' => ['required_if:outcome,SPOILED', 'nullable', 'string', 'max:255'],
         ]);
-        $production->record(ResidenceCard::findOrFail($id), $request->user(), $data['outcome'], $data['reason'] ?? null);
+        $card = ResidenceCard::findOrFail($id);
+        if ($data['outcome'] === CardPrintJob::PRINTED && $card->printJobs()->where('outcome', CardPrintJob::PRINTED)->exists()) {
+            return response()->json([
+                'stock' => $production->stock(),
+                'message' => 'Card has already been confirmed as printed.',
+            ], 200);
+        }
+        $production->record($card, $request->user(), $data['outcome'], $data['reason'] ?? null);
 
         return response()->json(['stock' => $production->stock()], 201);
     }

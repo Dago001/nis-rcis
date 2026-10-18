@@ -154,6 +154,19 @@ export type Card = Particulars & {
   watchlisted_at: string | null;
   approved_at: string | null;
   printed_count?: number;
+  production_status?: "AWAITING_PRODUCTION" | "PRINTED" | string;
+  issuance_status?: "AWAITING_ISSUANCE" | "ISSUED" | string;
+  card_category?: string;
+  application_id?: number | null;
+  application?: {
+    id: number;
+    application_number: string;
+    reference_number: string;
+    status: string;
+    status_label: string;
+    category?: string;
+    enrollment_center?: { id: number; name: string; code: string; state: string } | null;
+  } | null;
   print_jobs?: { outcome: "PRINTED" | "SPOILED"; spoil_reason: string | null; printed_by: string | null; at: string }[];
   reported_lost_at: string | null;
   lost_report_type: "LOST" | "STOLEN" | null;

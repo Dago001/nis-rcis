@@ -70,8 +70,12 @@ export default function CardDetailPage() {
         subtitle={`Booklet ${c.booklet_number} · ${c.verification_status}`}
         actions={
           <div className="flex gap-2">
-            {c.application_id && <Link href={`/staff/applications/${c.application_id}`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application</Link>}
-            {issuer && active && <Link href={`/staff/cards/${c.id}/print`} className="rounded-lg bg-nis-green px-3 py-2 text-sm font-semibold text-white">Print card</Link>}
+            <Link
+              href={`/staff/cards/${c.id}/print`}
+              className="inline-flex items-center rounded-lg bg-nis-green px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
+            >
+              View Card
+            </Link>
           </div>
         }
       />
@@ -144,13 +148,16 @@ export default function CardDetailPage() {
           items={[
             ["Card Number", c.card_number],
             ["Booklet Number", c.booklet_number || "—"],
+            ["Application Reference", c.decision_reference || c.application?.application_number || (c.application_id ? `#${c.application_id}` : "—")],
+            ["Card Category", c.card_category || c.application?.category || "General"],
+            ["Production Status", (c.printed_count ?? 0) > 0 ? "Printed" : "Awaiting Production"],
+            ["Issuance Status", (c.status === "ISSUED" || c.issuance_status === "ISSUED") ? "Issued" : "Awaiting Issuance"],
             ["Card Status", c.status],
             ["Verification Status", c.verification_status || "—"],
             ["Issued Date & Location", `${nisDate(c.issued_on)} at ${c.issued_at || "NIS HQ"}`],
             ["Expiry Date", nisDate(c.expires_on)],
-            ["Issuing Officer", `${c.issuing_officer_name} (${c.issuing_officer_service_no})`],
+            ["Issuing Officer", `${c.issuing_officer_name || "—"} (${c.issuing_officer_service_no || "—"})`],
             ["Decision Reference", c.decision_reference || "—"],
-            ...(c.application_id ? [["Associated Application", <Link key="app" href={`/staff/applications/${c.application_id}`} className="font-semibold text-nis-primary underline">Application #{c.application_id}</Link>] as [string, any]] : []),
           ]}
         />
       </Panel>
