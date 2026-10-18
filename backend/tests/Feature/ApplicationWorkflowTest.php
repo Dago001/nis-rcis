@@ -431,10 +431,10 @@ it('replaces a card reported lost and withdraws the old card when the new one is
 it('allows an applicant to apply for renewal even if previous application had card issued or ready for collection', function () {
     Notification::fake();
     $applicant = Applicant::factory()->create(['email' => 'renewal@example.com']);
-    $oldCard = ResidenceCard::factory()->issued()->create(['applicant_id' => $applicant->id, 'passport_number' => 'B6556610']);
+    $oldCard = ResidenceCard::factory()->issued()->create(['applicant_id' => $applicant->id, 'passport_number' => 'TEST999888']);
     $previousApp = Application::factory()->create([
         'applicant_id' => $applicant->id,
-        'passport_number' => 'B6556610',
+        'passport_number' => 'TEST999888',
         'status' => ApplicationStatus::ReadyForCollection,
         'card_id' => $oldCard->id,
     ]);
@@ -446,7 +446,7 @@ it('allows an applicant to apply for renewal even if previous application had ca
     $renewal = particulars([
         'type' => 'RENEWAL',
         'renewal_card_number' => $oldCard->card_number,
-        'passport_number' => 'B6556610',
+        'passport_number' => 'TEST999888',
         'payment_reference' => paidReference(),
     ]);
 

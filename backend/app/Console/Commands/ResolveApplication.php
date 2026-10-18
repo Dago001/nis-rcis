@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\ApplicationStatus;
 use App\Models\Application;
+use App\Services\PassportDataPurger;
 use Illuminate\Console\Command;
 
 class ResolveApplication extends Command
@@ -11,6 +12,7 @@ class ResolveApplication extends Command
     protected $signature = 'nis:resolve-application
         {application_number : The application number (e.g. RC-2026-100014)}
         {--status= : Transition to a new status (e.g. ISSUED, REJECTED, PENDING_APPROVAL)}
+        {--purge : Completely purge this application, passport, and all related records from the database}
         {--notes= : Optional notes for the transition}';
 
     protected $description = 'Inspect or resolve an application status in the database';
@@ -34,6 +36,13 @@ class ResolveApplication extends Command
         $this->line("Card ID: " . ($application->card_id ?? 'None'));
         if ($application->card) {
             $this->line("Card Number: {$application->card->card_number} (Status: {$application->card->status->value})");
+        }
+
+        if ($this->option('purge')) {
+            $this->warn("Completely purging application {$application->application_number} and passport {$application->passport_number}...");
+            $summary = PassportDataPurger::purge($application->passport_number, $application->application_number);
+            $this->info("Purged {$summary['applications_deleted']} application(s), {$summary['cards_deleted']} card(s), {$summary['documents_deleted']} document(s).");
+            return self::SUCCESS;
         }
 
         $newStatusInput = $this->option('status');
