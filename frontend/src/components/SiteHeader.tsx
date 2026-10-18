@@ -93,6 +93,7 @@ export function SiteHeader({
               <li key={l.href}>
                 <Link
                   href={l.href}
+                  prefetch={false}
                   aria-current={pathname === l.href ? "page" : undefined}
                   className={`flex items-center gap-1.5 transition-colors hover:text-nis-primary ${
                     pathname === l.href ? "font-semibold text-nis-primary" : ""
@@ -167,6 +168,7 @@ export function SiteHeader({
                 <li key={l.href}>
                   <Link
                     href={l.href}
+                    prefetch={false}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-nis-mint hover:text-nis-primary ${
                       pathname === l.href ? "bg-nis-mint font-semibold text-nis-primary" : ""

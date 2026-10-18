@@ -23,6 +23,8 @@ function getCsrfToken(): string | null {
   return meta ? meta.getAttribute("content") : null;
 }
 
+const inFlightGetRequests = new Map<string, Promise<unknown>>();
+
 /**
  * Direct call to the Laravel API. Uses the session cookie and CSRF token.
  */
@@ -41,31 +43,51 @@ export async function api<T = unknown>(scope: ApiScope, path: string, init: Requ
   }
   const csrf = getCsrfToken();
 
-  const response = await fetch(url, {
-    ...rest,
-    headers: {
-      Accept: "application/json",
-      ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...(csrf ? { "X-CSRF-TOKEN": csrf, "X-Requested-With": "XMLHttpRequest" } : { "X-Requested-With": "XMLHttpRequest" }),
-      ...headers,
-    },
-    body: json !== undefined ? JSON.stringify(json) : rest.body,
-    credentials: "same-origin",
-  });
-
-  if (response.status === 401 && scope !== "public") {
-    const returnTo = window.location.pathname + window.location.search;
-    window.location.href = scope === "staff" ? `/login/staff?returnTo=${encodeURIComponent(returnTo)}` : `/login/applicant?returnTo=${encodeURIComponent(returnTo)}`;
-    throw new ApiError(401, "Your session has expired. Redirecting to sign in…");
+  const method = (rest.method || "GET").toUpperCase();
+  const isGet = method === "GET" && json === undefined && !rest.body;
+  if (isGet && inFlightGetRequests.has(url)) {
+    return inFlightGetRequests.get(url) as Promise<T>;
   }
 
-  if (response.status === 204) return undefined as T;
+  const fetchPromise = (async () => {
+    try {
+      const response = await fetch(url, {
+        ...rest,
+        headers: {
+          Accept: "application/json",
+          ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(csrf ? { "X-CSRF-TOKEN": csrf, "X-Requested-With": "XMLHttpRequest" } : { "X-Requested-With": "XMLHttpRequest" }),
+          ...headers,
+        },
+        body: json !== undefined ? JSON.stringify(json) : rest.body,
+        credentials: "same-origin",
+      });
 
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(response.status, body.message ?? `Request failed (${response.status})`, body.errors ?? {});
+      if (response.status === 401 && scope !== "public") {
+        const returnTo = window.location.pathname + window.location.search;
+        window.location.href = scope === "staff" ? `/login/staff?returnTo=${encodeURIComponent(returnTo)}` : `/login/applicant?returnTo=${encodeURIComponent(returnTo)}`;
+        throw new ApiError(401, "Your session has expired. Redirecting to sign in…");
+      }
+
+      if (response.status === 204) return undefined as T;
+
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new ApiError(response.status, body.message ?? `Request failed (${response.status})`, body.errors ?? {});
+      }
+      return body as T;
+    } finally {
+      if (isGet) {
+        inFlightGetRequests.delete(url);
+      }
+    }
+  })();
+
+  if (isGet) {
+    inFlightGetRequests.set(url, fetchPromise);
   }
-  return body as T;
+
+  return fetchPromise;
 }
 
 export function upload<T = unknown>(scope: ApiScope, path: string, fields: Record<string, string | Blob>): Promise<T> {

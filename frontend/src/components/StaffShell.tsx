@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { api } from "@/lib/api-client";
 import type { StaffRole, StaffUser } from "@/lib/types";
 import { SiteFooter, SiteHeader } from "./SiteHeader";
+import { GlobalAnnouncements } from "./GlobalAnnouncements";
 import { Spinner } from "./ui";
 
 const StaffContext = createContext<StaffUser | null>(null);
@@ -59,8 +60,8 @@ const navSections: NavSection[] = [
   {
     title: "Residence Cards",
     items: [
-      { href: "/staff/cards", label: "Residence cards", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6") },
-      { href: "/staff/card-issuance", label: "Card issuance", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"), roles: ["IssuingOfficer", "ApprovingOfficer", "ProductionOfficer", "Supervisor", "Admin"] },
+      { href: "/staff/cards", label: "Card Production", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6"), roles: ["ProductionOfficer", "IssuingOfficer", "ApprovingOfficer", "Supervisor", "Admin"] },
+      { href: "/staff/card-issuance", label: "Card Issuance", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"), roles: ["IssuingOfficer", "ApprovingOfficer", "ProductionOfficer", "Supervisor", "Admin"] },
       { href: "/staff/card-stock", label: "Stock & printing", icon: icon("M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"), roles: ["ProductionOfficer", "IssuingOfficer", "ApprovingOfficer", "Supervisor", "Admin"] },
     ],
   },
@@ -84,12 +85,21 @@ const navSections: NavSection[] = [
     items: [
       { href: "/staff/users", label: "Staff accounts", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"), roles: ["SuperAdmin", "Admin"] },
       { href: "/staff/system", label: "System health", icon: icon("M22 12h-4l-3 9L9 3l-3 9H2"), roles: ["SuperAdmin", "Admin"] },
+      { href: "/staff/settings", label: "Settings", icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"), roles: ["SuperAdmin", "Admin"] },
     ],
   },
 ];
 
 export function StaffShell({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<StaffUser | null>(null);
+  const [user, setUser] = useState<StaffUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = sessionStorage.getItem("nis_staff_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
   const area = useRef<HTMLDivElement>(null);
@@ -97,7 +107,16 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const firstPath = useRef(pathname);
 
   useEffect(() => {
-    api<StaffUser>("staff", "me").then(setUser).catch((e) => setError(e.message));
+    api<StaffUser>("staff", "me")
+      .then((data) => {
+        setUser(data);
+        try {
+          sessionStorage.setItem("nis_staff_user", JSON.stringify(data));
+        } catch {}
+      })
+      .catch((e) => {
+        if (!user) setError(e.message);
+      });
   }, []);
 
   // Sidebar links don't reset the window scroll (the menu stays exactly where it
@@ -128,6 +147,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader
+        languages
         portal="staff"
         user={
           user
@@ -138,6 +158,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
             : undefined
         }
       />
+      <GlobalAnnouncements />
       <div className="w-full flex-1 bg-[#f4f7f5]">
         <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
         <nav className="no-print lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">

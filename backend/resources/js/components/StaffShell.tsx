@@ -91,7 +91,15 @@ const navSections: NavSection[] = [
 ];
 
 export function StaffShell({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<StaffUser | null>(null);
+  const [user, setUser] = useState<StaffUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = sessionStorage.getItem("nis_staff_user");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
   const area = useRef<HTMLDivElement>(null);
@@ -99,7 +107,16 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const firstPath = useRef(pathname);
 
   useEffect(() => {
-    api<StaffUser>("staff", "me").then(setUser).catch((e) => setError(e.message));
+    api<StaffUser>("staff", "me")
+      .then((data) => {
+        setUser(data);
+        try {
+          sessionStorage.setItem("nis_staff_user", JSON.stringify(data));
+        } catch {}
+      })
+      .catch((e) => {
+        if (!user) setError(e.message);
+      });
   }, []);
 
   // Sidebar links don't reset the window scroll (the menu stays exactly where it

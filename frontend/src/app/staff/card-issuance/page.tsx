@@ -191,13 +191,20 @@ function CardIssuanceContent() {
   const queryUrl = `card-issuance?stage=${encodeURIComponent(currentStage)}&search=${encodeURIComponent(debouncedSearch)}&page=${currentPage}&per_page=${perPage}`;
   const { data: response, reload, loading } = useFetch<CardIssuanceResponse>("staff", queryUrl);
 
-  const cards = response?.data ?? [];
-  const total = response?.meta?.total ?? 0;
+  const previousResponseRef = useRef<CardIssuanceResponse | null>(null);
+  if (response) {
+    previousResponseRef.current = response;
+  }
+  const displayResponse = response ?? previousResponseRef.current;
+  const isRefreshing = loading && Boolean(previousResponseRef.current);
+
+  const cards = displayResponse?.data ?? [];
+  const total = displayResponse?.meta?.total ?? 0;
   const from = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
   const to = Math.min(currentPage * perPage, total);
-  const totalPages = Math.max(1, response?.meta?.last_page ?? Math.ceil(total / perPage));
+  const totalPages = Math.max(1, displayResponse?.meta?.last_page ?? Math.ceil(total / perPage));
 
-  const stats = response?.stats ?? {
+  const stats = displayResponse?.stats ?? {
     awaiting_issuance: 0,
     issued_total: 0,
     total_printed: 0,
@@ -419,8 +426,13 @@ function CardIssuanceContent() {
       </div>
 
       {/* Main Table */}
-      {loading ? (
-        <Spinner />
+      {!displayResponse ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xs">
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
+            <span>Loading printed cards...</span>
+          </div>
+        </div>
       ) : cards.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
@@ -447,7 +459,7 @@ function CardIssuanceContent() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">

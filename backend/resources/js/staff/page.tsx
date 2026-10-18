@@ -85,18 +85,31 @@ function Kpi({ label, value, note }: { label: string; value: string; note?: Reac
 
 export default function StaffDashboard() {
   const user = useStaff();
-  const [s, setS] = useState<Summary | null>(null);
+  const [s, setS] = useState<Summary | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = sessionStorage.getItem("nis_staff_dashboard");
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api<Summary>("staff", "dashboard")
       .then((data) => {
         setS(data);
+        try {
+          sessionStorage.setItem("nis_staff_dashboard", JSON.stringify(data));
+        } catch {}
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {
+        if (!s) setError(e.message);
+      });
   }, []);
 
-  if (error) return <Alert tone="danger">{error}</Alert>;
+  if (error && !s) return <Alert tone="danger">{error}</Alert>;
   if (!s || !s.analytics?.totals || !s.queue) return <Spinner />;
 
   const a = s.analytics;

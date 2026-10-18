@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ApiScope } from "./api-client";
 
 const memoryCache = new Map<string, unknown>();
@@ -43,6 +43,17 @@ export function useFetch<T>(scope: ApiScope, path: string | null) {
     return cached ? { path: cacheKey, data: cached } : null;
   });
   const [version, setVersion] = useState(0);
+
+  // Synchronously sync state if cache already has data for a changed path
+  const prevPathRef = useRef(path);
+  if (path !== null && prevPathRef.current !== path) {
+    prevPathRef.current = path;
+    const key = `${scope}:${path}`;
+    const cached = getCached<T>(key);
+    if (cached && state?.path !== key) {
+      setState({ path: key, data: cached });
+    }
+  }
 
   useEffect(() => {
     if (path === null) return;

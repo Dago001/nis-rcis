@@ -132,7 +132,14 @@ function CardProductionContent() {
   const queryUrl = `cards?filter=${encodeURIComponent(currentFilter)}&search=${encodeURIComponent(debouncedSearch)}&page=${currentPage}&per_page=${perPage}`;
   const { data: result } = useFetch<Paginated<Card>>("staff", queryUrl);
 
-  const total = result?.total ?? 0;
+  const previousResultRef = useRef<Paginated<Card> | null>(null);
+  if (result) {
+    previousResultRef.current = result;
+  }
+  const displayResult = result ?? previousResultRef.current;
+  const isRefreshing = !result && Boolean(previousResultRef.current);
+
+  const total = displayResult?.total ?? 0;
   const from = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
   const to = Math.min(currentPage * perPage, total);
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -219,16 +226,8 @@ function CardProductionContent() {
                             <span>{c.nationality}</span>
                           </div>
                         </div>
-                        <div className="shrink-0">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              isPrinted
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                : "bg-amber-50 text-amber-800 border border-amber-200"
-                            }`}
-                          >
-                            {isPrinted ? "Printed" : "Awaiting Production"}
-                          </span>
+                        <div className="shrink-0 text-xs font-medium text-slate-700">
+                          {isPrinted ? "Printed" : "Awaiting Production"}
                         </div>
                       </button>
                     );
@@ -263,9 +262,14 @@ function CardProductionContent() {
       </div>
 
       {/* Table Results */}
-      {!result ? (
-        <Spinner />
-      ) : result.data.length === 0 ? (
+      {!displayResult ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
+            <span>Loading card records...</span>
+          </div>
+        </div>
+      ) : displayResult.data.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center">
           {currentFilter === "damaged_cards" ? (
             <div className="space-y-1">
@@ -291,7 +295,7 @@ function CardProductionContent() {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+        <div className={`overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
@@ -302,15 +306,13 @@ function CardProductionContent() {
                 <th className="px-4 py-3 font-semibold">Nationality</th>
                 <th className="px-4 py-3 font-semibold">Category</th>
                 <th className="px-4 py-3 font-semibold">Production Status</th>
-                <th className="px-4 py-3 font-semibold">Issuance Status</th>
-                <th className="px-4 py-3 text-right font-semibold">Action</th>
+                <th className="w-16 px-4 py-3 text-center font-semibold">View</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {result.data.map((c, index) => {
+              {displayResult.data.map((c, index) => {
                 const serialNumber = (currentPage - 1) * perPage + index + 1;
                 const isPrinted = (c.printed_count ?? 0) > 0;
-                const isIssued = c.status === "ISSUED" || c.issuance_status === "ISSUED";
                 const category = c.card_category || c.application?.category || "General";
 
                 return (
@@ -346,44 +348,40 @@ function CardProductionContent() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{c.nationality}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">
-                        {category}
-                      </span>
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      {category}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          isPrinted
-                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                            : "bg-amber-50 text-amber-800 border border-amber-200"
-                        }`}
-                      >
+                      <div className="font-medium text-slate-800">
                         {isPrinted ? "Printed" : "Awaiting Production"}
-                      </span>
+                      </div>
                       {c.printed_count ? (
-                        <div className="text-[11px] text-slate-500 mt-0.5">
+                        <div className="text-xs text-slate-500">
                           Printed {c.printed_count}×
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          isIssued
-                            ? "bg-blue-50 text-blue-800 border border-blue-200"
-                            : "bg-slate-100 text-slate-700 border border-slate-200"
-                        }`}
-                      >
-                        {isIssued ? "Issued" : "Awaiting Issuance"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="w-16 px-4 py-3 text-center">
                       <Link
                         href={`/staff/cards/${c.id}`}
-                        className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
+                        title="View"
+                        aria-label={`View card details for ${c.card_number}`}
+                        className="inline-flex items-center justify-center p-1.5 text-slate-500 hover:text-nis-primary transition-colors rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-nis-primary/30"
                       >
-                        Open Details →
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span className="sr-only">View</span>
                       </Link>
                     </td>
                   </tr>
@@ -395,7 +393,7 @@ function CardProductionContent() {
       )}
 
       {/* Pagination Controls */}
-      {result && total > 0 && (
+      {displayResult && total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 text-sm border-t border-slate-200">
           <span className="text-slate-600">
             Showing <span className="font-medium text-slate-900">{from}</span>–

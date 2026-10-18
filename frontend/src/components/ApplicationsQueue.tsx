@@ -125,6 +125,13 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
   const { data: result } = useFetch<Paginated<Application>>("staff", `applications?${apiParams}`);
 
+  const previousResultRef = useRef<Paginated<Application> | null>(null);
+  if (result) {
+    previousResultRef.current = result;
+  }
+  const displayResult = result ?? previousResultRef.current;
+  const isRefreshing = !result && Boolean(previousResultRef.current);
+
   function buildUrl(overrides: { status?: string; search?: string; page?: number; assigned?: string; overdue?: boolean }) {
     const nextStatus = overrides.status !== undefined ? overrides.status : currentStatus;
     const nextSearch = overrides.search !== undefined ? overrides.search : debouncedSearch;
@@ -168,9 +175,9 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
   }
 
   // Pagination calculation
-  const total = result?.meta?.total ?? 0;
-  const perPage = result?.meta?.per_page ?? defaultPerPage;
-  const lastPage = Math.max(1, result?.meta?.last_page ?? (Math.ceil(total / perPage) || 1));
+  const total = displayResult?.meta?.total ?? 0;
+  const perPage = displayResult?.meta?.per_page ?? defaultPerPage;
+  const lastPage = Math.max(1, displayResult?.meta?.last_page ?? (Math.ceil(total / perPage) || 1));
   const from = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
   const to = Math.min(total, currentPage * perPage);
 
@@ -335,9 +342,14 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
       </div>
 
       {/* Applications Table / Results */}
-      {!result ? (
-        <Spinner />
-      ) : result.data.length === 0 ? (
+      {!displayResult ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
+            <span>Loading applications...</span>
+          </div>
+        </div>
+      ) : displayResult.data.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center">
           <p className="text-sm font-medium text-slate-600">No applications found.</p>
           {(currentSearch || currentStatus || assigned || overdue) && (
@@ -352,7 +364,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+        <div className={`overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
@@ -366,7 +378,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {result.data.map((a, index) => {
+              {displayResult.data.map((a, index) => {
                 const serialNumber = (currentPage - 1) * perPage + index + 1;
                 return (
                   <tr key={a.id} className="hover:bg-slate-50/80 transition-colors">
@@ -427,7 +439,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
       )}
 
       {/* Pagination Bar */}
-      {result && total > 0 && (
+      {displayResult && total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 text-sm border-t border-slate-200">
           <span className="text-slate-600">
             Showing <span className="font-medium text-slate-900">{from}</span>–
