@@ -44,7 +44,12 @@ class ApplicationStatusChanged extends Notification
 
         return match ($this->status) {
             ApplicationStatus::PendingApproval => $mail
-                ->line("Your application {$app->application_number} has been received and is awaiting review by an Approving Officer.")
+                ->line("Your application {$app->application_number} has been received and is awaiting vetting by a Vetting Officer.")
+                ->line("Reference: {$app->reference_number}")
+                ->action('View application', $url),
+            ApplicationStatus::Vetted => $mail
+                ->line("Your application {$app->application_number} has passed vetting and is awaiting final approval from an Approving Officer.")
+                ->line("Please note: clearance to attend your scheduled biometrics appointment is subject to final approval.")
                 ->line("Reference: {$app->reference_number}")
                 ->action('View application', $url),
             ApplicationStatus::ApprovedForBiometrics => $mail
@@ -76,6 +81,7 @@ class ApplicationStatusChanged extends Notification
         $isQueried = $this->status === ApplicationStatus::Queried;
 
         $title = match ($this->status) {
+            ApplicationStatus::Vetted => 'Application Vetted – Awaiting Approval',
             ApplicationStatus::Queried => 'Application Requires Your Attention',
             ApplicationStatus::ApprovedForBiometrics => 'Application Approved for Biometrics',
             ApplicationStatus::ReadyForCollection => 'Card Ready for Collection',
@@ -84,6 +90,7 @@ class ApplicationStatusChanged extends Notification
         };
 
         $notes = match ($this->status) {
+            ApplicationStatus::Vetted => $this->notes ?? 'Your application has passed vetting and is awaiting final approval from an Approving Officer.',
             ApplicationStatus::ReadyForCollection => $this->notes ?? "Your residence card is ready for collection at {$this->application->enrollmentCenter?->name}. Bring your original passport and application slip.",
             ApplicationStatus::Issued => $this->notes ?? 'Your residence card has been successfully issued and collected. Thank you.',
             default => $this->notes,

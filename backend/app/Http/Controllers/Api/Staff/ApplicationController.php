@@ -24,6 +24,7 @@ use App\Support\WorkingDays;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -50,9 +51,12 @@ class ApplicationController
             'enrollment_center_id' => ['nullable', 'integer'],
             'assigned' => ['nullable', Rule::in(['me', 'unassigned'])],
             'overdue' => ['nullable', 'boolean'],
+            'queue' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $query = Application::query()->with(['enrollmentCenter', 'assignee:id,fullname,service_number'])->latest('id');
+        $query = Application::query()
+            ->with(['enrollmentCenter', 'assignee:id,fullname,service_number', 'vettedBy:id,fullname,service_number'])
+            ->latest('id');
 
         if (($data['assigned'] ?? null) === 'me') {
             $query->where('assigned_to', $request->user()->id);
@@ -67,24 +71,52 @@ class ApplicationController
 
         if (! empty($data['status'])) {
             $query->where('status', $data['status']);
+        } elseif (! empty($data['queue'])) {
+            if ($data['queue'] === 'approvals') {
+                $query->whereIn('status', [
+                    ApplicationStatus::Vetted,
+                    ApplicationStatus::ApprovedForBiometrics,
+                    ApplicationStatus::Queried,
+                    ApplicationStatus::Rejected,
+                ]);
+            } elseif ($data['queue'] === 'vetting') {
+                $query->whereIn('status', [
+                    ApplicationStatus::PendingApproval,
+                    ApplicationStatus::Vetted,
+                    ApplicationStatus::Queried,
+                    ApplicationStatus::Rejected,
+                ]);
+            }
         }
+
         if (! empty($data['appointment_date'])) {
             $query->whereDate('appointment_date', $data['appointment_date']);
         }
         if (! empty($data['enrollment_center_id'])) {
             $query->where('enrollment_center_id', $data['enrollment_center_id']);
         }
+
         if (! empty($data['search'])) {
             $term = $this->normaliseSearch($data['search']);
-            $query->where(function ($q) use ($term) {
-                $q->where('application_number', $term)
-                    ->orWhere('reference_number', $term)
-                    ->orWhere('passport_number', $term)
-                    ->orWhereRaw("replace(application_number, '-', '') = ?", [preg_replace('/[^A-Z0-9]/', '', $term)])
-                    ->orWhere('surname', 'ilike', Like::contains($term))
-                    ->orWhere('forenames', 'ilike', Like::contains($term))
-                    ->orWhereRaw("concat(forenames, ' ', surname) ILIKE ?", ['%' . $term . '%'])
-                    ->orWhereRaw("concat(surname, ' ', forenames) ILIKE ?", ['%' . $term . '%']);
+            $driver = DB::connection()->getDriverName();
+            $likeOp = $driver === 'pgsql' ? 'ilike' : 'like';
+            $pattern = Like::contains($term);
+            $cleanNum = preg_replace('/[^A-Z0-9]/', '', $term);
+
+            $query->where(function ($q) use ($term, $likeOp, $pattern, $cleanNum) {
+                $q->where('application_number', $likeOp, $pattern)
+                    ->orWhere('reference_number', $likeOp, $pattern)
+                    ->orWhere('passport_number', $likeOp, $pattern)
+                    ->orWhere('surname', $likeOp, $pattern)
+                    ->orWhere('forenames', $likeOp, $pattern);
+
+                if (! empty($cleanNum)) {
+                    $q->orWhereRaw("replace(application_number, '-', '') " . $likeOp . " ?", ['%' . $cleanNum . '%'])
+                      ->orWhereRaw("replace(reference_number, '-', '') " . $likeOp . " ?", ['%' . $cleanNum . '%']);
+                }
+
+                $q->orWhereRaw("concat(forenames, ' ', surname) " . $likeOp . " ?", [$pattern])
+                  ->orWhereRaw("concat(surname, ' ', forenames) " . $likeOp . " ?", [$pattern]);
             });
         }
 
@@ -168,7 +200,11 @@ class ApplicationController
 
     public function show(int $id, DocumentStorage $storage): JsonResponse
     {
-        $application = Application::with(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory', 'payments', 'assignee:id,fullname,service_number'])->findOrFail($id);
+        $application = Application::with([
+            'enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants',
+            'documents', 'statusHistory', 'payments', 'assignee:id,fullname,service_number',
+            'vettedBy:id,fullname,service_number', 'decidedBy:id,fullname,service_number',
+        ])->findOrFail($id);
 
         return response()->json([
             'data' => new ApplicationResource($application),
@@ -220,37 +256,109 @@ class ApplicationController
     }
 
     /**
-     * APPROVE (for biometrics) | QUERY | REJECT.
+     * VET | APPROVE (for biometrics) | QUERY | REJECT.
      */
     public function decide(Request $request, int $id, ApplicationWorkflow $workflow): ApplicationResource
     {
         $data = $request->validate([
-            'decision' => ['required', Rule::in(['APPROVE', 'QUERY', 'REJECT'])],
-            'notes' => ['required_unless:decision,APPROVE', 'nullable', 'string', 'max:2000'],
+            'decision' => ['required', Rule::in(['VET', 'APPROVE', 'QUERY', 'REJECT'])],
+            'notes' => ['required_if:decision,QUERY,REJECT', 'nullable', 'string', 'max:2000'],
         ]);
 
         $officer = $this->officer($request);
-        $to = match ($data['decision']) {
-            'APPROVE' => ApplicationStatus::ApprovedForBiometrics,
-            'QUERY' => ApplicationStatus::Queried,
-            'REJECT' => ApplicationStatus::Rejected,
-        };
-        $notes = $data['notes'] ?? 'Approved for physical biometrics capture at the enrollment center.';
+        $application = Application::findOrFail($id);
 
-        $application = $workflow->transition(Application::findOrFail($id), $to, $officer, $notes, function (Application $a) use ($to, $officer, $notes) {
-            if ($to === ApplicationStatus::Queried) {
-                // A query is not a final decision; the application remains pending further action.
-                $a->decided_by = null;
-                $a->decided_at = null;
-                $a->decision_notes = $notes;
-            } else {
+        if ($data['decision'] === 'VET') {
+            abort_unless(
+                $officer->hasRole(StaffRole::VettingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
+                403,
+                'Only a Vetting Officer or Administrator can vet applications.'
+            );
+            abort_unless(
+                $application->status === ApplicationStatus::PendingApproval,
+                422,
+                "Application {$application->application_number} is {$application->status->value}; only applications awaiting vetting can be vetted."
+            );
+
+            $notes = ! empty($data['notes']) ? $data['notes'] : 'Application particulars and supporting documents examined and verified by Vetting Officer.';
+
+            $application = $workflow->transition($application, ApplicationStatus::Vetted, $officer, $notes, function (Application $a) use ($officer, $notes) {
+                $a->vetted_by = $officer->id;
+                $a->vetted_at = now();
+                $a->vetting_notes = $notes;
+            });
+
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy']));
+        }
+
+        if ($data['decision'] === 'APPROVE') {
+            abort_unless(
+                $officer->hasRole(StaffRole::ApprovingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
+                403,
+                'Only an Approving Officer or Administrator can grant final approval.'
+            );
+            abort_if(
+                $application->status === ApplicationStatus::PendingApproval,
+                422,
+                "Application {$application->application_number} has not been vetted. Vetting must be completed before final approval can be granted."
+            );
+            abort_if(
+                $application->status === ApplicationStatus::Queried,
+                422,
+                "Application {$application->application_number} is currently queried and cannot be approved."
+            );
+            abort_unless(
+                $application->status === ApplicationStatus::Vetted,
+                422,
+                "Application {$application->application_number} must be in Vetted status to receive final approval."
+            );
+
+            $notes = ! empty($data['notes']) ? $data['notes'] : 'Approved for physical biometrics capture at the enrollment center.';
+
+            $application = $workflow->transition($application, ApplicationStatus::ApprovedForBiometrics, $officer, $notes, function (Application $a) use ($officer, $notes) {
                 $a->decided_by = $officer->id;
                 $a->decided_at = now();
                 $a->decision_notes = $notes;
-            }
-        });
+            });
 
-        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy']));
+        }
+
+        if ($data['decision'] === 'QUERY') {
+            abort_unless(
+                $officer->hasRole(StaffRole::VettingOfficer, StaffRole::ApprovingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
+                403,
+                'You do not have permission to query this application.'
+            );
+            $notes = $data['notes'];
+
+            $application = $workflow->transition($application, ApplicationStatus::Queried, $officer, $notes, function (Application $a) use ($notes) {
+                $a->decided_by = null;
+                $a->decided_at = null;
+                $a->decision_notes = $notes;
+            });
+
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy']));
+        }
+
+        if ($data['decision'] === 'REJECT') {
+            abort_unless(
+                $officer->hasRole(StaffRole::VettingOfficer, StaffRole::ApprovingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
+                403,
+                'You do not have permission to reject this application.'
+            );
+            $notes = $data['notes'];
+
+            $application = $workflow->transition($application, ApplicationStatus::Rejected, $officer, $notes, function (Application $a) use ($officer, $notes) {
+                $a->decided_by = $officer->id;
+                $a->decided_at = now();
+                $a->decision_notes = $notes;
+            });
+
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy']));
+        }
+
+        abort(422, 'Invalid decision.');
     }
 
     public function captureBiometrics(Request $request, int $id, CardIssuance $issuance): ApplicationResource

@@ -219,8 +219,8 @@ class ApplicationController
             'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
             'signature_url' => $storage->temporaryUrlForPath($application->signature_path),
             'qr_payload' => "NIS-RCIS|APP:{$application->application_number}|REF:{$application->reference_number}",
-            'appointment_slip_available' => ! in_array($application->status, [
-                ApplicationStatus::PendingApproval, ApplicationStatus::Queried, ApplicationStatus::Rejected,
+            'appointment_slip_available' => ! empty($application->appointment_date) && ! in_array($application->status, [
+                ApplicationStatus::Queried, ApplicationStatus::Rejected,
             ], true),
             'temporary_slip_available' => in_array($application->status, [
                 ApplicationStatus::BiometricsCaptured, ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,

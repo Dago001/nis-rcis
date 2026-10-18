@@ -69,7 +69,7 @@ function SlipView() {
 
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!slip) return <Spinner />;
-  if (appointment && !slip.appointment_slip_available) return <Alert tone="warning">The appointment slip is available once your application is approved for biometrics.</Alert>;
+  if (appointment && !slip.appointment_slip_available) return <Alert tone="warning">The appointment slip is available once your biometrics appointment is booked.</Alert>;
 
   return (
     <div className="space-y-4">
@@ -271,6 +271,26 @@ function Row({ k, v }: { k: string; v: ReactNode }) {
 function AppointmentSlip({ slip }: { slip: Slip }) {
   const a = slip.application;
   const center = a.enrollment_center;
+
+  let statusText = "Awaiting Vetting";
+  let clearanceText = "Pending Vetting & Final Approval (Not Cleared for Biometrics)";
+  let isApproved = false;
+
+  if (a.status === "VETTED") {
+    statusText = "Vetted – Awaiting Approval";
+    clearanceText = "Pending Final Approval (Not Cleared for Biometrics)";
+  } else if (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status)) {
+    statusText = a.status === "APPROVED_FOR_BIOMETRICS" ? "Approved" : (a.status_label || a.status.replaceAll("_", " "));
+    clearanceText = "Cleared / Authorized for Biometrics Attendance";
+    isApproved = true;
+  } else if (a.status === "PENDING_APPROVAL") {
+    statusText = "Awaiting Vetting";
+    clearanceText = "Pending Vetting & Final Approval (Not Cleared for Biometrics)";
+  } else {
+    statusText = a.status_label || a.status.replaceAll("_", " ");
+    clearanceText = "Not Cleared for Biometrics";
+  }
+
   return (
     <article className="mx-auto max-w-[210mm] min-w-[320px] bg-white px-4 py-6 sm:px-14 sm:py-10 text-[14px] sm:text-[15px] text-slate-800 shadow-sm print:p-6 print:shadow-none">
       <div className="flex flex-col items-center">
@@ -285,13 +305,41 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
         <Barcode value={a.reference_number} height={48} moduleWidth={1.4} />
       </div>
 
-      <h2 className="mt-2 border-b border-slate-200 pb-1 text-2xl font-semibold">Appointment Details</h2>
+      {a.status === "VETTED" && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
+          <strong>Important Notice:</strong> Your application has passed initial vetting and is currently awaiting final administrative approval by an Approving Officer. Biometrics center attendance is subject to final approval. Please verify that your status updates to &ldquo;Approved&rdquo; before visiting the enrollment center.
+        </div>
+      )}
+
+      {a.status === "PENDING_APPROVAL" && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
+          <strong>Important Notice:</strong> Your application is currently awaiting examination and vetting by a Vetting Officer. Biometrics center attendance is subject to final approval.
+        </div>
+      )}
+
+      <h2 className="mt-4 border-b border-slate-200 pb-1 text-2xl font-semibold">Appointment Details</h2>
       <div className="mt-2">
         <Row k="Appointment Tracking No." v={a.reference_number} />
         <Row k="Appointment Request Date" v={dateTime(slip.submitted_at ?? a.submitted_at)} />
         <Row k="Appointment Date" v={`${a.appointment_date} ${a.appointment_time}`} />
         <Row k="Appointment for" v="Residence Card (biometrics capture)" />
         <Row k="Center Address" v={center ? `${center.name}: ${center.address}` : "NIS Headquarters, Abuja"} />
+        <Row
+          k="Application Status"
+          v={
+            <span className={`font-semibold ${isApproved ? "text-emerald-700" : "text-amber-700"}`}>
+              {statusText}
+            </span>
+          }
+        />
+        <Row
+          k="Attendance Clearance"
+          v={
+            <span className={`font-semibold ${isApproved ? "text-emerald-700" : "text-amber-800"}`}>
+              {clearanceText}
+            </span>
+          }
+        />
       </div>
 
       <h2 className="mt-8 border-b border-slate-200 pb-1 text-2xl font-semibold">Personal &amp; Contact Details</h2>
@@ -304,7 +352,10 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
 
       <h2 className="mt-8 border-b border-slate-200 pb-1 text-2xl font-semibold">Instructions</h2>
       <ul className="mt-2 list-disc space-y-1 pl-6">
-        <li>Ensure that you verify the status of your application in the applicant portal before your appointment date.</li>
+        <li>
+          Ensure that you verify the status of your application in the applicant portal before your appointment date.
+          {!isApproved && " Attendance is subject to final administrative approval (Cleared / Authorized for Biometrics Attendance)."}
+        </li>
         <li>
           You must bring the following items for the appointment:
           <ol className="mt-1 list-decimal space-y-0.5 pl-6">

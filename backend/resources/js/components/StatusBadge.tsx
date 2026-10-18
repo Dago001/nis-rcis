@@ -4,6 +4,7 @@ const styles: Record<string, string> = {
   PENDING_PAYMENT: "bg-amber-100 text-amber-900",
   SUBMITTED: "bg-blue-100 text-blue-900",
   PENDING_APPROVAL: "bg-amber-100 text-amber-900",
+  VETTED: "bg-blue-100 text-blue-900 border border-blue-200",
   QUERIED: "bg-orange-100 text-orange-900",
   REJECTED: "bg-red-100 text-red-800",
   APPROVED_FOR_BIOMETRICS: "bg-sky-100 text-sky-900",
@@ -23,8 +24,14 @@ const styles: Record<string, string> = {
   NOT_ISSUED: "bg-slate-200 text-slate-800",
 };
 
+const defaultLabels: Record<string, string> = {
+  PENDING_APPROVAL: "Awaiting Vetting",
+  VETTED: "Vetted – Awaiting Approval",
+  APPROVED_FOR_BIOMETRICS: "Approved",
+};
+
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const display = label ?? status.replaceAll("_", " ");
+  const display = label ?? defaultLabels[status] ?? status.replaceAll("_", " ");
   return (
     <span
       title={display}

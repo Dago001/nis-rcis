@@ -18,6 +18,7 @@ namespace App\Enums;
 enum ApplicationStatus: string
 {
     case PendingApproval = 'PENDING_APPROVAL';
+    case Vetted = 'VETTED';
     case Queried = 'QUERIED';
     case Rejected = 'REJECTED';
     case ApprovedForBiometrics = 'APPROVED_FOR_BIOMETRICS';
@@ -29,7 +30,8 @@ enum ApplicationStatus: string
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::PendingApproval => [self::ApprovedForBiometrics, self::Queried, self::Rejected],
+            self::PendingApproval => [self::Vetted, self::Queried, self::Rejected],
+            self::Vetted => [self::ApprovedForBiometrics, self::Queried, self::Rejected],
             self::Queried => [self::PendingApproval, self::Rejected],
             self::ApprovedForBiometrics => [self::BiometricsCaptured],
             self::BiometricsCaptured => [self::ReadyForCollection, self::Issued],
@@ -51,10 +53,11 @@ enum ApplicationStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::PendingApproval => 'Pending approval',
+            self::PendingApproval => 'Awaiting Vetting',
+            self::Vetted => 'Vetted – Awaiting Approval',
             self::Queried => 'Queried — action required',
             self::Rejected => 'Rejected',
-            self::ApprovedForBiometrics => 'Approved for biometrics',
+            self::ApprovedForBiometrics => 'Approved',
             self::BiometricsCaptured => 'Biometrics captured — card in production',
             self::ReadyForCollection => 'Ready for collection',
             self::Issued => 'Card collected',
@@ -66,6 +69,7 @@ enum ApplicationStatus: string
     {
         return match ($this) {
             self::PendingApproval, self::Queried, self::Rejected => 2,
+            self::Vetted => 2,
             self::ApprovedForBiometrics => 3,
             self::BiometricsCaptured => 4,
             self::ReadyForCollection, self::Issued => 5,

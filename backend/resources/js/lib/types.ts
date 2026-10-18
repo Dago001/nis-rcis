@@ -1,5 +1,6 @@
 export type ApplicationStatus =
   | "PENDING_APPROVAL"
+  | "VETTED"
   | "QUERIED"
   | "REJECTED"
   | "APPROVED_FOR_BIOMETRICS"
@@ -102,8 +103,12 @@ export type Application = Particulars & {
   fee_amount_naira: number;
   payment_status: string;
   submitted_at: string | null;
+  vetted_at?: string | null;
+  vetting_notes?: string | null;
+  vetted_by?: { id: number; fullname: string; service_number: string } | null;
   decided_at: string | null;
   decision_notes: string | null;
+  decided_by?: { id: number; fullname: string; service_number: string } | null;
   biometrics_captured_at: string | null;
   ready_at: string | null;
   collected_at: string | null;

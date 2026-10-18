@@ -35,6 +35,7 @@ class Application extends Model
             'passport_expiry' => 'date:Y-m-d',
             'appointment_date' => 'date:Y-m-d',
             'submitted_at' => 'datetime',
+            'vetted_at' => 'datetime',
             'decided_at' => 'datetime',
             'biometrics_captured_at' => 'datetime',
             'ready_at' => 'datetime',
@@ -94,6 +95,11 @@ class Application extends Model
     public function decidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    public function vettedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'vetted_by');
     }
 
     public function documents(): HasMany

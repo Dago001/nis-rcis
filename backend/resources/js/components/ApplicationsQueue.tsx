@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, useEffect, type FormEvent } from "react";
+import { Suspense, useState, useEffect, useRef, type FormEvent } from "react";
 import { PageTitle } from "@/components/PageTitle";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button, Spinner } from "@/components/ui";
+import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
 import { nisDate, applicationType } from "@/lib/format";
 import type { Application, Paginated } from "@/lib/types";
@@ -17,18 +18,29 @@ export interface ApplicationsQueueViewProps {
   defaultPerPage?: number;
 }
 
-const STATUS_FILTERS: { key: string; label: string }[] = [
-  { key: "PENDING_APPROVAL", label: "Awaiting Approval" },
+const VETTING_STATUS_FILTERS: { key: string; label: string }[] = [
+  { key: "", label: "All" },
+  { key: "PENDING_APPROVAL", label: "Awaiting Vetting" },
   { key: "QUERIED", label: "Queried" },
-  { key: "APPROVED_FOR_BIOMETRICS", label: "Biometrics" },
-  { key: "BIOMETRICS_CAPTURED", label: "In Production" },
-  { key: "READY_FOR_COLLECTION", label: "Ready for Collection" },
-  { key: "ISSUED", label: "Collected" },
+  { key: "VETTED", label: "Vetted" },
+  { key: "REJECTED", label: "Rejected" },
+];
+
+const APPROVERS_STATUS_FILTERS: { key: string; label: string }[] = [
+  { key: "", label: "All" },
+  { key: "VETTED", label: "Awaiting Approval" },
+  { key: "APPROVED_FOR_BIOMETRICS", label: "Approved" },
+  { key: "QUERIED", label: "Queried" },
+  { key: "REJECTED", label: "Rejected" },
 ];
 
 function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPerPage = 10 }: ApplicationsQueueViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const isApprovers = basePath === "/staff/approvals";
+  const queueType = isApprovers ? "approvals" : "vetting";
+  const statusFilters = isApprovers ? APPROVERS_STATUS_FILTERS : VETTING_STATUS_FILTERS;
 
   const currentStatus = searchParams.get("status") ?? "";
   const currentSearch = searchParams.get("search") ?? "";
@@ -37,17 +49,76 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
   const overdue = searchParams.get("overdue") === "1";
 
   const [searchInput, setSearchInput] = useState(currentSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(currentSearch);
+  const [suggestions, setSuggestions] = useState<Application[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const latestRequestRef = useRef(0);
+
+  // Sync external search param changes
   useEffect(() => {
     setSearchInput(currentSearch);
+    setDebouncedSearch(currentSearch);
   }, [currentSearch]);
 
-  // Construct API query with specified items per page (default 10)
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Live search debouncing (~250ms) and suggestions fetching
+  useEffect(() => {
+    const query = searchInput.trim();
+    const timer = setTimeout(() => {
+      setDebouncedSearch(query);
+
+      if (query.length >= 1) {
+        setIsSearching(true);
+        setShowDropdown(true);
+        const reqId = ++latestRequestRef.current;
+        const endpoint = `applications?search=${encodeURIComponent(query)}&queue=${queueType}&per_page=6`;
+        api<Paginated<Application>>("staff", endpoint)
+          .then((res) => {
+            if (reqId === latestRequestRef.current) {
+              setSuggestions(res.data ?? []);
+            }
+          })
+          .catch(() => {
+            if (reqId === latestRequestRef.current) {
+              setSuggestions([]);
+            }
+          })
+          .finally(() => {
+            if (reqId === latestRequestRef.current) {
+              setIsSearching(false);
+            }
+          });
+      } else {
+        latestRequestRef.current++;
+        setSuggestions([]);
+        setShowDropdown(false);
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchInput, queueType]);
+
+  // Construct API query with specified items per page (default 10 on Vetting)
   const apiParams = new URLSearchParams({
     page: String(currentPage),
     per_page: String(defaultPerPage),
+    queue: queueType,
     ...(currentStatus ? { status: currentStatus } : {}),
-    ...(currentSearch ? { search: currentSearch } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(assigned ? { assigned } : {}),
     ...(overdue ? { overdue: "1" } : {}),
   });
@@ -56,7 +127,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
   function buildUrl(overrides: { status?: string; search?: string; page?: number; assigned?: string; overdue?: boolean }) {
     const nextStatus = overrides.status !== undefined ? overrides.status : currentStatus;
-    const nextSearch = overrides.search !== undefined ? overrides.search : currentSearch;
+    const nextSearch = overrides.search !== undefined ? overrides.search : debouncedSearch;
     const nextPage = overrides.page !== undefined ? overrides.page : 1;
     const nextAssigned = overrides.assigned !== undefined ? overrides.assigned : assigned;
     const nextOverdue = overrides.overdue !== undefined ? overrides.overdue : overdue;
@@ -75,21 +146,25 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
   function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const trimmed = searchInput.trim();
+    latestRequestRef.current++;
+    setDebouncedSearch(trimmed);
+    setShowDropdown(false);
     router.push(buildUrl({ search: trimmed, page: 1 }));
   }
 
   function handleClearSearch() {
+    latestRequestRef.current++;
     setSearchInput("");
+    setDebouncedSearch("");
+    setSuggestions([]);
+    setShowDropdown(false);
+    setIsSearching(false);
     router.push(buildUrl({ search: "", page: 1 }));
   }
 
-  function handleToggleStatus(filterKey: string) {
-    if (currentStatus === filterKey) {
-      // Toggle off -> show all
-      router.push(buildUrl({ status: "", page: 1 }));
-    } else {
-      router.push(buildUrl({ status: filterKey, page: 1 }));
-    }
+  function handleSelectSuggestion(app: Application) {
+    setShowDropdown(false);
+    router.push(`/staff/applications/${app.id}`);
   }
 
   // Pagination calculation
@@ -120,13 +195,23 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
     <div className="space-y-5">
       <PageTitle title={pageTitle} subtitle={pageSubtitle} />
 
-      {/* Search Bar */}
+      {/* Search Bar with Live Suggestions */}
       <form onSubmit={handleSearchSubmit} className="flex gap-2">
-        <div className="relative flex-1">
+        <div ref={searchContainerRef} className="relative flex-1">
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
+            onFocus={() => {
+              if (searchInput.trim().length >= 1) {
+                setShowDropdown(true);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setShowDropdown(false);
+              }
+            }}
             placeholder="Search by application number, passport number or applicant name"
             className="w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nis-primary/20"
           />
@@ -139,6 +224,49 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
             >
               ✕
             </button>
+          )}
+
+          {/* Live Suggestions Dropdown */}
+          {showDropdown && searchInput.trim().length >= 1 && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-96 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+              {isSearching && suggestions.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
+                  <Spinner />
+                  <span>Searching applications...</span>
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm font-medium text-slate-500">
+                  No matching applications found
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleSelectSuggestion(s)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-slate-900 truncate">
+                          {s.surname}, {s.forenames}
+                        </div>
+                        <div className="mt-0.5 text-xs text-slate-500 flex flex-wrap items-center gap-1.5">
+                          <span className="font-medium text-nis-primary">{s.application_number}</span>
+                          <span>|</span>
+                          <span>{s.passport_number}</span>
+                          <span>|</span>
+                          <span>{s.status_label || s.status.replaceAll("_", " ")}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        <StatusBadge status={s.status} label={s.status_label} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
         <Button type="submit">Search</Button>
@@ -175,13 +303,13 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
       {/* Application Status Filters */}
       <div className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-2.5 pt-1">
-        {STATUS_FILTERS.map(({ key, label }) => {
+        {statusFilters.map(({ key, label }) => {
           const isActive = currentStatus === key;
           return (
             <button
-              key={key}
+              key={key || "all"}
               type="button"
-              onClick={() => handleToggleStatus(key)}
+              onClick={() => router.push(buildUrl({ status: key, page: 1 }))}
               className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                 isActive
                   ? "bg-nis-primary text-white shadow-xs"

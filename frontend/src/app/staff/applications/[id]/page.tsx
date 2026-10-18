@@ -45,7 +45,11 @@ export default function StaffApplicationPage() {
 
   if (!detail) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
   const a = detail.data;
-  const canDecide = hasRole(user, "VettingOfficer", "ApprovingOfficer", "SuperAdmin", "Admin") && a.status === "PENDING_APPROVAL";
+  const isVettingStaff = hasRole(user, "VettingOfficer", "SuperAdmin", "Admin");
+  const isApprovingStaff = hasRole(user, "ApprovingOfficer", "SuperAdmin", "Admin");
+
+  const canVet = isVettingStaff && a.status === "PENDING_APPROVAL";
+  const canApprove = isApprovingStaff && a.status === "VETTED";
   const canCapture = hasRole(user, "EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "APPROVED_FOR_BIOMETRICS";
   const canCollect = hasRole(user, "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "READY_FOR_COLLECTION";
 
@@ -61,7 +65,7 @@ export default function StaffApplicationPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
-            {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+            {["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
               <Link href={`/portal/applications/${a.id}/slip?kind=appointment`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Appointment slip</Link>
             )}
             {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
@@ -83,7 +87,7 @@ export default function StaffApplicationPage() {
               <strong>Query instructions issued to applicant:</strong> {a.decision_notes || "Action required"}
             </p>
             <p className="text-xs text-slate-600">
-              This application has been returned to the applicant and is awaiting their response or document replacements. It will automatically reappear in the approval queue once the applicant responds.
+              This application has been returned to the applicant and is awaiting their response or document replacements. It will automatically reappear in the vetting queue once the applicant responds.
             </p>
           </div>
         </Alert>
@@ -114,7 +118,7 @@ export default function StaffApplicationPage() {
             <p className="whitespace-pre-wrap">{lastApplicantResponse?.notes?.replace(/^Applicant response:\s*/, "")}</p>
           </div>
           <p className="text-xs text-slate-500">
-            Please cross-check any re-uploaded supporting documents above. When satisfied, click &ldquo;Approve for Biometrics&rdquo;. If further corrections are required, you may query the applicant again with reasons.
+            Please cross-check any re-uploaded supporting documents above. When satisfied, click &ldquo;Vet&rdquo; to forward the application to the Approvers queue. If further corrections are required, you may query the applicant again with reasons.
           </p>
         </div>
       )}
@@ -207,58 +211,203 @@ export default function StaffApplicationPage() {
         <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} />
       </Panel>
 
-      {/* D. Vetting and Approval Controls */}
-      {canDecide && (
-        <Panel
-          title="Vetting & Decision"
-          subtitle="Review all applicant particulars and supporting documents above before making a decision."
-        >
-          <div className="space-y-4">
-            <Field
-              label="Notes / Reason for Query or Rejection"
-              hint="Required when querying or rejecting. The applicant receives this message by email and on their portal notification bell."
+      {/* Stage 1: Vetting Review and Controls */}
+      {a.status === "PENDING_APPROVAL" && (
+        <>
+          {canVet ? (
+            <Panel
+              title="Vetting"
+              subtitle="Review all applicant particulars, security checks and supporting documents above before taking action."
             >
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Enter query instructions (e.g. Please upload a clear, legible copy of your passport data page) or rejection grounds..."
-                rows={3}
-              />
-            </Field>
+              <div className="space-y-4">
+                <Field
+                  label="Notes / Reason for Query or Rejection"
+                  hint="Required when querying or rejecting. Optional recommendation notes for vetting."
+                >
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Enter query instructions (e.g. Please upload a clear copy of your passport data page), rejection grounds, or vetting remarks..."
+                    rows={3}
+                  />
+                </Field>
 
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  confirm("Approve this application for physical biometrics capture?") &&
-                  act("decision", {
-                    decision: "APPROVE",
-                    notes: notes.trim() || "Application verified and vetted by immigration vetting officer.",
-                  })
-                }
-              >
-                Approve
-              </Button>
-              <Button
-                variant="gold"
-                disabled={busy || !notes.trim()}
-                onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
-              >
-                Query
-              </Button>
-              <Button
-                variant="danger"
-                disabled={busy || !notes.trim()}
-                onClick={() =>
-                  confirm("Reject this application permanently? This cannot be undone.") &&
-                  act("decision", { decision: "REJECT", notes: notes.trim() })
-                }
-              >
-                Reject
-              </Button>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. The application will be forwarded to the Approvers queue.") &&
+                      act("decision", {
+                        decision: "VET",
+                        notes: notes.trim() || "Application particulars and documents verified by Vetting Officer.",
+                      })
+                    }
+                  >
+                    Vet
+                  </Button>
+                  <Button
+                    variant="gold"
+                    disabled={busy || !notes.trim()}
+                    onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
+                  >
+                    Query
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy || !notes.trim()}
+                    onClick={() =>
+                      confirm("Reject this application permanently? This cannot be undone.") &&
+                      act("decision", { decision: "REJECT", notes: notes.trim() })
+                    }
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            </Panel>
+          ) : isApprovingStaff ? (
+            <Alert tone="info">
+              <div className="space-y-1">
+                <div className="font-semibold text-sm">Awaiting Vetting</div>
+                <p className="text-xs text-slate-800">
+                  This application has not yet been vetted by a Vetting Officer. All applications must be examined and vetted before an Approving Officer can grant final approval.
+                </p>
+              </div>
+            </Alert>
+          ) : null}
+        </>
+      )}
+
+      {/* Stage 2: Approver Review and Controls */}
+      {a.status === "VETTED" && (
+        <div className="space-y-5">
+          {/* Vetting Outcome Audit Box */}
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-5 space-y-2.5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-blue-600" />
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Stage 1 Completed: Vetted — Awaiting Final Approval
+                </span>
+              </div>
+              {a.vetted_at && (
+                <span className="text-xs font-medium text-blue-800">
+                  Vetted: {dateTime(a.vetted_at)}
+                </span>
+              )}
             </div>
+            <div className="text-sm text-slate-800">
+              <span className="font-semibold text-blue-950">Vetted By:</span>{" "}
+              {a.vetted_by ? `${a.vetted_by.fullname} (${a.vetted_by.service_number})` : "Immigration Vetting Officer"}
+            </div>
+            {a.vetting_notes && (
+              <div className="rounded-xl border border-blue-200 bg-white p-3 text-xs text-slate-800">
+                <span className="font-semibold text-nis-primary block mb-0.5">Vetting Notes:</span>
+                <p className="whitespace-pre-wrap">{a.vetting_notes}</p>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              This application has passed initial vetting and is pending final authorization by an Approving Officer. Biometrics attendance is not yet authorized.
+            </p>
           </div>
-        </Panel>
+
+          {canApprove ? (
+            <Panel
+              title="Approval"
+              subtitle="Review the vetted particulars, supporting documents and vetting outcome before making a final approval decision."
+            >
+              <div className="space-y-4">
+                <Field
+                  label="Notes / Reason for Query or Rejection"
+                  hint="Required when querying or rejecting. Optional for approval notes."
+                >
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Enter query instructions, rejection grounds, or approval remarks..."
+                    rows={3}
+                  />
+                </Field>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      confirm("Grant final approval for this application? This will authorize the applicant for biometrics attendance.") &&
+                      act("decision", {
+                        decision: "APPROVE",
+                        notes: notes.trim() || "Final approval granted for biometrics attendance.",
+                      })
+                    }
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="gold"
+                    disabled={busy || !notes.trim()}
+                    onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
+                  >
+                    Query
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy || !notes.trim()}
+                    onClick={() =>
+                      confirm("Reject this application permanently? This cannot be undone.") &&
+                      act("decision", { decision: "REJECT", notes: notes.trim() })
+                    }
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            </Panel>
+          ) : isVettingStaff ? (
+            <Alert tone="info">
+              <div className="space-y-1">
+                <div className="font-semibold text-sm">Application Vetted</div>
+                <p className="text-xs text-slate-800">
+                  This application has passed vetting and is currently in the Approvers queue awaiting final approval by an Approving Officer.
+                </p>
+              </div>
+            </Alert>
+          ) : null}
+        </div>
+      )}
+
+      {/* Stage 3: Approved Status Audit Box */}
+      {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-5 space-y-2.5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-sky-600" />
+              <span className="text-xs font-bold uppercase tracking-wider text-sky-900">
+                Application Approved — Authorized for Biometrics Attendance
+              </span>
+            </div>
+            {a.decided_at && (
+              <span className="text-xs font-medium text-sky-800">
+                Approved: {dateTime(a.decided_at)}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-700 space-y-1">
+            {a.vetted_by && (
+              <div>
+                <span className="font-semibold text-slate-900">Vetted by:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
+                {a.vetted_at && <span className="text-slate-500"> on {dateTime(a.vetted_at)}</span>}
+                {a.vetting_notes && <span className="italic text-slate-600"> — &quot;{a.vetting_notes}&quot;</span>}
+              </div>
+            )}
+            {a.decided_by && (
+              <div>
+                <span className="font-semibold text-slate-900">Approved by:</span> {a.decided_by.fullname} ({a.decided_by.service_number})
+                {a.decided_at && <span className="text-slate-500"> on {dateTime(a.decided_at)}</span>}
+                {a.decision_notes && <span className="italic text-slate-600"> — &quot;{a.decision_notes}&quot;</span>}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {canCollect && (
