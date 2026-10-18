@@ -73,12 +73,14 @@ class ApplicationController
             $query->where('status', $data['status']);
         } elseif (! empty($data['queue'])) {
             if ($data['queue'] === 'approvals') {
-                $query->whereIn('status', [
-                    ApplicationStatus::Vetted,
-                    ApplicationStatus::ApprovedForBiometrics,
-                    ApplicationStatus::Queried,
-                    ApplicationStatus::Rejected,
-                ]);
+                $query->where(function ($q) {
+                    $q->where('status', ApplicationStatus::Vetted)
+                      ->orWhere('status', ApplicationStatus::ApprovedForBiometrics)
+                      ->orWhere(function ($sub) {
+                          $sub->whereIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected])
+                              ->whereNotNull('vetted_at');
+                      });
+                });
             } elseif ($data['queue'] === 'vetting') {
                 $query->whereIn('status', [
                     ApplicationStatus::PendingApproval,

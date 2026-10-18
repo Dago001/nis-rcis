@@ -48,7 +48,7 @@ function compactStatusLabel(status: string, label?: string): string {
   const s = status.toUpperCase();
   if (s === "DRAFT") return "Draft";
   if (s === "SUBMITTED") return "Submitted";
-  if (s === "PENDING_APPROVAL") return "Pending";
+  if (s === "PENDING_APPROVAL" || s === "VETTED") return "Pending";
   if (s === "APPROVED" || s === "APPROVED_FOR_BIOMETRICS") return "Approved";
   if (s === "BIOMETRICS_CAPTURED") return "Biometrics Captured";
   if (s === "CARD_IN_PRODUCTION" || s === "IN_PRODUCTION") return "In Production";

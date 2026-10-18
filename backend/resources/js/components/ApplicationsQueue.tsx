@@ -164,7 +164,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
   function handleSelectSuggestion(app: Application) {
     setShowDropdown(false);
-    router.push(`/staff/applications/${app.id}`);
+    router.push(`${basePath}/${app.id}`);
   }
 
   // Pagination calculation
@@ -363,19 +363,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/staff/applications/${a.id}`}
+                        href={`${basePath}/${a.id}`}
                         className="font-semibold text-nis-green hover:underline"
                       >
                         {a.application_number}
                       </Link>
-                      {(a.risk_flags?.length ?? 0) > 0 && (
-                        <span
-                          className="ml-2 rounded bg-nis-red px-1.5 text-[11px] font-semibold text-white"
-                          title={a.risk_flags!.map((f) => f.message).join("\n")}
-                        >
-                          ⚠ {a.risk_flags!.length}
-                        </span>
-                      )}
                       <div className="text-xs text-slate-500">
                         {a.channel === "ASSISTED" ? "Assisted" : "Online"} · {applicationType(a)}
                       </div>

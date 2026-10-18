@@ -93,16 +93,26 @@ class ApplicationWorkflow
     private function notify(Application $application, ?string $notes): void
     {
         try {
-            if ($application->applicant) {
+            // Internal vetting is invisible to the applicant.
+            // Applicant only receives notification upon final approval, query, rejection, or card collection.
+            if ($application->applicant && $application->status !== ApplicationStatus::Vetted) {
                 $application->applicant->notify(new ApplicationStatusChanged($application, $notes));
             }
 
             if ($application->status === ApplicationStatus::PendingApproval) {
                 $reviewers = User::query()
                     ->where('is_active', true)
-                    ->whereIn('role', [StaffRole::ApprovingOfficer, StaffRole::SuperAdmin])
+                    ->whereIn('role', [StaffRole::VettingOfficer, StaffRole::SuperAdmin])
                     ->get();
                 Notification::send($reviewers, new ApplicationAwaitingReview($application));
+            }
+
+            if ($application->status === ApplicationStatus::Vetted) {
+                $approvers = User::query()
+                    ->where('is_active', true)
+                    ->whereIn('role', [StaffRole::ApprovingOfficer, StaffRole::SuperAdmin])
+                    ->get();
+                Notification::send($approvers, new ApplicationAwaitingReview($application));
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Application workflow notification delivery failed: ' . $e->getMessage(), [

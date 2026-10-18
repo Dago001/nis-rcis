@@ -272,23 +272,24 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
   const a = slip.application;
   const center = a.enrollment_center;
 
-  let statusText = "Awaiting Vetting";
-  let clearanceText = "Pending Vetting & Final Approval (Not Cleared for Biometrics)";
+  let statusText = "Pending Approval";
+  let clearanceText = "Pending Approval (Not Cleared for Biometrics)";
   let isApproved = false;
 
-  if (a.status === "VETTED") {
-    statusText = "Vetted – Awaiting Approval";
-    clearanceText = "Pending Final Approval (Not Cleared for Biometrics)";
-  } else if (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status)) {
-    statusText = a.status === "APPROVED_FOR_BIOMETRICS" ? "Approved" : (a.status_label || a.status.replaceAll("_", " "));
-    clearanceText = "Cleared / Authorized for Biometrics Attendance";
+  if (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status)) {
+    statusText = "Approved for Biometrics";
+    clearanceText = "Approved for Biometrics (Authorized to Attend)";
     isApproved = true;
-  } else if (a.status === "PENDING_APPROVAL") {
-    statusText = "Awaiting Vetting";
-    clearanceText = "Pending Vetting & Final Approval (Not Cleared for Biometrics)";
+  } else if (a.status === "QUERIED") {
+    statusText = "Queried — Action Required";
+    clearanceText = "Not Cleared for Biometrics (Action Required)";
+  } else if (a.status === "REJECTED") {
+    statusText = "Rejected";
+    clearanceText = "Not Cleared for Biometrics (Application Rejected)";
   } else {
-    statusText = a.status_label || a.status.replaceAll("_", " ");
-    clearanceText = "Not Cleared for Biometrics";
+    // Both PENDING_APPROVAL and VETTED remain internal pending states to the applicant
+    statusText = "Pending Approval";
+    clearanceText = "Pending Approval (Not Cleared for Biometrics)";
   }
 
   return (
@@ -305,15 +306,15 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
         <Barcode value={a.reference_number} height={48} moduleWidth={1.4} />
       </div>
 
-      {a.status === "VETTED" && (
+      {!isApproved && a.status !== "REJECTED" && a.status !== "QUERIED" && (
         <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
-          <strong>Important Notice:</strong> Your application has passed initial vetting and is currently awaiting final administrative approval by an Approving Officer. Biometrics center attendance is subject to final approval. Please verify that your status updates to &ldquo;Approved&rdquo; before visiting the enrollment center.
+          <strong>Important Notice:</strong> Your application is currently awaiting administrative approval. Attendance at the biometrics enrollment center is strictly subject to final approval. Please verify that your status updates to &ldquo;Approved for Biometrics&rdquo; before visiting the enrollment center.
         </div>
       )}
 
-      {a.status === "PENDING_APPROVAL" && (
-        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
-          <strong>Important Notice:</strong> Your application is currently awaiting examination and vetting by a Vetting Officer. Biometrics center attendance is subject to final approval.
+      {isApproved && (
+        <div className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3.5 text-xs text-emerald-900">
+          <strong>Clearance Granted:</strong> Your application has been approved. You are authorized to attend biometrics in accordance with your scheduled appointment details below.
         </div>
       )}
 

@@ -53,9 +53,11 @@ class ApplicationStatusChanged extends Notification
                 ->line("Reference: {$app->reference_number}")
                 ->action('View application', $url),
             ApplicationStatus::ApprovedForBiometrics => $mail
-                ->line('Your application has been APPROVED for biometrics capture.')
+                ->subject("ECOWAS Residence Card application {$app->application_number}: Approved")
+                ->greeting("Dear {$app->forenames} {$app->surname},")
+                ->line("Your ECOWAS Residence Card application {$app->application_number} has been approved. You may now proceed for biometrics in accordance with your scheduled appointment.")
                 ->line("Appointment: {$app->appointment_date?->format('l, j F Y')} at {$app->appointment_time}, {$app->enrollmentCenter?->name}.")
-                ->line('Bring your original passport and print your appointment slip from the portal.')
+                ->line("Reference: {$app->reference_number}")
                 ->action('Print appointment slip', $url),
             ApplicationStatus::Queried => $mail
                 ->line('An officer has QUERIED your application and needs you to take action:')
@@ -81,16 +83,16 @@ class ApplicationStatusChanged extends Notification
         $isQueried = $this->status === ApplicationStatus::Queried;
 
         $title = match ($this->status) {
-            ApplicationStatus::Vetted => 'Application Vetted – Awaiting Approval',
+            ApplicationStatus::Vetted => 'Application Vetted',
             ApplicationStatus::Queried => 'Application Requires Your Attention',
-            ApplicationStatus::ApprovedForBiometrics => 'Application Approved for Biometrics',
+            ApplicationStatus::ApprovedForBiometrics => 'Application Approved',
             ApplicationStatus::ReadyForCollection => 'Card Ready for Collection',
             ApplicationStatus::Issued => 'Card Issued & Collected',
-            default => $this->status->label(),
+            default => $this->status->label(false),
         };
 
         $notes = match ($this->status) {
-            ApplicationStatus::Vetted => $this->notes ?? 'Your application has passed vetting and is awaiting final approval from an Approving Officer.',
+            ApplicationStatus::ApprovedForBiometrics => "Your ECOWAS Residence Card application {$this->application->application_number} has been approved. You may now proceed for biometrics in accordance with your scheduled appointment.",
             ApplicationStatus::ReadyForCollection => $this->notes ?? "Your residence card is ready for collection at {$this->application->enrollmentCenter?->name}. Bring your original passport and application slip.",
             ApplicationStatus::Issued => $this->notes ?? 'Your residence card has been successfully issued and collected. Thank you.',
             default => $this->notes,

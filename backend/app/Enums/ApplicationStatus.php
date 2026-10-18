@@ -50,11 +50,15 @@ enum ApplicationStatus: string
         return ! in_array($this, [self::Rejected], true);
     }
 
-    public function label(): string
+    public function label(bool $isStaff = true): string
     {
+        if (! $isStaff && $this === self::Vetted) {
+            return 'Pending Approval';
+        }
+
         return match ($this) {
             self::PendingApproval => 'Awaiting Vetting',
-            self::Vetted => 'Vetted – Awaiting Approval',
+            self::Vetted => 'Vetted',
             self::Queried => 'Queried — action required',
             self::Rejected => 'Rejected',
             self::ApprovedForBiometrics => 'Approved',

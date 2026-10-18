@@ -114,6 +114,7 @@ Route::middleware('web')->group(function () {
         Route::get('/', fn () => Inertia::render('Staff/Dashboard'))->name('dashboard');
         Route::get('/queue', fn () => Inertia::render('Staff/Queue'))->name('queue');
         Route::get('/approvals', fn () => Inertia::render('Staff/Approvals'))->name('approvals');
+        Route::get('/approvals/{id}', fn ($id) => Inertia::render('Staff/ApprovalDetail', ['id' => $id]))->whereNumber('id')->name('approvals.show');
         Route::get('/applications', fn () => Inertia::render('Staff/Applications'))->name('applications');
         Route::get('/applications/new', fn () => Inertia::render('Staff/ApplicationNew'))->name('applications.new');
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Staff/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
