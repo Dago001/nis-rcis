@@ -120,6 +120,11 @@ Route::middleware('web')->group(function () {
         ->where('reference', '[A-Za-z0-9-]{6,64}')
         ->middleware('auth:applicant');
 
+    Route::middleware('auth:staff')->group(function () {
+        Route::get('/api/bff/staff/reports/export', [\App\Http\Controllers\Api\Staff\ReportController::class, 'export']);
+        Route::get('/api/bff/staff/reports/management', [\App\Http\Controllers\Api\Staff\ReportController::class, 'management']);
+    });
+
     // ------------------------------------------------- Staff Console (Inertia)
     Route::middleware(['auth:staff', 'staff.active'])->prefix('staff')->name('staff.')->group(function () {
         Route::get('/', fn () => Inertia::render('Staff/Dashboard'))->name('dashboard');

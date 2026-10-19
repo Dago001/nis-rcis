@@ -70,7 +70,6 @@ const navSections: NavSection[] = [
     title: "Financials",
     items: [
       { href: "/staff/payments", label: "Fee payments", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM2 10h20M6 15h4") },
-      { href: "/staff/refunds", label: "Fee refunds", icon: icon("M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"), roles: ["SuperAdmin"] },
     ],
   },
   {

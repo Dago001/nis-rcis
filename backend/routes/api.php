@@ -236,8 +236,9 @@ Route::prefix('v1')->group(function () {
         });
 
         // Reports
+        Route::get('reports', [ReportController::class, 'index']);
         Route::get('reports/summary', [ReportController::class, 'summary']);
-        Route::get('reports/export', [ReportController::class, 'export'])->middleware('role:SuperAdmin,Admin');
+        Route::get('reports/export', [ReportController::class, 'export'])->middleware('role:SuperAdmin,Admin,Supervisor,Auditor');
         Route::get('reports/management', [ReportController::class, 'management'])->middleware('role:SuperAdmin,Admin,Supervisor,Auditor');
         Route::get('reports/filters', [ReportController::class, 'filters']);
         Route::post('reports/filters', [ReportController::class, 'saveFilter']);
