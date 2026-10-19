@@ -42,6 +42,29 @@ class CardController
             ->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])
             ->latest('id');
 
+        // Strictly enforce Card Production Eligibility (Stage 4):
+        // An application/card must satisfy BOTH compulsory conditions:
+        // Condition A: Final Approval Status = Approved
+        // Condition B: Required Biometrics Status = Successfully Completed
+        $query->where(function ($q) {
+            $q->whereHas('application', function ($aq) {
+                $aq->whereIn('status', [
+                    \App\Enums\ApplicationStatus::BiometricsCaptured,
+                    \App\Enums\ApplicationStatus::ReadyForCollection,
+                    \App\Enums\ApplicationStatus::Issued,
+                ])
+                ->whereNotNull('biometrics_captured_at');
+            })
+            ->orWhere(function ($sq) {
+                // Standalone or legacy registered cards that were approved and issued
+                $sq->whereDoesntHave('application')
+                   ->where(function ($sub) {
+                       $sub->whereNotNull('approved_at')
+                           ->orWhereNotNull('issued_on');
+                   });
+            });
+        });
+
         $activeFilter = $data['filter'] ?? $data['status'] ?? null;
         if ($activeFilter === 'awaiting_production' || ! empty($data['unprinted'])) {
             $query->whereDoesntHave('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
@@ -88,7 +111,30 @@ class CardController
                     ->orWhere('forenames', $likeOp, $pattern)
                     ->orWhereRaw("{$concatSurnameForenames} {$likeOp} ?", [$pattern])
                     ->orWhereRaw("{$concatForenamesSurname} {$likeOp} ?", [$pattern])
-                    ->orWhereHas('application', fn ($aq) => $aq->where('application_number', $likeOp, $pattern));
+                    ->orWhereHas('application', function ($aq) use ($likeOp, $pattern, $cleanNum) {
+                        $aq->where('application_number', $likeOp, $pattern)
+                           ->orWhere('reference_number', $likeOp, $pattern)
+                           ->orWhere('passport_number', $likeOp, $pattern);
+
+                        if ($cleanNum !== '') {
+                            $aq->orWhereRaw("replace(application_number, '-', '') {$likeOp} ?", ['%' . $cleanNum . '%'])
+                               ->orWhereRaw("replace(reference_number, '-', '') {$likeOp} ?", ['%' . $cleanNum . '%'])
+                               ->orWhere('passport_number', $likeOp, '%' . $cleanNum . '%');
+
+                            if (str_starts_with($cleanNum, 'ROC')) {
+                                $rcVariant = 'RC' . substr($cleanNum, 3);
+                                $aq->orWhereRaw("replace(application_number, '-', '') {$likeOp} ?", ['%' . $rcVariant . '%']);
+                            } elseif (str_starts_with($cleanNum, 'RC')) {
+                                $rocVariant = 'ROC' . substr($cleanNum, 2);
+                                $aq->orWhereRaw("replace(application_number, '-', '') {$likeOp} ?", ['%' . $rocVariant . '%']);
+                            }
+
+                            if (preg_match('/\d{5,6}/', $cleanNum, $matches)) {
+                                $aq->orWhere('application_number', $likeOp, '%' . $matches[0] . '%');
+                            }
+                        }
+                    });
+
                 if ($cleanNum !== '') {
                     $q->orWhere('card_number', $likeOp, "%{$cleanNum}%")
                       ->orWhere('passport_number', $likeOp, "%{$cleanNum}%");

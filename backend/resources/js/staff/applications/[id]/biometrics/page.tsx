@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignaturePad, WebcamCapture } from "@/components/CaptureTools";
@@ -55,7 +56,29 @@ export default function BiometricsDesk() {
   }
 
   if (!app) return <Spinner />;
-  if (app.status !== "APPROVED_FOR_BIOMETRICS") return <Alert tone="warning">This application is {app.status_label.toLowerCase()} and is not awaiting biometrics.</Alert>;
+  if (app.status !== "APPROVED_FOR_BIOMETRICS") {
+    return (
+      <div className="space-y-4 max-w-xl">
+        <Alert tone="warning">
+          <div className="space-y-2">
+            <div className="font-semibold text-base">Application Not Authorized for Biometrics</div>
+            <p className="text-sm">
+              This application has not received final approval from an Approving Officer (current status: {app.approval_status_label ?? app.status_label}).
+              Biometrics capture requires final approval at Stage 2.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/staff/approvals"
+                className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                ← Return to Approvers Queue
+              </Link>
+            </div>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

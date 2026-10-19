@@ -94,6 +94,10 @@ export type Application = Particulars & {
   channel: "ONLINE" | "ASSISTED";
   status: ApplicationStatus;
   status_label: string;
+  vetting_status?: string | null;
+  vetting_status_label?: string | null;
+  approval_status?: string | null;
+  approval_status_label?: string | null;
   tracker_step: number;
   phone: string;
   email: string;

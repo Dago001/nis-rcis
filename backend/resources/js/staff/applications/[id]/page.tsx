@@ -60,7 +60,15 @@ export default function StaffApplicationPage() {
   return (
     <div className="space-y-6">
       <PageTitle
-        title={<>{a.application_number} <StatusBadge status={a.status} label={a.status_label} /></>}
+        title={
+          <>
+            {a.application_number}{" "}
+            <StatusBadge
+              status={a.vetting_status ?? (a.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "VETTED" : a.status)}
+              label={a.vetting_status_label ?? (a.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "Vetted" : (a.status === "PENDING_APPROVAL" ? "Awaiting Vetting" : a.status_label))}
+            />
+          </>
+        }
         subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -76,7 +84,6 @@ export default function StaffApplicationPage() {
             {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
               <Link href={`/portal/applications/${a.id}/slip?kind=temporary`} target="_blank" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
             )}
-            {canCapture && <Link href={`/staff/applications/${a.id}/biometrics`} className="rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white">Open biometrics desk</Link>}
             {a.card && <Link href={`/staff/cards/${a.card.id}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Card {a.card.card_number}</Link>}
           </div>
         }

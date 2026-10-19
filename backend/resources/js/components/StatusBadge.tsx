@@ -4,6 +4,8 @@ const styles: Record<string, string> = {
   PENDING_PAYMENT: "bg-amber-100 text-amber-900",
   SUBMITTED: "bg-blue-100 text-blue-900",
   PENDING_APPROVAL: "bg-amber-100 text-amber-900",
+  AWAITING_VETTING: "bg-amber-100 text-amber-900",
+  AWAITING_APPROVAL: "bg-amber-100 text-amber-900",
   VETTED: "bg-blue-100 text-blue-900 border border-blue-200",
   QUERIED: "bg-orange-100 text-orange-900",
   REJECTED: "bg-red-100 text-red-800",
@@ -26,8 +28,13 @@ const styles: Record<string, string> = {
 
 const defaultLabels: Record<string, string> = {
   PENDING_APPROVAL: "Awaiting Vetting",
-  VETTED: "Vetted – Awaiting Approval",
+  AWAITING_VETTING: "Awaiting Vetting",
+  VETTED: "Vetted",
+  AWAITING_APPROVAL: "Awaiting Approval",
   APPROVED_FOR_BIOMETRICS: "Approved",
+  APPROVED: "Approved",
+  QUERIED: "Queried",
+  REJECTED: "Rejected",
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {

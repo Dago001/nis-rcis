@@ -29,8 +29,8 @@ const VETTING_STATUS_FILTERS: { key: string; label: string }[] = [
 const APPROVERS_STATUS_FILTERS: { key: string; label: string }[] = [
   { key: "", label: "All" },
   { key: "VETTED", label: "Awaiting Approval" },
-  { key: "APPROVED_FOR_BIOMETRICS", label: "Approved" },
   { key: "QUERIED", label: "Queried" },
+  { key: "APPROVED_FOR_BIOMETRICS", label: "Approved" },
   { key: "REJECTED", label: "Rejected" },
 ];
 
@@ -279,7 +279,17 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                         </div>
                       </div>
                       <div className="shrink-0">
-                        <StatusBadge status={s.status} label={s.status_label} />
+                        {isApprovers ? (
+                          <StatusBadge
+                            status={s.approval_status ?? (s.status === "VETTED" ? "AWAITING_APPROVAL" : s.status)}
+                            label={s.approval_status_label ?? (s.status === "VETTED" ? "Awaiting Approval" : (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(s.status) ? "Approved" : s.status_label))}
+                          />
+                        ) : (
+                          <StatusBadge
+                            status={s.vetting_status ?? (s.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(s.status) ? "VETTED" : s.status)}
+                            label={s.vetting_status_label ?? (s.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(s.status) ? "Vetted" : (s.status === "PENDING_APPROVAL" ? "Awaiting Vetting" : s.status_label))}
+                          />
+                        )}
                       </div>
                     </button>
                   ))}
@@ -301,8 +311,8 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
             {isApprovers ? (
               <>
                 <option value="VETTED">Awaiting Approval</option>
-                <option value="APPROVED_FOR_BIOMETRICS">Approved</option>
                 <option value="QUERIED">Queried</option>
+                <option value="APPROVED_FOR_BIOMETRICS">Approved</option>
                 <option value="REJECTED">Rejected</option>
               </>
             ) : (
@@ -416,7 +426,17 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={a.status} />
+                      {isApprovers ? (
+                        <StatusBadge
+                          status={a.approval_status ?? (a.status === "VETTED" ? "AWAITING_APPROVAL" : a.status)}
+                          label={a.approval_status_label ?? (a.status === "VETTED" ? "Awaiting Approval" : (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "Approved" : a.status_label))}
+                        />
+                      ) : (
+                        <StatusBadge
+                          status={a.vetting_status ?? (a.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "VETTED" : a.status)}
+                          label={a.vetting_status_label ?? (a.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "Vetted" : (a.status === "PENDING_APPROVAL" ? "Awaiting Vetting" : a.status_label))}
+                        />
+                      )}
                       {a.sla && (
                         <div
                           className={`mt-1 text-xs ${a.sla.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}

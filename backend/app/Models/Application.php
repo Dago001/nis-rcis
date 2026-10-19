@@ -157,4 +157,74 @@ class Application extends Model
 
         return null;
     }
+
+    public function getVettingStatusAttribute(): string
+    {
+        if ($this->vetted_at !== null || in_array($this->status, [
+            ApplicationStatus::Vetted,
+            ApplicationStatus::ApprovedForBiometrics,
+            ApplicationStatus::BiometricsCaptured,
+            ApplicationStatus::ReadyForCollection,
+            ApplicationStatus::Issued,
+        ], true)) {
+            return 'VETTED';
+        }
+
+        if ($this->status === ApplicationStatus::Queried && $this->vetted_at === null) {
+            return 'QUERIED';
+        }
+
+        if ($this->status === ApplicationStatus::Rejected && $this->vetted_at === null) {
+            return 'REJECTED';
+        }
+
+        return 'PENDING_APPROVAL';
+    }
+
+    public function getVettingStatusLabelAttribute(): string
+    {
+        return match ($this->vetting_status) {
+            'VETTED' => 'Vetted',
+            'QUERIED' => 'Queried',
+            'REJECTED' => 'Rejected',
+            default => 'Awaiting Vetting',
+        };
+    }
+
+    public function getApprovalStatusAttribute(): ?string
+    {
+        if (in_array($this->status, [
+            ApplicationStatus::ApprovedForBiometrics,
+            ApplicationStatus::BiometricsCaptured,
+            ApplicationStatus::ReadyForCollection,
+            ApplicationStatus::Issued,
+        ], true) || ($this->decided_at !== null && ! in_array($this->status, [ApplicationStatus::Queried, ApplicationStatus::Rejected], true))) {
+            return 'APPROVED';
+        }
+
+        if ($this->status === ApplicationStatus::Queried && $this->vetted_at !== null) {
+            return 'QUERIED';
+        }
+
+        if ($this->status === ApplicationStatus::Rejected && $this->vetted_at !== null) {
+            return 'REJECTED';
+        }
+
+        if ($this->status === ApplicationStatus::Vetted || $this->vetted_at !== null) {
+            return 'AWAITING_APPROVAL';
+        }
+
+        return null;
+    }
+
+    public function getApprovalStatusLabelAttribute(): ?string
+    {
+        return match ($this->approval_status) {
+            'APPROVED' => 'Approved',
+            'AWAITING_APPROVAL' => 'Awaiting Approval',
+            'QUERIED' => 'Queried',
+            'REJECTED' => 'Rejected',
+            default => null,
+        };
+    }
 }

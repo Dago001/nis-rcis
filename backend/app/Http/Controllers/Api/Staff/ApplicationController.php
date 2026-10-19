@@ -74,9 +74,9 @@ class ApplicationController
 
         if ($queue === 'vetting') {
             if ($status === ApplicationStatus::PendingApproval->value) {
-                $query->where('status', ApplicationStatus::PendingApproval);
+                $query->where('status', ApplicationStatus::PendingApproval)->whereNull('vetted_at');
             } elseif ($status === ApplicationStatus::Queried->value) {
-                $query->where('status', ApplicationStatus::Queried);
+                $query->where('status', ApplicationStatus::Queried)->whereNull('vetted_at');
             } elseif ($status === ApplicationStatus::Vetted->value) {
                 // Include records awaiting final approval and those subsequently processed, where they remain part of the Vetting history
                 $query->where(function ($q) {
@@ -90,7 +90,7 @@ class ApplicationController
                       ]);
                 });
             } elseif ($status === ApplicationStatus::Rejected->value) {
-                $query->where('status', ApplicationStatus::Rejected);
+                $query->where('status', ApplicationStatus::Rejected)->whereNull('vetted_at');
             } else {
                 // All: union of all authorized records covered by these statuses without duplicates
                 $query->where(function ($q) {
@@ -107,20 +107,21 @@ class ApplicationController
                 });
             }
         } elseif ($queue === 'approvals') {
-            if ($status === ApplicationStatus::Vetted->value) {
+            if ($status === ApplicationStatus::Vetted->value || $status === 'AWAITING_APPROVAL') {
                 // Awaiting Final Approval
-                $query->where('status', ApplicationStatus::Vetted);
-            } elseif ($status === ApplicationStatus::ApprovedForBiometrics->value) {
+                $query->where('status', ApplicationStatus::Vetted)->whereNull('decided_at');
+            } elseif ($status === ApplicationStatus::ApprovedForBiometrics->value || $status === 'APPROVED') {
                 // Approved records (including subsequent historical processing)
                 $query->where(function ($q) {
                     $q->where('status', ApplicationStatus::ApprovedForBiometrics)
+                      ->orWhereIn('status', [
+                          ApplicationStatus::BiometricsCaptured,
+                          ApplicationStatus::ReadyForCollection,
+                          ApplicationStatus::Issued,
+                      ])
                       ->orWhere(function ($sub) {
                           $sub->whereNotNull('decided_at')
-                              ->whereIn('status', [
-                                  ApplicationStatus::BiometricsCaptured,
-                                  ApplicationStatus::ReadyForCollection,
-                                  ApplicationStatus::Issued,
-                              ]);
+                              ->whereNotIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected]);
                       });
                 });
             } elseif ($status === ApplicationStatus::Queried->value) {
@@ -132,14 +133,11 @@ class ApplicationController
                 $query->where(function ($q) {
                     $q->where('status', ApplicationStatus::Vetted)
                       ->orWhere('status', ApplicationStatus::ApprovedForBiometrics)
-                      ->orWhere(function ($sub) {
-                          $sub->whereNotNull('decided_at')
-                              ->whereIn('status', [
-                                  ApplicationStatus::BiometricsCaptured,
-                                  ApplicationStatus::ReadyForCollection,
-                                  ApplicationStatus::Issued,
-                              ]);
-                      })
+                      ->orWhereIn('status', [
+                          ApplicationStatus::BiometricsCaptured,
+                          ApplicationStatus::ReadyForCollection,
+                          ApplicationStatus::Issued,
+                      ])
                       ->orWhere(function ($sub) {
                           $sub->whereIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected])
                               ->whereNotNull('vetted_at');
@@ -454,7 +452,12 @@ class ApplicationController
             'issued_at' => ['nullable', 'string', 'max:150'],
         ]);
 
-        $application = $issuance->captureBiometrics(Application::with('enrollmentCenter')->findOrFail($id), $this->officer($request), $data);
+        $target = Application::with('enrollmentCenter')->findOrFail($id);
+        if ($target->status !== ApplicationStatus::ApprovedForBiometrics) {
+            abort(403, "Application {$target->application_number} has not received final approval and is not eligible for biometrics capture.");
+        }
+
+        $application = $issuance->captureBiometrics($target, $this->officer($request), $data);
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'documents', 'statusHistory']));
     }

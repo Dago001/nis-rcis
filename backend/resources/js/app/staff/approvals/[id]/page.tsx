@@ -142,7 +142,15 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
       </div>
 
       <PageTitle
-        title={<>{a.application_number} <StatusBadge status={a.status} label={a.status === "VETTED" ? "Awaiting Approval" : a.status_label} /></>}
+        title={
+          <>
+            {a.application_number}{" "}
+            <StatusBadge
+              status={a.approval_status ?? (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "APPROVED" : (a.status === "VETTED" ? "AWAITING_APPROVAL" : a.status))}
+              label={a.approval_status_label ?? (["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "Approved" : (a.status === "VETTED" ? "Awaiting Approval" : a.status_label))}
+            />
+          </>
+        }
         subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -156,6 +164,14 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             )}
             {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
               <Link href={`/portal/applications/${a.id}/slip?kind=temporary&from=staff&return_to=${encodeURIComponent(`/staff/approvals/${a.id}`)}`} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
+            )}
+            {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+              <Link
+                href={`/staff/applications/${a.id}/biometrics`}
+                className="rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#005028]"
+              >
+                Open biometrics desk
+              </Link>
             )}
             {a.card && <Link href={`/staff/cards/${a.card.id}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Card {a.card.card_number}</Link>}
           </div>
