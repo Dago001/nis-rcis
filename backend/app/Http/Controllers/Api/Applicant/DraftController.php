@@ -241,7 +241,7 @@ class DraftController
         if ($isDependant) {
             $query->where(function ($q) use ($applicant) {
                 $q->where('applicant_id', $applicant->id)
-                  ->orWhere('email', $applicant->email);
+                  ->orWhereRaw('LOWER(email) = ?', [strtolower($applicant->email)]);
             })->whereNotNull('principal_application_id');
             if ($passportNum) {
                 $query->where('passport_number', $passportNum);
@@ -251,7 +251,7 @@ class DraftController
             }
         } elseif ($cardNum) {
             $card = \App\Models\ResidenceCard::where('card_number', $cardNum)->first();
-            if ($card && ($card->applicant_id === $applicant->id || ($card->applicant_id === null && $card->passport_number === $passportNum) || $card->email === $applicant->email)) {
+            if ($card && ($card->applicant_id === $applicant->id || ($card->applicant_id === null && $card->passport_number === $passportNum) || strtolower((string)$card->email) === strtolower($applicant->email))) {
                 if ($card->application_id) {
                     $query->where('id', $card->application_id);
                 } else {
@@ -263,7 +263,7 @@ class DraftController
         } else {
             $query->where(function ($q) use ($applicant) {
                 $q->where('applicant_id', $applicant->id)
-                  ->orWhere('email', $applicant->email);
+                  ->orWhereRaw('LOWER(email) = ?', [strtolower($applicant->email)]);
             })->whereNull('principal_application_id');
             if ($passportNum) {
                 $query->where('passport_number', $passportNum);
@@ -295,11 +295,20 @@ class DraftController
 
         $cardNumber = $sourceApp->card?->card_number ?? $sourceApp->renewal_of_card_id ?? $cardNum;
 
+        $formatDate = function ($dateVal) {
+            if (! $dateVal) return '';
+            try {
+                return \Illuminate\Support\Carbon::parse($dateVal)->format('Y-m-d');
+            } catch (\Throwable) {
+                return (string) $dateVal;
+            }
+        };
+
         $particulars = [
             'surname' => $sourceApp->surname ?? '',
             'forenames' => $sourceApp->forenames ?? '',
             'nationality' => $sourceApp->nationality ?? '',
-            'date_of_birth' => $sourceApp->date_of_birth ? $sourceApp->date_of_birth->format('Y-m-d') : '',
+            'date_of_birth' => $formatDate($sourceApp->date_of_birth),
             'place_of_birth' => $sourceApp->place_of_birth ?? '',
             'sex' => $sourceApp->sex ?? '',
             'height' => $sourceApp->height ?? '',
@@ -314,9 +323,10 @@ class DraftController
             'domicile_state' => $sourceApp->domicile_state ?? '',
             'domicile_lga' => $sourceApp->domicile_lga ?? '',
             'change_of_address' => $sourceApp->change_of_address ?? '',
+            'travel_document_type' => $sourceApp->travel_document_type ?? 'PASSPORT',
             'passport_number' => $sourceApp->passport_number ?? '',
-            'passport_issue_date' => $sourceApp->passport_issue_date ? $sourceApp->passport_issue_date->format('Y-m-d') : '',
-            'passport_expiry' => $sourceApp->passport_expiry ? $sourceApp->passport_expiry->format('Y-m-d') : '',
+            'passport_issue_date' => $formatDate($sourceApp->passport_issue_date),
+            'passport_expiry' => $formatDate($sourceApp->passport_expiry),
             'national_id_number' => $sourceApp->national_id_number ?? '',
             'tax_id_number' => $sourceApp->tax_id_number ?? '',
             'emergency_contact_name' => $sourceApp->emergency_contact_name ?? '',

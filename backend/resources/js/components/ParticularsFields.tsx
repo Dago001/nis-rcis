@@ -113,7 +113,7 @@ const OTHER = "__OTHER__";
 
 /** Wizard step 1 — General Information (Nationality, Category, Document Type, Document Details, Fee). */
 export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
-  const { data, errors, set, touch, focus, feeNaira } = props;
+  const { data, errors, set, touch, focus, feeNaira, readOnly } = props;
   const { t } = useI18n();
   const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
   const today = new Date().toISOString().slice(0, 10);
@@ -151,10 +151,12 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           <Select
             name="nationality"
             value={selectedNat}
+            disabled={readOnly}
             aria-invalid={Boolean(errors.nationality)}
-            className={errors.nationality ? "!border-red-500" : ""}
+            className={errors.nationality ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
             onFocus={() => focus?.("nationality")}
             onChange={(e) => {
+              if (readOnly) return;
               set("nationality", e.target.value);
             }}
             onBlur={() => {
@@ -324,7 +326,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
 
 /** Wizard step 2 — personal particulars. */
 export function PersonalFields(props: Props & { lockContact?: boolean }) {
-  const { data, errors, set, touch, focus, lockContact } = props;
+  const { data, errors, set, touch, focus, lockContact, readOnly } = props;
   const { t } = useI18n();
   const isDependant = Boolean(data.dependant_relationship || data.principal_application_id);
   const isChild = isDependant && data.dependant_relationship === "CHILD";
@@ -411,7 +413,9 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
             >
               <PhoneInput
                 value={data.phone ?? ""}
+                disabled={readOnly}
                 onChange={(v) => {
+                  if (readOnly) return;
                   set("phone", v);
                 }}
               />

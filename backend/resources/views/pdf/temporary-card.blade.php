@@ -297,7 +297,7 @@
                         </tr>
                         <tr>
                             <td class="lbl">Date of Birth</td>
-                            <td class="val">{{ $card['date_of_birth'] }} (Sex: {{ $card['sex'] }})</td>
+                            <td class="val">{{ $card['date_of_birth'] }} (Gender: {{ $card['sex'] }})</td>
                         </tr>
                         <tr>
                             <td class="lbl">Domicile / Address</td>

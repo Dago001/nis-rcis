@@ -526,11 +526,19 @@ function Wizard() {
 
         // Automatically fetch previous particulars for Renewal applications
         if (activeType === "RENEWAL") {
-          const depQuery = isDependantFlow
-            ? `?principal=${encodeURIComponent(params.get("principal") || "")}&for=${encodeURIComponent(relationship)}`
-            : "";
+          const cardParam = params.get("card") || params.get("card_number") || "";
+          const queryParams = new URLSearchParams();
+          if (isDependantFlow) {
+            if (params.get("principal")) queryParams.set("principal", params.get("principal") || "");
+            if (relationship) queryParams.set("for", relationship);
+          }
+          if (cardParam) {
+            queryParams.set("card", cardParam);
+          }
+          const depQuery = queryParams.toString() ? `?${queryParams.toString()}` : "";
           const renewalRes = await api<{
             found: boolean;
+            message?: string;
             source_application_id?: number;
             source_application_number?: string;
             renewal_card_number?: string;
@@ -551,6 +559,15 @@ function Wizard() {
             if (renewalRes.renewal_card_number && !restored.renewal_card_number) {
               restored.renewal_card_number = renewalRes.renewal_card_number;
             }
+            setNotice({
+              tone: "info",
+              text: `Pre-populated with verified particulars from previous application ${renewalRes.source_application_number || ""}.`,
+            });
+          } else if (renewalRes && !renewalRes.found) {
+            setNotice({
+              tone: "warning",
+              text: renewalRes.message || "No previous application record found to pre-populate. Please fill in your particulars or enter your existing Residence Card number.",
+            });
           }
         }
 
@@ -1583,15 +1600,15 @@ function Wizard() {
                 </div>
 
                 {/* List of active changes */}
-                {codChanges.length > 0 ? (
+                {(Array.isArray(codChanges) ? codChanges : []).length > 0 ? (
                   <div className="space-y-4">
-                    {codChanges.map((change, idx) => {
+                    {(Array.isArray(codChanges) ? codChanges : []).map((change, idx) => {
                       const spec = COD_AVAILABLE_FIELDS.find((f) => f.key === change.field);
                       return (
                         <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 relative">
                           <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                              #{idx + 1} · {t(change.field_label || change.field)}
+                              #{idx + 1} · {t(change.field_label || change.field || "")}
                             </span>
                             <button
                               type="button"
@@ -1708,7 +1725,7 @@ function Wizard() {
                           onChange={(e) => setCodFieldToAdd(e.target.value)}
                         >
                           <option value="">{t("Select field to change…")}</option>
-                          {COD_AVAILABLE_FIELDS.filter((f) => !codChanges.some((c) => c.field === f.key)).map((f) => (
+                          {COD_AVAILABLE_FIELDS.filter((f) => !(Array.isArray(codChanges) ? codChanges : []).some((c) => c.field === f.key)).map((f) => (
                             <option key={f.key} value={f.key}>
                               {t(f.label)}
                             </option>

@@ -475,7 +475,7 @@ export function DoughnutChart({
   return (
     <div className="flex flex-col items-center justify-center">
       <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-        <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90 select-none" role="img" aria-label="Applications by Sex">
+        <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full -rotate-90 select-none" role="img" aria-label="Applications by Gender">
           {/* Background track if 0 records */}
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
 
