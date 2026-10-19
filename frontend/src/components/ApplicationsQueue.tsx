@@ -10,6 +10,7 @@ import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
 import { nisDate, applicationType } from "@/lib/format";
 import type { Application, Paginated } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 export interface ApplicationsQueueViewProps {
   pageTitle: string;
@@ -37,6 +38,7 @@ const APPROVERS_STATUS_FILTERS: { key: string; label: string }[] = [
 function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPerPage = 10 }: ApplicationsQueueViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
 
   const isApprovers = basePath === "/staff/approvals";
   const queueType = isApprovers ? "approvals" : "vetting";
@@ -200,7 +202,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
   return (
     <div className="space-y-5">
-      <PageTitle title={pageTitle} subtitle={pageSubtitle} />
+      <PageTitle title={t(pageTitle)} subtitle={t(pageSubtitle)} />
 
       {/* Unified Search Bar & Dropdown Filters Row */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
@@ -227,7 +229,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                     setShowDropdown(false);
                   }
                 }}
-                placeholder="Search by application number, passport number or applicant name"
+                placeholder={t("Search by application number, passport number or applicant name")}
                 className="w-full rounded-md border border-slate-300 bg-white !pl-10 !pr-10 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
               />
               {isSearching ? (
@@ -237,7 +239,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                   type="button"
                   onClick={handleClearSearch}
                   className="absolute right-3 flex items-center text-xs text-slate-400 hover:text-slate-600 focus:outline-none"
-                  title="Clear search"
+                  title={t("Clear search")}
                 >
                   ✕
                 </button>
@@ -251,11 +253,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
               {isSearching && suggestions.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
                   <Spinner />
-                  <span>Searching applications...</span>
+                  <span>{t("Searching applications...")}</span>
                 </div>
               ) : suggestions.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm font-medium text-slate-500">
-                  No matching applications found
+                  {t("No matching applications found")}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -307,20 +309,20 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
             aria-label="Status filter"
             className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
           >
-            <option value="">Status: All</option>
+            <option value="">{t("Status: All")}</option>
             {isApprovers ? (
               <>
-                <option value="VETTED">Awaiting Approval</option>
-                <option value="QUERIED">Queried</option>
-                <option value="APPROVED_FOR_BIOMETRICS">Approved</option>
-                <option value="REJECTED">Rejected</option>
+                <option value="VETTED">{t("Awaiting Approval")}</option>
+                <option value="QUERIED">{t("Queried")}</option>
+                <option value="APPROVED_FOR_BIOMETRICS">{t("Approved")}</option>
+                <option value="REJECTED">{t("Rejected")}</option>
               </>
             ) : (
               <>
-                <option value="PENDING_APPROVAL">Awaiting Vetting</option>
-                <option value="QUERIED">Queried</option>
-                <option value="VETTED">Vetted</option>
-                <option value="REJECTED">Rejected</option>
+                <option value="PENDING_APPROVAL">{t("Awaiting Vetting")}</option>
+                <option value="QUERIED">{t("Queried")}</option>
+                <option value="VETTED">{t("Vetted")}</option>
+                <option value="REJECTED">{t("Rejected")}</option>
               </>
             )}
           </select>
@@ -343,10 +345,10 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
             aria-label="Assignment / Workload filter"
             className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
           >
-            <option value="">Assignment / Workload: All</option>
-            <option value="me">Assigned to Me</option>
-            <option value="unassigned">Unassigned</option>
-            <option value="overdue">Past Service Level Target</option>
+            <option value="">{t("Assignment / Workload: All")}</option>
+            <option value="me">{t("Assigned to Me")}</option>
+            <option value="unassigned">{t("Unassigned")}</option>
+            <option value="overdue">{t("Past Service Level Target")}</option>
           </select>
         </div>
       </div>
@@ -356,19 +358,19 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
           <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
-            <span>Loading applications...</span>
+            <span>{t("Loading applications...")}</span>
           </div>
         </div>
       ) : displayResult.data.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center">
-          <p className="text-sm font-medium text-slate-600">No applications found.</p>
+          <p className="text-sm font-medium text-slate-600">{t("No applications found.")}</p>
           {(currentSearch || currentStatus || assigned || overdue) && (
             <div className="mt-3">
               <Link
                 href={basePath}
                 className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
-                Clear all filters
+                {t("Clear all filters")}
               </Link>
             </div>
           )}
@@ -378,13 +380,13 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="w-12 px-3 py-3 text-center font-semibold">S/N</th>
-                <th className="px-4 py-3 font-semibold">Application</th>
-                <th className="px-4 py-3 font-semibold">Applicant</th>
-                <th className="px-4 py-3 font-semibold">Command / Location</th>
-                <th className="px-4 py-3 font-semibold">Nationality</th>
-                <th className="px-4 py-3 font-semibold">Appointment</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="w-12 px-3 py-3 text-center font-semibold">{t("S/N")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Application")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Applicant")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Command / Location")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Nationality")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Appointment")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Status")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -403,7 +405,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                         {a.application_number}
                       </Link>
                       <div className="text-xs text-slate-500">
-                        {a.channel === "ASSISTED" ? "Assisted" : "Online"} · {applicationType(a)}
+                        {a.channel === "ASSISTED" ? t("Assisted") : t("Online")} · {applicationType(a)}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -412,7 +414,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">
-                        {a.domicile_state ? `${a.domicile_state} State` : "—"}
+                        {a.domicile_state ? `${a.domicile_state} ${t("State")}` : "—"}
                       </div>
                       <div className="text-xs text-slate-500">
                         {a.domicile_lga ? `${a.domicile_lga} LGA` : a.domicile || ""}
@@ -442,8 +444,8 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                           className={`mt-1 text-xs ${a.sla.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}
                           title={`Target: decision within ${a.sla.target} working days`}
                         >
-                          {a.sla.working_days} working day{a.sla.working_days === 1 ? "" : "s"}
-                          {a.sla.overdue ? " · overdue" : ""}
+                          {a.sla.working_days} {a.sla.working_days === 1 ? t("working day") : t("working days")}
+                          {a.sla.overdue ? ` · ${t("overdue")}` : ""}
                         </div>
                       )}
                       {a.assigned_to && (
@@ -462,9 +464,9 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
       {displayResult && total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 text-sm border-t border-slate-200">
           <span className="text-slate-600">
-            Showing <span className="font-medium text-slate-900">{from}</span>–
-            <span className="font-medium text-slate-900">{to}</span> of{" "}
-            <span className="font-medium text-slate-900">{total}</span> applications
+            {t("Showing")} <span className="font-medium text-slate-900">{from}</span>–
+            <span className="font-medium text-slate-900">{to}</span> {t("of")}{" "}
+            <span className="font-medium text-slate-900">{total}</span> {t("applications")}
           </span>
 
           <div className="flex items-center gap-1">
@@ -473,11 +475,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                 href={buildUrl({ page: currentPage - 1 })}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Previous
+                {t("Previous")}
               </Link>
             ) : (
               <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed">
-                Previous
+                {t("Previous")}
               </span>
             )}
 
@@ -508,11 +510,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                 href={buildUrl({ page: currentPage + 1 })}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Next
+                {t("Next")}
               </Link>
             ) : (
               <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed">
-                Next
+                {t("Next")}
               </span>
             )}
           </div>

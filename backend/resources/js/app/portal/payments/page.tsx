@@ -29,7 +29,7 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <PageTitle eyebrow={t("Applicant console")} title={t("Payments and receipts")} subtitle={t("Download official receipts for your payments.")} />
       {error && <Alert tone="danger">{error}</Alert>}
-      <Panel title="My payments">
+      <Panel title={t("My payments")}>
         {loading || !data ? (
           <Spinner />
         ) : data.data.length === 0 ? (
@@ -42,12 +42,12 @@ export default function PaymentsPage() {
                   <div>
                     <div className="font-medium">{naira(p.amount_naira)} · <span className="font-mono">{p.reference}</span></div>
                     <div className="text-xs text-slate-500">
-                      Paid {dateTime(p.paid_at)} ·{" "}
+                      {t("Paid")} {dateTime(p.paid_at)} ·{" "}
                       {p.application ? (
                         <Link href={`/portal/applications/${p.application.id}`} className="underline">
                           {(p.application as any).reference_number || p.application.application_number}
                         </Link>
-                      ) : "not used for an application"}
+                      ) : t("not used for an application")}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

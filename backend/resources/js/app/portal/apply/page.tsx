@@ -1396,15 +1396,20 @@ function Wizard() {
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-nis-mint/40 p-4">
               <div className="text-sm font-semibold text-nis-primary-dark">
-                Required Documents for {resolvedCategory === "STUDENT" ? "Student" : resolvedCategory === "BUSINESS" ? "Business" : resolvedCategory === "RELIGIOUS" ? "Religious Activities" : "Work"} Category
+                {resolvedCategory === "STUDENT"
+                  ? t("Required Documents for Student Category")
+                  : resolvedCategory === "BUSINESS"
+                  ? t("Required Documents for Business Category")
+                  : resolvedCategory === "RELIGIOUS"
+                  ? t("Required Documents for Religious Activities Category")
+                  : t("Required Documents for Work Category")}
               </div>
               <p className="mt-1 text-xs text-slate-600">
-                Official Document Verification: Each file must be <strong>smaller than 2 MB</strong> in <strong>PDF, JPG, or PNG</strong> format.
-                Ensure all documents are clear, fully legible, and upright. Your passport photograph was uploaded in step 2.
+                {t("Official Document Verification: Each file must be smaller than 2 MB in PDF, JPG, or PNG format. Ensure all documents are clear, fully legible, and upright. Your passport photograph was uploaded in step 2.")}
               </p>
             </div>
 
-            {errors.documents && <Alert tone="danger">{errors.documents}</Alert>}
+            {errors.documents && <Alert tone="danger">{t(errors.documents)}</Alert>}
 
             <div className="grid gap-3.5">
               {currentDocs.map((d) => {
@@ -1481,10 +1486,10 @@ function Wizard() {
                       {/* Details */}
                       <div className="space-y-1">
                         <div className="text-sm font-semibold text-slate-900">
-                          {d.label} {d.required ? <span className="text-red-600">*</span> : <span className="text-xs font-normal text-slate-500">(Optional)</span>}
+                          {t(d.label)} {d.required ? <span className="text-red-600">*</span> : <span className="text-xs font-normal text-slate-500">({t("Optional")})</span>}
                         </div>
                         {isAbsent && (
-                          <p className="text-xs font-medium text-red-600">Please upload this compulsory document.</p>
+                          <p className="text-xs font-medium text-red-600">{t("Please upload this compulsory document.")}</p>
                         )}
 
                         {/* Status lines */}
@@ -1494,7 +1499,7 @@ function Wizard() {
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                             </svg>
-                            <span>Uploading document…</span>
+                            <span>{t("Uploading document…")}</span>
                             {fileName && <span className="truncate max-w-[200px] text-slate-500">({fileName})</span>}
                           </div>
                         )}
@@ -1505,7 +1510,7 @@ function Wizard() {
                               <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
-                              Document uploaded successfully
+                              {t("Document uploaded successfully")}
                             </span>
                             <span className="truncate max-w-[240px] text-xs font-medium text-slate-700">{fileName}</span>
                             {fileSize && <span className="text-xs text-slate-400">({kb(fileSize)})</span>}
@@ -1518,14 +1523,14 @@ function Wizard() {
                               <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
-                              Upload Failed
+                              {t("Upload Failed")}
                             </div>
-                            <p className="text-xs text-red-700">{state?.error || "Please select a valid document."}</p>
+                            <p className="text-xs text-red-700">{state?.error ? t(state.error) : t("Please select a valid document.")}</p>
                           </div>
                         )}
 
                         {!isUploading && !isUploaded && !isError && (
-                          <p className="text-xs text-slate-500">PDF, JPG or PNG up to 2 MB</p>
+                          <p className="text-xs text-slate-500">{t("PDF, JPG or PNG up to 2 MB")}</p>
                         )}
                       </div>
                     </div>
@@ -1540,10 +1545,10 @@ function Wizard() {
                             onClick={() => viewDoc(d)}
                             className="!text-xs !py-1.5 !px-3"
                           >
-                            View
+                            {t("View")}
                           </Button>
                           <UploadButton
-                            label="Replace"
+                            label={t("Replace")}
                             accept={d.accept}
                             disabled={busy || isUploading}
                             onFile={(f) => uploadDocFile(d, f)}
@@ -1557,7 +1562,7 @@ function Wizard() {
                               disabled={busy || isUploading}
                               className="!text-xs !py-1.5 !px-3 !text-red-700 hover:!bg-red-50"
                             >
-                              Remove
+                              {t("Remove")}
                             </Button>
                           )}
                         </>
@@ -1573,11 +1578,11 @@ function Wizard() {
                               disabled={busy || isUploading}
                               className="!text-xs !py-1.5 !px-3"
                             >
-                              Retry
+                              {t("Retry")}
                             </Button>
                           )}
                           <UploadButton
-                            label="Choose file"
+                            label={t("Choose file")}
                             accept={d.accept}
                             disabled={busy || isUploading}
                             onFile={(f) => uploadDocFile(d, f)}
@@ -1588,7 +1593,7 @@ function Wizard() {
 
                       {!isUploaded && !isError && (
                         <UploadButton
-                          label={isUploading ? "Uploading…" : "Upload document"}
+                          label={isUploading ? t("Uploading…") : t("Upload document")}
                           accept={d.accept}
                           disabled={busy || isUploading}
                           onFile={(f) => uploadDocFile(d, f)}
@@ -1614,7 +1619,7 @@ function Wizard() {
                 <line x1="12" y1="16" x2="12" y2="12" />
                 <line x1="12" y1="8" x2="12.01" y2="8" />
               </svg>
-              <span>Check every detail carefully before you pay. Use <strong>Edit</strong> to change a section.</span>
+              <span>{t("Check every detail carefully before you pay. Use Edit to change a section.")}</span>
             </div>
 
             <ReviewSection title="General Information" onEdit={() => goTo(1)}>
@@ -1684,9 +1689,9 @@ function Wizard() {
                   return (
                     <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-slate-800 font-medium">{d.label}:</span>
+                        <span className="text-slate-800 font-medium">{t(d.label)}:</span>
                         <span className={`truncate text-xs font-medium ${current ? "text-slate-600" : "text-red-600"}`}>
-                          {current ? current.original_name : "missing"}
+                          {current ? current.original_name : t("missing")}
                         </span>
                       </div>
                       {current && (
@@ -1699,7 +1704,7 @@ function Wizard() {
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                             <circle cx="12" cy="12" r="3" />
                           </svg>
-                          <span>View</span>
+                          <span>{t("View")}</span>
                         </button>
                       )}
                     </li>
@@ -1734,8 +1739,7 @@ function Wizard() {
                   }}
                 />
                 <span className="text-xs sm:text-sm text-slate-800 leading-relaxed">
-                  I solemnly declare that the particulars given in this application are true and correct. I understand that giving false
-                  information is an offence under the Immigration Act 2015.
+                  {t("I solemnly declare that the particulars given in this application are true and correct. I understand that giving false information is an offence under the Immigration Act 2015.")}
                 </span>
               </label>
               {errors.declaration && (
@@ -1743,7 +1747,7 @@ function Wizard() {
                   <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
-                  <span>{errors.declaration}</span>
+                  <span>{t(errors.declaration)}</span>
                 </p>
               )}
             </div>
@@ -1755,18 +1759,18 @@ function Wizard() {
           <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
-              <Summary label="Payment reference" value={data.payment_reference ?? "Created when you pay"} />
+              <Summary label="Payment reference" value={data.payment_reference ?? t("Created when you pay")} />
             </div>
             {paid ? (
               <div className="space-y-3">
-                <Alert tone="success">Payment confirmed by Paystack. Your payment has been verified.</Alert>
+                <Alert tone="success">{t("Payment confirmed by Paystack. Your payment has been verified.")}</Alert>
                 <Button onClick={() => setStep(7)} className="!bg-nis-green">
                   {t("Continue to Biometrics Appointment →")}
                 </Button>
               </div>
             ) : (
               <>
-                {errors.payment_reference && <Alert tone="danger">{errors.payment_reference}</Alert>}
+                {errors.payment_reference && <Alert tone="danger">{t(errors.payment_reference)}</Alert>}
 
                 {/* Mandatory Non-Refundable Payment Acknowledgement */}
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-2">
@@ -1789,7 +1793,7 @@ function Wizard() {
                   </label>
                   {ackError && (
                     <p className="mt-1 text-xs font-semibold text-red-600">
-                      {ackError}
+                      {t(ackError)}
                     </p>
                   )}
                 </div>
@@ -1801,7 +1805,7 @@ function Wizard() {
                 >
                   {busy ? t("Opening Paystack…") : t("Pay securely with Paystack")}
                 </Button>
-                <p className="text-xs text-slate-500">You pay on Paystack&apos;s secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.</p>
+                <p className="text-xs text-slate-500">{t("You pay on Paystack's secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.")}</p>
               </>
             )}
           </div>
@@ -1816,7 +1820,7 @@ function Wizard() {
               <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
               <Summary label="Payment reference" value={paid ? data.payment_reference ?? "—" : "Not paid"} />
             </div>
-            <p className="text-sm text-slate-600">Choose your appointment, then click <strong>Submit application</strong>.</p>
+            <p className="text-sm text-slate-600">{t("Choose your appointment, then click Submit application.")}</p>
           </div>
         )}
       </Panel>
@@ -1833,14 +1837,14 @@ function Wizard() {
             <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
           )}
         </div>
-      <p className="text-xs text-slate-500">Need help? <Link href="/track" className="underline">Track an existing application</Link>.</p>
+      <p className="text-xs text-slate-500">{t("Need help?")} <Link href="/track" className="underline">{t("Track an existing application")}</Link>.</p>
 
       {preview && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-label={preview.name} onClick={() => setPreview(null)}>
           <div className="max-h-full max-w-3xl overflow-auto rounded-xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between gap-4">
               <span className="truncate text-sm font-medium">{preview.name}</span>
-              <Button variant="secondary" onClick={() => setPreview(null)}>Close</Button>
+              <Button variant="secondary" onClick={() => setPreview(null)}>{t("Close")}</Button>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview.url} alt={preview.name} className="max-h-[75vh] w-auto rounded" />
@@ -1852,21 +1856,23 @@ function Wizard() {
 }
 
 function Summary({ label, value }: { label: string; value: ReactNode }) {
+  const { t } = useI18n();
   return (
     <div className="rounded-lg border border-slate-200 bg-nis-mint px-4 py-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-base font-medium text-nis-primary-dark">{value}</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{t(label)}</div>
+      <div className="mt-1 text-base font-medium text-nis-primary-dark">{typeof value === "string" ? t(value) : value}</div>
     </div>
   );
 }
 
 function ReviewGrid({ items }: { items: [string, string | undefined][] }) {
+  const { t } = useI18n();
   return (
     <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map(([k, v]) => (
         <div key={k} className="flex flex-col">
-          <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{k}</dt>
-          <dd className="mt-1 break-words text-sm font-medium text-slate-900 leading-snug">{v || "—"}</dd>
+          <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{t(k)}</dt>
+          <dd className="mt-1 break-words text-sm font-medium text-slate-900 leading-snug">{v ? t(v) : "—"}</dd>
         </div>
       ))}
     </dl>
@@ -1874,10 +1880,11 @@ function ReviewGrid({ items }: { items: [string, string | undefined][] }) {
 }
 
 function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {
+  const { t } = useI18n();
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300">
       <header className="flex items-center justify-between border-b border-slate-200/80 bg-nis-mint/60 px-5 py-3">
-        <h3 className="text-sm font-bold text-nis-primary-dark">{title}</h3>
+        <h3 className="text-sm font-bold text-nis-primary-dark">{t(title)}</h3>
         <button
           type="button"
           onClick={onEdit}
@@ -1887,7 +1894,7 @@ function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () 
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
-          <span>Edit</span>
+          <span>{t("Edit")}</span>
         </button>
       </header>
       <div className="p-5">{children}</div>
@@ -1933,6 +1940,7 @@ function PhotoUpload({
   onUpload: (f: File) => void;
   onView: () => void;
 }) {
+  const { t } = useI18n();
   const displayUrl = localPreview || url;
 
   return (
@@ -1940,7 +1948,7 @@ function PhotoUpload({
       <div className="relative flex h-40 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white shadow-inner">
         {displayUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={displayUrl} alt="Your passport photograph" className="h-full w-full object-cover" />
+          <img src={displayUrl} alt={t("Passport photograph")} className="h-full w-full object-cover" />
         ) : (
           <svg className="h-14 w-14 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
@@ -1952,15 +1960,15 @@ function PhotoUpload({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
-            <span className="mt-1.5 text-[11px] font-medium tracking-wide">Uploading…</span>
+            <span className="mt-1.5 text-[11px] font-medium tracking-wide">{t("Uploading…")}</span>
           </div>
         )}
       </div>
       <div className="space-y-2">
         <div className="font-semibold text-slate-900">
-          Passport photograph <span className="text-red-600">*</span>
+          {t("Passport photograph")} <span className="text-red-600">*</span>
         </div>
-        <p className="text-sm text-slate-600">A recent colour photograph of your face on a white background. JPG or PNG, smaller than 2 MB.</p>
+        <p className="text-sm text-slate-600">{t("A recent colour photograph of your face on a white background. JPG or PNG, smaller than 2 MB.")}</p>
 
         {/* Status badges */}
         {uploadStatus === "uploading" && (
@@ -1969,7 +1977,7 @@ function PhotoUpload({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
-            Uploading photograph…
+            {t("Uploading photograph…")}
           </div>
         )}
         {uploadStatus !== "uploading" && (uploadStatus === "success" || (photo && !error)) && (
@@ -1977,7 +1985,7 @@ function PhotoUpload({
             <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-            Upload Successful {photo ? `(${photo.original_name})` : ""}
+            {t("Upload Successful")} {photo ? `(${photo.original_name})` : ""}
           </div>
         )}
         {uploadStatus === "error" && (
@@ -1985,26 +1993,26 @@ function PhotoUpload({
             <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            Upload Failed — please select a valid photo
+            {t("Upload Failed — please select a valid photo")}
           </div>
         )}
         {displayUrl && uploadStatus === "idle" && (
           <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-            Photograph Selected
+            {t("Photograph Selected")}
           </div>
         )}
 
-        {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+        {error && <p className="text-sm font-medium text-red-700">{t(error)}</p>}
         <div className="flex flex-wrap gap-2 pt-1">
           <UploadButton
-            label={displayUrl ? "Change photograph" : "Upload photograph"}
+            label={displayUrl ? t("Change photograph") : t("Upload photograph")}
             accept={PHOTO.accept}
             disabled={busy || uploadStatus === "uploading"}
             onFile={onUpload}
           />
           {displayUrl && (
             <Button variant="secondary" onClick={onView} disabled={uploadStatus === "uploading"}>
-              View
+              {t("View")}
             </Button>
           )}
         </div>

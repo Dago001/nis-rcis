@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ComponentProps, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { useI18n } from "./I18nProvider";
 
 type Variant = "primary" | "secondary" | "danger" | "gold" | "ghost";
 
@@ -20,15 +21,16 @@ export function Button({ variant = "primary", className = "", ...props }: Button
 }
 
 export function Field({ label, error, hint, required, children }: { label: string; error?: string; hint?: string; required?: boolean; children: ReactNode }) {
+  const { t } = useI18n();
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">
-        {label}
+        {t(label)}
         {required && <span className="text-red-600"> *</span>}
       </span>
       {children}
-      {hint && !error && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
-      {error && <span className="mt-1 block text-xs text-red-700">{error}</span>}
+      {hint && !error && <span className="mt-1 block text-xs text-slate-500">{t(hint)}</span>}
+      {error && <span className="mt-1 block text-xs text-red-700">{t(error)}</span>}
     </label>
   );
 }
@@ -72,12 +74,13 @@ export function Alert({ tone = "info", children }: { tone?: "info" | "success" |
 }
 
 export function Dl({ items }: { items: [string, ReactNode][] }) {
+  const { t } = useI18n();
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
       {items.map(([k, v]) => (
         <div key={k}>
-          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
-          <dd className="mt-0.5 break-words text-sm text-slate-900">{v || "—"}</dd>
+          <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{t(k)}</dt>
+          <dd className="mt-0.5 break-words text-sm text-slate-900">{typeof v === "string" ? t(v) : (v || "—")}</dd>
         </div>
       ))}
     </dl>
@@ -85,10 +88,11 @@ export function Dl({ items }: { items: [string, ReactNode][] }) {
 }
 
 export function Spinner({ label = "Loading…" }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-3 py-10 text-sm text-slate-500" role="status">
       <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
-      {label}
+      {t(label)}
     </div>
   );
 }

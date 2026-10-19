@@ -8,6 +8,7 @@ import type { StaffRole, StaffUser } from "@/lib/types";
 import { SiteFooter, SiteHeader } from "./SiteHeader";
 import { GlobalAnnouncements } from "./GlobalAnnouncements";
 import { Spinner } from "./ui";
+import { useI18n } from "./I18nProvider";
 
 const StaffContext = createContext<StaffUser | null>(null);
 
@@ -91,6 +92,7 @@ const navSections: NavSection[] = [
 ];
 
 export function StaffShell({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [user, setUser] = useState<StaffUser | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -173,7 +175,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                 return (
                   <div key={sec.title} className={idx > 0 ? "lg:border-t lg:border-[#d7ece0] lg:pt-3" : ""}>
                     <div className="hidden px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:block">
-                      {sec.title}
+                      {t(sec.title)}
                     </div>
                     <ul className="flex gap-1 lg:flex-col">
                       {visible.map((item) => {
@@ -197,7 +199,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                               }`}
                             >
                               {item.icon}
-                              <span>{item.label}</span>
+                              <span>{t(item.label)}</span>
                             </Link>
                           </li>
                         );

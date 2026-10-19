@@ -1,3 +1,5 @@
+import { useI18n } from "./I18nProvider";
+
 const styles: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-700 border border-slate-200",
   Draft: "bg-slate-100 text-slate-700 border border-slate-200",
@@ -38,11 +40,13 @@ const defaultLabels: Record<string, string> = {
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const display = label ?? defaultLabels[status] ?? status.replaceAll("_", " ");
+  const { t } = useI18n();
+  const rawDisplay = label ?? defaultLabels[status] ?? status.replaceAll("_", " ");
   const isApproved =
     status === "APPROVED" ||
     status === "APPROVED_FOR_BIOMETRICS" ||
-    display === "Approved";
+    rawDisplay === "Approved";
+  const display = t(rawDisplay);
 
   if (isApproved) {
     return (

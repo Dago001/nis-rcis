@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { PageTitle } from "@/components/PageTitle";
 import { Alert, Button, Input, Spinner } from "@/components/ui";
+import { useI18n } from "@/components/I18nProvider";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime, nisDate } from "@/lib/format";
 import { useFetch } from "@/lib/use-fetch";
@@ -69,6 +70,7 @@ type CardIssuanceResponse = {
 function CardIssuanceContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useI18n();
 
   const currentStage = params.get("stage") || "all";
   const initialSearch = params.get("search") || "";
@@ -254,45 +256,45 @@ function CardIssuanceContent() {
   return (
     <div className="space-y-6">
       <PageTitle
-        title="Card Issuance"
-        subtitle="Manage printed residence cards and record authorized issuance to verified applicants."
+        title={t("Card Issuance")}
+        subtitle={t("Manage printed residence cards and record authorized issuance to verified applicants.")}
       />
 
       {/* KPI / Summary Tiles */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
           <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
-            Awaiting Issuance
+            {t("Awaiting Issuance")}
           </span>
           <span className="mt-1 text-2xl font-medium text-slate-900">
             {stats.awaiting_issuance ?? stats.awaiting_collection ?? 0}
           </span>
-          <span className="mt-0.5 text-xs text-slate-500">Printed cards ready for collection</span>
+          <span className="mt-0.5 text-xs text-slate-500">{t("Printed cards ready for collection")}</span>
         </div>
 
         <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
           <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
-            Issued Cards
+            {t("Issued Cards")}
           </span>
           <span className="mt-1 text-2xl font-medium text-slate-900">
             {stats.issued_total ?? stats.collected_total ?? 0}
           </span>
-          <span className="mt-0.5 text-xs text-slate-500">Successfully handed over to applicants</span>
+          <span className="mt-0.5 text-xs text-slate-500">{t("Successfully handed over to applicants")}</span>
         </div>
 
         <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
           <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
-            All Printed Cards
+            {t("All Printed Cards")}
           </span>
           <span className="mt-1 text-2xl font-medium text-slate-900">
             {stats.total_printed ?? stats.total_produced ?? 0}
           </span>
-          <span className="mt-0.5 text-xs text-slate-500">Total verified printed cards</span>
+          <span className="mt-0.5 text-xs text-slate-500">{t("Total verified printed cards")}</span>
         </div>
       </div>
 
-      {notice && <Alert tone="success">{notice}</Alert>}
-      {error && <Alert tone="danger">{error}</Alert>}
+      {notice && <Alert tone="success">{t(notice)}</Alert>}
+      {error && <Alert tone="danger">{t(error)}</Alert>}
 
       {/* Live Search & Filter Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
@@ -314,7 +316,7 @@ function CardIssuanceContent() {
                 onKeyDown={(e) => {
                   if (e.key === "Escape") setShowDropdown(false);
                 }}
-                placeholder="Search by card number, passport number or applicant name"
+                placeholder={t("Search by card number, passport number or applicant name")}
                 className="w-full rounded-md border border-slate-300 bg-white !pl-10 !pr-10 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
               />
               <div className="absolute right-2.5 flex items-center gap-1.5">
@@ -325,7 +327,7 @@ function CardIssuanceContent() {
                   <button
                     type="button"
                     onClick={handleClearSearch}
-                    aria-label="Clear search"
+                    aria-label={t("Clear search")}
                     className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
                   >
                     <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -341,7 +343,7 @@ function CardIssuanceContent() {
           {showDropdown && suggestions.length > 0 && (
             <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
               <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                Matching Printed Cards ({suggestions.length})
+                {t("Matching Printed Cards")} ({suggestions.length})
               </div>
               <ul className="divide-y divide-slate-100">
                 {suggestions.map((s) => (
@@ -359,7 +361,7 @@ function CardIssuanceContent() {
                           {s.surname}, {s.forenames}
                         </div>
                         <div className="text-xs text-slate-500">
-                          Card: <span className="font-mono font-medium text-slate-700">{s.card_number}</span> · Passport: <span className="font-mono text-slate-700">{s.passport_number}</span>
+                          {t("Card")}: <span className="font-mono font-medium text-slate-700">{s.card_number}</span> · {t("Passport")}: <span className="font-mono text-slate-700">{s.passport_number}</span>
                         </div>
                       </div>
                     </div>
@@ -370,7 +372,7 @@ function CardIssuanceContent() {
                           : "bg-amber-100 text-amber-800"
                       }`}
                     >
-                      {s.issuance_status === "ISSUED" ? "Issued" : "Awaiting Issuance"}
+                      {s.issuance_status === "ISSUED" ? t("Issued") : t("Awaiting Issuance")}
                     </span>
                   </li>
                 ))}
@@ -384,12 +386,12 @@ function CardIssuanceContent() {
           <select
             value={currentStage}
             onChange={(e) => handleStageChange(e.target.value)}
-            aria-label="Issuance filter"
+            aria-label={t("Issuance filter")}
             className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
           >
-            <option value="all">All Cards</option>
-            <option value="awaiting_issuance">Awaiting Issuance</option>
-            <option value="issued">Issued Cards</option>
+            <option value="all">{t("All Cards")}</option>
+            <option value="awaiting_issuance">{t("Awaiting Issuance")}</option>
+            <option value="issued">{t("Issued Cards")}</option>
           </select>
         </div>
       </div>
@@ -399,7 +401,7 @@ function CardIssuanceContent() {
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xs">
           <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
-            <span>Loading printed cards...</span>
+            <span>{t("Loading printed cards...")}</span>
           </div>
         </div>
       ) : cards.length === 0 ? (
@@ -409,20 +411,20 @@ function CardIssuanceContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6" />
             </svg>
           </div>
-          <p className="mt-3 text-base font-semibold text-slate-900">No printed cards found</p>
+          <p className="mt-3 text-base font-semibold text-slate-900">{t("No printed cards found")}</p>
           <p className="mt-1 text-sm text-slate-500 max-w-md mx-auto">
             {debouncedSearch
-              ? `No records matching "${debouncedSearch}". Try checking your search term or clearing filters.`
+              ? t("No records matching \"{search}\". Try checking your search term or clearing filters.", { search: debouncedSearch })
               : currentStage === "awaiting_issuance"
-              ? "There are currently no printed residence cards awaiting issuance."
+              ? t("There are currently no printed residence cards awaiting issuance.")
               : currentStage === "issued"
-              ? "No issued cards recorded yet."
-              : "Cards will appear here once confirmed as printed in the Card Production module."}
+              ? t("No issued cards recorded yet.")
+              : t("Cards will appear here once confirmed as printed in the Card Production module.")}
           </p>
           {debouncedSearch && (
             <div className="mt-4">
               <Button variant="secondary" onClick={handleClearSearch}>
-                Clear Search
+                {t("Clear Search")}
               </Button>
             </div>
           )}
@@ -434,13 +436,13 @@ function CardIssuanceContent() {
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="w-16 px-4 py-3.5 text-center">S/N</th>
-                  <th className="px-4 py-3.5">Card Number</th>
-                  <th className="px-4 py-3.5">Applicant Name</th>
-                  <th className="px-4 py-3.5">Passport Number</th>
-                  <th className="px-4 py-3.5">Card Category</th>
-                  <th className="px-4 py-3.5">Date Printed</th>
-                  <th className="px-4 py-3.5">Issuance Status</th>
-                  <th className="px-4 py-3.5 text-right">Action</th>
+                  <th className="px-4 py-3.5">{t("Card Number")}</th>
+                  <th className="px-4 py-3.5">{t("Applicant Name")}</th>
+                  <th className="px-4 py-3.5">{t("Passport Number")}</th>
+                  <th className="px-4 py-3.5">{t("Card Category")}</th>
+                  <th className="px-4 py-3.5">{t("Date Printed")}</th>
+                  <th className="px-4 py-3.5">{t("Issuance Status")}</th>
+                  <th className="px-4 py-3.5 text-right">{t("Action")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -465,7 +467,7 @@ function CardIssuanceContent() {
                         </Link>
                         {card.booklet_number && (
                           <div className="text-[11px] font-mono text-slate-400">
-                            Booklet: {card.booklet_number}
+                            {t("Booklet")}: {card.booklet_number}
                           </div>
                         )}
                       </td>
@@ -490,7 +492,7 @@ function CardIssuanceContent() {
                               {card.surname}, {card.forenames}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {card.nationality} · App: {card.application?.application_number ?? "—"}
+                              {t(card.nationality)} · App: {card.application?.application_number ?? "—"}
                             </div>
                           </div>
                         </div>
@@ -504,7 +506,7 @@ function CardIssuanceContent() {
                       {/* Card Category */}
                       <td className="px-4 py-3.5 text-xs text-slate-700">
                         <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                          {card.card_category || "General"}
+                          {t(card.card_category || "General")}
                         </span>
                       </td>
 
@@ -517,7 +519,7 @@ function CardIssuanceContent() {
                             </div>
                             {card.printed_by && (
                               <div className="text-[11px] text-slate-400">
-                                By: {card.printed_by}
+                                {t("By")}: {card.printed_by}
                               </div>
                             )}
                           </div>
@@ -540,7 +542,7 @@ function CardIssuanceContent() {
                               isIssued ? "bg-emerald-500" : "bg-amber-500"
                             }`}
                           />
-                          {isIssued ? "Issued" : "Awaiting Issuance"}
+                          {isIssued ? t("Issued") : t("Awaiting Issuance")}
                         </span>
                       </td>
 
@@ -557,14 +559,14 @@ function CardIssuanceContent() {
                               }}
                               className="!px-3 !py-1.5 !text-xs bg-emerald-600 hover:bg-emerald-700"
                             >
-                              Issue Card
+                              {t("Issue Card")}
                             </Button>
                           ) : (
                             <Link
                               href={`/staff/cards/${card.id}`}
                               className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                             >
-                              View Details
+                              {t("View Details")}
                             </Link>
                           )}
                         </div>
@@ -579,9 +581,9 @@ function CardIssuanceContent() {
           {/* Pagination Footer */}
           <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-600">
             <div>
-              Showing <span className="font-semibold text-slate-900">{from}</span> to{" "}
-              <span className="font-semibold text-slate-900">{to}</span> of{" "}
-              <span className="font-semibold text-slate-900">{total}</span> printed records
+              {t("Showing")} <span className="font-semibold text-slate-900">{from}</span> {t("to")}{" "}
+              <span className="font-semibold text-slate-900">{to}</span> {t("of")}{" "}
+              <span className="font-semibold text-slate-900">{total}</span> {t("printed records")}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -591,7 +593,7 @@ function CardIssuanceContent() {
                 onClick={() => router.push(buildUrl({ page: currentPage - 1 }))}
                 className="!px-2.5 !py-1 !text-xs"
               >
-                Previous
+                {t("Previous")}
               </Button>
 
               <div className="flex items-center gap-1">
@@ -623,7 +625,7 @@ function CardIssuanceContent() {
                 onClick={() => router.push(buildUrl({ page: currentPage + 1 }))}
                 className="!px-2.5 !py-1 !text-xs"
               >
-                Next
+                {t("Next")}
               </Button>
             </div>
           </div>
@@ -636,9 +638,9 @@ function CardIssuanceContent() {
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Confirm Card Issuance</h3>
+                <h3 className="text-lg font-bold text-slate-900">{t("Confirm Card Issuance")}</h3>
                 <p className="text-xs text-slate-500">
-                  Record physical handover of the residence card to the applicant.
+                  {t("Record physical handover of the residence card to the applicant.")}
                 </p>
               </div>
               <button
@@ -654,29 +656,29 @@ function CardIssuanceContent() {
               {/* Card & Applicant Summary Card */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Residence Card No:</span>
+                  <span className="text-xs text-slate-500">{t("Residence Card No")}:</span>
                   <span className="font-mono font-bold text-slate-900">{issuingCard.card_number}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Applicant:</span>
+                  <span className="text-xs text-slate-500">{t("Applicant")}:</span>
                   <span className="font-semibold text-slate-900">
                     {issuingCard.surname}, {issuingCard.forenames}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Passport Number:</span>
+                  <span className="text-xs text-slate-500">{t("Passport Number")}:</span>
                   <span className="font-mono text-slate-800">{issuingCard.passport_number}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Application Reference:</span>
+                  <span className="text-xs text-slate-500">{t("Application Reference")}:</span>
                   <span className="font-mono text-slate-800">
                     {issuingCard.application?.application_number ?? "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Date Printed:</span>
+                  <span className="text-xs text-slate-500">{t("Date Printed")}:</span>
                   <span className="text-xs text-slate-700">
-                    {issuingCard.date_printed ? dateTime(issuingCard.date_printed) : "Confirmed Printed"}
+                    {issuingCard.date_printed ? dateTime(issuingCard.date_printed) : t("Confirmed Printed")}
                   </span>
                 </div>
               </div>
@@ -692,9 +694,7 @@ function CardIssuanceContent() {
                     required
                   />
                   <span className="text-xs font-medium text-amber-900 leading-snug">
-                    I confirm that I have physically verified the applicant's travel document (passport)
-                    and appointment slip, and am handing over card{" "}
-                    <strong>{issuingCard.card_number}</strong> to the applicant.
+                    {t("I confirm that I have physically verified the applicant's travel document (passport) and appointment slip, and am handing over card {number} to the applicant.", { number: issuingCard.card_number })}
                   </span>
                 </label>
               </div>
@@ -702,12 +702,12 @@ function CardIssuanceContent() {
               {/* Optional Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Issuance / Collection Notes (Optional)
+                  {t("Issuance / Collection Notes (Optional)")}
                 </label>
                 <Input
                   value={issueNotes}
                   onChange={(e) => setIssueNotes(e.target.value)}
-                  placeholder="e.g. Card collected by applicant in person; identity checked."
+                  placeholder={t("e.g. Card collected by applicant in person; identity checked.")}
                 />
               </div>
 
@@ -719,7 +719,7 @@ function CardIssuanceContent() {
                   onClick={() => setIssuingCard(null)}
                   disabled={busy}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button
                   type="submit"
@@ -727,7 +727,7 @@ function CardIssuanceContent() {
                   disabled={busy || !confirmedIdentity}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {busy ? "Processing..." : "Confirm & Issue Card"}
+                  {busy ? t("Processing...") : t("Confirm & Issue Card")}
                 </Button>
               </div>
             </form>

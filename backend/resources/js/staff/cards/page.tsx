@@ -6,6 +6,7 @@ import { Suspense, useState, useEffect, useRef, type FormEvent } from "react";
 import { PageTitle } from "@/components/PageTitle";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button, Spinner } from "@/components/ui";
+import { useI18n } from "@/components/I18nProvider";
 import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
 import { nisDate } from "@/lib/format";
@@ -22,6 +23,7 @@ const FILTER_OPTIONS = [
 function CardProductionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
 
   const currentFilter = searchParams.get("filter") ?? "";
   const currentSearch = searchParams.get("search") ?? "";
@@ -163,8 +165,8 @@ function CardProductionContent() {
   return (
     <div className="space-y-5">
       <PageTitle
-        title="Card Production"
-        subtitle="Prepare, inspect and print official ECOWAS Residence Cards for verified applicants."
+        title={t("Card Production")}
+        subtitle={t("Prepare, inspect and print official ECOWAS Residence Cards for verified applicants.")}
       />
 
       {/* Unified Search Bar & Dropdown Filter Row */}
@@ -188,7 +190,7 @@ function CardProductionContent() {
                 onKeyDown={(e) => {
                   if (e.key === "Escape") setShowDropdown(false);
                 }}
-                placeholder="Search by card number, passport number or applicant name"
+                placeholder={t("Search by card number, passport number or applicant name")}
                 className="w-full rounded-md border border-slate-300 bg-white !pl-10 !pr-10 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
               />
               {isSearching ? (
@@ -198,7 +200,7 @@ function CardProductionContent() {
                   type="button"
                   onClick={handleClearSearch}
                   className="absolute right-3 flex items-center text-xs text-slate-400 hover:text-slate-600 focus:outline-none"
-                  title="Clear search"
+                  title={t("Clear search")}
                 >
                   ✕
                 </button>
@@ -212,11 +214,11 @@ function CardProductionContent() {
               {isSearching && suggestions.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
                   <Spinner />
-                  <span>Searching cards...</span>
+                  <span>{t("Searching cards...")}</span>
                 </div>
               ) : suggestions.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm font-medium text-slate-500">
-                  No matching card records found
+                  {t("No matching card records found")}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -236,13 +238,13 @@ function CardProductionContent() {
                           <div className="mt-0.5 text-xs text-slate-500 flex flex-wrap items-center gap-1.5">
                             <span className="font-medium text-nis-primary">{c.card_number}</span>
                             <span>|</span>
-                            <span>Passport: {c.passport_number}</span>
+                            <span>{t("Passport")}: {c.passport_number}</span>
                             <span>|</span>
-                            <span>{c.nationality}</span>
+                            <span>{t(c.nationality)}</span>
                           </div>
                         </div>
                         <div className="shrink-0 text-xs font-medium text-slate-700">
-                          {isPrinted ? "Printed" : "Awaiting Production"}
+                          {isPrinted ? t("Printed") : t("Awaiting Production")}
                         </div>
                       </button>
                     );
@@ -258,14 +260,14 @@ function CardProductionContent() {
           <select
             value={currentFilter}
             onChange={(e) => handleFilterChange(e.target.value)}
-            aria-label="Card filter"
+            aria-label={t("Card filter")}
             className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
           >
-            <option value="">All Cards</option>
-            <option value="awaiting_production">Awaiting Production</option>
-            <option value="new_cards">New Cards</option>
-            <option value="renewed_cards">Renewed Cards</option>
-            <option value="damaged_cards">Damaged Cards</option>
+            <option value="">{t("All Cards")}</option>
+            <option value="awaiting_production">{t("Awaiting Production")}</option>
+            <option value="new_cards">{t("New Cards")}</option>
+            <option value="renewed_cards">{t("Renewed Cards")}</option>
+            <option value="damaged_cards">{t("Damaged Cards")}</option>
           </select>
         </div>
       </div>
@@ -275,7 +277,7 @@ function CardProductionContent() {
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
           <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-nis-primary" />
-            <span>Loading card records...</span>
+            <span>{t("Loading card records...")}</span>
           </div>
         </div>
       ) : displayResult.data.length === 0 ? (
@@ -283,14 +285,14 @@ function CardProductionContent() {
           {currentFilter === "damaged_cards" ? (
             <div className="space-y-1">
               <p className="text-sm font-medium text-slate-800">
-                No damaged card replacement records found.
+                {t("No damaged card replacement records found.")}
               </p>
               <p className="text-xs text-slate-500">
-                Damaged card replacement requests are not currently registered in the database.
+                {t("Damaged card replacement requests are not currently registered in the database.")}
               </p>
             </div>
           ) : (
-            <p className="text-sm font-medium text-slate-600">No card records found.</p>
+            <p className="text-sm font-medium text-slate-600">{t("No card records found.")}</p>
           )}
           {(debouncedSearch || currentFilter) && (
             <div className="mt-3">
@@ -298,7 +300,7 @@ function CardProductionContent() {
                 href="/staff/cards"
                 className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
-                Clear all filters
+                {t("Clear all filters")}
               </Link>
             </div>
           )}
@@ -309,13 +311,13 @@ function CardProductionContent() {
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="w-12 px-3 py-3 text-center font-semibold">S/N</th>
-                <th className="px-4 py-3 font-semibold">Card Number</th>
-                <th className="px-4 py-3 font-semibold">Holder Details</th>
-                <th className="px-4 py-3 font-semibold">Destination (State / LGA)</th>
-                <th className="px-4 py-3 font-semibold">Nationality</th>
-                <th className="px-4 py-3 font-semibold">Category</th>
-                <th className="px-4 py-3 font-semibold">Production Status</th>
-                <th className="w-16 px-4 py-3 text-center font-semibold">View</th>
+                <th className="px-4 py-3 font-semibold">{t("Card Number")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Holder Details")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Destination (State / LGA)")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Nationality")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Category")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Production Status")}</th>
+                <th className="w-16 px-4 py-3 text-center font-semibold">{t("View")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -337,7 +339,7 @@ function CardProductionContent() {
                         {c.card_number}
                       </Link>
                       <div className="text-xs text-slate-500">
-                        Booklet: {c.booklet_number || "—"}
+                        {t("Booklet")}: {c.booklet_number || "—"}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -345,36 +347,36 @@ function CardProductionContent() {
                         {c.surname}, {c.forenames}
                       </div>
                       <div className="text-xs text-slate-500">
-                        Passport: {c.passport_number}
+                        {t("Passport")}: {c.passport_number}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">
-                        {c.domicile_state ? `${c.domicile_state} State` : "—"}
+                        {c.domicile_state ? `${c.domicile_state} ${t("State")}` : "—"}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {c.domicile_lga ? `${c.domicile_lga} LGA` : c.domicile || ""}
+                        {c.domicile_lga ? `${c.domicile_lga} ${t("LGA")}` : c.domicile || ""}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{c.nationality}</td>
+                    <td className="px-4 py-3 text-slate-700">{t(c.nationality)}</td>
                     <td className="px-4 py-3 text-slate-700 font-medium">
-                      {category}
+                      {t(category)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">
-                        {isPrinted ? "Printed" : "Awaiting Production"}
+                        {isPrinted ? t("Printed") : t("Awaiting Production")}
                       </div>
                       {c.printed_count ? (
                         <div className="text-xs text-slate-500">
-                          Printed {c.printed_count}×
+                          {t("Printed {count}×", { count: c.printed_count })}
                         </div>
                       ) : null}
                     </td>
                     <td className="w-16 px-4 py-3 text-center">
                       <Link
                         href={`/staff/cards/${c.id}`}
-                        title="View"
-                        aria-label={`View card details for ${c.card_number}`}
+                        title={t("View")}
+                        aria-label={t("View card details for {number}", { number: c.card_number })}
                         className="inline-flex items-center justify-center p-1.5 text-slate-500 hover:text-nis-primary transition-colors rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-nis-primary/30"
                       >
                         <svg
@@ -390,7 +392,7 @@ function CardProductionContent() {
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                           <circle cx="12" cy="12" r="3" />
                         </svg>
-                        <span className="sr-only">View</span>
+                        <span className="sr-only">{t("View")}</span>
                       </Link>
                     </td>
                   </tr>
@@ -405,9 +407,9 @@ function CardProductionContent() {
       {displayResult && total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 text-sm border-t border-slate-200">
           <span className="text-slate-600">
-            Showing <span className="font-medium text-slate-900">{from}</span>–
-            <span className="font-medium text-slate-900">{to}</span> of{" "}
-            <span className="font-medium text-slate-900">{total}</span> cards
+            {t("Showing")} <span className="font-medium text-slate-900">{from}</span>–
+            <span className="font-medium text-slate-900">{to}</span> {t("of")}{" "}
+            <span className="font-medium text-slate-900">{total}</span> {t("cards")}
           </span>
 
           <div className="flex items-center gap-1">
@@ -416,11 +418,11 @@ function CardProductionContent() {
                 href={buildUrl({ page: currentPage - 1 })}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Previous
+                {t("Previous")}
               </Link>
             ) : (
               <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed">
-                Previous
+                {t("Previous")}
               </span>
             )}
 
@@ -451,11 +453,11 @@ function CardProductionContent() {
                 href={buildUrl({ page: currentPage + 1 })}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Next
+                {t("Next")}
               </Link>
             ) : (
               <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed">
-                Next
+                {t("Next")}
               </span>
             )}
           </div>

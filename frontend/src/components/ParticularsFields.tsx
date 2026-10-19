@@ -5,6 +5,7 @@ import { NIGERIA_LGAS, NIGERIA_STATES } from "@/lib/nigeria-lgas";
 import { RELATIONSHIPS } from "@/lib/validation";
 import { lettersOnly, PhoneInput } from "./inputs";
 import { Field, Input, Select, Textarea } from "./ui";
+import { useI18n } from "./I18nProvider";
 
 export type FormData = Record<string, string>;
 type Props = {
@@ -59,6 +60,7 @@ function select(
   options: SelectOption[],
   opts: { required?: boolean; placeholder?: string; disabled?: boolean } = {}
 ) {
+  const { t } = useI18n();
   const normalizedOptions = options.map((o) =>
     typeof o === "string" ? { value: o, label: o } : o
   );
@@ -88,10 +90,10 @@ function select(
           props.touch?.(name);
         }}
       >
-        <option value="">{opts.placeholder ?? "Select…"}</option>
+        <option value="">{opts.placeholder ? t(opts.placeholder) : t("Select…")}</option>
         {normalizedOptions.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {t(o.label)}
           </option>
         ))}
       </Select>
@@ -104,6 +106,7 @@ const OTHER = "__OTHER__";
 /** Wizard step 1 — General Information (Nationality, Category, Document Type, Document Details, Fee). */
 export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
   const { data, errors, set, touch, focus, feeNaira } = props;
+  const { t } = useI18n();
   const feeDisplay = (feeNaira ?? 35000).toLocaleString("en-NG");
   const today = new Date().toISOString().slice(0, 10);
 
@@ -151,10 +154,10 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               touch?.("nationality");
             }}
           >
-            <option value="">Select country…</option>
+            <option value="">{t("Select country…")}</option>
             {ECOWAS_NATIONALITIES.map((n) => (
               <option key={n.value} value={n.value}>
-                {n.label}
+                {t(n.label)}
               </option>
             ))}
           </Select>
@@ -181,10 +184,10 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               touch?.("category");
             }}
           >
-            <option value="WORK">Work (Employment)</option>
-            <option value="BUSINESS">Business (Trade / Enterprise)</option>
-            <option value="STUDENT">Student (Academic)</option>
-            <option value="RELIGIOUS">Religious Activities</option>
+            <option value="WORK">{t("Work (Employment)")}</option>
+            <option value="BUSINESS">{t("Business (Trade / Enterprise)")}</option>
+            <option value="STUDENT">{t("Student (Academic)")}</option>
+            <option value="RELIGIOUS">{t("Religious Activities")}</option>
           </Select>
         </Field>
 
@@ -209,8 +212,8 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               touch?.("travel_document_type");
             }}
           >
-            <option value="PASSPORT">Passport</option>
-            <option value="ECOWAS_TC">ECOWAS Travel Certificate</option>
+            <option value="PASSPORT">{t("Passport")}</option>
+            <option value="ECOWAS_TC">{t("ECOWAS Travel Certificate")}</option>
           </Select>
         </Field>
 
@@ -271,21 +274,21 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           <div>
             <div className="font-semibold text-nis-primary-dark">
               {data.category === "STUDENT"
-                ? "Required Document: Admission Letter"
+                ? t("Required Document: Admission Letter")
                 : data.category === "BUSINESS"
-                ? "Required Document: CAC Business Registration Certificate"
+                ? t("Required Document: CAC Business Registration Certificate")
                 : data.category === "RELIGIOUS"
-                ? "Required Documents: Host Invitation & Host Organization Registration"
-                : "Required Document: Employment Appointment Letter"}
+                ? t("Required Documents: Host Invitation & Host Organization Registration")
+                : t("Required Document: Employment Appointment Letter")}
             </div>
             <p className="mt-0.5 text-xs text-slate-600">
               {data.category === "STUDENT"
-                ? "Applicants under the Student category must upload a valid admission letter before proceeding."
+                ? t("Applicants under the Student category must upload a valid admission letter before proceeding.")
                 : data.category === "BUSINESS"
-                ? "Applicants under the Business category must upload a valid CAC business registration certificate / documents before proceeding."
+                ? t("Applicants under the Business category must upload a valid CAC business registration certificate / documents before proceeding.")
                 : data.category === "RELIGIOUS"
-                ? "Applicants under the Religious Activities category must upload an official invitation letter from the host religious organization and evidence of host organization registration or recognition before proceeding."
-                : "Applicants under the Work category must upload a valid employment appointment letter before proceeding."}
+                ? t("Applicants under the Religious Activities category must upload an official invitation letter from the host religious organization and evidence of host organization registration or recognition before proceeding.")
+                : t("Applicants under the Work category must upload a valid employment appointment letter before proceeding.")}
             </p>
           </div>
         </div>
@@ -294,7 +297,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
       {/* Application Fee Notice */}
       <div className="rounded-xl border border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">Application Fee</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-nis-primary">{t("Application Fee")}</span>
           <div className="mt-0.5 text-lg font-bold text-slate-900 sm:text-xl">₦{feeDisplay}</div>
         </div>
       </div>
@@ -305,6 +308,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
 /** Wizard step 2 — personal particulars. */
 export function PersonalFields(props: Props & { lockContact?: boolean }) {
   const { data, errors, set, touch, focus, lockContact } = props;
+  const { t } = useI18n();
   const isDependant = Boolean(data.dependant_relationship || data.principal_application_id);
   const isChild = isDependant && data.dependant_relationship === "CHILD";
   const today = new Date().toISOString().slice(0, 10);
@@ -362,7 +366,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
       <div className="sm:col-span-2">{text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}</div>
 
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">
-        {isDependant ? "Applicant Contact Details" : "Your contact details"}
+        {isDependant ? t("Applicant Contact Details") : t("Your contact details")}
       </h3>
       {lockContact && !isDependant ? (
         <>
@@ -416,6 +420,7 @@ export function PassportFields(_props: Props) {
 /** Wizard step 3 — residence and contacts. */
 export function ContactFields(props: Props) {
   const { data, errors, set, touch, focus } = props;
+  const { t } = useI18n();
   const rawRelation = (data.emergency_contact_relation ?? "").trim();
   const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === rawRelation.toLowerCase());
   const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(rawRelation && !matchedRelation);
@@ -423,7 +428,7 @@ export function ContactFields(props: Props) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {/* Home country residential address - max 10 words */}
-      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Home Country</h3>
+      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential address in Home Country")}</h3>
       <div className="sm:col-span-2">
         <Field
           label="Address in country of origin"
@@ -450,7 +455,7 @@ export function ContactFields(props: Props) {
       {/* Residential address in Nigeria:
           Row 1: Street Address & Change of Address side-by-side on same row.
           Row 2: State & LGA side-by-side. */}
-      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">Residential address in Nigeria (domicile)</h3>
+      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential address in Nigeria (domicile)")}</h3>
 
       {/* Row 1, Column 1: Street Address */}
       <Field label="Street address" required error={errors.domicile} hint="House number, street and area / town">
@@ -503,7 +508,7 @@ export function ContactFields(props: Props) {
             touch?.("domicile_state");
           }}
         >
-          <option value="">Select state…</option>
+          <option value="">{t("Select state…")}</option>
           {NIGERIA_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
       </Field>
@@ -522,7 +527,7 @@ export function ContactFields(props: Props) {
       )}
 
       {/* Emergency contact in Nigeria */}
-      <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">Emergency contact in Nigeria</h3>
+      <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Emergency contact in Nigeria")}</h3>
       {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
       <Field label="Relationship" required error={otherRelation ? undefined : errors.emergency_contact_relation}>
         <Select
@@ -544,9 +549,9 @@ export function ContactFields(props: Props) {
             touch?.("emergency_contact_relation");
           }}
         >
-          <option value="">Select relationship…</option>
-          {RELATIONSHIPS.map((r) => <option key={r} value={r}>{r}</option>)}
-          <option value={OTHER}>OTHER</option>
+          <option value="">{t("Select relationship…")}</option>
+          {RELATIONSHIPS.map((r) => <option key={r} value={r}>{t(r)}</option>)}
+          <option value={OTHER}>{t("OTHER")}</option>
         </Select>
       </Field>
       {otherRelation && (
@@ -589,7 +594,7 @@ export function ContactFields(props: Props) {
             touch?.("emergency_contact_state");
           }}
         >
-          <option value="">Select state…</option>
+          <option value="">{t("Select state…")}</option>
           {NIGERIA_STATES.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
