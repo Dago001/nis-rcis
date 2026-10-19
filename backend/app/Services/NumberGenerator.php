@@ -72,4 +72,12 @@ class NumberGenerator
     {
         return 'NISRC-'.now()->format('ymd').'-'.strtoupper(Str::random(10));
     }
+
+    /** e.g. LCR-2026-100001 */
+    public function lostCardReportReference(): string
+    {
+        $next = $this->nextVal('lost_card_report_seq', 100001);
+
+        return sprintf('LCR-%s-%06d', now()->format('Y'), $next);
+    }
 }

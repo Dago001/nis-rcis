@@ -249,6 +249,17 @@ Route::prefix('v1')->group(function () {
         Route::post('reports/filters', [ReportController::class, 'saveFilter']);
         Route::delete('reports/filters/{id}', [ReportController::class, 'deleteFilter'])->whereNumber('id');
 
+        Route::get('reports/applications', [ReportController::class, 'applications']);
+        Route::get('reports/vetting', [ReportController::class, 'vetting']);
+        Route::get('reports/approvals', [ReportController::class, 'approvals']);
+        Route::get('reports/biometrics', [ReportController::class, 'biometrics']);
+        Route::get('reports/production', [ReportController::class, 'production']);
+        Route::get('reports/lost-cards', [ReportController::class, 'lostCards']);
+        Route::post('reports/lost-cards/{id}/status', [ReportController::class, 'updateLostCardStatus'])->whereNumber('id');
+        Route::get('reports/renewals', [ReportController::class, 'renewals']);
+        Route::get('reports/cod', [ReportController::class, 'cod']);
+        Route::get('reports/dependants', [ReportController::class, 'dependants']);
+
         // Administration
         Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('role:Auditor,Supervisor,Admin');
 

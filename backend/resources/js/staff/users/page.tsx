@@ -224,12 +224,13 @@ export default function UsersPage() {
             <table className="w-full min-w-[840px] text-sm">
               <thead className="text-left">
                 <tr className="[&>th]:whitespace-nowrap [&>th]:px-4 [&>th]:py-3 [&>th:first-child]:pl-5 [&>th:last-child]:pr-5">
-                  <th>Officer</th><th>Role</th><th>Command / Jurisdiction</th><th>Access</th><th className="text-right"><span className="sr-only">Actions</span></th>
+                  <th className="w-12 text-slate-500">S/N</th><th>Officer</th><th>Role</th><th>Command / Jurisdiction</th><th>Access</th><th className="text-right"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
-                {users && shown.map((u) => (
+                {users && shown.map((u, idx) => (
                   <tr key={u.id} className="align-middle [&>td]:px-4 [&>td]:py-3.5 [&>td:first-child]:pl-5 [&>td:last-child]:pr-5">
+                    <td className="font-mono text-xs text-slate-500">{idx + 1}</td>
                     <td>
                       <div className="flex items-center gap-3">
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${u.is_active ? "bg-nis-mint text-nis-primary-dark" : "bg-slate-100 text-slate-400"}`}>{initials(u.fullname)}</span>
@@ -356,10 +357,12 @@ function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
         aria-haspopup="menu"
         aria-expanded={!!pos}
         onClick={open}
-        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:border-nis-primary hover:text-nis-primary"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-slate-600 hover:text-nis-primary transition-colors focus:outline-none rounded hover:bg-slate-50"
       >
-        Manage
-        <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" /></svg>
+        <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4 text-slate-400 group-hover:text-nis-primary" fill="currentColor">
+          <path d="M10 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM10 12a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM10 18a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" />
+        </svg>
+        <span>Manage</span>
       </button>
       {pos && (
         <div ref={menu} role="menu" style={{ top: pos.top, right: pos.right }} className="fixed z-50 w-56 rounded-lg border border-slate-200 bg-white py-1.5 text-left shadow-lg">

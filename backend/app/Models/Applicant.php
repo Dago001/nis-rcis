@@ -46,6 +46,11 @@ class Applicant extends Authenticatable implements MustVerifyEmail, OAuthenticat
         return $this->hasMany(ResidenceCard::class);
     }
 
+    public function lostCardReports(): HasMany
+    {
+        return $this->hasMany(LostCardReport::class);
+    }
+
     public function draft(): HasOne
     {
         return $this->hasOne(ApplicationDraft::class);

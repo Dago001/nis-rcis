@@ -246,9 +246,9 @@ class CardIssuance
      * The holder reports the card lost or stolen online. Verification then
      * shows it as invalid straight away; a replacement can be applied for.
      */
-    public function reportLost(ResidenceCard $card, Applicant $holder, string $type, string $details, ?string $policeReport): ResidenceCard
+    public function reportLost(ResidenceCard $card, Applicant $holder, string $type, string $details, ?string $policeReport = null, ?string $incidentDate = null, ?string $incidentLocation = null, ?string $supportingDocPath = null): ResidenceCard
     {
-        return DB::transaction(function () use ($card, $holder, $type, $details, $policeReport) {
+        return DB::transaction(function () use ($card, $holder, $type, $details, $policeReport, $incidentDate, $incidentLocation, $supportingDocPath) {
             $c = ResidenceCard::whereKey($card->id)->lockForUpdate()->firstOrFail();
             if ($c->applicant_id !== $holder->id) {
                 abort(404);
@@ -266,7 +266,33 @@ class CardIssuance
                 'lost_report_details' => $details,
                 'police_report_number' => $policeReport,
             ])->save();
-            Audit::log('CARD_REPORTED_'.$type, "Card {$c->card_number} reported {$type} by the holder", $c, ['police_report_number' => $policeReport], $holder);
+
+            $reportRef = $this->numbers->lostCardReportReference();
+            $report = \App\Models\LostCardReport::create([
+                'report_reference' => $reportRef,
+                'applicant_id' => $holder->id,
+                'card_id' => $c->id,
+                'application_id' => $c->application?->id,
+                'report_type' => $type,
+                'incident_date' => $incidentDate ?: today(),
+                'incident_location' => $incidentLocation,
+                'details' => $details,
+                'police_report_number' => $policeReport,
+                'supporting_document_path' => $supportingDocPath,
+                'status' => 'SUBMITTED',
+                'action_history' => [
+                    [
+                        'action' => 'SUBMITTED',
+                        'by' => $holder->fullName(),
+                        'at' => now()->toIso8601String(),
+                        'notes' => "Lost card report submitted for Card {$c->card_number}",
+                    ],
+                ],
+            ]);
+
+            Audit::log('CARD_REPORTED_'.$type, "Card {$c->card_number} reported {$type} by the holder (Ref: {$reportRef})", $c, ['report_reference' => $reportRef, 'police_report_number' => $policeReport], $holder);
+
+            $c->setRelation('latestLostReport', $report);
 
             return $c;
         });
@@ -285,6 +311,28 @@ class CardIssuance
             }
             $type = $c->lost_report_type;
             $c->forceFill(['reported_lost_at' => null, 'lost_report_type' => null, 'lost_report_details' => null, 'police_report_number' => null])->save();
+
+            $openReport = \App\Models\LostCardReport::where('card_id', $c->id)
+                ->whereIn('status', ['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_INFO_REQUIRED'])
+                ->latest('id')
+                ->first();
+            if ($openReport) {
+                $history = $openReport->action_history ?: [];
+                $history[] = [
+                    'action' => 'RESOLVED',
+                    'by' => $officer->fullname,
+                    'at' => now()->toIso8601String(),
+                    'notes' => "Report withdrawn by officer: {$notes}",
+                ];
+                $openReport->forceFill([
+                    'status' => 'RESOLVED',
+                    'admin_notes' => $notes,
+                    'action_history' => $history,
+                    'resolved_at' => now(),
+                    'resolved_by' => $officer->id,
+                ])->save();
+            }
+
             Audit::log('CARD_LOST_REPORT_CLEARED', "Card {$c->card_number}: {$type} report withdrawn — {$notes}", $c, actor: $officer);
 
             return $c;

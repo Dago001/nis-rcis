@@ -75,7 +75,7 @@ const navSections: NavSection[] = [
   {
     title: "Reports & Compliance",
     items: [
-      { href: "/staff/reports", label: "Issuance reports", icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"), roles: ["SuperAdmin", "Admin", "Supervisor", "Auditor", "ApprovingOfficer", "ProductionOfficer", "IssuingOfficer"] },
+      { href: "/staff/reports", label: "Reports", icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"), roles: ["SuperAdmin", "Admin", "Supervisor", "Auditor", "ApprovingOfficer", "ProductionOfficer", "IssuingOfficer"] },
       { href: "/staff/audit-logs", label: "Audit trail", icon: icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"), roles: ["Auditor", "Supervisor", "Admin", "SuperAdmin"] },
       { href: "/staff/data-breaches", label: "Data breach register", icon: icon("M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"), roles: ["Auditor", "Supervisor", "Admin", "SuperAdmin"] },
     ],

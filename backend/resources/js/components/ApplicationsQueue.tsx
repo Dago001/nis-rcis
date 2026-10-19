@@ -399,15 +399,32 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                       {serialNumber}
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`${basePath}/${a.id}`}
-                        className="font-semibold text-nis-green hover:underline"
-                      >
-                        {a.application_number}
-                      </Link>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Link
+                          href={`${basePath}/${a.id}`}
+                          className="font-semibold text-nis-green hover:underline"
+                        >
+                          {a.application_number}
+                        </Link>
+                        {a.dependant_relationship && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                            {t("Dependant")} ({a.dependant_relationship})
+                          </span>
+                        )}
+                        {!a.dependant_relationship && a.dependants && a.dependants.length > 0 && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {t("Principal")} ({a.dependants.length})
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">
                         {a.channel === "ASSISTED" ? t("Assisted") : t("Online")} · {applicationType(a)}
                       </div>
+                      {(a.principal || (a as any).principal_application_number) && (
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {t("Principal")}: <span className="font-mono text-slate-700 font-medium">{a.principal?.application_number || (a as any).principal_application_number}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-900">{a.surname}, {a.forenames}</div>
@@ -456,10 +473,10 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                     <td className="w-24 px-4 py-3 text-center">
                       <Link
                         href={`${basePath}/${a.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:border-nis-green hover:bg-nis-green/5 hover:text-nis-green transition-colors"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary hover:text-nis-primary-dark hover:underline transition-colors focus:outline-none"
                         title={t("View Application")}
                       >
-                        <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-3.5 h-3.5 text-nis-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>

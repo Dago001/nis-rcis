@@ -429,6 +429,494 @@ class ReportController
         ];
     }
 
+    /**
+     * Applications report
+     */
+    public function applications(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+        $status = $request->input('status');
+        $category = $request->input('category');
+
+        $query = \App\Models\Application::with(['applicant', 'enrollmentCenter', 'card'])
+            ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('id');
+
+        if (! empty($status)) {
+            $query->where('status', $status);
+        }
+        if (! empty($category)) {
+            $query->where('category', $category);
+        }
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('reference_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%")
+                  ->orWhere('passport_number', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'reference_number' => $a->reference_number,
+                'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'nationality' => $a->nationality,
+                'passport_number' => $a->passport_number,
+                'category' => $a->category ?? 'Standard',
+                'type' => $a->type ?? 'NEW',
+                'status' => $a->status->value,
+                'created_at' => $a->created_at?->toIso8601String(),
+                'center' => $a->enrollmentCenter?->name ?? 'NIS HQ',
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Vetting report
+     */
+    public function vetting(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+
+        $query = \App\Models\Application::with(['applicant', 'vettedByOfficer'])
+            ->whereNotNull('vetted_at')
+            ->whereBetween('vetted_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('vetted_at');
+
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'nationality' => $a->nationality,
+                'category' => $a->category ?? 'Standard',
+                'vetted_at' => $a->vetted_at?->toIso8601String(),
+                'vetted_by' => $a->vettedByOfficer?->fullname ?? 'Vetting Officer',
+                'status' => $a->status->value,
+                'query_reason' => $a->query_reason,
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Approvals report
+     */
+    public function approvals(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+
+        $query = \App\Models\Application::with(['applicant', 'approvedByOfficer'])
+            ->whereNotNull('approved_at')
+            ->whereBetween('approved_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('approved_at');
+
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'nationality' => $a->nationality,
+                'category' => $a->category ?? 'Standard',
+                'approved_at' => $a->approved_at?->toIso8601String(),
+                'approved_by' => $a->approvedByOfficer?->fullname ?? 'Approving Officer',
+                'status' => $a->status->value,
+                'rejection_reason' => $a->rejection_reason,
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Biometrics report
+     */
+    public function biometrics(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+
+        $query = \App\Models\Application::with(['applicant', 'enrollmentCenter'])
+            ->whereNotNull('biometrics_completed_at')
+            ->whereBetween('biometrics_completed_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('biometrics_completed_at');
+
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'nationality' => $a->nationality,
+                'center' => $a->enrollmentCenter?->name ?? 'NIS HQ',
+                'biometrics_completed_at' => $a->biometrics_completed_at?->toIso8601String(),
+                'status' => $a->status->value,
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Card production report
+     */
+    public function production(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+        $outcome = $request->input('outcome');
+
+        $query = \App\Models\CardPrintJob::with(['card', 'batch', 'printedBy'])
+            ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('id');
+
+        if (! empty($outcome)) {
+            $query->where('outcome', $outcome);
+        }
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->whereHas('card', function ($q) use ($term) {
+                $q->where('card_number', 'like', "%{$term}%")
+                  ->orWhere('surname', 'like', "%{$term}%")
+                  ->orWhere('forenames', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($j) => [
+                'id' => $j->id,
+                'card_number' => $j->card?->card_number ?? '—',
+                'holder_name' => $j->card ? trim("{$j->card->surname}, {$j->card->forenames}") : '—',
+                'batch_number' => $j->batch?->batch_number ?? '—',
+                'outcome' => $j->outcome,
+                'spoil_reason' => $j->spoil_reason,
+                'printed_by' => $j->printedBy?->fullname ?? 'Production Officer',
+                'created_at' => $j->created_at?->toIso8601String(),
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Lost card reports review queue
+     */
+    public function lostCards(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+        $status = $request->input('status');
+
+        $query = \App\Models\LostCardReport::with(['applicant', 'card', 'application', 'assignedOfficer'])
+            ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('id');
+
+        if (! empty($status)) {
+            $query->where('status', $status);
+        }
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('report_reference', 'like', "%{$term}%")
+                  ->orWhere('police_report_number', 'like', "%{$term}%")
+                  ->orWhereHas('card', fn ($sq) => $sq->where('card_number', 'like', "%{$term}%"))
+                  ->orWhereHas('applicant', fn ($sq) => $sq->where('first_name', 'like', "%{$term}%")->orWhere('last_name', 'like', "%{$term}%"));
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($r) => [
+                'id' => $r->id,
+                'report_reference' => $r->report_reference,
+                'card_number' => $r->card?->card_number ?? '—',
+                'applicant_name' => $r->applicant ? trim("{$r->applicant->first_name} {$r->applicant->last_name}") : '—',
+                'nationality' => $r->card?->nationality ?? ($r->application?->nationality ?? '—'),
+                'report_type' => $r->report_type,
+                'incident_date' => $r->incident_date?->toDateString(),
+                'incident_location' => $r->incident_location ?: '—',
+                'police_report_number' => $r->police_report_number ?: '—',
+                'details' => $r->details,
+                'status' => $r->status->value,
+                'assigned_to' => $r->assignedOfficer?->fullname,
+                'admin_notes' => $r->admin_notes,
+                'created_at' => $r->created_at?->toIso8601String(),
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Update lost card report status
+     */
+    public function updateLostCardStatus(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['SUBMITTED', 'UNDER_REVIEW', 'ADDITIONAL_INFO_REQUIRED', 'RESOLVED', 'CLOSED'])],
+            'admin_notes' => ['nullable', 'string', 'max:1000'],
+            'assign_to_me' => ['nullable', 'boolean'],
+        ]);
+
+        $report = \App\Models\LostCardReport::findOrFail($id);
+        $report->status = \App\Enums\LostCardReportStatus::from($data['status']);
+        if (isset($data['admin_notes'])) {
+            $report->admin_notes = $data['admin_notes'];
+        }
+        if (! empty($data['assign_to_me'])) {
+            $report->assigned_to = $request->user()->id;
+        }
+        if ($data['status'] === 'RESOLVED' || $data['status'] === 'CLOSED') {
+            $report->resolved_at = now();
+            $report->resolved_by = $request->user()->id;
+        }
+
+        $history = $report->action_history ?? [];
+        $history[] = [
+            'status' => $data['status'],
+            'by' => $request->user()->fullname,
+            'at' => now()->toIso8601String(),
+            'notes' => $data['admin_notes'] ?? null,
+        ];
+        $report->action_history = $history;
+        $report->save();
+
+        Audit::log('LOST_CARD_REPORT_STATUS_UPDATED', "Lost card report {$report->report_reference} updated to {$data['status']}", $report, actor: $request->user());
+
+        return response()->json([
+            'message' => "Report {$report->report_reference} updated to {$data['status']}.",
+            'data' => [
+                'id' => $report->id,
+                'status' => $report->status->value,
+                'admin_notes' => $report->admin_notes,
+                'assigned_to' => $report->assignedOfficer?->fullname,
+            ],
+        ]);
+    }
+
+    /**
+     * Renewal applications report
+     */
+    public function renewals(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+
+        $query = \App\Models\Application::with(['applicant', 'card'])
+            ->where('type', 'RENEWAL')
+            ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('id');
+
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%")
+                  ->orWhere('passport_number', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'nationality' => $a->nationality,
+                'category' => $a->category ?? 'Standard',
+                'status' => $a->status->value,
+                'created_at' => $a->created_at?->toIso8601String(),
+                'fee_naira' => $a->total_fee_naira,
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Change of Data (COD) applications report
+     */
+    public function cod(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+
+        $query = \App\Models\Application::with(['applicant', 'card'])
+            ->where(function ($q) {
+                $q->where('cod_requested', true)
+                  ->orWhereNotNull('cod_fields')
+                  ->orWhere('cod_fee_naira', '>', 0);
+            })
+            ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('id');
+
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%");
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'nationality' => $a->nationality,
+                'category' => $a->category ?? 'Standard',
+                'cod_fields' => $a->cod_fields,
+                'cod_fee_naira' => $a->cod_fee_naira ?? 15000,
+                'cod_reason' => $a->cod_reason,
+                'status' => $a->status->value,
+                'created_at' => $a->created_at?->toIso8601String(),
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Dependant applications report
+     */
+    public function dependants(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
+        [$from, $to] = $this->range($request);
+        $search = $request->input('search');
+
+        $query = \App\Models\Application::with(['applicant', 'principalApplication'])
+            ->whereNotNull('principal_application_id')
+            ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
+            ->orderByDesc('id');
+
+        if (! empty($search)) {
+            $term = trim($search);
+            $query->where(function ($q) use ($term) {
+                $q->where('application_number', 'like', "%{$term}%")
+                  ->orWhere('first_name', 'like', "%{$term}%")
+                  ->orWhere('last_name', 'like', "%{$term}%")
+                  ->orWhereHas('principalApplication', fn ($sq) => $sq->where('application_number', 'like', "%{$term}%"));
+            });
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginated->items())->map(fn ($a) => [
+                'id' => $a->id,
+                'dependant_application_number' => $a->application_number,
+                'principal_application_number' => $a->principalApplication?->application_number ?? '—',
+                'dependant_name' => trim("{$a->first_name} {$a->last_name}"),
+                'principal_name' => $a->principalApplication ? trim("{$a->principalApplication->first_name} {$a->principalApplication->last_name}") : '—',
+                'relationship' => $a->relationship_to_principal ?? 'Dependant',
+                'category' => $a->category ?? 'Standard',
+                'nationality' => $a->nationality,
+                'status' => $a->status->value,
+                'created_at' => $a->created_at?->toIso8601String(),
+            ]),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
     /** Prevent CSV formula injection when opened in Excel. */
     private function csvSafe(mixed $value): string
     {

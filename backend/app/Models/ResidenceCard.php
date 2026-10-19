@@ -61,6 +61,11 @@ class ResidenceCard extends Model
         return $this->hasMany(CardPrintJob::class, 'card_id');
     }
 
+    public function lostCardReports(): HasMany
+    {
+        return $this->hasMany(LostCardReport::class, 'card_id');
+    }
+
     public function renewals(): HasMany
     {
         return $this->hasMany(CardRenewal::class, 'card_id')->orderBy('renewal_number');

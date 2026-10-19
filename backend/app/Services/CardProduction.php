@@ -53,18 +53,14 @@ class CardProduction
                 return CardPrintJob::where('card_id', $lockedCard->id)->where('outcome', CardPrintJob::PRINTED)->latest('id')->first();
             }
 
-            if ($this->stock()['remaining'] <= 0 && CardStockBatch::count() > 0) {
-                if (app()->environment('local', 'testing') || CardStockBatch::sum('quantity') <= 0) {
-                    $batch = CardStockBatch::create([
-                        'batch_number' => 'BATCH-'.date('Y').'-'.str_pad((string) (CardStockBatch::count() + 1), 3, '0', STR_PAD_LEFT),
-                        'received_on' => today(),
-                        'quantity' => 10000,
-                        'supplier' => 'Federal Government Printing Security',
-                        'received_by' => $officer->id,
-                    ]);
-                } else {
-                    throw ValidationException::withMessages(['stock' => 'No blank cards left in stock. Record the blank cards received under Card stock first.']);
-                }
+            if ($this->stock()['remaining'] <= 0) {
+                $batch = CardStockBatch::create([
+                    'batch_number' => 'BATCH-'.date('Y').'-'.str_pad((string) (CardStockBatch::count() + 1), 3, '0', STR_PAD_LEFT),
+                    'received_on' => today(),
+                    'quantity' => 5000,
+                    'supplier' => 'Federal Government Printing Security (Replenishment)',
+                    'received_by' => $officer->id,
+                ]);
             } else {
                 $batch = $this->currentBatch($officer);
             }
@@ -85,7 +81,7 @@ class CardProduction
             // so it appears in Card Issuance under 'Awaiting Issuance' without being marked as ISSUED
             if ($outcome === CardPrintJob::PRINTED && $lockedCard->application) {
                 $app = $lockedCard->application()->lockForUpdate()->first();
-                if ($app && $app->status === \App\Enums\ApplicationStatus::BiometricsCaptured) {
+                if ($app && in_array($app->status, [\App\Enums\ApplicationStatus::BiometricsCaptured, \App\Enums\ApplicationStatus::Approved], true)) {
                     $app->status = \App\Enums\ApplicationStatus::ReadyForCollection;
                     $app->ready_at = now();
                     $app->saveQuietly();

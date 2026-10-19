@@ -20,6 +20,10 @@ type MyCard = {
   expires_on: string | null;
   reported_lost_at: string | null;
   lost_report_type: "LOST" | "STOLEN" | null;
+  lost_report_reference?: string | null;
+  lost_report_status?: string | null;
+  incident_date?: string | null;
+  incident_location?: string | null;
   can_report: boolean;
   can_replace: boolean;
 };
@@ -59,9 +63,28 @@ export default function MyCardsPage() {
                 </div>
               </div>
               {c.reported_lost_at && (
-                <p className="mt-3 text-sm text-red-800">
-                  Reported {c.lost_report_type?.toLowerCase()} on {dateTime(c.reported_lost_at)}. Anyone who verifies this card is told it is not valid.
-                </p>
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50/70 p-3.5 text-sm text-red-900">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      {c.lost_report_type === "STOLEN" ? t("Reported Stolen") : t("Reported Lost")} · {dateTime(c.reported_lost_at)}
+                    </span>
+                    {c.lost_report_reference && (
+                      <span className="rounded bg-white px-2 py-0.5 text-xs font-mono font-bold text-red-800 border border-red-300">
+                        {t("Ref")}: {c.lost_report_reference}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-red-700">
+                    <span>
+                      {t("Status")}: <span className="font-semibold uppercase">{c.lost_report_status || "SUBMITTED"}</span>
+                    </span>
+                    {c.incident_location && <span>{t("Location")}: {c.incident_location}</span>}
+                    {c.incident_date && <span>{t("Incident Date")}: {nisDate(c.incident_date)}</span>}
+                  </div>
+                  <p className="mt-1 text-xs text-red-600">
+                    {t("Anyone who verifies this card is informed it is invalid. You may apply for a replacement card.")}
+                  </p>
+                </div>
               )}
             </Panel>
           ))}
@@ -84,6 +107,8 @@ export default function MyCardsPage() {
 
 function ReportDialog({ card, onClose, onDone }: { card: MyCard; onClose: () => void; onDone: (message: string) => void }) {
   const [type, setType] = useState<"LOST" | "STOLEN">("LOST");
+  const [incidentDate, setIncidentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [incidentLocation, setIncidentLocation] = useState("");
   const [details, setDetails] = useState("");
   const [police, setPolice] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -95,7 +120,13 @@ function ReportDialog({ card, onClose, onDone }: { card: MyCard; onClose: () => 
     try {
       const r = await api<{ message: string }>("applicant", `cards/${card.id}/report-lost`, {
         method: "POST",
-        json: { type, details, police_report_number: police || null },
+        json: {
+          type,
+          incident_date: incidentDate || null,
+          incident_location: incidentLocation.trim() || null,
+          details,
+          police_report_number: police.trim() || null,
+        },
       });
       onDone(r.message);
     } catch (e) {
@@ -107,27 +138,35 @@ function ReportDialog({ card, onClose, onDone }: { card: MyCard; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="report-title">
-      <div className="w-full max-w-lg space-y-4 rounded-xl bg-white p-5 shadow-2xl">
+      <div className="w-full max-w-lg space-y-4 rounded-xl bg-white p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         <h2 id="report-title" className="text-lg font-semibold">Report card {card.card_number}</h2>
-        <p className="text-sm text-slate-600">Once reported, the card is shown as invalid to anyone who checks it. This cannot be undone online: if you find the card, take it to an NIS office.</p>
+        <p className="text-sm text-slate-600">Once reported, the card is immediately shown as invalid to anyone who checks it. A unique tracking reference will be generated for your report.</p>
         {errors._ && <Alert tone="danger">{errors._}</Alert>}
-        <Field label="What happened?" required>
+        <Field label="Report Type" required>
           <Select value={type} onChange={(e) => setType(e.target.value as "LOST" | "STOLEN")}>
-            <option value="LOST">The card is lost</option>
-            <option value="STOLEN">The card was stolen</option>
+            <option value="LOST">Card Lost</option>
+            <option value="STOLEN">Card Stolen</option>
           </Select>
         </Field>
-        <Field label="Where and when" required error={errors.details} hint="For example: lost at Wuse market on 3 October, around 2 pm.">
-          <Textarea value={details} onChange={(e) => setDetails(e.target.value)} maxLength={1000} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Incident Date" required error={errors.incident_date}>
+            <Input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
+          </Field>
+          <Field label="Location of Incident" error={errors.incident_location} hint="City / State / Area">
+            <Input placeholder="e.g. Wuse, Abuja" value={incidentLocation} onChange={(e) => setIncidentLocation(e.target.value)} maxLength={100} />
+          </Field>
+        </div>
+        <Field label="Incident Details / Description" required error={errors.details} hint="Minimum 10 characters describing circumstances of loss or theft.">
+          <Textarea value={details} onChange={(e) => setDetails(e.target.value)} maxLength={1000} rows={3} />
         </Field>
         {type === "STOLEN" && (
-          <Field label="Police report (extract) number" required error={errors.police_report_number}>
-            <Input value={police} onChange={(e) => setPolice(e.target.value)} maxLength={60} />
+          <Field label="Police Report (Extract) Number" required error={errors.police_report_number} hint="Official extract reference from Nigerian Police Force">
+            <Input value={police} onChange={(e) => setPolice(e.target.value)} maxLength={60} placeholder="e.g. DPO/WUSE/2026/..." />
           </Field>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="danger" onClick={submit} disabled={busy || details.trim().length < 10}>{busy ? "Reporting…" : "Report card"}</Button>
+          <Button variant="danger" onClick={submit} disabled={busy || details.trim().length < 10}>{busy ? "Submitting Report…" : "Report Card"}</Button>
         </div>
       </div>
     </div>
