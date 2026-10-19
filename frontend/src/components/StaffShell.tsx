@@ -102,6 +102,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
     }
   });
   const [error, setError] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
   const area = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -120,6 +121,28 @@ export function StaffShell({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  // Close mobile drawer on route changes
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  // Handle escape key and lock body scroll when mobile drawer is open
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    if (mobileNavOpen) {
+      document.addEventListener("keydown", onKey);
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [mobileNavOpen]);
+
   // Sidebar links don't reset the window scroll (the menu stays exactly where it
   // is); if the page was scrolled past the top of the content, bring the new
   // page's top up to just under the header instead of jumping to the very top.
@@ -132,7 +155,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
     if (window.scrollY > target) window.scrollTo({ top: target });
   }, [pathname]);
 
-  // Keep the current page's menu item in view inside the menu's own scroll area.
+  // Keep the current page's menu item in view inside the desktop menu's scroll area.
   useEffect(() => {
     const list = menu.current;
     const item = list?.querySelector<HTMLElement>("[aria-current=page]");
@@ -140,10 +163,20 @@ export function StaffShell({ children }: { children: ReactNode }) {
     const vertical = list.scrollHeight > list.clientHeight;
     if (vertical && (item.offsetTop < list.scrollTop || item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight)) {
       list.scrollTop = item.offsetTop - list.clientHeight / 2 + item.offsetHeight / 2;
-    } else if (!vertical && (item.offsetLeft < list.scrollLeft || item.offsetLeft + item.offsetWidth > list.scrollLeft + list.clientWidth)) {
-      list.scrollLeft = item.offsetLeft - list.clientWidth / 2 + item.offsetWidth / 2;
     }
   }, [pathname, user]);
+
+  const isItemActive = (itemHref: string) => {
+    if (itemHref === "/staff") return pathname === "/staff";
+    if (itemHref === "/staff/applications") return pathname.startsWith(itemHref) && !pathname.startsWith("/staff/applications/new");
+    return pathname.startsWith(itemHref);
+  };
+
+  const currentActiveItem = user
+    ? navSections
+        .flatMap((s) => s.items)
+        .find((it) => isItemActive(it.href))
+    : null;
 
   return (
     <>
@@ -161,64 +194,173 @@ export function StaffShell({ children }: { children: ReactNode }) {
       />
       <GlobalAnnouncements />
       <div className="w-full flex-1 bg-[#f4f7f5]">
-        <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
-        <nav className="no-print lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
-          <div
-            ref={menu}
-            className="relative flex gap-1 overflow-x-auto rounded-2xl border border-[#cde5d5] bg-[#EAF5EE] p-2.5 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-7.5rem)] lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain"
-          >
-            {user &&
-              navSections.map((sec, idx) => {
-                const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
-                if (visible.length === 0) return null;
-                return (
-                  <div key={sec.title} className={idx > 0 ? "lg:border-t lg:border-[#d7ece0] lg:pt-3" : ""}>
-                    <div className="hidden px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:block">
-                      {t(sec.title)}
-                    </div>
-                    <ul className="flex gap-1 lg:flex-col">
-                      {visible.map((item) => {
-                        const active =
-                          item.href === "/staff"
-                            ? pathname === "/staff"
-                            : item.href === "/staff/applications"
-                              ? pathname.startsWith(item.href) && !pathname.startsWith("/staff/applications/new")
-                              : pathname.startsWith(item.href);
-                        return (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              scroll={false}
-                              prefetch={false}
-                              aria-current={active ? "page" : undefined}
-                              className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
-                                active
-                                  ? "bg-nis-primary font-medium text-white shadow-sm"
-                                  : "text-slate-800 hover:bg-white/70 hover:text-nis-primary"
-                              }`}
-                            >
-                              {item.icon}
-                              <span>{t(item.label)}</span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })}
+        <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-4 sm:gap-6 px-3 py-4 sm:px-6 sm:py-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
+          
+          {/* Mobile & Tablet Collapsible Navigation Bar (< lg) */}
+          <div className="no-print flex items-center justify-between rounded-xl border border-[#cde5d5] bg-[#EAF5EE] p-2.5 shadow-sm lg:hidden">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-nis-primary/10 text-nis-primary">
+                {currentActiveItem?.icon || icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z")}
+              </span>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("Staff Console")}</div>
+                <div className="truncate text-xs sm:text-sm font-semibold text-slate-900">{currentActiveItem ? t(currentActiveItem.label) : t("Dashboard")}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-expanded={mobileNavOpen}
+              aria-controls="staff-mobile-drawer"
+              aria-label={t("Open staff navigation menu")}
+              className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#cde5d5] bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-95"
+            >
+              <svg className="h-4 w-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              <span>{t("Menu")}</span>
+            </button>
           </div>
-        </nav>
-        <main id="main" tabIndex={-1} className="min-w-0 flex-1">
-          {error ? (
-            <p className="text-sm text-red-700">{error}</p>
-          ) : user ? (
-            <StaffContext.Provider value={user}>{children}</StaffContext.Provider>
-          ) : (
-            <Spinner />
+
+          {/* Mobile Slide-Over Navigation Drawer (< lg) */}
+          {mobileNavOpen && (
+            <div className="fixed inset-0 z-50 flex lg:hidden" id="staff-mobile-drawer" role="dialog" aria-modal="true">
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+                onClick={() => setMobileNavOpen(false)}
+                aria-hidden="true"
+              />
+
+              {/* Drawer Content */}
+              <div className="relative ml-0 flex w-full max-w-xs sm:max-w-sm flex-col bg-[#EAF5EE] shadow-2xl border-r border-[#cde5d5]">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-[#cde5d5] bg-white px-4 py-3.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-nis-primary text-white">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-xs font-bold tracking-wider uppercase text-nis-primary">{t("Staff Console")}</h2>
+                      <div className="truncate text-xs text-slate-500">{user?.role_label || "Officer"}</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileNavOpen(false)}
+                    aria-label={t("Close navigation drawer")}
+                    className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                {/* User Info Bar */}
+                {user && (
+                  <div className="border-b border-[#cde5d5] bg-white/60 px-4 py-2.5">
+                    <div className="text-xs font-bold text-slate-900 truncate">{user.fullname}</div>
+                    <div className="text-[11px] text-slate-600 font-mono">{user.service_number}</div>
+                  </div>
+                )}
+
+                {/* Drawer Nav Items */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                  {user &&
+                    navSections.map((sec, idx) => {
+                      const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
+                      if (visible.length === 0) return null;
+                      return (
+                        <div key={sec.title} className={idx > 0 ? "border-t border-[#d7ece0] pt-3" : ""}>
+                          <div className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            {t(sec.title)}
+                          </div>
+                          <ul className="space-y-1">
+                            {visible.map((item) => {
+                              const active = isItemActive(item.href);
+                              return (
+                                <li key={item.href}>
+                                  <Link
+                                    href={item.href}
+                                    scroll={false}
+                                    prefetch={false}
+                                    onClick={() => setMobileNavOpen(false)}
+                                    aria-current={active ? "page" : undefined}
+                                    className={`flex min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                                      active
+                                        ? "bg-nis-primary font-medium text-white shadow-sm"
+                                        : "text-slate-800 hover:bg-white/70 hover:text-nis-primary"
+                                    }`}
+                                  >
+                                    {item.icon}
+                                    <span className="truncate">{t(item.label)}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
           )}
-        </main>
-      </div>
+
+          {/* Desktop Fixed Sidebar (>= lg) - Exact Original Layout & Behavior */}
+          <nav className="no-print hidden lg:block lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
+            <div
+              ref={menu}
+              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#cde5d5] bg-[#EAF5EE] p-2.5 shadow-sm"
+            >
+              {user &&
+                navSections.map((sec, idx) => {
+                  const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
+                  if (visible.length === 0) return null;
+                  return (
+                    <div key={sec.title} className={idx > 0 ? "border-t border-[#d7ece0] pt-3" : ""}>
+                      <div className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        {t(sec.title)}
+                      </div>
+                      <ul className="flex flex-col gap-1">
+                        {visible.map((item) => {
+                          const active = isItemActive(item.href);
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                scroll={false}
+                                prefetch={false}
+                                aria-current={active ? "page" : undefined}
+                                className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
+                                  active
+                                    ? "bg-nis-primary font-medium text-white shadow-sm"
+                                    : "text-slate-800 hover:bg-white/70 hover:text-nis-primary"
+                                }`}
+                              >
+                                {item.icon}
+                                <span>{t(item.label)}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })}
+            </div>
+          </nav>
+
+          {/* Main Content Area */}
+          <main id="main" tabIndex={-1} className="min-w-0 flex-1">
+            {error ? (
+              <p className="text-sm text-red-700">{error}</p>
+            ) : user ? (
+              <StaffContext.Provider value={user}>{children}</StaffContext.Provider>
+            ) : (
+              <Spinner />
+            )}
+          </main>
+        </div>
       </div>
       <SiteFooter />
     </>

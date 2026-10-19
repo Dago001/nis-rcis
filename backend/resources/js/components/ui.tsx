@@ -15,7 +15,7 @@ export function Button({ variant = "primary", className = "", ...props }: Button
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 sm:px-5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 min-h-[40px] ${variants[variant]} ${className}`}
     />
   );
 }
@@ -24,7 +24,7 @@ export function Field({ label, error, hint, required, children }: { label: strin
   const { t } = useI18n();
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">
+      <span className="mb-1 block text-xs sm:text-sm font-medium text-slate-700">
         {t(label)}
         {required && <span className="text-red-600"> *</span>}
       </span>
@@ -35,7 +35,7 @@ export function Field({ label, error, hint, required, children }: { label: strin
   );
 }
 
-const control = "w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20 disabled:bg-slate-100";
+const control = "w-full max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 sm:py-2.5 text-base sm:text-sm text-slate-900 transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20 disabled:bg-slate-100";
 
 export function Input(props: ComponentProps<"input">) {
   return <input {...props} className={`${control} ${props.className ?? ""}`} />;
@@ -53,12 +53,12 @@ export function Panel({ title, actions, children, className = "" }: { title?: Re
   return (
     <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-nis-mint/60 px-5 py-3.5">
-          <h2 className="text-[15px] font-medium text-nis-primary-dark">{title}</h2>
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-nis-mint/60 px-4 py-3 sm:px-5 sm:py-3.5">
+          <h2 className="text-sm sm:text-[15px] font-medium text-nis-primary-dark">{title}</h2>
           {actions}
         </header>
       )}
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -70,7 +70,7 @@ export function Alert({ tone = "info", children }: { tone?: "info" | "success" |
     warning: "border-amber-200 bg-amber-50 text-amber-900",
     danger: "border-red-200 bg-red-50 text-red-900",
   };
-  return <div role={tone === "danger" ? "alert" : "status"} className={`rounded-lg border px-4 py-3 text-sm ${tones[tone]}`}>{children}</div>;
+  return <div role={tone === "danger" ? "alert" : "status"} className={`rounded-lg border px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm leading-relaxed ${tones[tone]}`}>{children}</div>;
 }
 
 export function Dl({ items }: { items: [string, ReactNode][] }) {

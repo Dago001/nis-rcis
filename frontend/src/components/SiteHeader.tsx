@@ -122,18 +122,20 @@ export function SiteHeader({
         </div>
 
         {/* Mobile controls */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:hidden">
           {portal === "applicant" && <NotificationBell portal={portal} />}
-          {languages && <LanguageSwitcher />}
-          {portal === "applicant" ? (
-            <LogoutButton portal="applicant" />
-          ) : effectiveUser ? (
-            <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} isMobile />
-          ) : null}
+          <div className="hidden min-[420px]:flex items-center gap-1.5">
+            {languages && <LanguageSwitcher />}
+            {portal === "applicant" ? (
+              <LogoutButton portal="applicant" />
+            ) : effectiveUser ? (
+              <ProfileDropdown user={effectiveUser} portal={portal ?? "staff"} isMobile />
+            ) : null}
+          </div>
           {(links || (!effectiveUser && portal) || right) && (
             <button
               type="button"
-              className="rounded border border-slate-300 p-2 text-slate-600"
+              className="rounded-lg border border-slate-300 p-2 text-slate-700 hover:bg-slate-100 min-h-[40px] min-w-[40px] flex items-center justify-center focus:outline-none"
               aria-expanded={open}
               aria-controls="mobile-portal-nav"
               aria-label={open ? t("Close menu") : t("Open menu")}

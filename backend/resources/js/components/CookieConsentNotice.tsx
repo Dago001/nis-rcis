@@ -54,7 +54,7 @@ export function CookieConsentNotice() {
     <aside
       role="region"
       aria-label={t("Cookie Consent Notice")}
-      className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200/90 bg-white/95 p-4 shadow-xl backdrop-blur-sm transition-all duration-300 sm:bottom-6 sm:right-6 sm:p-5"
+      className="fixed bottom-3 left-3 right-3 z-50 sm:left-auto sm:right-6 sm:bottom-6 sm:w-full sm:max-w-sm rounded-xl border border-slate-200/90 bg-white/95 p-3.5 sm:p-5 shadow-xl backdrop-blur-sm transition-all duration-300"
     >
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-nis-mint text-nis-primary mt-0.5" aria-hidden>
@@ -96,18 +96,18 @@ export function CookieConsentNotice() {
             </Link>
           </p>
 
-          <div className="mt-3 flex items-center gap-2 pt-0.5">
+          <div className="mt-3 flex flex-wrap items-center gap-2 pt-0.5">
             <button
               type="button"
               onClick={() => handleConsent("all")}
-              className="rounded-lg bg-nis-primary px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-nis-primary-dark"
+              className="min-h-[38px] rounded-lg bg-nis-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-nis-primary-dark"
             >
               {t("Accept all cookies")}
             </button>
             <button
               type="button"
               onClick={() => handleConsent("essential")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              className="min-h-[38px] rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
             >
               {t("Essential only")}
             </button>

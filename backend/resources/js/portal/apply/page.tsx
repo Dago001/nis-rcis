@@ -1567,7 +1567,7 @@ function Wizard() {
           {t(type === "RENEWAL" ? "Residence card renewal" : type === "REPLACE" ? "Replacement of a lost or stolen card" : "Residence card application")}
           {data.dependant_relationship && ` · for your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`}
         </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">
+        <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-slate-900 leading-snug">
           {t("Step {n} of 7 — {title}", { n: step, title: t(STEPS[step - 1]) })}
         </h1>
         <ol className="mt-4 grid gap-1.5 grid-cols-7" aria-label="Progress">
@@ -2377,18 +2377,18 @@ function Wizard() {
         )}
       </Panel>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-2">
-            {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy}>{t("Back")}</Button>}
-            <Button variant="ghost" onClick={saveAndExit} disabled={busy}>{t("Save & exit")}</Button>
-            <Button variant="ghost" onClick={discard} disabled={busy} className="text-red-700">{t("Discard")}</Button>
-          </div>
-          {step < 7 ? (
-            <Button onClick={next} disabled={busy || (step === 6 && !paid)}>{busy ? t("Saving…") : t("Save & continue")}</Button>
-          ) : (
-            <Button onClick={submit} disabled={busy}>{busy ? t("Submitting…") : t("Submit application")}</Button>
-          )}
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {step > 1 && <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={busy} className="min-h-[40px]">{t("Back")}</Button>}
+          <Button variant="ghost" onClick={saveAndExit} disabled={busy} className="min-h-[40px]">{t("Save & exit")}</Button>
+          <Button variant="ghost" onClick={discard} disabled={busy} className="min-h-[40px] text-red-700">{t("Discard")}</Button>
         </div>
+        {step < 7 ? (
+          <Button onClick={next} disabled={busy || (step === 6 && !paid)} className="min-h-[40px] w-full sm:w-auto">{busy ? t("Saving…") : t("Save & continue")}</Button>
+        ) : (
+          <Button onClick={submit} disabled={busy} className="min-h-[40px] w-full sm:w-auto">{busy ? t("Submitting…") : t("Submit application")}</Button>
+        )}
+      </div>
       <p className="text-xs text-slate-500">{t("Need help?")} <Link href="/track" className="underline">{t("Track an existing application")}</Link>.</p>
 
       {preview && (

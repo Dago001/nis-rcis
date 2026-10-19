@@ -12,7 +12,12 @@ export const metadata: Metadata = {
   icons: { apple: withBase("/icons/apple-touch-icon.png") },
 };
 
-export const viewport: Viewport = { themeColor: "#1f6b1f" };
+export const viewport: Viewport = {
+  themeColor: "#1f6b1f",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { lang, t } = await getI18n();

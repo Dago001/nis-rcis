@@ -158,16 +158,16 @@ export default function PortalHome() {
         title={t("Welcome, {name}", { name: me.forenames })}
         subtitle={me.email}
         actions={
-          <div className="flex gap-2">
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
             <Link
               href="/portal/apply"
-              className="rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nis-green/90"
+              className="flex min-h-[40px] items-center justify-center rounded-lg bg-nis-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-nis-green/90"
             >
               {t("New Application")}
             </Link>
             <Link
               href="/portal/apply?type=renewal"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+              className="flex min-h-[40px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
               {t("Renew Card")}
             </Link>

@@ -69,29 +69,29 @@ export default async function Home() {
   return (
     <main id="main" tabIndex={-1} className="flex-1">
       {/* Hero */}
-      <section className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden px-[5%] py-20 text-center">
+      <section className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden px-4 py-16 text-center sm:px-[5%] sm:py-20">
         <Image src={withBase("/images/hq-dusk.jpg")} alt="" fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/55 to-black/75" aria-hidden />
 
-        <div className="relative z-10 max-w-4xl text-white">
-          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-6xl">
+        <div className="relative z-10 w-full max-w-4xl text-white">
+          <h1 className="text-3xl font-semibold leading-tight sm:text-5xl md:text-6xl">
             {t("ECOWAS Residence Card")}
             <span className="block text-nis-orange animate-apply-now">{t("Apply Now!")}</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base text-white/85 sm:text-lg">
+          <p className="mx-auto mt-4 sm:mt-5 max-w-xl text-sm leading-relaxed text-white/85 sm:text-lg">
             {t("Citizens of ECOWAS member states resident in Nigeria can apply for, renew and track their ECOWAS Residence Card online.")}
           </p>
 
-          <div className="mt-10 flex flex-wrap items-end justify-center gap-6 sm:gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-sm text-white/90">{t("New to Nigeria?")}</span>
-              <Link prefetch={false} href="/register" className="rounded-md bg-nis-primary px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-nis-primary-dark">
+          <div className="mt-8 sm:mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="flex w-full flex-col items-center gap-1.5 sm:w-auto">
+              <span className="text-xs sm:text-sm text-white/90">{t("New to Nigeria?")}</span>
+              <Link prefetch={false} href="/register" className="flex min-h-[44px] w-full items-center justify-center rounded-md bg-nis-primary px-6 py-3 font-medium text-white shadow-lg transition-colors hover:bg-nis-primary-dark sm:w-auto">
                 {t("Apply for Residence Card")}
               </Link>
             </div>
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-sm text-white/90">{t("Card expiring?")}</span>
-              <Link prefetch={false} href="/login/applicant" className="rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50">
+            <div className="flex w-full flex-col items-center gap-1.5 sm:w-auto">
+              <span className="text-xs sm:text-sm text-white/90">{t("Card expiring?")}</span>
+              <Link prefetch={false} href="/login/applicant" className="flex min-h-[44px] w-full items-center justify-center rounded-md bg-white px-6 py-3 font-medium text-nis-orange shadow-lg transition-colors hover:bg-orange-50 sm:w-auto">
                 {t("Renew ECOWAS Residence Card")}
               </Link>
             </div>
@@ -100,18 +100,18 @@ export default async function Home() {
       </section>
 
       {/* Steps to apply */}
-      <section className="bg-white px-[5%] py-24" aria-labelledby="steps-heading">
+      <section className="bg-white px-4 py-16 sm:px-[5%] sm:py-24" aria-labelledby="steps-heading">
         <div className="mx-auto max-w-7xl">
-          <h2 id="steps-heading" className="text-center text-3xl font-bold text-slate-900">{t("Steps to Apply")}</h2>
-          <ol className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <h2 id="steps-heading" className="text-center text-2xl sm:text-3xl font-bold text-slate-900">{t("Steps to Apply")}</h2>
+          <ol className="mt-10 sm:mt-12 grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((s, i) => (
-              <li key={s.title} className="rounded-xl border border-slate-200 bg-white p-6 transition hover:border-nis-primary/40 hover:shadow-md">
+              <li key={s.title} className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 transition hover:border-nis-primary/40 hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-nis-mint text-nis-primary"><Icon>{s.icon}</Icon></span>
-                  <span className="text-3xl font-bold text-slate-100">{i + 1}</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-200">{i + 1}</span>
                 </div>
-                <h3 className="mt-5 font-semibold text-nis-primary-dark">{t(s.title)}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(s.body)}</p>
+                <h3 className="mt-4 sm:mt-5 font-semibold text-nis-primary-dark text-base">{t(s.title)}</h3>
+                <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">{t(s.body)}</p>
               </li>
             ))}
           </ol>
@@ -119,16 +119,16 @@ export default async function Home() {
       </section>
 
       {/* Requirements */}
-      <section className="bg-nis-mint px-[5%] py-24" aria-labelledby="req-heading">
+      <section className="bg-nis-mint px-4 py-16 sm:px-[5%] sm:py-24" aria-labelledby="req-heading">
         <div className="mx-auto max-w-7xl">
-          <h2 id="req-heading" className="text-center text-3xl font-bold text-slate-900">{t("Requirements")}</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">{t("Have these ready before you start. Documents can be JPG, PNG or PDF, smaller than 2 MB each.")}</p>
-          <ul className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <h2 id="req-heading" className="text-center text-2xl sm:text-3xl font-bold text-slate-900">{t("Requirements")}</h2>
+          <p className="mx-auto mt-2 sm:mt-3 max-w-2xl text-center text-xs sm:text-sm text-slate-600">{t("Have these ready before you start. Documents can be JPG, PNG or PDF, smaller than 2 MB each.")}</p>
+          <ul className="mt-10 sm:mt-14 grid gap-8 sm:gap-10 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {requirements.map((r) => (
               <li key={r.title} className="text-center">
-                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-nis-primary shadow-sm"><Icon className="h-8 w-8">{r.icon}</Icon></span>
-                <h3 className="mt-5 font-semibold text-nis-primary-dark">{t(r.title)}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(r.body)}</p>
+                <span className="mx-auto flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-white text-nis-primary shadow-sm"><Icon className="h-7 w-7 sm:h-8 sm:w-8">{r.icon}</Icon></span>
+                <h3 className="mt-4 sm:mt-5 font-semibold text-nis-primary-dark text-base">{t(r.title)}</h3>
+                <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">{t(r.body)}</p>
               </li>
             ))}
           </ul>
@@ -136,19 +136,19 @@ export default async function Home() {
       </section>
 
       {/* Eligibility */}
-      <section className="bg-white px-[5%] py-24" aria-labelledby="elig-heading">
+      <section className="bg-white px-4 py-16 sm:px-[5%] sm:py-24" aria-labelledby="elig-heading">
         <div className="mx-auto max-w-7xl">
-          <h2 id="elig-heading" className="text-center text-3xl font-bold text-slate-900">{t("Eligibility Criteria")}</h2>
-          <p className="mt-3 text-center text-slate-600">
+          <h2 id="elig-heading" className="text-center text-2xl sm:text-3xl font-bold text-slate-900">{t("Eligibility Criteria")}</h2>
+          <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-slate-600">
             <strong className="text-slate-900">{t("Note:")}</strong> {t("ensure all information provided matches your travel and residence documents to avoid delays.")}
           </p>
-          <ul className="mt-12 grid gap-6 md:grid-cols-3">
+          <ul className="mt-10 sm:mt-12 grid gap-5 sm:gap-6 grid-cols-1 md:grid-cols-3">
             {eligibility.map((e) => (
               <li key={e.text} className="overflow-hidden rounded-xl bg-nis-mint p-4">
                 <div className="relative aspect-[16/10] overflow-hidden rounded-lg">
                   <Image src={e.image} alt={e.alt} fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover transition duration-500 hover:scale-105" />
                 </div>
-                <p className="mt-4 px-1 pb-2 font-semibold leading-snug text-nis-primary-dark">{t(e.text)}</p>
+                <p className="mt-4 px-1 pb-2 text-sm sm:text-base font-semibold leading-snug text-nis-primary-dark">{t(e.text)}</p>
               </li>
             ))}
           </ul>
@@ -156,15 +156,19 @@ export default async function Home() {
       </section>
 
       {/* Call to action */}
-      <section className="bg-nis-primary-dark px-[5%] py-16 text-white">
+      <section className="bg-nis-primary-dark px-4 py-12 sm:px-[5%] sm:py-16 text-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
           <div>
-            <h2 className="text-2xl font-bold">{t("Ready to apply?")}</h2>
-            <p className="mt-1 text-white/80">{t("Create your account in minutes and track every step of your application online.")}</p>
+            <h2 className="text-xl sm:text-2xl font-bold">{t("Ready to apply?")}</h2>
+            <p className="mt-1 text-xs sm:text-sm text-white/80">{t("Create your account in minutes and track every step of your application online.")}</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/register" className="rounded-md bg-white px-6 py-3 font-medium text-nis-primary-dark hover:bg-nis-mint">{t("Create an account")}</Link>
-            <Link href="/login" className="rounded-md border-2 border-white/80 px-6 py-3 font-medium hover:bg-white/10">{t("Login")}</Link>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Link href="/register" className="flex min-h-[44px] items-center justify-center rounded-md bg-white px-6 py-3 font-medium text-nis-primary-dark transition hover:bg-nis-mint">
+              {t("Create an account")}
+            </Link>
+            <Link href="/login" className="flex min-h-[44px] items-center justify-center rounded-md border-2 border-white/80 px-6 py-3 font-medium transition hover:bg-white/10">
+              {t("Login")}
+            </Link>
           </div>
         </div>
       </section>

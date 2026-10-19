@@ -137,7 +137,7 @@ export default function StaffDashboard() {
         <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-nis-primary">
           {t("Application & Card Issuance Statistics")}
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
             label={t("Total Applications")}
             value={totals.applications ?? 0}
@@ -175,7 +175,7 @@ export default function StaffDashboard() {
         <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
           {t("Operational Stage Backlogs")}
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard
             label={t("Awaiting Vetting")}
             value={s.queue?.PENDING_APPROVAL ?? 0}
