@@ -299,12 +299,6 @@ export default function StaffApplicationPage() {
               className="flex flex-wrap items-center justify-between gap-2 pb-2"
               style={{ borderBottom: "1px solid #D4E8DA" }}
             >
-              <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
-                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
-                  Stage One Completed
-                </span>
-              </div>
               <span
                 className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
                 style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
@@ -336,14 +330,6 @@ export default function StaffApplicationPage() {
             <p className="text-xs text-slate-600">
               This application has passed internal vetting and is currently in the Approvers queue. Final approval must be performed by an Approving Officer under the Approvers section. Biometrics attendance is not yet authorized.
             </p>
-            <div className="pt-2">
-              <Link
-                href={`/staff/approvals/${a.id}`}
-                className="inline-flex items-center justify-center rounded-lg bg-nis-green px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-emerald-800 transition-colors"
-              >
-                Open in Approvals for Final Review →
-              </Link>
-            </div>
           </div>
         </div>
       )}

@@ -387,6 +387,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                 <th className="px-4 py-3 font-semibold">{t("Nationality")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Appointment")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Status")}</th>
+                <th className="w-24 px-4 py-3 text-center font-semibold">{t("Action")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -451,6 +452,19 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                       {a.assigned_to && (
                         <div className="text-xs text-slate-500">→ {a.assigned_to.fullname}</div>
                       )}
+                    </td>
+                    <td className="w-24 px-4 py-3 text-center">
+                      <Link
+                        href={`${basePath}/${a.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:border-nis-green hover:bg-nis-green/5 hover:text-nis-green transition-colors"
+                        title={t("View Application")}
+                      >
+                        <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span>{t("View")}</span>
+                      </Link>
                     </td>
                   </tr>
                 );

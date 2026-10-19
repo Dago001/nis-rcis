@@ -10,6 +10,7 @@ import { Tracker } from "@/components/Tracker";
 import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError, upload } from "@/lib/api-client";
 import { naira, nisDate, applicationType, dateTime } from "@/lib/format";
+import { useI18n } from "@/components/I18nProvider";
 import type { Application } from "@/lib/types";
 
 const UPLOADABLE = [
@@ -98,11 +99,13 @@ function ApplicationDetail() {
       {submitted && <Alert tone="success">Your application has been submitted. We have e-mailed you a confirmation.</Alert>}
       {respondSuccess && <Alert tone="success">{respondSuccess}</Alert>}
 
+      <FamilyPanel app={app} />
+
       <Panel title={<>Status <StatusBadge status={app.status} label={app.status_label} /></>}>
         <div className="space-y-5">
           <Tracker step={app.tracker_step} status={app.status} />
           {app.status === "APPROVED_FOR_BIOMETRICS" && (
-            <Alert tone="info">
+            <Alert tone="success">
               Attend biometrics capture on <strong>{nisDate(app.appointment_date)}</strong> at <strong>{app.appointment_time}</strong>,{" "}
               {app.enrollment_center?.name}. Bring your original passport and your printed appointment slip.
             </Alert>
@@ -122,8 +125,6 @@ function ApplicationDetail() {
           {app.status === "REJECTED" && <Alert tone="danger">Reason: {app.decision_notes}</Alert>}
         </div>
       </Panel>
-
-      <FamilyPanel app={app} />
 
       {app.status === "QUERIED" && (
         <div id="query-response">
@@ -229,26 +230,29 @@ export default function Page() {
 
 /** Spouse and children applying on the same account, linked to the account holder's own application. */
 function FamilyPanel({ app }: { app: Application }) {
+  const { t } = useI18n();
   if (app.principal) {
     return (
       <Alert tone="info">
-        This application is for your {app.dependant_relationship === "CHILD" ? "child" : "spouse"}, linked to your application{" "}
+        {t("This application is for your {relationship}, linked to your application", {
+          relationship: app.dependant_relationship === "CHILD" ? t("child") : t("spouse"),
+        })}{" "}
         <Link href={`/portal/applications/${app.principal.id}`} className="font-semibold underline">{app.principal.application_number}</Link>.
       </Alert>
     );
   }
-  if (app.status === "REJECTED") return null;
+  if (app.status === "REJECTED" || app.status === "DRAFT") return null;
   return (
-    <Panel title="Family members (dependants)">
+    <Panel title={t("Family members (dependants)")}>
       <div className="space-y-4 text-sm">
-        <p className="text-slate-600">Your spouse and children can apply from this account. Each dependant needs their own passport, photograph and fee, and is linked to this application.</p>
+        <p className="text-slate-600">{t("Your spouse and children can apply from this account. Each dependant needs their own passport, photograph and fee, and is linked to this application.")}</p>
         {app.dependants && app.dependants.length > 0 && (
           <ul className="divide-y divide-slate-100">
             {app.dependants.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
                   <Link href={`/portal/applications/${d.id}`} className="font-medium text-nis-primary hover:underline">{d.application_number}</Link>{" "}
-                  — {d.surname}, {d.forenames} ({d.relationship === "CHILD" ? "child" : "spouse"})
+                  — {d.surname}, {d.forenames} ({d.relationship === "CHILD" ? t("child") : t("spouse")})
                 </span>
                 <StatusBadge status={d.status} />
               </li>
@@ -256,8 +260,8 @@ function FamilyPanel({ app }: { app: Application }) {
           </ul>
         )}
         <div className="flex flex-wrap gap-2">
-          <Link href={`/portal/apply?for=spouse&principal=${app.id}`} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">Apply for my spouse</Link>
-          <Link href={`/portal/apply?for=child&principal=${app.id}`} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">Apply for my child</Link>
+          <Link href={`/portal/apply?for=spouse&principal=${app.id}`} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Apply for my spouse")}</Link>
+          <Link href={`/portal/apply?for=child&principal=${app.id}`} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium hover:border-nis-primary hover:text-nis-primary">{t("Apply for my child")}</Link>
         </div>
       </div>
     </Panel>

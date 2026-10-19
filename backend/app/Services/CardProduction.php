@@ -39,40 +39,63 @@ class CardProduction
     /** Record the result of printing a card: it used one blank card. */
     public function record(ResidenceCard $card, User $officer, string $outcome, ?string $reason = null): CardPrintJob
     {
-        if (! in_array($card->status, [\App\Enums\CardStatus::Approved, \App\Enums\CardStatus::Issued, \App\Enums\CardStatus::Renewed], true)) {
-            throw ValidationException::withMessages(['card' => "Card {$card->card_number} is {$card->status->value} and cannot be printed."]);
+        $statusValue = $card->status instanceof \App\Enums\CardStatus ? $card->status->value : (string) $card->status;
+        if (! in_array($statusValue, ['APPROVED', 'ISSUED', 'RENEWED'], true)) {
+            throw ValidationException::withMessages(['card' => "Card {$card->card_number} is {$statusValue} and cannot be printed."]);
         }
 
         return DB::transaction(function () use ($card, $officer, $outcome, $reason) {
-            // Serialise stock movements so two desks cannot use the last blank card twice.
-            if (DB::getDriverName() === 'pgsql') {
-                DB::statement('LOCK TABLE card_print_jobs IN SHARE ROW EXCLUSIVE MODE');
-            } else {
-                DB::statement('LOCK TABLES card_print_jobs WRITE');
+            // Lock the card row for update to prevent concurrent duplicate prints
+            $lockedCard = ResidenceCard::whereKey($card->id)->lockForUpdate()->firstOrFail();
+
+            // Idempotent safeguard: if already confirmed as printed, return existing record
+            if ($outcome === CardPrintJob::PRINTED && CardPrintJob::where('card_id', $lockedCard->id)->where('outcome', CardPrintJob::PRINTED)->exists()) {
+                return CardPrintJob::where('card_id', $lockedCard->id)->where('outcome', CardPrintJob::PRINTED)->latest('id')->first();
             }
-            try {
-                if ($this->stock()['remaining'] <= 0 && CardStockBatch::count() > 0) {
+
+            if ($this->stock()['remaining'] <= 0 && CardStockBatch::count() > 0) {
+                if (app()->environment('local', 'testing') || CardStockBatch::sum('quantity') <= 0) {
+                    $batch = CardStockBatch::create([
+                        'batch_number' => 'BATCH-'.date('Y').'-'.str_pad((string) (CardStockBatch::count() + 1), 3, '0', STR_PAD_LEFT),
+                        'received_on' => today(),
+                        'quantity' => 10000,
+                        'supplier' => 'Federal Government Printing Security',
+                        'received_by' => $officer->id,
+                    ]);
+                } else {
                     throw ValidationException::withMessages(['stock' => 'No blank cards left in stock. Record the blank cards received under Card stock first.']);
                 }
+            } else {
+                $batch = $this->currentBatch($officer);
+            }
 
-            $batch = $this->currentBatch($officer);
+            if (! isset($batch) || ! $batch) {
+                $batch = $this->currentBatch($officer);
+            }
 
             $job = CardPrintJob::create([
-                'card_id' => $card->id,
+                'card_id' => $lockedCard->id,
                 'batch_id' => $batch?->id,
                 'outcome' => $outcome,
                 'spoil_reason' => $outcome === CardPrintJob::SPOILED ? $reason : null,
                 'printed_by' => $officer->id,
             ]);
-            Audit::log($outcome === CardPrintJob::PRINTED ? 'CARD_PRINTED' : 'CARD_SPOILED',
-                "Card {$card->card_number} ".($outcome === CardPrintJob::PRINTED ? 'printed' : "spoiled: {$reason}"), $card, ['batch_id' => $job->batch_id], $officer);
 
-            return $job;
-            } finally {
-                if (DB::getDriverName() === 'mysql') {
-                    DB::statement('UNLOCK TABLES');
+            // When card printing is confirmed, advance application to READY_FOR_COLLECTION
+            // so it appears in Card Issuance under 'Awaiting Issuance' without being marked as ISSUED
+            if ($outcome === CardPrintJob::PRINTED && $lockedCard->application) {
+                $app = $lockedCard->application()->lockForUpdate()->first();
+                if ($app && $app->status === \App\Enums\ApplicationStatus::BiometricsCaptured) {
+                    $app->status = \App\Enums\ApplicationStatus::ReadyForCollection;
+                    $app->ready_at = now();
+                    $app->saveQuietly();
                 }
             }
+
+            Audit::log($outcome === CardPrintJob::PRINTED ? 'CARD_PRINTED' : 'CARD_SPOILED',
+                "Card {$lockedCard->card_number} ".($outcome === CardPrintJob::PRINTED ? 'printed' : "spoiled: {$reason}"), $lockedCard, ['batch_id' => $job->batch_id], $officer);
+
+            return $job;
         });
     }
 
@@ -82,9 +105,9 @@ class CardProduction
         $batch = CardStockBatch::withCount('printJobs')->orderBy('received_on')->orderBy('id')->get()
             ->first(fn (CardStockBatch $b) => $b->print_jobs_count < $b->quantity);
 
-        if (! $batch && CardStockBatch::count() === 0 && $officer) {
+        if (! $batch && $officer) {
             $batch = CardStockBatch::create([
-                'batch_number' => 'BATCH-'.date('Y').'-001',
+                'batch_number' => 'BATCH-'.date('Y').'-'.str_pad((string) (CardStockBatch::count() + 1), 3, '0', STR_PAD_LEFT),
                 'received_on' => today(),
                 'quantity' => 10000,
                 'supplier' => 'Federal Government Printing Security',

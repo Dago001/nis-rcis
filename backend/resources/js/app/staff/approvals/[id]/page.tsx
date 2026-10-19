@@ -190,12 +190,6 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             className="flex flex-wrap items-center justify-between gap-2 pb-2"
             style={{ borderBottom: "1px solid #D4E8DA" }}
           >
-            <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
-                Stage One Completed
-              </span>
-            </div>
             <span
               className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
               style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
@@ -211,18 +205,6 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             {a.vetted_at && (
               <div>
                 <span className="font-semibold text-slate-900">Date/Time:</span> {dateTime(a.vetted_at)}
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-slate-600">Vetting Status:</span>{" "}
-              <span className="font-semibold text-slate-900">Vetted</span>
-            </div>
-            {a.vetted_at && (
-              <div>
-                <span className="font-medium text-slate-600">Vetting Time:</span>{" "}
-                <span className="font-semibold text-slate-900">
-                  {new Date(a.vetted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                </span>
               </div>
             )}
           </div>
