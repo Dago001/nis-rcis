@@ -222,6 +222,125 @@ class DraftController
         ];
     }
 
+    public function renewalSource(Request $request): JsonResponse
+    {
+        $applicant = $this->applicant($request);
+
+        $cardNum = trim((string) ($request->query('renewal_card_number') ?: $request->query('card')));
+        $passportNum = trim((string) $request->query('passport_number'));
+        $dependantId = $request->query('dependant_id');
+        $principalAppId = $request->query('principal_application_id') ?: $request->query('principal');
+        $relationship = strtoupper(trim((string) ($request->query('dependant_relationship') ?: $request->query('for'))));
+
+        $isDependant = ! empty($principalAppId) || in_array($relationship, ['SPOUSE', 'CHILD'], true) || ! empty($dependantId);
+
+        $query = \App\Models\Application::query()
+            ->with(['card', 'documents'])
+            ->whereNotIn('status', [\App\Enums\ApplicationStatus::Rejected]);
+
+        if ($isDependant) {
+            $query->where(function ($q) use ($applicant) {
+                $q->where('applicant_id', $applicant->id)
+                  ->orWhere('email', $applicant->email);
+            })->whereNotNull('principal_application_id');
+            if ($passportNum) {
+                $query->where('passport_number', $passportNum);
+            }
+            if ($dependantId) {
+                $query->where('id', $dependantId);
+            }
+        } elseif ($cardNum) {
+            $card = \App\Models\ResidenceCard::where('card_number', $cardNum)->first();
+            if ($card && ($card->applicant_id === $applicant->id || ($card->applicant_id === null && $card->passport_number === $passportNum) || $card->email === $applicant->email)) {
+                if ($card->application_id) {
+                    $query->where('id', $card->application_id);
+                } else {
+                    $query->where('card_id', $card->id);
+                }
+            } else {
+                return response()->json(['found' => false, 'message' => 'No residence card found matching your records.']);
+            }
+        } else {
+            $query->where(function ($q) use ($applicant) {
+                $q->where('applicant_id', $applicant->id)
+                  ->orWhere('email', $applicant->email);
+            })->whereNull('principal_application_id');
+            if ($passportNum) {
+                $query->where('passport_number', $passportNum);
+            }
+        }
+
+        $sourceApp = (clone $query)
+            ->whereIn('status', [
+                \App\Enums\ApplicationStatus::ApprovedForBiometrics,
+                \App\Enums\ApplicationStatus::BiometricsCaptured,
+                \App\Enums\ApplicationStatus::ReadyForCollection,
+                \App\Enums\ApplicationStatus::Issued,
+                \App\Enums\ApplicationStatus::Vetted,
+                \App\Enums\ApplicationStatus::Submitted,
+            ])
+            ->latest('id')
+            ->first();
+
+        if (! $sourceApp) {
+            $sourceApp = $query->latest('id')->first();
+        }
+
+        if (! $sourceApp) {
+            return response()->json([
+                'found' => false,
+                'message' => 'No previous application found to pre-populate renewal particulars.',
+            ]);
+        }
+
+        $cardNumber = $sourceApp->card?->card_number ?? $sourceApp->renewal_of_card_id ?? $cardNum;
+
+        $particulars = [
+            'surname' => $sourceApp->surname ?? '',
+            'forenames' => $sourceApp->forenames ?? '',
+            'nationality' => $sourceApp->nationality ?? '',
+            'date_of_birth' => $sourceApp->date_of_birth ? $sourceApp->date_of_birth->format('Y-m-d') : '',
+            'place_of_birth' => $sourceApp->place_of_birth ?? '',
+            'sex' => $sourceApp->sex ?? '',
+            'height' => $sourceApp->height ?? '',
+            'complexion' => $sourceApp->complexion ?? '',
+            'eye_color' => $sourceApp->eye_color ?? '',
+            'hair_color' => $sourceApp->hair_color ?? '',
+            'distinguished_features' => $sourceApp->distinguished_features ?? '',
+            'blood_group' => $sourceApp->blood_group ?? '',
+            'profession' => $sourceApp->profession ?? '',
+            'home_country_address' => $sourceApp->home_country_address ?? '',
+            'domicile' => $sourceApp->domicile ?? '',
+            'domicile_state' => $sourceApp->domicile_state ?? '',
+            'domicile_lga' => $sourceApp->domicile_lga ?? '',
+            'change_of_address' => $sourceApp->change_of_address ?? '',
+            'passport_number' => $sourceApp->passport_number ?? '',
+            'passport_issue_date' => $sourceApp->passport_issue_date ? $sourceApp->passport_issue_date->format('Y-m-d') : '',
+            'passport_expiry' => $sourceApp->passport_expiry ? $sourceApp->passport_expiry->format('Y-m-d') : '',
+            'national_id_number' => $sourceApp->national_id_number ?? '',
+            'tax_id_number' => $sourceApp->tax_id_number ?? '',
+            'emergency_contact_name' => $sourceApp->emergency_contact_name ?? '',
+            'emergency_contact_relation' => $sourceApp->emergency_contact_relation ?? '',
+            'emergency_contact_phone' => $sourceApp->emergency_contact_phone ?? '',
+            'emergency_contact_address' => $sourceApp->emergency_contact_address ?? '',
+            'emergency_contact_state' => $sourceApp->emergency_contact_state ?? '',
+            'emergency_contact_lga' => $sourceApp->emergency_contact_lga ?? '',
+            'category' => $sourceApp->category ?? 'WORK',
+            'employer_name' => $sourceApp->employer_name ?? '',
+            'quota_reference' => $sourceApp->quota_reference ?? '',
+            'phone' => $sourceApp->phone ?? '',
+            'email' => $sourceApp->email ?? '',
+        ];
+
+        return response()->json([
+            'found' => true,
+            'source_application_id' => $sourceApp->id,
+            'source_application_number' => $sourceApp->application_number,
+            'renewal_card_number' => $cardNumber,
+            'particulars' => $particulars,
+        ]);
+    }
+
     private function applicant(Request $request): Applicant
     {
         return $request->user();

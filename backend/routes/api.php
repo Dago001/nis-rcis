@@ -96,6 +96,7 @@ Route::prefix('v1')->group(function () {
         Route::post('draft/documents', [DraftController::class, 'uploadDocument'])->middleware('throttle:uploads');
         Route::get('draft/documents/{document}', [DraftController::class, 'document'])->whereNumber('document');
         Route::delete('draft/documents/{document}', [DraftController::class, 'deleteDocument'])->whereNumber('document');
+        Route::get('renewal-source', [DraftController::class, 'renewalSource']);
 
         Route::post('payments', [PaymentController::class, 'initialize']);
         Route::post('payments/{reference}/verify', [PaymentController::class, 'verify']);

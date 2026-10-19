@@ -8,7 +8,7 @@ import { Field, Input, Select, Textarea } from "./ui";
 import { useI18n } from "./I18nProvider";
 
 export type FormData = Record<string, string>;
-type Props = {
+export type Props = {
   data: FormData;
   errors: Record<string, string>;
   set: (key: string, value: string) => void;
@@ -16,11 +16,14 @@ type Props = {
   touch?: (key: string) => void;
   /** Marks a field as actively focused so validation does not trigger prematurely. */
   focus?: (key: string | null) => void;
+  readOnly?: boolean;
+  readOnlyFields?: string[];
 };
 
 type TextOptions = { required?: boolean; type?: string; hint?: string; upper?: boolean; letters?: boolean; digits?: boolean; maxLength?: number; max?: string; min?: string };
 
 function text(props: Props, name: string, label: string, opts: TextOptions = {}) {
+  const isReadOnly = Boolean(props.readOnly || (props.readOnlyFields && props.readOnlyFields.includes(name)));
   const hasError = Boolean(props.errors[name]);
   return (
     <Field label={label} required={opts.required} error={props.errors[name]} hint={opts.hint}>
@@ -32,10 +35,13 @@ function text(props: Props, name: string, label: string, opts: TextOptions = {})
         maxLength={opts.maxLength ?? 150}
         max={opts.max}
         min={opts.min}
+        readOnly={isReadOnly}
+        disabled={isReadOnly}
         aria-invalid={hasError}
-        className={hasError ? "!border-red-500" : ""}
+        className={hasError ? "!border-red-500" : isReadOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
         onFocus={() => props.focus?.(name)}
         onChange={(e) => {
+          if (isReadOnly) return;
           let value = e.target.value;
           if (opts.letters) value = lettersOnly(value);
           if (opts.digits) value = value.replace(/\D/g, "");
@@ -60,6 +66,7 @@ function select(
   options: SelectOption[],
   opts: { required?: boolean; placeholder?: string; disabled?: boolean } = {}
 ) {
+  const isReadOnly = Boolean(props.readOnly || (props.readOnlyFields && props.readOnlyFields.includes(name)) || opts.disabled);
   const { t } = useI18n();
   const normalizedOptions = options.map((o) =>
     typeof o === "string" ? { value: o, label: o } : o
@@ -77,11 +84,12 @@ function select(
       <Select
         name={name}
         value={selectedValue}
-        disabled={opts.disabled}
+        disabled={isReadOnly}
         aria-invalid={hasError}
-        className={hasError ? "!border-red-500" : ""}
+        className={hasError ? "!border-red-500" : isReadOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
         onFocus={() => props.focus?.(name)}
         onChange={(e) => {
+          if (isReadOnly) return;
           const val = e.target.value;
           props.set(name, val);
         }}
@@ -173,10 +181,12 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           <Select
             name="category"
             value={selectedCat}
+            disabled={readOnly}
             aria-invalid={Boolean(errors.category)}
-            className={errors.category ? "!border-red-500" : ""}
+            className={errors.category ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
             onFocus={() => focus?.("category")}
             onChange={(e) => {
+              if (readOnly) return;
               set("category", e.target.value);
             }}
             onBlur={() => {
@@ -201,10 +211,12 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           <Select
             name="travel_document_type"
             value={selectedDocType}
+            disabled={readOnly}
             aria-invalid={Boolean(errors.travel_document_type)}
-            className={errors.travel_document_type ? "!border-red-500" : ""}
+            className={errors.travel_document_type ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
             onFocus={() => focus?.("travel_document_type")}
             onChange={(e) => {
+              if (readOnly) return;
               set("travel_document_type", e.target.value);
             }}
             onBlur={() => {
@@ -223,10 +235,15 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             name="passport_number"
             value={data.passport_number ?? ""}
             maxLength={20}
+            readOnly={readOnly}
+            disabled={readOnly}
             aria-invalid={Boolean(errors.passport_number)}
-            className={errors.passport_number ? "!border-red-500" : ""}
+            className={errors.passport_number ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
             onFocus={() => focus?.("passport_number")}
-            onChange={(e) => set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))}
+            onChange={(e) => {
+              if (readOnly) return;
+              set("passport_number", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""));
+            }}
             onBlur={() => {
               focus?.(null);
               touch?.("passport_number");
@@ -342,12 +359,12 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
       {select(
         props,
         "sex",
-        "Sex",
+        "Gender",
         [
           { value: "MALE", label: "Male" },
           { value: "FEMALE", label: "Female" },
         ],
-        { required: true, placeholder: "Select sex…" }
+        { required: true, placeholder: "Select gender…" }
       )}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
@@ -419,7 +436,7 @@ export function PassportFields(_props: Props) {
 
 /** Wizard step 3 — residence and contacts. */
 export function ContactFields(props: Props) {
-  const { data, errors, set, touch, focus } = props;
+  const { data, errors, set, touch, focus, readOnly } = props;
   const { t } = useI18n();
   const rawRelation = (data.emergency_contact_relation ?? "").trim();
   const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === rawRelation.toLowerCase());
@@ -440,10 +457,15 @@ export function ContactFields(props: Props) {
             name="home_country_address"
             value={data.home_country_address ?? ""}
             maxLength={300}
+            readOnly={readOnly}
+            disabled={readOnly}
             aria-invalid={Boolean(errors.home_country_address)}
-            className={errors.home_country_address ? "!border-red-500" : ""}
+            className={errors.home_country_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
             onFocus={() => focus?.("home_country_address")}
-            onChange={(e) => set("home_country_address", e.target.value)}
+            onChange={(e) => {
+              if (readOnly) return;
+              set("home_country_address", e.target.value);
+            }}
             onBlur={() => {
               focus?.(null);
               touch?.("home_country_address");
@@ -463,10 +485,15 @@ export function ContactFields(props: Props) {
           name="domicile"
           value={data.domicile ?? ""}
           maxLength={150}
+          readOnly={readOnly}
+          disabled={readOnly}
           aria-invalid={Boolean(errors.domicile)}
-          className={errors.domicile ? "!border-red-500" : ""}
+          className={errors.domicile ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
           onFocus={() => focus?.("domicile")}
-          onChange={(e) => set("domicile", e.target.value)}
+          onChange={(e) => {
+            if (readOnly) return;
+            set("domicile", e.target.value);
+          }}
           onBlur={() => {
             focus?.(null);
             touch?.("domicile");
@@ -480,10 +507,15 @@ export function ContactFields(props: Props) {
           name="change_of_address"
           value={data.change_of_address ?? ""}
           maxLength={150}
+          readOnly={readOnly}
+          disabled={readOnly}
           aria-invalid={Boolean(errors.change_of_address)}
-          className={errors.change_of_address ? "!border-red-500" : ""}
+          className={errors.change_of_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
           onFocus={() => focus?.("change_of_address")}
-          onChange={(e) => set("change_of_address", e.target.value)}
+          onChange={(e) => {
+            if (readOnly) return;
+            set("change_of_address", e.target.value);
+          }}
           onBlur={() => {
             focus?.(null);
             touch?.("change_of_address");
@@ -496,10 +528,12 @@ export function ContactFields(props: Props) {
         <Select
           name="domicile_state"
           value={data.domicile_state ?? ""}
+          disabled={readOnly}
           aria-invalid={Boolean(errors.domicile_state)}
-          className={errors.domicile_state ? "!border-red-500" : ""}
+          className={errors.domicile_state ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
           onFocus={() => focus?.("domicile_state")}
           onChange={(e) => {
+            if (readOnly) return;
             set("domicile_state", e.target.value);
             set("domicile_lga", "");
           }}

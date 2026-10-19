@@ -130,7 +130,7 @@ export default function CardDetailPage() {
               items={[
                 ["Full Name", `${c.surname}, ${c.forenames}`],
                 ["Nationality", c.nationality],
-                ["Sex", c.sex],
+                ["Gender", c.sex],
                 ["Date of Birth", nisDate(c.date_of_birth)],
                 ["Place of Birth", c.place_of_birth],
                 ["Profession", c.profession || "—"],

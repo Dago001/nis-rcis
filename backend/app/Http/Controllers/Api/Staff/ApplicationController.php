@@ -382,6 +382,19 @@ class ApplicationController
                 $a->decided_by = $officer->id;
                 $a->decided_at = now();
                 $a->decision_notes = $notes;
+
+                if ($a->has_cod && ! empty($a->cod_changes)) {
+                    $changes = is_array($a->cod_changes) ? $a->cod_changes : json_decode($a->cod_changes, true);
+                    if (is_array($changes)) {
+                        foreach ($changes as $field => $change) {
+                            $newVal = $change['requested_value'] ?? $change['requested'] ?? null;
+                            if ($newVal !== null && in_array($field, Application::PARTICULARS, true)) {
+                                $a->{$field} = $newVal;
+                            }
+                        }
+                    }
+                    $a->cod_status = 'APPROVED';
+                }
             });
 
             return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy']));
@@ -416,6 +429,9 @@ class ApplicationController
                 $a->decided_by = $officer->id;
                 $a->decided_at = now();
                 $a->decision_notes = $notes;
+                if ($a->has_cod) {
+                    $a->cod_status = 'REJECTED';
+                }
             });
 
             return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy']));

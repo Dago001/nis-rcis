@@ -36,6 +36,11 @@ class ApplicationResource extends JsonResource
             'appointment_time' => $this->appointment_time,
             'fee_amount_naira' => $this->fee_amount_kobo / 100,
             'payment_status' => $this->payment_status,
+            'has_cod' => (bool) $this->has_cod,
+            'cod_fee_naira' => $this->cod_fee_kobo ? $this->cod_fee_kobo / 100 : 0,
+            'cod_changes' => $this->cod_changes,
+            'cod_status' => $this->cod_status,
+            'renewal_source_application_id' => $this->renewal_source_application_id,
             // Fraud/duplicate flags are for officers only, never the applicant.
             'risk_flags' => $this->when($request->user() instanceof User, fn () => $this->risk_flags ?? []),
             // Internal assignment and the service-level clock are for officers only.

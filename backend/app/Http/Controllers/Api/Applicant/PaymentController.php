@@ -25,14 +25,24 @@ class PaymentController
         $applicant = $request->user();
         $submission->assertPrePaymentValid($applicant);
 
+        $draft = $applicant->draft()->first();
+        $hasCod = ! empty($draft?->data['has_cod']);
+        $feeKobo = $submission->feeKobo($draft?->data, $hasCod);
+
         $result = $gateway->initialize(
             $applicant,
-            $submission->feeKobo(),
+            $feeKobo,
             config('nis.frontend_url').'/portal/apply?payment=callback',
         );
 
         $payment = $result['payment'];
         $gatewayResponse = $payment->gateway_response ?? [];
+        $gatewayResponse['fee_breakdown'] = [
+            'normal_fee_naira' => (int) config('nis.fee_naira', 35000),
+            'has_cod' => $hasCod,
+            'cod_fee_naira' => $hasCod ? (int) config('nis.cod_fee_naira', 15000) : 0,
+            'total_amount_naira' => $feeKobo / 100,
+        ];
         $gatewayResponse['non_refundable_acknowledgement'] = [
             'acknowledged' => true,
             'acknowledged_at' => $ack['acknowledged_at'] ?? now()->toIso8601String(),

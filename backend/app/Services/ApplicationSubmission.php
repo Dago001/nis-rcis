@@ -85,7 +85,10 @@ class ApplicationSubmission
         $renewalCard = in_array($data['type'], ['RENEWAL', 'REPLACE'], true) ? $this->claimRenewalCard($applicant, $data) : null;
         $this->assertNoOpenApplication($applicant, $data['passport_number'], $principal !== null, $renewalCard);
 
-        return $this->screen(DB::transaction(function () use ($applicant, $data, $draft, $documents, $renewalCard) {
+        $hasCod = ! empty($data['has_cod']) || ! empty($draft?->data['has_cod']);
+        $requiredFeeKobo = $this->feeKobo($data, $hasCod);
+
+        return $this->screen(DB::transaction(function () use ($applicant, $data, $draft, $documents, $renewalCard, $requiredFeeKobo) {
             $payment = Payment::where('reference', $data['payment_reference'])->lockForUpdate()->first();
 
             if (! $payment || $payment->applicant_id !== $applicant->id || ! $payment->isSuccessful()) {
@@ -94,8 +97,8 @@ class ApplicationSubmission
             if ($payment->application_id !== null) {
                 throw ValidationException::withMessages(['payment_reference' => 'This payment has already been used for another application.']);
             }
-            if ($payment->amount_kobo < $this->feeKobo()) {
-                throw ValidationException::withMessages(['payment_reference' => 'The amount paid does not cover the residence card fee.']);
+            if ($payment->amount_kobo < $requiredFeeKobo) {
+                throw ValidationException::withMessages(['payment_reference' => 'The amount paid does not cover the required application and administrative fees.']);
             }
 
             $application = $this->create($data, 'ONLINE', $applicant, null, $renewalCard, 'PAID');
@@ -134,9 +137,16 @@ class ApplicationSubmission
         }));
     }
 
-    public function feeKobo(): int
+    public function feeKobo(?array $draftData = null, bool $hasCod = false): int
     {
-        return config('nis.fee_naira') * 100;
+        $baseFee = (int) config('nis.fee_naira', 35000) * 100;
+        $codActive = $hasCod || ! empty($draftData['has_cod']);
+        if ($codActive) {
+            $codFee = (int) config('nis.cod_fee_naira', 15000) * 100;
+            return $baseFee + $codFee;
+        }
+
+        return $baseFee;
     }
 
     /**
@@ -183,6 +193,45 @@ class ApplicationSubmission
         $principal = ! empty($data['principal_application_id']) ? $this->principal($applicant, $data) : null;
         $renewalCard = in_array($data['type'], ['RENEWAL', 'REPLACE'], true) ? $this->claimRenewalCard($applicant, $data) : null;
         $this->assertNoOpenApplication($applicant, $data['passport_number'], $principal !== null, $renewalCard);
+
+        $hasCod = ! empty($data['has_cod']) || ! empty($draft->data['has_cod']);
+        if ($data['type'] === 'RENEWAL') {
+            if ($hasCod) {
+                $codChanges = $data['cod_changes'] ?? $draft->data['cod_changes'] ?? [];
+                if (empty($codChanges) || ! is_array($codChanges)) {
+                    throw ValidationException::withMessages(['cod' => 'Please select at least one field to change and specify the correction.']);
+                }
+                foreach ($codChanges as $field => $change) {
+                    $reqVal = trim((string) ($change['requested_value'] ?? $change['requested'] ?? ''));
+                    $reason = trim((string) ($change['reason'] ?? ''));
+                    if ($reqVal === '') {
+                        throw ValidationException::withMessages(['cod' => "Please enter the requested new value for {$field}."]);
+                    }
+                    if ($reason === '') {
+                        throw ValidationException::withMessages(['cod' => "Please state the reason for changing {$field}."]);
+                    }
+                }
+            } else {
+                $sourceApp = null;
+                if (! empty($data['renewal_source_application_id'])) {
+                    $sourceApp = Application::whereKey($data['renewal_source_application_id'])->where('applicant_id', $applicant->id)->first();
+                } elseif ($renewalCard?->application) {
+                    $sourceApp = $renewalCard->application;
+                }
+                if ($sourceApp) {
+                    $protected = ['surname', 'forenames', 'nationality', 'date_of_birth', 'place_of_birth', 'sex', 'passport_number', 'passport_expiry'];
+                    foreach ($protected as $f) {
+                        $curVal = trim((string) ($data[$f] ?? ''));
+                        $origVal = trim((string) ($sourceApp->{$f} instanceof \Carbon\CarbonInterface ? $sourceApp->{$f}->format('Y-m-d') : ($sourceApp->{$f} ?? '')));
+                        if ($curVal !== '' && $origVal !== '' && strcasecmp($curVal, $origVal) !== 0) {
+                            throw ValidationException::withMessages([
+                                $f => "Protected personal information ({$f}) cannot be altered during ordinary renewal. Please select Change of Data (COD) to request this correction.",
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
 
         // Validate required documents
         $documents = $draft->documents ?? collect();
@@ -232,6 +281,10 @@ class ApplicationSubmission
         $center = EnrollmentCenter::findOrFail($data['enrollment_center_id']);
         $this->scheduler->assertBookable($center, $data['appointment_date'], $data['appointment_time']);
 
+        $hasCod = ! empty($data['has_cod']);
+        $codFeeKobo = $hasCod ? ((int) config('nis.cod_fee_naira', 15000) * 100) : 0;
+        $totalFeeKobo = $this->feeKobo($data, $hasCod);
+
         $application = new Application([
             ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time', 'quota_reference', 'employer_name'])->all(),
             'category' => strtoupper($data['category'] ?? 'WORK'),
@@ -242,7 +295,12 @@ class ApplicationSubmission
             'dependant_relationship' => ! empty($data['principal_application_id']) ? $data['dependant_relationship'] : null,
             'channel' => $channel,
             'created_by' => $officer?->id,
-            'fee_amount_kobo' => $this->feeKobo(),
+            'fee_amount_kobo' => $totalFeeKobo,
+            'has_cod' => $hasCod,
+            'cod_fee_kobo' => $codFeeKobo,
+            'cod_changes' => $hasCod ? ($data['cod_changes'] ?? null) : null,
+            'cod_status' => $hasCod ? 'PENDING' : null,
+            'renewal_source_application_id' => $data['renewal_source_application_id'] ?? null,
             'payment_status' => $paymentStatus,
             'submitted_at' => now(),
         ]);

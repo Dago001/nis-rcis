@@ -51,7 +51,7 @@ export const RULES: Record<string, Check> = {
     (v) => (!v || !v.trim() ? "Select your country of origin." : undefined),
     (v) => (/^NIGERIA(N)?$/i.test(v.trim()) ? "Nigerian citizens do not need a residence card." : undefined),
   ),
-  sex: required("Sex"),
+  sex: required("Gender"),
   // A dependent child may be any age; everyone else must be an adult.
   date_of_birth: all(required("Date of birth"), (v, d) =>
     d.dependant_relationship === "CHILD"

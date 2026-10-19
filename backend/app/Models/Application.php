@@ -43,6 +43,9 @@ class Application extends Model
             'risk_flags' => 'array',
             'fingerprints' => 'encrypted:array',
             'risk_checked_at' => 'datetime',
+            'has_cod' => 'boolean',
+            'cod_changes' => 'array',
+            'cod_fee_kobo' => 'integer',
         ];
     }
 

@@ -121,7 +121,19 @@ export type Application = Particulars & {
   documents?: ApplicationDocument[];
   quota_reference?: string | null;
   employer_name?: string | null;
-  fingerprints_captured?: string[];
+  has_cod?: boolean;
+  cod_fee_naira?: number;
+  cod_changes?: Record<string, {
+    field_label: string;
+    original_value: string;
+    requested_value: string;
+    reason: string;
+    document_id?: number;
+    document_name?: string;
+    document_url?: string;
+  }> | null;
+  cod_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  renewal_source_application_id?: number | null;
   assigned_to?: { id: number; fullname: string; service_number: string } | null;
   sla?: { working_days: number; target: number; overdue: boolean };
   risk_flags?: { code: string; severity: "HIGH" | "MEDIUM"; message: string; related: string[] }[];

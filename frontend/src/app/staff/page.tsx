@@ -226,11 +226,11 @@ export default function StaffDashboard() {
         </ChartCard>
 
         <ChartCard
-          title="Applications by Sex"
+          title="Applications by Gender"
           subtitle="Male vs Female"
           table={
             <DataTable
-              head={["Sex", "Total"]}
+              head={["Gender", "Total"]}
               rows={[
                 ["Male", a.mix?.sex?.MALE ?? 0],
                 ["Female", a.mix?.sex?.FEMALE ?? 0],
@@ -244,7 +244,7 @@ export default function StaffDashboard() {
                 { label: "Male", value: a.mix?.sex?.MALE ?? 0, color: "#2b892b" },
                 { label: "Female", value: a.mix?.sex?.FEMALE ?? 0, color: "#58b258" },
               ]}
-              centerTitle="Sex"
+              centerTitle="Gender"
               centerSubtitle="Distribution"
             />
           </div>

@@ -5,12 +5,29 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppointmentPicker } from "@/components/AppointmentPicker";
 import { ContactFields, GeneralInfoFields, PersonalFields } from "@/components/ParticularsFields";
-import { Alert, Button, Field, Input, Panel, Spinner } from "@/components/ui";
+import { Alert, Button, Field, Input, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { useI18n } from "@/components/I18nProvider";
 import { api, ApiError, upload } from "@/lib/api-client";
 import { naira, nisDate } from "@/lib/format";
-import type { Application, EnrollmentCenter } from "@/lib/types";
+import type { Application, CodChangeItem, EnrollmentCenter } from "@/lib/types";
 import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, GENERAL_FIELDS, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
+
+const COD_AVAILABLE_FIELDS: { key: string; label: string; docHint?: string }[] = [
+  { key: "surname", label: "Surname", docHint: "e.g. Marriage Certificate, Newspaper Publication, Deed Poll" },
+  { key: "forenames", label: "Other names", docHint: "e.g. Newspaper Publication, Court Affidavit" },
+  { key: "sex", label: "Gender", docHint: "e.g. Official Medical Report / Court Declaration" },
+  { key: "date_of_birth", label: "Date of birth", docHint: "e.g. Birth Certificate, NPC Attestation" },
+  { key: "place_of_birth", label: "Place of birth", docHint: "e.g. Birth Certificate, Declaration of Age" },
+  { key: "profession", label: "Profession / Occupation", docHint: "e.g. Employment Letter, Professional Certificate" },
+  { key: "domicile", label: "Residential Address in Nigeria", docHint: "e.g. Current Utility Bill, Tenancy Agreement" },
+  { key: "domicile_state", label: "State of Residence", docHint: "e.g. Utility Bill, State Residency Proof" },
+  { key: "domicile_lga", label: "LGA of Residence", docHint: "e.g. Utility Bill, LGA Identification" },
+  { key: "home_country_address", label: "Address in Home Country", docHint: "e.g. Home Country Utility Bill / Proof" },
+  { key: "passport_number", label: "Passport / Travel Document Number", docHint: "e.g. New Passport Data Page" },
+  { key: "passport_expiry", label: "Passport Expiry Date", docHint: "e.g. New Passport Data Page" },
+  { key: "emergency_contact_name", label: "Emergency Contact Name", docHint: "e.g. Identification of Next of Kin" },
+  { key: "emergency_contact_phone", label: "Emergency Contact Phone", docHint: "e.g. Contact Evidence" },
+];
 
 /** 7-Step Application Process */
 const STEPS = [
@@ -201,6 +218,13 @@ function Wizard() {
   const [queryResponseSuccess, setQueryResponseSuccess] = useState<string | null>(null);
   const [queryResponseError, setQueryResponseError] = useState<string | null>(null);
 
+  const [hasCod, setHasCod] = useState(false);
+  const [codChanges, setCodChanges] = useState<CodChangeItem[]>([]);
+  const [originalParticulars, setOriginalParticulars] = useState<Record<string, string>>({});
+  const [renewalSource, setRenewalSource] = useState<{ id: number; application_number: string; card_number?: string } | null>(null);
+  const [codFieldToAdd, setCodFieldToAdd] = useState("");
+  const [codUploadBusy, setCodUploadBusy] = useState<number | null>(null);
+
   const initialLoadedRef = useRef(false);
   const isUploadingPhotoRef = useRef(false);
   const uploadingDocsRef = useRef<Set<string>>(new Set());
@@ -260,11 +284,27 @@ function Wizard() {
           e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
         }
       }
+      if (n === 5 && hasCod) {
+        if (codChanges.length === 0) {
+          e.cod = "Please select at least one field to change and specify the correction, or cancel Change of Data.";
+        } else {
+          for (const c of codChanges) {
+            if (!c.requested_value || !c.requested_value.trim()) {
+              e.cod = `Please enter the requested new value for ${c.field_label || c.field}.`;
+              break;
+            }
+            if (!c.reason || !c.reason.trim()) {
+              e.cod = `Please enter the reason for change for ${c.field_label || c.field}.`;
+              break;
+            }
+          }
+        }
+      }
       if (n === 5 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
       if (n === 6 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, localPhotoPreview, documents, paid, data.declaration, resolvedCategory],
+    [photo, localPhotoPreview, documents, paid, data.declaration, resolvedCategory, hasCod, codChanges],
   );
 
   // Errors shown: fields are validated on blur or step submit; in-progress typing is not prematurely flagged red.
@@ -282,7 +322,7 @@ function Wizard() {
       if (message && focusedField !== field) shown[field] = message;
     }
     for (const [field, message] of Object.entries(stepError)) {
-      if (message && (!data[field] || ["photo", "documents", "declaration", "payment_reference"].includes(field))) {
+      if (message && (!data[field] || ["photo", "documents", "declaration", "payment_reference", "cod"].includes(field))) {
         if (focusedField !== field || !data[field]) {
           shown[field] = message;
         }
@@ -291,7 +331,7 @@ function Wizard() {
     return shown;
   }, [touched, data, serverErrors, stepError, focusedField]);
 
-  const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration"].some((f) => errors[f] && FIELD_STEP[f] === step);
+  const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration", "cod"].some((f) => errors[f] && FIELD_STEP[f] === step);
 
   const saveDraft = useCallback(
     async (nextStep: number, patch: Record<string, string> = {}) => {
@@ -306,13 +346,76 @@ function Wizard() {
         return null;
       }
       const activeCat = patch.category || resolvedCategory;
-      const body = { type, current_step: nextStep, data: { ...data, category: activeCat, type, ...patch } };
+      const body = {
+        type,
+        current_step: nextStep,
+        data: {
+          ...data,
+          category: activeCat,
+          type,
+          has_cod: hasCod ? "1" : "0",
+          cod_changes: JSON.stringify(codChanges),
+          renewal_source_application_id: renewalSource?.id ? String(renewalSource.id) : (data.renewal_source_application_id || ""),
+          ...patch,
+        },
+      };
       const result = await api<{ draft: Draft }>("applicant", "draft", { method: "PUT", json: body });
       setDocuments(result.draft.documents);
       return result.draft;
     },
-    [type, data, resolvedCategory, queriedApp],
+    [type, data, resolvedCategory, queriedApp, hasCod, codChanges, renewalSource],
   );
+
+  async function uploadCodDocument(index: number, file: File) {
+    if (file.size > MAX_BYTES) {
+      alert(`File size is ${kb(file.size)}. Please upload a file smaller than 2 MB.`);
+      return;
+    }
+    setCodUploadBusy(index);
+    try {
+      const result = await upload<{ draft: Draft; uploaded_document?: { id: number; url: string } }>(
+        "applicant",
+        "draft/documents",
+        { type: "additional", file }
+      );
+      setDocuments(result.draft.documents);
+      const uploadedDoc = result.draft.documents.find((d) => d.original_name === file.name)
+        || result.draft.documents[result.draft.documents.length - 1];
+      setCodChanges((prev) => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          document_name: file.name,
+          document_id: uploadedDoc?.id,
+        };
+        return next;
+      });
+      setNotice({ tone: "success", text: `Uploaded supporting document for ${codChanges[index]?.field_label || "Change of Data"} successfully.` });
+    } catch (err) {
+      alert((err as Error).message || "Failed to upload document.");
+    } finally {
+      setCodUploadBusy(null);
+    }
+  }
+
+  function addCodField() {
+    if (!codFieldToAdd) return;
+    const spec = COD_AVAILABLE_FIELDS.find((f) => f.key === codFieldToAdd);
+    if (!spec) return;
+    const orig = originalParticulars[codFieldToAdd] || data[codFieldToAdd] || "";
+    setCodChanges((prev) => [
+      ...prev,
+      {
+        field: spec.key,
+        field_label: spec.label,
+        original_value: orig,
+        requested_value: "",
+        reason: "",
+        document_name: "",
+      },
+    ]);
+    setCodFieldToAdd("");
+  }
 
   // Load draft (or pre-fill from the profile) and handle the Paystack return.
   useEffect(() => {
@@ -416,6 +519,41 @@ function Wizard() {
           forenames: isDependantFlow ? "" : me.forenames,
         };
 
+        const activeType = ((params.get("type") ?? type) || "NEW").toUpperCase() as AppType;
+        if (["NEW", "RENEWAL", "REPLACE"].includes(activeType)) {
+          setType(activeType);
+        }
+
+        // Automatically fetch previous particulars for Renewal applications
+        if (activeType === "RENEWAL") {
+          const depQuery = isDependantFlow
+            ? `?principal=${encodeURIComponent(params.get("principal") || "")}&for=${encodeURIComponent(relationship)}`
+            : "";
+          const renewalRes = await api<{
+            found: boolean;
+            source_application_id?: number;
+            source_application_number?: string;
+            renewal_card_number?: string;
+            particulars?: Record<string, string>;
+          }>("applicant", `renewal-source${depQuery}`).catch(() => null);
+
+          if (renewalRes?.found && renewalRes.particulars) {
+            restored = { ...restored, ...renewalRes.particulars };
+            setOriginalParticulars(renewalRes.particulars);
+            if (renewalRes.source_application_id) {
+              restored.renewal_source_application_id = String(renewalRes.source_application_id);
+              setRenewalSource({
+                id: renewalRes.source_application_id,
+                application_number: renewalRes.source_application_number || "",
+                card_number: renewalRes.renewal_card_number,
+              });
+            }
+            if (renewalRes.renewal_card_number && !restored.renewal_card_number) {
+              restored.renewal_card_number = renewalRes.renewal_card_number;
+            }
+          }
+        }
+
         if (isDependantFlow) {
           restored.principal_application_id = params.get("principal") as string;
           restored.dependant_relationship = relationship;
@@ -427,6 +565,22 @@ function Wizard() {
           if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
           if (draft && shouldResumeDraft) {
             restored = { ...restored, ...draft.data };
+            if (draft.data.has_cod === "1" || draft.data.has_cod === "true") {
+              setHasCod(true);
+            }
+            if (draft.data.cod_changes) {
+              try {
+                const parsed = JSON.parse(draft.data.cod_changes);
+                if (Array.isArray(parsed)) setCodChanges(parsed);
+              } catch (_) {}
+            }
+            if (draft.data.renewal_source_application_id) {
+              setRenewalSource({
+                id: Number(draft.data.renewal_source_application_id),
+                application_number: draft.data.renewal_source_application_number || "",
+                card_number: draft.data.renewal_card_number,
+              });
+            }
             if (!restored.category || !["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(restored.category.toUpperCase())) {
               if (draft.documents.some((d) => d.type === "admission_letter")) {
                 restored.category = "STUDENT";
@@ -1058,7 +1212,15 @@ function Wizard() {
     try {
       const { data: application } = await api<{ data: Application }>("applicant", "applications", {
         method: "POST",
-        json: { ...data, category: resolvedCategory, type, declaration: true },
+        json: {
+          ...data,
+          category: resolvedCategory,
+          type,
+          has_cod: hasCod,
+          cod_changes: hasCod ? codChanges : [],
+          renewal_source_application_id: renewalSource?.id || (data.renewal_source_application_id ? Number(data.renewal_source_application_id) : undefined),
+          declaration: true,
+        },
       });
       router.push(`/portal/applications/${application.id}?submitted=1`);
     } catch (e) {
@@ -1348,9 +1510,231 @@ function Wizard() {
       {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
 
       <Panel title={t(STEPS[step - 1])}>
+        {/* Renewal & Change of Data (COD) Header Card */}
+        {type === "RENEWAL" && [1, 2, 3].includes(step) && (
+          <div className="mb-6 rounded-2xl border border-nis-primary/30 bg-gradient-to-br from-nis-mint/30 via-white to-slate-50 p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-nis-primary/10 px-3 py-1 text-xs font-bold text-nis-primary">
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                    </svg>
+                    {t("Residence card renewal")}
+                  </span>
+                  {hasCod ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900 border border-amber-200">
+                      ⚡ {t("Change of Data (COD) Mode Active")}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      🔒 {t("Protected Personal Information")}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {hasCod
+                    ? t("An administrative fee of ₦15,000 applies to Change of Data requests in addition to the standard renewal fee.")
+                    : t("Your previously recorded information has been pre-populated from your approved record and is protected against direct editing.")}
+                </p>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                {!hasCod ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setHasCod(true)}
+                    className="!border-nis-primary !text-nis-primary hover:!bg-nis-primary/10 flex items-center gap-1.5 font-bold text-xs sm:text-sm shadow-xs"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    {t("Change of Data")}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      if (confirm(t("Cancel Change of Data? All requested field modifications and justifications will be discarded."))) {
+                        setHasCod(false);
+                        setCodChanges([]);
+                      }
+                    }}
+                    className="!text-red-700 hover:!bg-red-50 text-xs sm:text-sm font-semibold"
+                  >
+                    ✕ {t("Cancel Change of Data")}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Controlled COD Section when active */}
+            {hasCod && (
+              <div className="rounded-xl border border-amber-200 bg-white p-4 sm:p-5 shadow-xs space-y-5">
+                <div className="border-b border-amber-100 pb-3">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>{t("Change of Data (COD) Request")}</span>
+                    <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">+₦15,000</span>
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {t("Select specific fields you need to update. For each field, specify the new information, explain the reason, and attach the required supporting document.")}
+                  </p>
+                </div>
+
+                {/* List of active changes */}
+                {codChanges.length > 0 ? (
+                  <div className="space-y-4">
+                    {codChanges.map((change, idx) => {
+                      const spec = COD_AVAILABLE_FIELDS.find((f) => f.key === change.field);
+                      return (
+                        <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 relative">
+                          <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                              #{idx + 1} · {t(change.field_label || change.field)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCodChanges((prev) => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="text-xs font-semibold text-red-600 hover:text-red-800 hover:underline"
+                            >
+                              {t("Remove change")}
+                            </button>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label="Existing Information" hint="Recorded on official file">
+                              <Input
+                                value={change.original_value || "—"}
+                                readOnly
+                                disabled
+                                className="!bg-slate-100 !text-slate-600 font-mono text-xs sm:text-sm"
+                              />
+                            </Field>
+
+                            <Field label="Requested New Information" required hint="Enter corrected information">
+                              <Input
+                                value={change.requested_value}
+                                placeholder={t("Enter new value…")}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCodChanges((prev) => {
+                                    const next = [...prev];
+                                    next[idx] = { ...next[idx], requested_value: val };
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </Field>
+                          </div>
+
+                          <Field label="Reason for Change" required hint="Explain why this change is required">
+                            <Textarea
+                              rows={2}
+                              value={change.reason}
+                              placeholder={t("e.g. Change of marital status, relocation, renewal of passport…")}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setCodChanges((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], reason: val };
+                                  return next;
+                                });
+                              }}
+                            />
+                          </Field>
+
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                              {t("Supporting Documents")} <span className="text-red-500">*</span>
+                            </label>
+                            {spec?.docHint && (
+                              <p className="text-xs text-slate-500 mb-2">{spec.docHint}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-3">
+                              <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition">
+                                <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                <span>{codUploadBusy === idx ? t("Uploading…") : t("Upload supporting document")}</span>
+                                <input
+                                  type="file"
+                                  className="sr-only"
+                                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                  disabled={codUploadBusy === idx}
+                                  onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                      uploadCodDocument(idx, e.target.files[0]);
+                                    }
+                                  }}
+                                />
+                              </label>
+
+                              {change.document_name ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-800">
+                                  ✓ {change.document_name}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-amber-700 italic">
+                                  {t("No document attached yet")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-6 text-center">
+                    <p className="text-sm font-medium text-slate-700">
+                      {t("No fields selected for modification yet.")}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {t("Select a field below to start adding your change requests.")}
+                    </p>
+                  </div>
+                )}
+
+                {/* Add Field Form */}
+                <div className="pt-2 border-t border-slate-200/80">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="w-full sm:w-72">
+                      <Field label="Select field to change">
+                        <Select
+                          value={codFieldToAdd}
+                          onChange={(e) => setCodFieldToAdd(e.target.value)}
+                        >
+                          <option value="">{t("Select field to change…")}</option>
+                          {COD_AVAILABLE_FIELDS.filter((f) => !codChanges.some((c) => c.field === f.key)).map((f) => (
+                            <option key={f.key} value={f.key}>
+                              {t(f.label)}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={!codFieldToAdd}
+                      onClick={addCodField}
+                      className="text-xs sm:text-sm font-semibold"
+                    >
+                      + {t("Add another change")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Step 1: General Information */}
         {step === 1 && (
-          <GeneralInfoFields {...props} feeNaira={fee} />
+          <GeneralInfoFields {...props} feeNaira={fee} readOnly={type === "RENEWAL"} />
         )}
 
         {/* Step 2: Personal details */}
@@ -1381,15 +1765,15 @@ function Wizard() {
             {type !== "NEW" && (
               <Field label={type === "REPLACE" ? "Number of the lost or stolen card" : "Residence card number being renewed"} required error={errors.renewal_card_number}
                 hint={type === "REPLACE" ? "The card must first be reported lost or stolen under “My cards”." : undefined}>
-                <Input value={data.renewal_card_number ?? ""} inputMode="numeric" maxLength={12} onChange={(e) => set("renewal_card_number", e.target.value.replace(/\D/g, ""))} onBlur={() => touch("renewal_card_number")} />
+                <Input value={data.renewal_card_number ?? ""} inputMode="numeric" maxLength={12} onChange={(e) => set("renewal_card_number", e.target.value.replace(/\D/g, ""))} onBlur={() => touch("renewal_card_number")} readOnly={type === "RENEWAL" && Boolean(renewalSource?.card_number)} />
               </Field>
             )}
-            <PersonalFields {...props} lockContact />
+            <PersonalFields {...props} lockContact readOnly={type === "RENEWAL"} />
           </div>
         )}
 
         {/* Step 3: Residence & contacts */}
-        {step === 3 && <ContactFields {...props} />}
+        {step === 3 && <ContactFields {...props} readOnly={type === "RENEWAL"} />}
 
         {/* Step 4: Documents */}
         {step === 4 && (
@@ -1652,7 +2036,7 @@ function Wizard() {
                   items={[
                     ...(type !== "NEW" ? [[type === "REPLACE" ? "Card being replaced" : "Card being renewed", data.renewal_card_number] as [string, string | undefined]] : []),
                     ...(data.dependant_relationship ? [["Applying for", `Your ${data.dependant_relationship === "CHILD" ? "child" : "spouse"}`] as [string, string | undefined]] : []),
-                    ["Surname", data.surname], ["Other names", data.forenames], ["Nationality", data.nationality], ["Sex", data.sex],
+                    ["Surname", data.surname], ["Other names", data.forenames], ["Nationality", data.nationality], ["Gender", data.sex],
                     ["Date of birth", nisDate(data.date_of_birth)], ["Place of birth", data.place_of_birth], ["Profession", data.profession],
                     ["Phone number", data.phone], ["E-mail address", data.email],
                     ["Blood group", data.blood_group || "UNKNOWN"], ["Height", data.height], ["Complexion", data.complexion],
@@ -1713,10 +2097,43 @@ function Wizard() {
               </ul>
             </ReviewSection>
 
+            {hasCod && codChanges.length > 0 && (
+              <ReviewSection title="Change of Data (COD) Request" onEdit={() => goTo(1)}>
+                <div className="space-y-4">
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 font-medium">
+                    {t("The following corrections have been requested and will be reviewed during vetting and approval.")}
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {codChanges.map((change, idx) => (
+                      <div key={idx} className="py-3 text-xs sm:text-sm space-y-1">
+                        <div className="font-semibold text-slate-800">{t(change.field_label || change.field)}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
+                          <div><span className="font-medium text-slate-500">{t("Existing Information")}:</span> {change.original_value || "—"}</div>
+                          <div><span className="font-medium text-nis-primary">{t("Requested New Information")}:</span> <strong className="text-slate-900 font-mono">{change.requested_value}</strong></div>
+                        </div>
+                        <div className="text-slate-600"><span className="font-medium text-slate-500">{t("Reason for Change")}:</span> {change.reason}</div>
+                        {change.document_name && (
+                          <div className="text-slate-600"><span className="font-medium text-slate-500">{t("Supporting Documents")}:</span> {change.document_name}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </ReviewSection>
+            )}
+
             <ReviewSection title="Residence card fee" onEdit={() => goTo(6)}>
               <ReviewGrid
                 items={[
-                  ["Amount", fee !== null ? naira(fee) : "—"],
+                  ...(hasCod
+                    ? [
+                        ["Normal Application Fee", fee !== null ? naira(fee) : "—"] as [string, string],
+                        ["Change of Data Administrative Fee", naira(15000)] as [string, string],
+                        ["Total Amount Payable", fee !== null ? naira(fee + 15000) : "—"] as [string, string],
+                      ]
+                    : [
+                        ["Amount", fee !== null ? naira(fee) : "—"] as [string, string],
+                      ]),
                   ["Payment reference", data.payment_reference ?? "Created when you pay (next step)"],
                   ["Payment status", paid ? "PAID — confirmed by Paystack" : "Not paid yet: you pay in the next step"],
                 ]}
@@ -1757,10 +2174,18 @@ function Wizard() {
         {/* Step 6: Fee payment */}
         {step === 6 && (
           <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
-              <Summary label="Payment reference" value={data.payment_reference ?? t("Created when you pay")} />
-            </div>
+            {hasCod ? (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Summary label={t("Normal Application Fee")} value={fee !== null ? naira(fee) : "…"} />
+                <Summary label={t("Change of Data Fee")} value={naira(15000)} />
+                <Summary label={t("Total Amount Payable")} value={fee !== null ? naira(fee + 15000) : "…"} />
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Summary label={t("Residence card fee")} value={fee !== null ? naira(fee) : "…"} />
+                <Summary label={t("Payment reference")} value={data.payment_reference ?? t("Created when you pay")} />
+              </div>
+            )}
             {paid ? (
               <div className="space-y-3">
                 <Alert tone="success">{t("Payment confirmed by Paystack. Your payment has been verified.")}</Alert>
@@ -1817,7 +2242,7 @@ function Wizard() {
             <AppointmentPicker {...props} />
             <div className="grid gap-4 sm:grid-cols-3">
               <Summary label="Declaration" value={data.declaration === "1" ? "Accepted" : "Not accepted"} />
-              <Summary label="Residence card fee" value={fee !== null ? naira(fee) : "…"} />
+              <Summary label="Residence card fee" value={fee !== null ? (hasCod ? naira(fee + 15000) : naira(fee)) : "…"} />
               <Summary label="Payment reference" value={paid ? data.payment_reference ?? "—" : "Not paid"} />
             </div>
             <p className="text-sm text-slate-600">{t("Choose your appointment, then click Submit application.")}</p>

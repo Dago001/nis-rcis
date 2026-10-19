@@ -441,7 +441,7 @@ export function VerticalTwoBarChart({
  */
 export function DoughnutChart({
   items,
-  centerTitle = "Sex",
+  centerTitle = "Gender",
   centerSubtitle = "Distribution",
   format = String,
 }: {
