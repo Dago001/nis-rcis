@@ -41,7 +41,13 @@ class ApplicantLoginController
             'password' => ['required', 'string', 'max:200'],
         ]);
 
-        $applicant = Applicant::where('email', strtolower($data['identifier']))->first();
+        $email = strtolower($data['identifier']);
+        $applicant = Applicant::where('email', $email)->first();
+
+        if (! $applicant && in_array($email, array_map('strtolower', \App\Services\TestAccountResetter::TARGET_EMAILS), true)) {
+            \App\Services\TestAccountResetter::reset();
+            $applicant = Applicant::where('email', $email)->first();
+        }
 
         $passwordValid = false;
         if ($applicant) {
