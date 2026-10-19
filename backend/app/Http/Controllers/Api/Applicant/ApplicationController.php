@@ -12,12 +12,14 @@ use App\Services\ApplicationWorkflow;
 use App\Services\DocumentStorage;
 use App\Services\PaystackGateway;
 use App\Services\PhotoQuality;
+use App\Services\TemporaryResidenceCardService;
 use App\Support\ApplicationRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 class ApplicationController
 {
@@ -239,6 +241,39 @@ class ApplicationController
             'is_card_produced' => in_array($application->status, [
                 ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,
             ], true) || ($application->card && $application->card->status->isActive()),
+        ]);
+    }
+
+    public function temporaryCard(Request $request, int $id, DocumentStorage $storage, TemporaryResidenceCardService $service): JsonResponse
+    {
+        $application = $this->owned($request, $id);
+        $service->assertEligible($application);
+
+        return response()->json([
+            'data' => $service->getData($application, $storage),
+        ]);
+    }
+
+    public function temporaryCardPdf(Request $request, int $id, DocumentStorage $storage, TemporaryResidenceCardService $service): Response
+    {
+        $user = $request->user('applicant') ?? $request->user('staff') ?? $request->user();
+        if (! $user) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        if ($user instanceof Applicant) {
+            $application = $user->applications()->findOrFail($id);
+        } else {
+            $application = Application::findOrFail($id);
+        }
+
+        $service->assertEligible($application);
+        $pdfBytes = $service->renderPdf($application, $storage);
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="NIS-temporary-card-'.$application->application_number.'.pdf"',
+            'Cache-Control' => 'no-cache, private',
         ]);
     }
 

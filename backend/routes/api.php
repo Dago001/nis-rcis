@@ -105,6 +105,8 @@ Route::prefix('v1')->group(function () {
         Route::get('applications/{id}', [ApplicantApplications::class, 'show'])->whereNumber('id');
         Route::match(['put', 'patch'], 'applications/{id}', [ApplicantApplications::class, 'update'])->whereNumber('id');
         Route::get('applications/{id}/slip', [ApplicantApplications::class, 'slip'])->whereNumber('id');
+        Route::get('applications/{id}/temporary-card', [ApplicantApplications::class, 'temporaryCard'])->whereNumber('id');
+        Route::get('applications/{id}/temporary-card/pdf', [ApplicantApplications::class, 'temporaryCardPdf'])->whereNumber('id');
         Route::post('applications/{id}/documents', [ApplicantApplications::class, 'uploadDocument'])->whereNumber('id');
         Route::get('applications/{id}/documents/{document}', [ApplicantApplications::class, 'document'])->whereNumber(['id', 'document']);
         Route::post('applications/{id}/respond', [ApplicantApplications::class, 'respondToQuery'])->whereNumber('id');
@@ -167,6 +169,8 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::get('applications/{id}/slip', [StaffApplications::class, 'slip'])->whereNumber('id');
+        Route::get('applications/{id}/temporary-card', [StaffApplications::class, 'temporaryCard'])->whereNumber('id');
+        Route::get('applications/{id}/temporary-card/pdf', [StaffApplications::class, 'temporaryCardPdf'])->whereNumber('id');
 
         Route::post('applications/{id}/decision', [StaffApplications::class, 'decide'])
             ->middleware('role:VettingOfficer,ApprovingOfficer,SuperAdmin,Admin')->whereNumber('id');

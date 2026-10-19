@@ -104,6 +104,16 @@ Route::middleware('web')->group(function () {
         ->whereNumber('id')
         ->name('portal.applications.slip');
 
+    Route::get('/portal/applications/{id}/temporary-card', fn ($id) => Inertia::render('Portal/TemporaryCard', ['id' => $id]))
+        ->middleware('auth:applicant,staff')
+        ->whereNumber('id')
+        ->name('portal.applications.temporary-card');
+
+    Route::get('/portal/applications/{id}/temporary-card/pdf', [\App\Http\Controllers\Api\Applicant\ApplicationController::class, 'temporaryCardPdf'])
+        ->middleware('auth:applicant,staff')
+        ->whereNumber('id')
+        ->name('portal.applications.temporary-card.pdf');
+
     // ---------------------------------------------- Applicant Portal (Inertia)
     Route::middleware('auth:applicant')->prefix('portal')->name('portal.')->group(function () {
         Route::get('/', fn () => Inertia::render('Portal/Dashboard'))->name('dashboard');
@@ -119,6 +129,10 @@ Route::middleware('web')->group(function () {
     Route::get('/api/bff/applicant/payment-records/{reference}/receipt', [\App\Http\Controllers\Api\Applicant\PaymentRecordsController::class, 'receipt'])
         ->where('reference', '[A-Za-z0-9-]{6,64}')
         ->middleware('auth:applicant');
+
+    Route::get('/api/bff/applicant/applications/{id}/temporary-card/pdf', [\App\Http\Controllers\Api\Applicant\ApplicationController::class, 'temporaryCardPdf'])
+        ->whereNumber('id')
+        ->middleware('auth:applicant,staff');
 
     Route::middleware('auth:staff')->group(function () {
         Route::get('/api/bff/staff/reports/export', [\App\Http\Controllers\Api\Staff\ReportController::class, 'export']);

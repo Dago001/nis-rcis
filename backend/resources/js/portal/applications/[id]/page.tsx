@@ -77,38 +77,102 @@ function ApplicationDetail() {
   if (error && !app) return <Alert tone="danger">{error}</Alert>;
   if (!app) return <Spinner />;
 
+  const { t } = useI18n();
   const appointmentReady = ["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
+  const temporaryCardReady = Boolean(app.biometrics_captured_at) || ["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
   const queryEntry = [...(app.history ?? [])].reverse().find((h) => h.to === "QUERIED");
 
   return (
     <div className="space-y-6">
       <PageTitle
-        eyebrow="Applicant console"
-        title={<>Application {app.application_number}</>}
-        subtitle={<>Reference {app.reference_number} · {applicationType(app, true)}</>}
+        eyebrow={t("Applicant console")}
+        title={<>{t("Application")} {app.application_number}</>}
+        subtitle={<>{t("Reference")} {app.reference_number} · {applicationType(app, true)}</>}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href={`/portal/applications/${app.id}/slip`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold">Application slip</Link>
+            <Link href={`/portal/applications/${app.id}/slip`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold">{t("Application slip")}</Link>
             {appointmentReady && (
-              <Link href={`/portal/applications/${app.id}/slip?kind=appointment`} className="rounded-lg bg-nis-green px-3 py-2 text-sm font-semibold text-white">Appointment slip</Link>
+              <Link href={`/portal/applications/${app.id}/slip?kind=appointment`} className="rounded-lg bg-nis-green px-3 py-2 text-sm font-semibold text-white">{t("Appointment slip")}</Link>
+            )}
+            {temporaryCardReady && (
+              <Link
+                href={`/portal/applications/${app.id}/temporary-card`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 shadow-xs hover:bg-emerald-100 transition"
+              >
+                <svg className="w-4 h-4 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                </svg>
+                {t("Temporary Residence Card")}
+              </Link>
             )}
           </div>
         }
       />
 
-      {submitted && <Alert tone="success">Your application has been submitted. We have e-mailed you a confirmation.</Alert>}
+      {submitted && <Alert tone="success">{t("Your application has been submitted. We have e-mailed you a confirmation.")}</Alert>}
       {respondSuccess && <Alert tone="success">{respondSuccess}</Alert>}
 
       <FamilyPanel app={app} />
 
-      <Panel title={<>Status <StatusBadge status={app.status} label={app.status_label} /></>}>
+      <Panel title={<>{t("Status")} <StatusBadge status={app.status} label={app.status_label} /></>}>
         <div className="space-y-5">
           <Tracker step={app.tracker_step} status={app.status} />
           {app.status === "APPROVED_FOR_BIOMETRICS" && (
             <Alert tone="success">
-              Attend biometrics capture on <strong>{nisDate(app.appointment_date)}</strong> at <strong>{app.appointment_time}</strong>,{" "}
-              {app.enrollment_center?.name}. Bring your original passport and your printed appointment slip.
+              {t("Attend biometrics capture on")} <strong>{nisDate(app.appointment_date)}</strong> {t("at")} <strong>{app.appointment_time}</strong>,{" "}
+              {app.enrollment_center?.name}. {t("Bring your original passport and your printed appointment slip.")}
             </Alert>
+          )}
+          {app.status === "BIOMETRICS_CAPTURED" && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs font-bold">✓</span>
+                  <span className="text-sm font-bold text-emerald-900">
+                    {t("Biometrics Successfully Completed")}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
+                  {t("Awaiting Card Production")}
+                </span>
+              </div>
+              <p className="text-xs text-slate-700">
+                {t("Your physical biometrics have been captured and verified. While your permanent ECOWAS Residence Card is in production, you can access, download and print your Temporary Residence Card below.")}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Link
+                  href={`/portal/applications/${app.id}/temporary-card`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  {t("View Temporary Card")}
+                </Link>
+                <a
+                  href={`/portal/applications/${app.id}/temporary-card/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={`NIS-temporary-card-${app.application_number}.pdf`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  {t("Download PDF")}
+                </a>
+                <Link
+                  href={`/portal/applications/${app.id}/temporary-card`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  {t("Print Temporary Card")}
+                </Link>
+              </div>
+            </div>
           )}
           {app.status === "READY_FOR_COLLECTION" && (
             <Alert tone="success">

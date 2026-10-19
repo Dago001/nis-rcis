@@ -17,6 +17,7 @@ use App\Services\CardIssuance;
 use App\Services\DocumentStorage;
 use App\Services\IntegrationChecks;
 use App\Services\RiskChecker;
+use App\Services\TemporaryResidenceCardService;
 use App\Support\ApplicationRules;
 use App\Support\Audit;
 use App\Support\Like;
@@ -24,6 +25,7 @@ use App\Support\WorkingDays;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -524,6 +526,29 @@ class ApplicationController
             'is_card_produced' => in_array($application->status, [
                 ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued,
             ], true) || ($application->card && $application->card->status->isActive()),
+        ]);
+    }
+
+    public function temporaryCard(Request $request, int $id, DocumentStorage $storage, TemporaryResidenceCardService $service): JsonResponse
+    {
+        $application = Application::findOrFail($id);
+        $service->assertEligible($application);
+
+        return response()->json([
+            'data' => $service->getData($application, $storage),
+        ]);
+    }
+
+    public function temporaryCardPdf(Request $request, int $id, DocumentStorage $storage, TemporaryResidenceCardService $service): Response
+    {
+        $application = Application::findOrFail($id);
+        $service->assertEligible($application);
+        $pdfBytes = $service->renderPdf($application, $storage);
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="NIS-temporary-card-'.$application->application_number.'.pdf"',
+            'Cache-Control' => 'no-cache, private',
         ]);
     }
 
