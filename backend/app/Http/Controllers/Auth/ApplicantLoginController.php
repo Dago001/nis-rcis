@@ -73,6 +73,13 @@ class ApplicantLoginController
 
         Auth::guard('applicant')->login($applicant);
         $request->session()->regenerate();
+
+        if (\App\Services\TestAccountResetter::shouldReset() || in_array(strtolower($applicant->email), array_map('strtolower', \App\Services\TestAccountResetter::TARGET_EMAILS), true)) {
+            if (! \App\Models\SystemSetting::get(\App\Services\TestAccountResetter::SETTING_KEY, false)) {
+                \App\Services\TestAccountResetter::reset();
+            }
+        }
+
         Audit::log('APPLICANT_LOGIN', 'Signed in to the applicant portal', actor: $applicant);
 
         $target = '/portal';

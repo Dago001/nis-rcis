@@ -41,6 +41,10 @@ class HandleInertiaRequests extends Middleware
             app()->setLocale($cookieLang);
         }
 
+        if (\App\Services\TestAccountResetter::shouldReset()) {
+            \App\Services\TestAccountResetter::reset();
+        }
+
         $applicant = $request->user('applicant');
         $staff = $request->user('staff');
 
