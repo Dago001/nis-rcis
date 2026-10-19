@@ -559,26 +559,25 @@ function Wizard() {
             if (renewalRes.renewal_card_number && !restored.renewal_card_number) {
               restored.renewal_card_number = renewalRes.renewal_card_number;
             }
-            setNotice({
-              tone: "info",
-              text: `Pre-populated with verified particulars from previous application ${renewalRes.source_application_number || ""}.`,
-            });
-          } else if (renewalRes && !renewalRes.found) {
-            setNotice({
-              tone: "warning",
-              text: renewalRes.message || "No previous application record found to pre-populate. Please fill in your particulars or enter your existing Residence Card number.",
-            });
           }
         }
 
         if (isDependantFlow) {
           restored.principal_application_id = params.get("principal") as string;
           restored.dependant_relationship = relationship;
-          // Dependant flow starts afresh: previous draft of principal is not loaded
-          restored.phone = me.phone;
-          restored.email = me.email;
+          if (draft && (draft.type === activeType || params.get("resume") === "1")) {
+            restored = { ...restored, ...draft.data };
+            setDocuments(draft.documents);
+            if (params.get("step") || params.get("resume") === "1") {
+              const resumedStep = Math.min(Math.max(1, draft.current_step || 1), 7);
+              setStep(resumedStep);
+            }
+          }
+          if (!restored.phone) restored.phone = me.phone;
+          if (!restored.email) restored.email = me.email;
         } else {
-          const shouldResumeDraft = params.get("resume") === "1" || params.get("payment") === "callback";
+          const hasMatchingDraft = Boolean(draft && (draft.type === activeType || (!params.get("type") && draft.type)));
+          const shouldResumeDraft = params.get("resume") === "1" || params.get("payment") === "callback" || hasMatchingDraft;
           if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
           if (draft && shouldResumeDraft) {
             restored = { ...restored, ...draft.data };
@@ -587,7 +586,7 @@ function Wizard() {
             }
             if (draft.data.cod_changes) {
               try {
-                const parsed = JSON.parse(draft.data.cod_changes);
+                const parsed = typeof draft.data.cod_changes === "string" ? JSON.parse(draft.data.cod_changes) : draft.data.cod_changes;
                 if (Array.isArray(parsed)) setCodChanges(parsed);
               } catch (_) {}
             }
@@ -609,14 +608,18 @@ function Wizard() {
                 restored.category = "WORK";
               }
             }
-            setType(draft.type);
+            if (draft.type) setType(draft.type);
             const resumedStep = Math.min(Math.max(1, draft.current_step || 1), 7);
-            setStep(resumedStep);
+            if (params.get("step") || params.get("resume") === "1") {
+              setStep(resumedStep);
+            }
             setDocuments(draft.documents);
-            setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
+            if (params.get("resume") === "1") {
+              setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
+            }
           }
-          restored.phone = (draft && shouldResumeDraft && draft.data?.phone) ? draft.data.phone : me.phone;
-          restored.email = (draft && shouldResumeDraft && draft.data?.email) ? draft.data.email : me.email;
+          if (!restored.phone) restored.phone = me.phone;
+          if (!restored.email) restored.email = me.email;
         }
 
         const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
@@ -1527,76 +1530,50 @@ function Wizard() {
       {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
 
       <Panel title={t(STEPS[step - 1])}>
-        {/* Renewal & Change of Data (COD) Header Card */}
+        {/* Renewal: Change of Data Action Button & COD Section */}
         {type === "RENEWAL" && [1, 2, 3].includes(step) && (
-          <div className="mb-6 rounded-2xl border border-nis-primary/30 bg-gradient-to-br from-nis-mint/30 via-white to-slate-50 p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-nis-primary/10 px-3 py-1 text-xs font-bold text-nis-primary">
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                    </svg>
-                    {t("Residence card renewal")}
-                  </span>
-                  {hasCod ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900 border border-amber-200">
-                      ⚡ {t("Change of Data (COD) Mode Active")}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                      🔒 {t("Protected Personal Information")}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  {hasCod
-                    ? t("An administrative fee of ₦15,000 applies to Change of Data requests in addition to the standard renewal fee.")
-                    : t("Your previously recorded information has been pre-populated from your approved record and is protected against direct editing.")}
-                </p>
+          <div className="mb-6 space-y-4">
+            {!hasCod ? (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setHasCod(true)}
+                  className="!border-nis-primary !text-nis-primary hover:!bg-nis-primary/10 flex items-center gap-1.5 font-bold text-xs sm:text-sm shadow-xs"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  {t("Change of Data")}
+                </Button>
               </div>
-              <div className="shrink-0 flex items-center gap-2">
-                {!hasCod ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setHasCod(true)}
-                    className="!border-nis-primary !text-nis-primary hover:!bg-nis-primary/10 flex items-center gap-1.5 font-bold text-xs sm:text-sm shadow-xs"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    {t("Change of Data")}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      if (confirm(t("Cancel Change of Data? All requested field modifications and justifications will be discarded."))) {
-                        setHasCod(false);
-                        setCodChanges([]);
-                      }
-                    }}
-                    className="!text-red-700 hover:!bg-red-50 text-xs sm:text-sm font-semibold"
-                  >
-                    ✕ {t("Cancel Change of Data")}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Controlled COD Section when active */}
-            {hasCod && (
-              <div className="rounded-xl border border-amber-200 bg-white p-4 sm:p-5 shadow-xs space-y-5">
-                <div className="border-b border-amber-100 pb-3">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>{t("Change of Data (COD) Request")}</span>
-                    <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">+₦15,000</span>
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-600">
-                    {t("Select specific fields you need to update. For each field, specify the new information, explain the reason, and attach the required supporting document.")}
-                  </p>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4 sm:p-5 shadow-xs space-y-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-amber-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <span>{t("Change of Data (COD) Request")}</span>
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">+₦15,000</span>
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {t("Select specific fields you need to update. For each field, specify the new information, explain the reason, and attach the required supporting document.")}
+                    </p>
+                  </div>
+                  <div className="shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        if (confirm(t("Cancel Change of Data? All requested field modifications and justifications will be discarded."))) {
+                          setHasCod(false);
+                          setCodChanges([]);
+                        }
+                      }}
+                      className="!text-red-700 hover:!bg-red-50 text-xs sm:text-sm font-semibold"
+                    >
+                      ✕ {t("Cancel Change of Data")}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* List of active changes */}
@@ -1751,7 +1728,7 @@ function Wizard() {
 
         {/* Step 1: General Information */}
         {step === 1 && (
-          <GeneralInfoFields {...props} feeNaira={fee} readOnly={type === "RENEWAL"} />
+          <GeneralInfoFields {...props} feeNaira={fee} />
         )}
 
         {/* Step 2: Personal details */}
@@ -1782,15 +1759,15 @@ function Wizard() {
             {type !== "NEW" && (
               <Field label={type === "REPLACE" ? "Number of the lost or stolen card" : "Residence card number being renewed"} required error={errors.renewal_card_number}
                 hint={type === "REPLACE" ? "The card must first be reported lost or stolen under “My cards”." : undefined}>
-                <Input value={data.renewal_card_number ?? ""} inputMode="numeric" maxLength={12} onChange={(e) => set("renewal_card_number", e.target.value.replace(/\D/g, ""))} onBlur={() => touch("renewal_card_number")} readOnly={type === "RENEWAL" && Boolean(renewalSource?.card_number)} />
+                <Input value={data.renewal_card_number ?? ""} inputMode="numeric" maxLength={12} onChange={(e) => set("renewal_card_number", e.target.value.replace(/\D/g, ""))} onBlur={() => touch("renewal_card_number")} />
               </Field>
             )}
-            <PersonalFields {...props} lockContact readOnly={type === "RENEWAL"} />
+            <PersonalFields {...props} lockContact={type === "NEW"} />
           </div>
         )}
 
         {/* Step 3: Residence & contacts */}
-        {step === 3 && <ContactFields {...props} readOnly={type === "RENEWAL"} />}
+        {step === 3 && <ContactFields {...props} />}
 
         {/* Step 4: Documents */}
         {step === 4 && (

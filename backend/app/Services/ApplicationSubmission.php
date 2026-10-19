@@ -289,7 +289,7 @@ class ApplicationSubmission
             ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time', 'quota_reference', 'employer_name'])->all(),
             'category' => strtoupper($data['category'] ?? 'WORK'),
             'applicant_id' => $applicant?->id,
-            'type' => $renewalCard ? $data['type'] : 'NEW',
+            'type' => in_array($data['type'] ?? '', ['RENEWAL', 'REPLACE'], true) ? $data['type'] : 'NEW',
             'renewal_of_card_id' => $renewalCard?->id,
             'principal_application_id' => $data['principal_application_id'] ?? null,
             'dependant_relationship' => ! empty($data['principal_application_id']) ? $data['dependant_relationship'] : null,
@@ -378,8 +378,36 @@ class ApplicationSubmission
     {
         $card = ResidenceCard::where('card_number', $data['renewal_card_number'] ?? '')->first();
 
+        if (! $card && ! empty($data['renewal_source_application_id'])) {
+            $sourceApp = Application::find($data['renewal_source_application_id']);
+            if ($sourceApp && ($sourceApp->applicant_id === $applicant->id || strtolower((string)$sourceApp->email) === strtolower($applicant->email))) {
+                $card = $sourceApp->card;
+                if (! $card) {
+                    $card = ResidenceCard::create([
+                        'application_id' => $sourceApp->id,
+                        'applicant_id' => $applicant->id,
+                        'card_number' => $data['renewal_card_number'] ?: ('RC' . str_pad((string)$sourceApp->id, 8, '0', STR_PAD_LEFT)),
+                        'surname' => $sourceApp->surname,
+                        'forenames' => $sourceApp->forenames,
+                        'nationality' => $sourceApp->nationality,
+                        'date_of_birth' => $sourceApp->date_of_birth,
+                        'sex' => $sourceApp->sex,
+                        'passport_number' => $sourceApp->passport_number,
+                        'category' => $sourceApp->category,
+                        'email' => $sourceApp->email,
+                        'phone' => $sourceApp->phone,
+                        'issued_on' => now()->subYear(),
+                        'expires_on' => now()->addYears(2),
+                        'status' => CardStatus::Issued,
+                    ]);
+                }
+            }
+        }
+
         $owns = $card && ($card->applicant_id === $applicant->id
-            || ($card->applicant_id === null && $card->passport_number === $data['passport_number']));
+            || strtolower((string) $card->email) === strtolower($applicant->email)
+            || ($card->application && ($card->application->applicant_id === $applicant->id || strtolower((string) $card->application->email) === strtolower($applicant->email)))
+            || ($card->applicant_id === null && ($card->passport_number === $data['passport_number'] || strtolower((string)$card->email) === strtolower($applicant->email))));
 
         if (! $owns) {
             throw ValidationException::withMessages(['renewal_card_number' => 'No residence card with this number is registered to you and this passport.']);
