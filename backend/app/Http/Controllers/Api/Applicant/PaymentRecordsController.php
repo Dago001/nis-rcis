@@ -46,24 +46,45 @@ class PaymentRecordsController
     public function receipt(Request $request, string $reference): Response
     {
         $applicant = $this->applicant($request);
-        $payment = Payment::with('application')->where('reference', $reference)->where('applicant_id', $applicant->id)
-            ->whereIn('status', ['SUCCESS', 'REFUNDED'])->firstOrFail();
+        $payment = Payment::with(['application.enrollmentCenter'])
+            ->where('reference', $reference)
+            ->where('applicant_id', $applicant->id)
+            ->whereIn('status', ['SUCCESS', 'REFUNDED'])
+            ->firstOrFail();
 
-        $options = new Options;
-        $options->setChroot(public_path());
-        $options->setIsRemoteEnabled(false);
-        $pdf = new Dompdf($options);
-        $pdf->loadHtml(view('pdf.receipt', [
-            'payment' => $payment, 'applicant' => $applicant, 'application' => $payment->application,
-            'receipt' => PaystackGateway::receipt($payment), 'logo' => public_path('images/nis-logo.png'),
-        ])->render());
-        $pdf->setPaper('A4');
-        $pdf->render();
+        $logoPath = public_path('images/nis-logo.png');
+        $logoData = file_exists($logoPath)
+            ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($logoPath))
+            : '';
 
-        return response($pdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="NIS-receipt-'.$payment->reference.'.pdf"',
-        ]);
+        $html = view('pdf.receipt', [
+            'payment' => $payment,
+            'applicant' => $applicant,
+            'application' => $payment->application,
+            'receipt' => PaystackGateway::receipt($payment),
+            'logo' => $logoData,
+        ])->render();
+
+        try {
+            $options = new Options;
+            $options->setChroot(public_path());
+            $options->setIsRemoteEnabled(true);
+            $pdf = new Dompdf($options);
+            $pdf->loadHtml($html);
+            $pdf->setPaper('A4');
+            $pdf->render();
+
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="NIS-receipt-'.$payment->reference.'.pdf"',
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('DOMPDF receipt rendering fallback: '.$e->getMessage());
+
+            return response($html, 200, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+            ]);
+        }
     }
 
     public function requestRefund(Request $request, RefundService $refunds): JsonResponse

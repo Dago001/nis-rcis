@@ -51,7 +51,7 @@ class ApplicationSubmission
                 $category = 'BUSINESS';
             } elseif ($documents->contains('type', DocumentType::AppointmentLetter)) {
                 $category = 'WORK';
-            } elseif ($documents->contains('type', DocumentType::ReligiousInvitation) || $documents->contains('type', DocumentType::ReligiousAssignment)) {
+            } elseif ($documents->contains('type', DocumentType::ReligiousInvitation) || $documents->contains('type', DocumentType::ReligiousRegistration)) {
                 $category = 'RELIGIOUS';
             } else {
                 $category = 'WORK';
@@ -68,8 +68,7 @@ class ApplicationSubmission
             $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'RELIGIOUS') {
             $requiredTypes[] = DocumentType::ReligiousInvitation;
-            $requiredTypes[] = DocumentType::ReligiousAssignment;
-            $requiredTypes[] = DocumentType::ReligiousActivitiesDetails;
+            $requiredTypes[] = DocumentType::ReligiousRegistration;
         }
 
         $missing = collect($requiredTypes)
@@ -159,8 +158,12 @@ class ApplicationSubmission
 
         // Validate particulars
         $rules = ApplicationRules::particulars();
-        if (! empty($data['principal_application_id']) && ($data['dependant_relationship'] ?? '') === 'CHILD') {
-            $rules['date_of_birth'] = ['required', 'date', 'before:today', 'after:1900-01-01'];
+        if (! empty($data['principal_application_id'])) {
+            if (($data['dependant_relationship'] ?? '') === 'CHILD') {
+                $rules['date_of_birth'] = ['required', 'date', 'before:today', 'after:1900-01-01'];
+            }
+            $rules['phone'] = ['nullable', 'string', 'max:20', 'regex:'.ApplicationRules::PHONE];
+            $rules['email'] = ['nullable', 'email', 'max:255'];
         }
 
         $validator = Validator::make($data, [
@@ -177,6 +180,10 @@ class ApplicationSubmission
             throw new ValidationException($validator);
         }
 
+        $principal = ! empty($data['principal_application_id']) ? $this->principal($applicant, $data) : null;
+        $renewalCard = in_array($data['type'], ['RENEWAL', 'REPLACE'], true) ? $this->claimRenewalCard($applicant, $data) : null;
+        $this->assertNoOpenApplication($applicant, $data['passport_number'], $principal !== null, $renewalCard);
+
         // Validate required documents
         $documents = $draft->documents ?? collect();
         $category = strtoupper($data['category'] ?? '');
@@ -190,7 +197,7 @@ class ApplicationSubmission
                 $category = 'BUSINESS';
             } elseif ($documents->contains('type', DocumentType::AppointmentLetter)) {
                 $category = 'WORK';
-            } elseif ($documents->contains('type', DocumentType::ReligiousInvitation) || $documents->contains('type', DocumentType::ReligiousAssignment)) {
+            } elseif ($documents->contains('type', DocumentType::ReligiousInvitation) || $documents->contains('type', DocumentType::ReligiousRegistration)) {
                 $category = 'RELIGIOUS';
             } else {
                 $category = 'WORK';
@@ -206,8 +213,7 @@ class ApplicationSubmission
             $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'RELIGIOUS') {
             $requiredTypes[] = DocumentType::ReligiousInvitation;
-            $requiredTypes[] = DocumentType::ReligiousAssignment;
-            $requiredTypes[] = DocumentType::ReligiousActivitiesDetails;
+            $requiredTypes[] = DocumentType::ReligiousRegistration;
         }
 
         $missing = collect($requiredTypes)

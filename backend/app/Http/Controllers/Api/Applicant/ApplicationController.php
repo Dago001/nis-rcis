@@ -58,7 +58,7 @@ class ApplicationController
                     $draftCat = 'BUSINESS';
                 } elseif ($draft?->documents->contains('type', DocumentType::AppointmentLetter)) {
                     $draftCat = 'WORK';
-                } elseif ($draft?->documents->contains('type', DocumentType::ReligiousInvitation) || $draft?->documents->contains('type', DocumentType::ReligiousAssignment)) {
+                } elseif ($draft?->documents->contains('type', DocumentType::ReligiousInvitation) || $draft?->documents->contains('type', DocumentType::ReligiousRegistration)) {
                     $draftCat = 'RELIGIOUS';
                 } else {
                     $draftCat = 'WORK';
@@ -74,8 +74,15 @@ class ApplicationController
             $rules['date_of_birth'] = ['required', 'date', 'before:today', 'after:1900-01-01'];
         }
 
+        $extraValidation = [];
+        if ($request->filled('principal_application_id')) {
+            $extraValidation['phone'] = ['nullable', 'string', 'regex:/^\+?[0-9\s\-]{8,20}$/'];
+            $extraValidation['email'] = ['nullable', 'string', 'email', 'max:255'];
+        }
+
         $data = $request->validate([
             ...$rules,
+            ...$extraValidation,
             ...ApplicationRules::quota(),
             ...ApplicationRules::appointment(),
             'category' => ['required', Rule::in(['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'])],
@@ -87,11 +94,13 @@ class ApplicationController
             'declaration' => ['accepted'],
         ]);
 
-        // Phone and e-mail always come from the registered account; they cannot
-        // be changed in the application form (and accounts created before the
-        // stricter phone format must still be able to apply).
-        $data['phone'] = $applicant->phone;
-        $data['email'] = $applicant->email;
+        if ($request->filled('principal_application_id')) {
+            $data['phone'] = $request->filled('phone') ? (string) $request->input('phone') : $applicant->phone;
+            $data['email'] = $request->filled('email') ? (string) $request->input('email') : $applicant->email;
+        } else {
+            $data['phone'] = $applicant->phone;
+            $data['email'] = $applicant->email;
+        }
 
         $application = $submission->submitOnline($applicant, $data);
 

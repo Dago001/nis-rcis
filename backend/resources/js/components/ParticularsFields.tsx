@@ -275,7 +275,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
                 : data.category === "BUSINESS"
                 ? "Required Document: CAC Business Registration Certificate"
                 : data.category === "RELIGIOUS"
-                ? "Required Documents: Host Invitation & Religious Assignment Letters"
+                ? "Required Documents: Host Invitation & Host Organization Registration"
                 : "Required Document: Employment Appointment Letter"}
             </div>
             <p className="mt-0.5 text-xs text-slate-600">
@@ -284,7 +284,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
                 : data.category === "BUSINESS"
                 ? "Applicants under the Business category must upload a valid CAC business registration certificate / documents before proceeding."
                 : data.category === "RELIGIOUS"
-                ? "Applicants under the Religious Activities category must upload an official invitation letter from the host religious organization and a letter of religious assignment or sponsorship before proceeding."
+                ? "Applicants under the Religious Activities category must upload an official invitation letter from the host religious organization and evidence of host organization registration or recognition before proceeding."
                 : "Applicants under the Work category must upload a valid employment appointment letter before proceeding."}
             </p>
           </div>
@@ -305,8 +305,10 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
 /** Wizard step 2 — personal particulars. */
 export function PersonalFields(props: Props & { lockContact?: boolean }) {
   const { data, errors, set, touch, focus, lockContact } = props;
-  const maxBirthDate = new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
   const isDependant = Boolean(data.dependant_relationship || data.principal_application_id);
+  const isChild = isDependant && data.dependant_relationship === "CHILD";
+  const today = new Date().toISOString().slice(0, 10);
+  const maxBirthDate = isChild ? today : new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().slice(0, 10);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -359,8 +361,10 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
       {text(props, "hair_color", "Colour of hair", { letters: true, upper: true, maxLength: 50 })}
       <div className="sm:col-span-2">{text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}</div>
 
-      <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">Your contact details</h3>
-      {lockContact ? (
+      <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">
+        {isDependant ? "Applicant Contact Details" : "Your contact details"}
+      </h3>
+      {lockContact && !isDependant ? (
         <>
           <Field label="Phone number" hint="From your account registration; it cannot be changed here.">
             <Input value={data.phone ?? ""} readOnly disabled className="bg-slate-100" />
@@ -378,7 +382,12 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
               touch?.("phone");
             }}
           >
-            <Field label="Phone number" required error={errors.phone}>
+            <Field
+              label="Phone number"
+              required
+              error={errors.phone}
+              hint={isDependant ? "Pre-populated with guardian contact. Editable for dependent if desired." : undefined}
+            >
               <PhoneInput
                 value={data.phone ?? ""}
                 onChange={(v) => {
@@ -387,7 +396,12 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
               />
             </Field>
           </div>
-          {text(props, "email", "E-mail address", { required: true, type: "email", maxLength: 255 })}
+          {text(props, "email", "E-mail address", {
+            required: true,
+            type: "email",
+            maxLength: 255,
+            hint: isDependant ? "Pre-populated with guardian contact. Editable for dependent if desired." : undefined,
+          })}
         </>
       )}
     </div>

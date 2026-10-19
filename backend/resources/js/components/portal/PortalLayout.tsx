@@ -14,7 +14,6 @@ export function PortalLayout({ children }: { children: ReactNode }) {
         portal="applicant"
         links={[
           { href: "/portal", label: t("My applications") },
-          { href: "/portal/cart", label: t("My Cart") },
           { href: "/portal/payments", label: t("Payment") },
           { href: "/portal/cards", label: t("My cards") },
         ]}

@@ -41,7 +41,7 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
   if (!["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(cat)) {
     if (docs?.some((d) => d.type === "admission_letter")) cat = "STUDENT";
     else if (docs?.some((d) => d.type === "cac_certificate")) cat = "BUSINESS";
-    else if (docs?.some((d) => d.type === "religious_invitation" || d.type === "religious_sponsorship")) cat = "RELIGIOUS";
+    else if (docs?.some((d) => d.type === "religious_invitation" || d.type === "religious_registration")) cat = "RELIGIOUS";
     else cat = "WORK";
   }
 
@@ -81,30 +81,9 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
         kinds: "JPG, JPEG, PNG or PDF",
       },
       {
-        type: "religious_sponsorship",
-        label: "Letter of Religious Assignment or Sponsorship",
-        required: true,
-        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-        kinds: "JPG, JPEG, PNG or PDF",
-      },
-      {
-        type: "religious_activities_details",
-        label: "Details of Intended Religious Activities",
-        required: true,
-        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-        kinds: "JPG, JPEG, PNG or PDF",
-      },
-      {
         type: "religious_registration",
         label: "Evidence of Host Organization Registration or Recognition",
-        required: false,
-        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-        kinds: "JPG, JPEG, PNG or PDF",
-      },
-      {
-        type: "religious_affiliation",
-        label: "Evidence of Applicant's Religious Role or Affiliation",
-        required: false,
+        required: true,
         accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
         kinds: "JPG, JPEG, PNG or PDF",
       }
@@ -241,7 +220,7 @@ function Wizard() {
     if (["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(raw)) return raw;
     if (documents.some((x) => x.type === "admission_letter")) return "STUDENT";
     if (documents.some((x) => x.type === "cac_certificate")) return "BUSINESS";
-    if (documents.some((x) => x.type === "religious_invitation" || x.type === "religious_sponsorship")) return "RELIGIOUS";
+    if (documents.some((x) => x.type === "religious_invitation" || x.type === "religious_registration")) return "RELIGIOUS";
     return "WORK";
   }, [data.category, documents]);
 
@@ -249,17 +228,22 @@ function Wizard() {
 
   /** Fields validated on each step. */
   const stepFields = useCallback(
-    (n: number) =>
-      n === 1
+    (n: number) => {
+      const isDep = Boolean(data.principal_application_id || data.dependant_relationship);
+      return n === 1
         ? GENERAL_FIELDS
         : n === 2
-        ? [...(type !== "NEW" ? ["renewal_card_number"] : []), ...PERSONAL_FIELDS.filter((f) => f !== "phone" && f !== "email" && f !== "nationality")]
+        ? [
+            ...(type !== "NEW" ? ["renewal_card_number"] : []),
+            ...PERSONAL_FIELDS.filter((f) => f !== "nationality" && (isDep ? true : (f !== "phone" && f !== "email"))),
+          ]
         : n === 3
         ? CONTACT_FIELDS
         : n === 7
         ? APPOINTMENT_FIELDS
-        : [],
-    [type],
+        : [];
+    },
+    [type, data.principal_application_id, data.dependant_relationship],
   );
 
   /** Errors that are not about a single form field (photo, documents, payment, declaration). */
@@ -443,11 +427,13 @@ function Wizard() {
           if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
           if (draft && shouldResumeDraft) {
             restored = { ...restored, ...draft.data };
-            if (!restored.category || !["WORK", "BUSINESS", "STUDENT"].includes(restored.category.toUpperCase())) {
+            if (!restored.category || !["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(restored.category.toUpperCase())) {
               if (draft.documents.some((d) => d.type === "admission_letter")) {
                 restored.category = "STUDENT";
               } else if (draft.documents.some((d) => d.type === "cac_certificate")) {
                 restored.category = "BUSINESS";
+              } else if (draft.documents.some((d) => d.type === "religious_invitation" || d.type === "religious_registration")) {
+                restored.category = "RELIGIOUS";
               } else {
                 restored.category = "WORK";
               }
@@ -458,8 +444,8 @@ function Wizard() {
             setDocuments(draft.documents);
             setNotice({ tone: "info", text: `Restored your application saved on ${new Date(draft.saved_at).toLocaleString("en-GB")}.` });
           }
-          restored.phone = me.phone;
-          restored.email = me.email;
+          restored.phone = (draft && shouldResumeDraft && draft.data?.phone) ? draft.data.phone : me.phone;
+          restored.email = (draft && shouldResumeDraft && draft.data?.email) ? draft.data.email : me.email;
         }
 
         const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;

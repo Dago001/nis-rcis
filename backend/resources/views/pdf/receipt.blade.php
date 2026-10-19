@@ -37,6 +37,9 @@
         <tr><td class="k">Payment mode</td><td>{{ $receipt['mode'] ?? '—' }}</td></tr>
         <tr><td class="k">Gateway reference</td><td>{{ $receipt['gateway_reference'] ?? '—' }}</td></tr>
         <tr><td class="k">Card</td><td>{{ $receipt['pan'] ?? '—' }}</td></tr>
+        @if($application && $application->enrollmentCenter)
+        <tr><td class="k">Enrollment Center</td><td>{{ $application->enrollmentCenter->name }} ({{ $application->enrollmentCenter->state }})</td></tr>
+        @endif
         <tr class="total"><td>Amount paid</td><td>NGN {{ number_format($payment->amount_kobo / 100, 2) }}</td></tr>
     </table>
     <p class="foot">This receipt was generated electronically on {{ now()->timezone(config('app.timezone'))->format('d/m/Y H:i') }} and is valid without a signature.<br>Verify at {{ config('nis.frontend_url') }} · Nigeria Immigration Service. All rights reserved.</p>

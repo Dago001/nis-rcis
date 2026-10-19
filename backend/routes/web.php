@@ -112,8 +112,13 @@ Route::middleware('web')->group(function () {
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Portal/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
         Route::get('/cards', fn () => Inertia::render('Portal/Cards'))->name('cards');
         Route::get('/payments', fn () => Inertia::render('Portal/Payments'))->name('payments');
+        Route::get('/payments/{reference}/receipt', [\App\Http\Controllers\Api\Applicant\PaymentRecordsController::class, 'receipt'])->where('reference', '[A-Za-z0-9-]{6,64}')->name('payments.receipt');
         Route::get('/notifications', fn () => Inertia::render('Portal/Notifications'))->name('notifications');
     });
+
+    Route::get('/api/bff/applicant/payment-records/{reference}/receipt', [\App\Http\Controllers\Api\Applicant\PaymentRecordsController::class, 'receipt'])
+        ->where('reference', '[A-Za-z0-9-]{6,64}')
+        ->middleware('auth:applicant');
 
     // ------------------------------------------------- Staff Console (Inertia)
     Route::middleware(['auth:staff', 'staff.active'])->prefix('staff')->name('staff.')->group(function () {
