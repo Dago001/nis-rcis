@@ -12,22 +12,11 @@ import { naira, nisDate } from "@/lib/format";
 import type { Application, CodChangeItem, EnrollmentCenter } from "@/lib/types";
 import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, GENERAL_FIELDS, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
 
-const COD_AVAILABLE_FIELDS: { key: string; label: string; docHint?: string }[] = [
-  { key: "surname", label: "Surname", docHint: "e.g. Marriage Certificate, Newspaper Publication, Deed Poll" },
-  { key: "forenames", label: "Other names", docHint: "e.g. Newspaper Publication, Court Affidavit" },
-  { key: "sex", label: "Gender", docHint: "e.g. Official Medical Report / Court Declaration" },
-  { key: "date_of_birth", label: "Date of birth", docHint: "e.g. Birth Certificate, NPC Attestation" },
-  { key: "place_of_birth", label: "Place of birth", docHint: "e.g. Birth Certificate, Declaration of Age" },
-  { key: "profession", label: "Profession / Occupation", docHint: "e.g. Employment Letter, Professional Certificate" },
-  { key: "domicile", label: "Residential Address in Nigeria", docHint: "e.g. Current Utility Bill, Tenancy Agreement" },
-  { key: "domicile_state", label: "State of Residence", docHint: "e.g. Utility Bill, State Residency Proof" },
-  { key: "domicile_lga", label: "LGA of Residence", docHint: "e.g. Utility Bill, LGA Identification" },
-  { key: "home_country_address", label: "Address in Home Country", docHint: "e.g. Home Country Utility Bill / Proof" },
-  { key: "passport_number", label: "Passport / Travel Document Number", docHint: "e.g. New Passport Data Page" },
-  { key: "passport_expiry", label: "Passport Expiry Date", docHint: "e.g. New Passport Data Page" },
-  { key: "emergency_contact_name", label: "Emergency Contact Name", docHint: "e.g. Identification of Next of Kin" },
-  { key: "emergency_contact_phone", label: "Emergency Contact Phone", docHint: "e.g. Contact Evidence" },
+const COD_AVAILABLE_OPTIONS: { key: string; label: string; docHint?: string }[] = [
+  { key: "name", label: "Change of Name", docHint: "e.g. Marriage Certificate, Newspaper Publication, Deed Poll, Court Affidavit" },
+  { key: "date_of_birth", label: "Change of Date of Birth", docHint: "e.g. National Population Commission (NPC) Birth Certificate, Age Declaration" },
 ];
+
 
 /** 7-Step Application Process */
 const STEPS = [
@@ -144,6 +133,7 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
 const FIELD_STEP: Record<string, number> = {
   type: 1, nationality: 1, category: 1, travel_document_type: 1,
   passport_number: 1, passport_issue_date: 1, passport_expiry: 1, national_id_number: 1, tax_id_number: 1,
+  cod: 1,
   ...Object.fromEntries(PERSONAL_FIELDS.filter((f) => f !== "nationality").map((f) => [f, 2])),
   blood_group: 2, renewal_card_number: 2, photo: 2, principal_application_id: 2, dependant_relationship: 2, phone: 2, email: 2,
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
@@ -297,14 +287,37 @@ function Wizard() {
               e.cod = `Please enter the reason for change for ${c.field_label || c.field}.`;
               break;
             }
+            if (!c.document_name || !c.document_name.trim()) {
+              e.cod = `Please upload a supporting document for ${c.field_label || c.field}.`;
+              break;
+            }
           }
+        }
+      }
+      if (type === "RENEWAL" && (n === 2 || n === 5) && (originalParticulars.surname || originalParticulars.forenames || originalParticulars.date_of_birth)) {
+        const origSurname = (originalParticulars.surname || "").trim();
+        const origForenames = (originalParticulars.forenames || "").trim();
+        const origDob = (originalParticulars.date_of_birth || "").trim();
+        const curSurname = (data.surname || "").trim();
+        const curForenames = (data.forenames || "").trim();
+        const curDob = (data.date_of_birth || "").trim();
+
+        const nameDiff = (origSurname && curSurname && origSurname.toLowerCase() !== curSurname.toLowerCase()) ||
+                         (origForenames && curForenames && origForenames.toLowerCase() !== curForenames.toLowerCase());
+        const dobDiff = (origDob && curDob && origDob !== curDob);
+
+        if ((nameDiff || dobDiff) && !hasCod) {
+          const diffs: string[] = [];
+          if (nameDiff) diffs.push("Name");
+          if (dobDiff) diffs.push("Date of Birth");
+          e.cod = `Modifications to ${diffs.join(" and ")} require Change of Data (COD). Please click "Change of Data", specify your reason, and attach supporting documentation.`;
         }
       }
       if (n === 5 && data.declaration !== "1") e.declaration = "You must accept the declaration before you pay.";
       if (n === 6 && !paid) e.payment_reference = "Pay the residence card fee before you continue.";
       return e;
     },
-    [photo, localPhotoPreview, documents, paid, data.declaration, resolvedCategory, hasCod, codChanges],
+    [photo, localPhotoPreview, documents, paid, data.declaration, data.surname, data.forenames, data.date_of_birth, resolvedCategory, hasCod, codChanges, type, originalParticulars],
   );
 
   // Errors shown: fields are validated on blur or step submit; in-progress typing is not prematurely flagged red.
@@ -333,6 +346,22 @@ function Wizard() {
 
   const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration", "cod"].some((f) => errors[f] && FIELD_STEP[f] === step);
 
+  const serializeCodChanges = useCallback((): CodChangeItem[] => {
+    if (!hasCod || !Array.isArray(codChanges)) return [];
+    return codChanges.map((c) => {
+      const isName = c.field === "name" || c.field === "surname" || c.field === "forenames";
+      return {
+        ...c,
+        field: isName ? "name" : c.field,
+        field_label: c.field_label || (isName ? "Change of Name" : "Change of Date of Birth"),
+        original_value: c.original_value || (isName ? `${originalParticulars.surname || ""} ${originalParticulars.forenames || ""}`.trim() : (originalParticulars.date_of_birth || "")),
+        requested_value: c.requested_value || (isName ? `${c.requested_surname || data.surname || ""} ${c.requested_forenames || data.forenames || ""}`.trim() : (data.date_of_birth || "")),
+        requested_surname: isName ? (c.requested_surname || data.surname || "") : undefined,
+        requested_forenames: isName ? (c.requested_forenames || data.forenames || "") : undefined,
+      };
+    });
+  }, [hasCod, codChanges, data, originalParticulars]);
+
   const saveDraft = useCallback(
     async (nextStep: number, patch: Record<string, string> = {}) => {
       if (queriedApp) {
@@ -354,7 +383,7 @@ function Wizard() {
           category: activeCat,
           type,
           has_cod: hasCod ? "1" : "0",
-          cod_changes: JSON.stringify(codChanges),
+          cod_changes: JSON.stringify(serializeCodChanges()),
           renewal_source_application_id: renewalSource?.id ? String(renewalSource.id) : (data.renewal_source_application_id || ""),
           ...patch,
         },
@@ -363,7 +392,7 @@ function Wizard() {
       setDocuments(result.draft.documents);
       return result.draft;
     },
-    [type, data, resolvedCategory, queriedApp, hasCod, codChanges, renewalSource],
+    [type, data, resolvedCategory, queriedApp, hasCod, serializeCodChanges, renewalSource],
   );
 
   async function uploadCodDocument(index: number, file: File) {
@@ -400,20 +429,37 @@ function Wizard() {
 
   function addCodField() {
     if (!codFieldToAdd) return;
-    const spec = COD_AVAILABLE_FIELDS.find((f) => f.key === codFieldToAdd);
+    const spec = COD_AVAILABLE_OPTIONS.find((f) => f.key === codFieldToAdd);
     if (!spec) return;
-    const orig = originalParticulars[codFieldToAdd] || data[codFieldToAdd] || "";
-    setCodChanges((prev) => [
-      ...prev,
-      {
-        field: spec.key,
-        field_label: spec.label,
-        original_value: orig,
-        requested_value: "",
-        reason: "",
-        document_name: "",
-      },
-    ]);
+    if (codFieldToAdd === "name") {
+      const orig = `${originalParticulars.surname || data.surname || ""} ${originalParticulars.forenames || data.forenames || ""}`.trim();
+      setCodChanges((prev) => [
+        ...prev.filter((c) => c.field !== "name" && c.field !== "surname" && c.field !== "forenames"),
+        {
+          field: "name",
+          field_label: "Change of Name",
+          original_value: orig,
+          requested_value: `${data.surname || ""} ${data.forenames || ""}`.trim(),
+          requested_surname: data.surname || "",
+          requested_forenames: data.forenames || "",
+          reason: "",
+          document_name: "",
+        },
+      ]);
+    } else if (codFieldToAdd === "date_of_birth") {
+      const orig = originalParticulars.date_of_birth || data.date_of_birth || "";
+      setCodChanges((prev) => [
+        ...prev.filter((c) => c.field !== "date_of_birth"),
+        {
+          field: "date_of_birth",
+          field_label: "Change of Date of Birth",
+          original_value: orig,
+          requested_value: data.date_of_birth || "",
+          reason: "",
+          document_name: "",
+        },
+      ]);
+    }
     setCodFieldToAdd("");
   }
 
@@ -580,7 +626,17 @@ function Wizard() {
           const shouldResumeDraft = params.get("resume") === "1" || params.get("payment") === "callback" || hasMatchingDraft;
           if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
           if (draft && shouldResumeDraft) {
-            restored = { ...restored, ...draft.data };
+            if (activeType === "RENEWAL") {
+              const mergedDraft: Record<string, string> = {};
+              for (const [k, v] of Object.entries(draft.data || {})) {
+                if (v !== undefined && v !== null && v !== "") {
+                  mergedDraft[k] = v;
+                }
+              }
+              restored = { ...restored, ...mergedDraft };
+            } else {
+              restored = { ...restored, ...draft.data };
+            }
             if (draft.data.has_cod === "1" || draft.data.has_cod === "true") {
               setHasCod(true);
             }
@@ -1237,7 +1293,7 @@ function Wizard() {
           category: resolvedCategory,
           type,
           has_cod: hasCod,
-          cod_changes: hasCod ? codChanges : [],
+          cod_changes: hasCod ? serializeCodChanges() : [],
           renewal_source_application_id: renewalSource?.id || (data.renewal_source_application_id ? Number(data.renewal_source_application_id) : undefined),
           declaration: true,
         },
@@ -1528,6 +1584,7 @@ function Wizard() {
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
       {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
+      {errors.cod && <Alert tone="danger">{t(errors.cod)}</Alert>}
 
       <Panel title={t(STEPS[step - 1])}>
         {/* Renewal: Change of Data Action Button & COD Section */}
@@ -1548,30 +1605,35 @@ function Wizard() {
                 </Button>
               </div>
             ) : (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4 sm:p-5 shadow-xs space-y-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-amber-100 pb-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 shadow-xs space-y-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                       <span>{t("Change of Data (COD) Request")}</span>
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">+₦15,000</span>
+                      <span className="rounded-md bg-nis-mint/80 border border-nis-primary/20 px-2.5 py-0.5 text-xs font-semibold text-nis-primary-dark">
+                        +₦15,000 ({t("Administrative Fee")})
+                      </span>
                     </h3>
                     <p className="mt-1 text-xs text-slate-600">
-                      {t("Select specific fields you need to update. For each field, specify the new information, explain the reason, and attach the required supporting document.")}
+                      {t("Change of Data applies only to corrections of Name (Surname and Other Names) and Date of Birth. All other information may be updated directly on the form without an administrative charge.")}
                     </p>
                   </div>
                   <div className="shrink-0">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="secondary"
                       onClick={() => {
                         if (confirm(t("Cancel Change of Data? All requested field modifications and justifications will be discarded."))) {
                           setHasCod(false);
                           setCodChanges([]);
+                          if (originalParticulars.surname) set("surname", originalParticulars.surname);
+                          if (originalParticulars.forenames) set("forenames", originalParticulars.forenames);
+                          if (originalParticulars.date_of_birth) set("date_of_birth", originalParticulars.date_of_birth);
                         }
                       }}
-                      className="!text-red-700 hover:!bg-red-50 text-xs sm:text-sm font-semibold"
+                      className="!border !border-slate-300 !bg-white hover:!bg-slate-50 !text-slate-700 text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-lg shadow-xs transition"
                     >
-                      ✕ {t("Cancel Change of Data")}
+                      {t("Cancel Change of Data")}
                     </Button>
                   </div>
                 </div>
@@ -1580,17 +1642,24 @@ function Wizard() {
                 {(Array.isArray(codChanges) ? codChanges : []).length > 0 ? (
                   <div className="space-y-4">
                     {(Array.isArray(codChanges) ? codChanges : []).map((change, idx) => {
-                      const spec = COD_AVAILABLE_FIELDS.find((f) => f.key === change.field);
+                      const isNameChange = change.field === "name" || change.field === "surname" || change.field === "forenames";
+                      const spec = COD_AVAILABLE_OPTIONS.find((f) => f.key === (isNameChange ? "name" : "date_of_birth"));
                       return (
-                        <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 relative">
+                        <div key={idx} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 relative shadow-xs">
                           <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                              #{idx + 1} · {t(change.field_label || change.field || "")}
+                              #{idx + 1} · {t(isNameChange ? "Change of Name" : "Change of Date of Birth")}
                             </span>
                             <button
                               type="button"
                               onClick={() => {
                                 setCodChanges((prev) => prev.filter((_, i) => i !== idx));
+                                if (isNameChange) {
+                                  if (originalParticulars.surname) set("surname", originalParticulars.surname);
+                                  if (originalParticulars.forenames) set("forenames", originalParticulars.forenames);
+                                } else {
+                                  if (originalParticulars.date_of_birth) set("date_of_birth", originalParticulars.date_of_birth);
+                                }
                               }}
                               className="text-xs font-semibold text-red-600 hover:text-red-800 hover:underline"
                             >
@@ -1598,37 +1667,101 @@ function Wizard() {
                             </button>
                           </div>
 
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <Field label="Existing Information" hint="Recorded on official file">
-                              <Input
-                                value={change.original_value || "—"}
-                                readOnly
-                                disabled
-                                className="!bg-slate-100 !text-slate-600 font-mono text-xs sm:text-sm"
-                              />
-                            </Field>
+                          {isNameChange ? (
+                            <div className="space-y-3">
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label={t("Existing Surname")} hint={t("Recorded on official file")}>
+                                  <Input
+                                    value={originalParticulars.surname || data.surname || "—"}
+                                    readOnly
+                                    disabled
+                                    className="!bg-slate-100 !text-slate-600 font-mono text-xs sm:text-sm"
+                                  />
+                                </Field>
+                                <Field label={t("Proposed New Surname")} required hint={t("Enter corrected surname")}>
+                                  <Input
+                                    value={change.requested_surname || data.surname || ""}
+                                    placeholder={t("Enter new surname…")}
+                                    onChange={(e) => {
+                                      const val = e.target.value.toUpperCase();
+                                      set("surname", val);
+                                      setCodChanges((prev) => {
+                                        const next = [...prev];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          requested_surname: val,
+                                          requested_value: `${val} ${next[idx].requested_forenames || data.forenames || ""}`.trim(),
+                                        };
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </Field>
+                              </div>
 
-                            <Field label="Requested New Information" required hint="Enter corrected information">
-                              <Input
-                                value={change.requested_value}
-                                placeholder={t("Enter new value…")}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setCodChanges((prev) => {
-                                    const next = [...prev];
-                                    next[idx] = { ...next[idx], requested_value: val };
-                                    return next;
-                                  });
-                                }}
-                              />
-                            </Field>
-                          </div>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label={t("Existing Other Names")} hint={t("Recorded on official file")}>
+                                  <Input
+                                    value={originalParticulars.forenames || data.forenames || "—"}
+                                    readOnly
+                                    disabled
+                                    className="!bg-slate-100 !text-slate-600 font-mono text-xs sm:text-sm"
+                                  />
+                                </Field>
+                                <Field label={t("Proposed New Other Names")} required hint={t("Enter corrected other names")}>
+                                  <Input
+                                    value={change.requested_forenames || data.forenames || ""}
+                                    placeholder={t("Enter new other names…")}
+                                    onChange={(e) => {
+                                      const val = e.target.value.toUpperCase();
+                                      set("forenames", val);
+                                      setCodChanges((prev) => {
+                                        const next = [...prev];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          requested_forenames: val,
+                                          requested_value: `${next[idx].requested_surname || data.surname || ""} ${val}`.trim(),
+                                        };
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </Field>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <Field label={t("Existing Date of Birth")} hint={t("Recorded on official file")}>
+                                <Input
+                                  value={originalParticulars.date_of_birth || data.date_of_birth || "—"}
+                                  readOnly
+                                  disabled
+                                  className="!bg-slate-100 !text-slate-600 font-mono text-xs sm:text-sm"
+                                />
+                              </Field>
+                              <Field label={t("Proposed New Date of Birth")} required hint={t("Enter corrected date of birth")}>
+                                <Input
+                                  type="date"
+                                  value={data.date_of_birth || change.requested_value || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    set("date_of_birth", val);
+                                    setCodChanges((prev) => {
+                                      const next = [...prev];
+                                      next[idx] = { ...next[idx], requested_value: val };
+                                      return next;
+                                    });
+                                  }}
+                                />
+                              </Field>
+                            </div>
+                          )}
 
-                          <Field label="Reason for Change" required hint="Explain why this change is required">
+                          <Field label={t("Reason for Change")} required hint={t("Explain why this change is required")}>
                             <Textarea
                               rows={2}
                               value={change.reason}
-                              placeholder={t("e.g. Change of marital status, relocation, renewal of passport…")}
+                              placeholder={isNameChange ? t("e.g. Change of marital status, legal deed poll, correction of spelling error…") : t("e.g. Correction of birth records, official NPC documentation…")}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 setCodChanges((prev) => {
@@ -1650,7 +1783,7 @@ function Wizard() {
                             <div className="flex flex-wrap items-center gap-3">
                               <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition">
                                 <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
                                 <span>{codUploadBusy === idx ? t("Uploading…") : t("Upload supporting document")}</span>
                                 <input
@@ -1671,7 +1804,7 @@ function Wizard() {
                                   ✓ {change.document_name}
                                 </span>
                               ) : (
-                                <span className="text-xs text-amber-700 italic">
+                                <span className="text-xs text-slate-500 italic">
                                   {t("No document attached yet")}
                                 </span>
                               )}
@@ -1682,12 +1815,12 @@ function Wizard() {
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-6 text-center">
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center">
                     <p className="text-sm font-medium text-slate-700">
                       {t("No fields selected for modification yet.")}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
-                      {t("Select a field below to start adding your change requests.")}
+                      {t("Select Change of Name or Change of Date of Birth below to add your change request.")}
                     </p>
                   </div>
                 )}
@@ -1696,13 +1829,13 @@ function Wizard() {
                 <div className="pt-2 border-t border-slate-200/80">
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="w-full sm:w-72">
-                      <Field label="Select field to change">
+                      <Field label={t("Select field to change")}>
                         <Select
                           value={codFieldToAdd}
                           onChange={(e) => setCodFieldToAdd(e.target.value)}
                         >
                           <option value="">{t("Select field to change…")}</option>
-                          {COD_AVAILABLE_FIELDS.filter((f) => !(Array.isArray(codChanges) ? codChanges : []).some((c) => c.field === f.key)).map((f) => (
+                          {COD_AVAILABLE_OPTIONS.filter((f) => !(Array.isArray(codChanges) ? codChanges : []).some((c) => (c.field === f.key || (f.key === "name" && (c.field === "surname" || c.field === "forenames"))))).map((f) => (
                             <option key={f.key} value={f.key}>
                               {t(f.label)}
                             </option>

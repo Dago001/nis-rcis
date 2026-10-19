@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BarList, ChartCard, ColumnChart, compact, DataTable, DoughnutChart, Legend, LineChart, Meter, SERIES, SplitBar, VerticalTwoBarChart } from "@/components/charts";
+import { BarList, ChartCard, DataTable, DoughnutChart, Legend, LineChart, SERIES, VerticalTwoBarChart } from "@/components/charts";
 import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Alert, Panel, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { useI18n } from "@/components/I18nProvider";
-import { naira } from "@/lib/format";
+
+type RecentActivityItem = {
+  id: number;
+  application_number: string;
+  type: string;
+  to_status: string;
+  status_label: string;
+  officer_name: string;
+  created_at: string;
+};
 
 type Analytics = {
   monthly: { month: string; submitted: number; issued: number; revenue_naira: number }[];
@@ -28,6 +37,7 @@ type Analytics = {
   nationalities: { label: string; total: number }[];
   mix: { type: Record<string, number>; channel: Record<string, number>; sex: Record<string, number> };
   appointments: { date: string; total: number }[];
+  recent_activity?: RecentActivityItem[];
 };
 
 type Summary = {
@@ -43,49 +53,23 @@ type Summary = {
   sla: { target_working_days: number; overdue: number; assigned_to_me: number };
   card_stock: { remaining: number; low: boolean };
   queue_today: Record<string, number>;
-  my_activity: {
-    decided: number;
-    captured: number;
-    cards_approved: number;
-    assisted_created?: number;
-    cards_printed?: number;
-    cards_collected?: number;
-  };
   analytics: Analytics;
 };
-
-const PIPELINE: [string, string][] = [
-  ["PENDING_APPROVAL", "Pending approval"],
-  ["QUERIED", "Queried"],
-  ["APPROVED_FOR_BIOMETRICS", "Approved for biometrics"],
-  ["BIOMETRICS_CAPTURED", "In production"],
-  ["READY_FOR_COLLECTION", "Ready for collection"],
-  ["ISSUED", "Collected"],
-  ["REJECTED", "Rejected"],
-];
 
 const monthLabel = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short" });
 const monthLong = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-function Tile({ label, value, href, tone = "slate" }: { label: string; value: number; href?: string; tone?: "slate" | "amber" | "red" | "green" }) {
-  const tones = { slate: "text-slate-900", amber: "text-nis-orange", red: "text-nis-red", green: "text-nis-primary" };
-  const body = (
-    <div className="h-full rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-nis-primary/40 hover:shadow-md">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 text-xl font-medium ${tones[tone]}`}>{value}</div>
+function StatCard({ label, value, note, href }: { label: string; value: string | number; note?: string; href?: string }) {
+  const content = (
+    <div className="h-full rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div>
+        <div className="text-[11px] sm:text-xs font-normal tracking-wide text-slate-500 uppercase">{label}</div>
+        <div className="mt-1.5 text-2xl sm:text-3xl font-medium text-slate-900 tracking-tight">{value}</div>
+      </div>
+      {note && <div className="mt-2 text-xs text-slate-500 font-normal leading-snug">{note}</div>}
     </div>
   );
-  return href ? <Link href={href}>{body}</Link> : body;
-}
-
-function Kpi({ label, value, note }: { label: string; value: string; note?: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 text-3xl font-medium text-slate-900">{value}</div>
-      {note && <div className="mt-1 text-xs text-slate-500">{note}</div>}
-    </div>
-  );
+  return href ? <Link href={href} className="block h-full">{content}</Link> : content;
 }
 
 export default function StaffDashboard() {
@@ -130,99 +114,155 @@ export default function StaffDashboard() {
     revenue_this_month_naira: 0,
     payments: 0,
   };
-  const delta = (totals.applications_this_month ?? 0) - (totals.applications_last_month ?? 0);
+
   const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
-  const pipeline = PIPELINE.map(([key, label]) => ({ label, value: s.queue?.[key] ?? 0, href: `/staff/applications?status=${key}` }));
+
+  const processingStages = [
+    { label: t("Awaiting Vetting"), value: s.queue?.PENDING_APPROVAL ?? 0, href: "/staff/applications?status=PENDING_APPROVAL" },
+    { label: t("Queried"), value: s.queue?.QUERIED ?? 0, href: "/staff/applications?status=QUERIED" },
+    { label: t("Awaiting Approval"), value: s.queue?.VETTED ?? 0, href: "/staff/approvals" },
+    { label: t("Approved & Awaiting Biometrics"), value: s.queue?.APPROVED_FOR_BIOMETRICS ?? 0, href: "/staff/applications?status=APPROVED_FOR_BIOMETRICS" },
+    { label: t("Biometrics Completed"), value: s.queue?.BIOMETRICS_CAPTURED ?? 0, href: "/staff/applications?status=BIOMETRICS_CAPTURED" },
+    { label: t("Awaiting Card Production"), value: s.cards?.APPROVED ?? 0, href: "/staff/cards?status=APPROVED" },
+    { label: t("Awaiting Card Issuance"), value: s.queue?.READY_FOR_COLLECTION ?? 0, href: "/staff/card-issuance?stage=awaiting_collection" },
+    { label: t("Total Cards Issued"), value: totals.cards_issued ?? 0, href: "/staff/reports" },
+  ];
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Dashboard" subtitle={`${user.command} · ${user.role_label}`} />
+      <PageTitle title={t("Dashboard")} subtitle={`${user.command} · ${user.role_label}`} />
 
-      {/* Headline figures */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
-          label={t("Applications this month")}
-          value={String(totals.applications_this_month ?? 0)}
-          note={
-            <>
-              <span className={delta > 0 ? "text-nis-primary" : delta < 0 ? "text-nis-red" : ""}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {delta > 0 ? "+" : ""}{delta}</span> {t("vs last month")} · {totals.applications ?? 0} {t("in total")}
-            </>
-          }
-        />
-        <Kpi
-          label={t("Cards issued")}
-          value={String(totals.cards_issued ?? 0)}
-          note={`${(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} ${t("currently active")}`}
-        />
-        <Kpi
-          label={t("New Cards Issued")}
-          value={String(totals.new_cards_issued ?? s.new_cards_issued ?? 0)}
-          note={t("Officially issued new cards")}
-        />
-        <Kpi
-          label={t("Renewal Cards Issued")}
-          value={String(totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0)}
-          note={t("Officially issued renewal cards")}
-        />
-      </div>
-
-      {/* Work queues */}
-      <section aria-label="Work queues">
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">{t("Work queues")}</h2>
+      {/* Primary Volume & Issuance Statistics */}
+      <div>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-nis-primary">
+          {t("Application & Card Issuance Statistics")}
+        </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <Tile label={t("Paid – not submitted")} value={s.paid_awaiting_submission ?? 0} href="/staff/payments?filter=awaiting_submission" tone="amber" />
-          <Tile label={t("Awaiting approval")} value={s.queue?.PENDING_APPROVAL ?? 0} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
-          <Tile label={t("Queried")} value={s.queue?.QUERIED ?? 0} href="/staff/applications?status=QUERIED" />
-          <Tile label={t("Biometrics today")} value={s.todays_appointments ?? 0} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
-          <Tile label={t("Cards to approve")} value={s.cards?.APPROVED ?? 0} href="/staff/cards?status=APPROVED" tone="amber" />
-          <Tile label={t("Ready for collection")} value={s.queue?.READY_FOR_COLLECTION ?? 0} href="/staff/card-issuance?stage=awaiting_collection" tone="green" />
-          <Tile label={t("Active cards")} value={(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} href="/staff/cards" tone="green" />
-          <Tile label={t("Expiring in 30 days")} value={s.cards_expiring_30_days ?? 0} />
-          <Tile label={t("Expired cards")} value={s.cards_expired ?? 0} href="/staff/cards?expired=1" />
-          <Tile label={t("Watchlisted")} value={s.watchlisted ?? 0} href="/staff/cards?watchlisted=1" tone="red" />
+          <StatCard
+            label={t("Total Applications")}
+            value={totals.applications ?? 0}
+            note={t("All submitted applications")}
+            href="/staff/applications"
+          />
+          <StatCard
+            label={t("Applications This Month")}
+            value={totals.applications_this_month ?? 0}
+            note={t("Submitted in current calendar month")}
+          />
+          <StatCard
+            label={t("Total Cards Issued")}
+            value={totals.cards_issued ?? 0}
+            note={t("Officially issued residence cards")}
+            href="/staff/reports"
+          />
+          <StatCard
+            label={t("New Cards Issued")}
+            value={totals.new_cards_issued ?? s.new_cards_issued ?? 0}
+            note={t("Officially issued new cards")}
+            href="/staff/reports?category=NEW"
+          />
+          <StatCard
+            label={t("Renewal Cards Issued")}
+            value={totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0}
+            note={t("Officially issued renewal cards")}
+            href="/staff/reports?category=RENEWAL"
+          />
         </div>
-      </section>
-
-      {/* Trends */}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <ChartCard
-          title="Applications and cards issued"
-          subtitle="Last 12 months"
-          legend={<Legend items={[{ label: "Applications submitted", color: SERIES[0], kind: "line" }, { label: "Cards issued", color: SERIES[1], kind: "line" }]} />}
-          table={<DataTable head={["Month", "Applications", "Cards issued"]} rows={(a.monthly ?? []).map((m) => [monthLong(m.month), m.submitted, m.issued])} />}
-        >
-          <LineChart labels={months} series={[{ name: "Applications submitted", values: (a.monthly ?? []).map((m) => m.submitted) }, { name: "Cards issued", values: (a.monthly ?? []).map((m) => m.issued) }]} />
-        </ChartCard>
-        <ChartCard
-          title="Fees collected"
-          subtitle="Confirmed Paystack payments per month (₦)"
-          table={<DataTable head={["Month", "Fees (₦)"]} rows={(a.monthly ?? []).map((m) => [monthLong(m.month), naira(m.revenue_naira)])} />}
-        >
-          <ColumnChart name="Fees collected per month" labels={months} values={(a.monthly ?? []).map((m) => m.revenue_naira)} format={(n) => `₦${compact(n)}`} />
-        </ChartCard>
       </div>
 
-      {/* Pipeline and nationalities */}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Application pipeline" subtitle="Applications at each stage now" table={<DataTable head={["Stage", "Applications"]} rows={pipeline.map((p) => [p.label, p.value])} />}>
-          <BarList items={pipeline} />
-        </ChartCard>
-        <ChartCard title="Top nationalities" subtitle="All applications" table={<DataTable head={["Nationality", "Applications"]} rows={(a.nationalities ?? []).map((n) => [n.label, n.total])} />}>
-          <BarList items={(a.nationalities ?? []).map((n) => ({ label: n.label, value: n.total }))} />
-        </ChartCard>
+      {/* Operational Stage Queues */}
+      <div>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+          {t("Operational Stage Backlogs")}
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCard
+            label={t("Awaiting Vetting")}
+            value={s.queue?.PENDING_APPROVAL ?? 0}
+            note={t("Pending initial security vetting")}
+            href="/staff/applications?status=PENDING_APPROVAL"
+          />
+          <StatCard
+            label={t("Awaiting Approval")}
+            value={s.queue?.VETTED ?? 0}
+            note={t("Vetted, pending Comptroller approval")}
+            href="/staff/approvals"
+          />
+          <StatCard
+            label={t("Biometrics Completed")}
+            value={s.queue?.BIOMETRICS_CAPTURED ?? 0}
+            note={t("Biometrics enrolled, ready for card")}
+            href="/staff/applications?status=BIOMETRICS_CAPTURED"
+          />
+          <StatCard
+            label={t("Awaiting Card Production")}
+            value={s.cards?.APPROVED ?? 0}
+            note={t("Approved, pending batch printing")}
+            href="/staff/cards?status=APPROVED"
+          />
+          <StatCard
+            label={t("Awaiting Card Issuance")}
+            value={s.queue?.READY_FOR_COLLECTION ?? 0}
+            note={t("Printed, awaiting card collection")}
+            href="/staff/card-issuance?stage=awaiting_collection"
+          />
+        </div>
       </div>
 
-      {/* Applications by Type & Applications by Gender */}
+      {/* Operational Charts Row 1: Trends & Stage Distribution */}
       <div className="grid gap-6 xl:grid-cols-2">
         <ChartCard
-          title="Applications by Type"
-          subtitle="New vs Renewal"
+          title={t("Monthly Application Trends")}
+          subtitle={t("Applications submitted and cards issued over last 12 months")}
+          legend={
+            <Legend
+              items={[
+                { label: t("Applications submitted"), color: SERIES[0], kind: "line" },
+                { label: t("Cards issued"), color: SERIES[1], kind: "line" },
+              ]}
+            />
+          }
           table={
             <DataTable
-              head={["Application Type", "Total"]}
+              head={[t("Month"), t("Applications"), t("Cards issued")]}
+              rows={(a.monthly ?? []).map((m) => [monthLong(m.month), m.submitted, m.issued])}
+            />
+          }
+        >
+          <LineChart
+            labels={months}
+            series={[
+              { name: t("Applications submitted"), values: (a.monthly ?? []).map((m) => m.submitted) },
+              { name: t("Cards issued"), values: (a.monthly ?? []).map((m) => m.issued) },
+            ]}
+          />
+        </ChartCard>
+
+        <ChartCard
+          title={t("Application Processing Overview")}
+          subtitle={t("Distribution across current workflow stages")}
+          table={
+            <DataTable
+              head={[t("Stage"), t("Applications")]}
+              rows={processingStages.map((p) => [p.label, p.value])}
+            />
+          }
+        >
+          <BarList items={processingStages} />
+        </ChartCard>
+      </div>
+
+      {/* Operational Charts Row 2: Card Issuance Breakdown & Gender Distribution */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title={t("Card Issuance Overview")}
+          subtitle={t("New vs Renewal Cards Issued")}
+          table={
+            <DataTable
+              head={[t("Card Type"), t("Total Issued")]}
               rows={[
-                ["New", a.mix?.type?.NEW ?? 0],
-                ["Renewal", a.mix?.type?.RENEWAL ?? 0],
+                [t("New Cards"), totals.new_cards_issued ?? s.new_cards_issued ?? 0],
+                [t("Renewal Cards"), totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0],
               ]}
             />
           }
@@ -230,8 +270,8 @@ export default function StaffDashboard() {
           <div className="py-2">
             <VerticalTwoBarChart
               items={[
-                { label: "New", value: a.mix?.type?.NEW ?? 0, color: "#2b892b" },
-                { label: "Renewal", value: a.mix?.type?.RENEWAL ?? 0, color: "#58b258" },
+                { label: t("New Cards"), value: totals.new_cards_issued ?? s.new_cards_issued ?? 0, color: "#2E7D32" },
+                { label: t("Renewal Cards"), value: totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0, color: "#16A34A" },
               ]}
             />
           </div>
@@ -240,6 +280,14 @@ export default function StaffDashboard() {
         <ChartCard
           title={t("Applications by Gender")}
           subtitle={t("Male vs Female")}
+          legend={
+            <Legend
+              items={[
+                { label: t("Male"), color: "#2E7D32" },
+                { label: t("Female"), color: "#8E44AD" },
+              ]}
+            />
+          }
           table={
             <DataTable
               head={[t("Gender"), t("Total")]}
@@ -263,16 +311,90 @@ export default function StaffDashboard() {
         </ChartCard>
       </div>
 
-      <Panel title={`Officer performance (${user.role_label})`}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Tile label="Assisted forms" value={s.my_activity?.assisted_created ?? 0} />
-          <Tile label="Vetting & decisions" value={s.my_activity?.decided ?? 0} />
-          <Tile label="Biometrics captured" value={s.my_activity?.captured ?? 0} />
-          <Tile label="Cards approved" value={s.my_activity?.cards_approved ?? 0} />
-          <Tile label="Cards printed" value={s.my_activity?.cards_printed ?? 0} />
-          <Tile label="Cards issued out" value={s.my_activity?.cards_collected ?? 0} />
-        </div>
-      </Panel>
+      {/* Operational Charts Row 3: Top Nationalities & Pending Processing Summary */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title={t("Top Nationalities")}
+          subtitle={t("ECOWAS member state applicants")}
+          table={
+            <DataTable
+              head={[t("Nationality"), t("Applications")]}
+              rows={(a.nationalities ?? []).map((n) => [n.label, n.total])}
+            />
+          }
+        >
+          <BarList items={(a.nationalities ?? []).map((n) => ({ label: n.label, value: n.total }))} />
+        </ChartCard>
+
+        <Panel title={t("Pending Processing Summary")}>
+          <div className="divide-y divide-slate-100 text-xs sm:text-sm">
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-slate-600">{t("Paid – not submitted")}</span>
+              <Link href="/staff/payments?filter=awaiting_submission" className="font-medium text-amber-600 hover:underline">
+                {s.paid_awaiting_submission ?? 0} {t("applications")}
+              </Link>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-slate-600">{t("Awaiting Vetting")}</span>
+              <Link href="/staff/applications?status=PENDING_APPROVAL" className="font-medium text-slate-900 hover:underline">
+                {s.queue?.PENDING_APPROVAL ?? 0} {t("applications")}
+              </Link>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-slate-600">{t("Awaiting Approval")}</span>
+              <Link href="/staff/approvals" className="font-medium text-slate-900 hover:underline">
+                {s.queue?.VETTED ?? 0} {t("applications")}
+              </Link>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-slate-600">{t("Awaiting Card Production")}</span>
+              <Link href="/staff/cards?status=APPROVED" className="font-medium text-amber-700 hover:underline">
+                {s.cards?.APPROVED ?? 0} {t("cards")}
+              </Link>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-slate-600">{t("Awaiting Card Issuance")}</span>
+              <Link href="/staff/card-issuance?stage=awaiting_collection" className="font-medium text-emerald-700 hover:underline">
+                {s.queue?.READY_FOR_COLLECTION ?? 0} {t("cards ready")}
+              </Link>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      {/* Feature E: Recent Operational Activity */}
+      {Array.isArray(a.recent_activity) && a.recent_activity.length > 0 && (
+        <Panel title={t("Recent Operational Activity")}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-medium">
+                <tr>
+                  <th className="px-4 py-2.5">{t("Application Number")}</th>
+                  <th className="px-4 py-2.5">{t("Type")}</th>
+                  <th className="px-4 py-2.5">{t("Action / Status")}</th>
+                  <th className="px-4 py-2.5">{t("Officer / System")}</th>
+                  <th className="px-4 py-2.5">{t("Timestamp")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {a.recent_activity.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50/60 transition">
+                    <td className="px-4 py-2.5 font-mono font-medium text-slate-800">
+                      <Link href={`/staff/applications?search=${item.application_number}`} className="hover:text-nis-primary hover:underline">
+                        {item.application_number}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">{item.type}</td>
+                    <td className="px-4 py-2.5 font-medium text-slate-900">{t(item.status_label)}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{item.officer_name}</td>
+                    <td className="px-4 py-2.5 text-slate-400">{item.created_at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }

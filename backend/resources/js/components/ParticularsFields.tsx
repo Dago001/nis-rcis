@@ -284,34 +284,80 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
         })}
       </div>
 
-      {/* Dynamic Document Notice depending on Category - Subtle, high-trust informational presentation */}
-      <div className="rounded-xl border border-nis-primary/20 bg-nis-mint/30 p-4 text-sm text-slate-800">
-        <div className="flex items-start gap-2.5">
-          <svg className="h-5 w-5 text-nis-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <div className="font-semibold text-nis-primary-dark">
-              {data.category === "STUDENT"
-                ? t("Required Document: Admission Letter")
-                : data.category === "BUSINESS"
-                ? t("Required Document: CAC Business Registration Certificate")
-                : data.category === "RELIGIOUS"
-                ? t("Required Documents: Host Invitation & Host Organization Registration")
-                : t("Required Document: Employment Appointment Letter")}
+      {/* Category Required Supporting Documents - Complete Professionally Numbered List */}
+      {(() => {
+        const cat = data.category || "WORK";
+        let categoryTitle = "Work";
+        let specificDocs: { title: string; mandatory: boolean }[] = [];
+
+        if (cat === "STUDENT") {
+          categoryTitle = "Student";
+          specificDocs = [
+            { title: "Institution Admission Letter", mandatory: true },
+          ];
+        } else if (cat === "BUSINESS") {
+          categoryTitle = "Business";
+          specificDocs = [
+            { title: "CAC Business Registration Certificate / Documents", mandatory: true },
+          ];
+        } else if (cat === "RELIGIOUS") {
+          categoryTitle = "Religious Activities";
+          specificDocs = [
+            { title: "Letter of Invitation from Host Religious Organization", mandatory: true },
+            { title: "Evidence of Host Organization Registration or Recognition", mandatory: true },
+          ];
+        } else {
+          categoryTitle = "Work";
+          specificDocs = [
+            { title: "Employment Appointment / Offer Letter", mandatory: true },
+          ];
+        }
+
+        const allCategoryDocs = [
+          { title: "International Passport data page OR ECOWAS Travel Certificate", mandatory: true },
+          { title: "Proof of domicile in Nigeria (Utility bill / Tenancy agreement)", mandatory: true },
+          ...specificDocs,
+          { title: "Recent passport photograph on white background", mandatory: true },
+          { title: "Subject-to-Regularization / Entry visa", mandatory: false },
+        ];
+
+        return (
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 text-sm text-slate-800 space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
+              <svg className="h-5 w-5 text-nis-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="font-semibold text-slate-900 text-sm sm:text-base">
+                {t(`Required Supporting Documents — ${categoryTitle}`)}
+              </h3>
             </div>
-            <p className="mt-0.5 text-xs text-slate-600">
-              {data.category === "STUDENT"
-                ? t("Applicants under the Student category must upload a valid admission letter before proceeding.")
-                : data.category === "BUSINESS"
-                ? t("Applicants under the Business category must upload a valid CAC business registration certificate / documents before proceeding.")
-                : data.category === "RELIGIOUS"
-                ? t("Applicants under the Religious Activities category must upload an official invitation letter from the host religious organization and evidence of host organization registration or recognition before proceeding.")
-                : t("Applicants under the Work category must upload a valid employment appointment letter before proceeding.")}
+            <p className="text-xs text-slate-600">
+              {t("Please ensure you have valid digital copies of the following documents before proceeding to Step 4 (Supporting Documents):")}
             </p>
+            <ol className="divide-y divide-slate-200/60 text-xs sm:text-sm">
+              {allCategoryDocs.map((doc, idx) => (
+                <li key={idx} className="py-2.5 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-700">
+                      {idx + 1}
+                    </span>
+                    <span className="font-medium text-slate-800 leading-snug">
+                      {t(doc.title)}
+                    </span>
+                  </div>
+                  <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${
+                    doc.mandatory
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-slate-200/80 text-slate-600"
+                  }`}>
+                    {doc.mandatory ? t("Mandatory") : t("Conditional / if applicable")}
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Application Fee Notice */}
       <div className="rounded-xl border border-nis-primary/30 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm">

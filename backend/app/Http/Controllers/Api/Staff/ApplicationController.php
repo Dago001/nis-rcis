@@ -385,14 +385,20 @@ class ApplicationController
 
                 if ($a->has_cod && ! empty($a->cod_changes)) {
                     $changes = is_array($a->cod_changes) ? $a->cod_changes : json_decode($a->cod_changes, true);
-                    if (is_array($changes)) {
-                        foreach ($changes as $field => $change) {
+                        foreach ($changes as $key => $change) {
+                            $field = $change['field'] ?? (is_string($key) ? $key : null);
                             $newVal = $change['requested_value'] ?? $change['requested'] ?? null;
-                            if ($newVal !== null && in_array($field, Application::PARTICULARS, true)) {
+                            if ($field === 'name') {
+                                if (! empty($change['requested_surname'])) {
+                                    $a->surname = $change['requested_surname'];
+                                }
+                                if (! empty($change['requested_forenames'])) {
+                                    $a->forenames = $change['requested_forenames'];
+                                }
+                            } elseif ($newVal !== null && in_array($field, Application::PARTICULARS, true)) {
                                 $a->{$field} = $newVal;
                             }
                         }
-                    }
                     $a->cod_status = 'APPROVED';
                 }
             });

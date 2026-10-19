@@ -196,38 +196,66 @@ class ApplicationSubmission
 
         $hasCod = ! empty($data['has_cod']) || ! empty($draft->data['has_cod']);
         if ($data['type'] === 'RENEWAL') {
+            $sourceApp = null;
+            if (! empty($data['renewal_source_application_id'])) {
+                $sourceApp = Application::whereKey($data['renewal_source_application_id'])
+                    ->where(function ($q) use ($applicant) {
+                        $q->where('applicant_id', $applicant->id)
+                          ->orWhereRaw('LOWER(email) = ?', [strtolower($applicant->email)]);
+                    })->first();
+            } elseif ($renewalCard?->application) {
+                $sourceApp = $renewalCard->application;
+            }
+
+            $origSurname = trim((string) ($sourceApp?->surname ?? $renewalCard?->surname ?? ''));
+            $origForenames = trim((string) ($sourceApp?->forenames ?? $renewalCard?->forenames ?? ''));
+            $origDob = $sourceApp?->date_of_birth
+                ? ($sourceApp->date_of_birth instanceof \Carbon\CarbonInterface ? $sourceApp->date_of_birth->format('Y-m-d') : trim((string) $sourceApp->date_of_birth))
+                : ($renewalCard?->date_of_birth
+                    ? ($renewalCard->date_of_birth instanceof \Carbon\CarbonInterface ? $renewalCard->date_of_birth->format('Y-m-d') : trim((string) $renewalCard->date_of_birth))
+                    : '');
+
+            $curSurname = trim((string) ($data['surname'] ?? ''));
+            $curForenames = trim((string) ($data['forenames'] ?? ''));
+            $curDob = trim((string) ($data['date_of_birth'] ?? ''));
+
+            $isNameDiff = ($origSurname !== '' && strcasecmp($curSurname, $origSurname) !== 0)
+                       || ($origForenames !== '' && strcasecmp($curForenames, $origForenames) !== 0);
+            $isDobDiff = ($origDob !== '' && $curDob !== '' && $curDob !== $origDob);
+
+            if ($isNameDiff || $isDobDiff) {
+                if (! $hasCod) {
+                    $diffFields = [];
+                    if ($isNameDiff) $diffFields[] = 'Name';
+                    if ($isDobDiff) $diffFields[] = 'Date of Birth';
+                    throw ValidationException::withMessages([
+                        'cod' => 'Modifications to '.implode(' and ', $diffFields).' require Change of Data (COD) processing with reason, supporting document, and ₦15,000 administrative fee.',
+                    ]);
+                }
+            }
+
             if ($hasCod) {
                 $codChanges = $data['cod_changes'] ?? $draft->data['cod_changes'] ?? [];
-                if (empty($codChanges) || ! is_array($codChanges)) {
-                    throw ValidationException::withMessages(['cod' => 'Please select at least one field to change and specify the correction.']);
+                if (is_string($codChanges)) {
+                    $codChanges = json_decode($codChanges, true) ?: [];
                 }
-                foreach ($codChanges as $field => $change) {
+                if (empty($codChanges) || ! is_array($codChanges)) {
+                    throw ValidationException::withMessages(['cod' => 'Please select Change of Name and/or Change of Date of Birth, specify the correction, and attach the required supporting document.']);
+                }
+                foreach ($codChanges as $key => $change) {
+                    $field = $change['field'] ?? $key;
+                    $label = $change['field_label'] ?? $field;
                     $reqVal = trim((string) ($change['requested_value'] ?? $change['requested'] ?? ''));
                     $reason = trim((string) ($change['reason'] ?? ''));
+                    $docName = trim((string) ($change['document_name'] ?? ''));
                     if ($reqVal === '') {
-                        throw ValidationException::withMessages(['cod' => "Please enter the requested new value for {$field}."]);
+                        throw ValidationException::withMessages(['cod' => "Please enter the requested new value for {$label}."]);
                     }
                     if ($reason === '') {
-                        throw ValidationException::withMessages(['cod' => "Please state the reason for changing {$field}."]);
+                        throw ValidationException::withMessages(['cod' => "Please state the reason for {$label}."]);
                     }
-                }
-            } else {
-                $sourceApp = null;
-                if (! empty($data['renewal_source_application_id'])) {
-                    $sourceApp = Application::whereKey($data['renewal_source_application_id'])->where('applicant_id', $applicant->id)->first();
-                } elseif ($renewalCard?->application) {
-                    $sourceApp = $renewalCard->application;
-                }
-                if ($sourceApp) {
-                    $protected = ['surname', 'forenames', 'nationality', 'date_of_birth', 'place_of_birth', 'sex', 'passport_number', 'passport_expiry'];
-                    foreach ($protected as $f) {
-                        $curVal = trim((string) ($data[$f] ?? ''));
-                        $origVal = trim((string) ($sourceApp->{$f} instanceof \Carbon\CarbonInterface ? $sourceApp->{$f}->format('Y-m-d') : ($sourceApp->{$f} ?? '')));
-                        if ($curVal !== '' && $origVal !== '' && strcasecmp($curVal, $origVal) !== 0) {
-                            throw ValidationException::withMessages([
-                                $f => "Protected personal information ({$f}) cannot be altered during ordinary renewal. Please select Change of Data (COD) to request this correction.",
-                            ]);
-                        }
+                    if ($docName === '') {
+                        throw ValidationException::withMessages(['cod' => "Please upload a supporting document for {$label}."]);
                     }
                 }
             }

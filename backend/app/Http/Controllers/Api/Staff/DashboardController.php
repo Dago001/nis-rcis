@@ -181,7 +181,7 @@ class DashboardController
                 ])->values(),
                 'totals' => [
                     'applications' => Application::count(),
-                    'applications_this_month' => (int) ($submitted[$months->last()] ?? 0),
+                    'applications_this_month' => Application::where('submitted_at', '>=', CarbonImmutable::now()->startOfMonth())->count(),
                     'applications_last_month' => (int) ($submitted[$months[10]] ?? 0),
                     'cards_issued' => $totalCardsIssued,
                     'new_cards_issued' => $newCardsIssued,
@@ -202,6 +202,21 @@ class DashboardController
                     'biometrics_to_ready' => $avgDays('biometrics_captured_at', 'ready_at'),
                     'ready_to_collection' => $avgDays('ready_at', 'collected_at'),
                 ],
+                'recent_activity' => ApplicationStatusHistory::with(['application:id,application_number,type,category,surname,forenames', 'officer:id,fullname,role'])
+                    ->latest('id')
+                    ->limit(6)
+                    ->get()
+                    ->map(function ($h) {
+                        return [
+                            'id' => $h->id,
+                            'application_number' => $h->application?->application_number ?? '—',
+                            'type' => $h->application?->type ?? 'NEW',
+                            'to_status' => $h->to_status,
+                            'status_label' => \App\Enums\ApplicationStatus::tryFrom($h->to_status)?->label() ?? $h->to_status,
+                            'officer_name' => $h->officer?->fullname ?? 'System',
+                            'created_at' => $h->created_at?->diffForHumans() ?? '—',
+                        ];
+                    }),
                 'nationalities' => Application::query()
                     ->whereIn('nationality', array_merge(config('nis.ecowas_member_states', []), config('nis.ecowas_legacy_names', [])))
                     ->selectRaw('nationality, count(*) as total')

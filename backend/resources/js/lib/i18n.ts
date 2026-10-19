@@ -825,7 +825,47 @@ const FR: Record<string, string> = {
   "Biometrics today": "Biométrie aujourd'hui",
   "Cards to approve": "Cartes à approuver",
   "Active cards": "Cartes actives",
-  "Expiring in 30 days": "Expirant dans 30 jours",
   "Expired cards": "Cartes expirées",
+
+  // Staff Dashboard & Overview Translations
+  "Applications This Month": "Demandes ce mois-ci",
+  "Total Applications": "Total des demandes",
+  "Application Processing Overview": "Aperçu du traitement des demandes",
+  "Monthly Application Trends": "Tendances mensuelles des demandes",
+  "Card Issuance Overview": "Aperçu de la délivrance des cartes",
+  "Pending Processing Summary": "Résumé des traitements en attente",
+  "Recent Operational Activity": "Activité opérationnelle récente",
+  "No recent operational events recorded yet.": "Aucun événement opérationnel récent enregistré.",
+  "Target SLA: 5 working days": "Délai de traitement cible : 5 jours ouvrables",
+  "Daily appointment allocations": "Attributions quotidiennes de rendez-vous",
+  "Approved applications in print queue": "Demandes approuvées dans la file d'impression",
+  "Printed cards ready for physical issuance": "Cartes imprimées prêtes pour délivrance physique",
+  "Applications submitted": "Demandes soumises",
+  "Cards officially issued": "Cartes officiellement délivrées",
+  "Total Active Volume": "Volume actif total",
+  "Vetted & Awaiting Approval": "Contrôlé et en attente d'approbation",
+  "Approved for Biometrics": "Approuvé pour la biométrie",
+  "New Card Issues": "Délivrances de nouvelles cartes",
+  "Renewal Card Issues": "Délivrances de cartes renouvelées",
+
+  // Cookie Consent Notice
+  "Cookie & Privacy Consent": "Consentement relatif aux témoins et à la confidentialité",
+  "This portal uses essential technical cookies and operational tokens strictly necessary to maintain your secure session, preserve application drafts, and verify payment credentials in compliance with the Nigeria Data Protection Act (NDPA).": "Ce portail utilise des témoins techniques essentiels et des jetons opérationnels strictement nécessaires pour maintenir votre session sécurisée, conserver les brouillons de demande et vérifier les informations de paiement conformément à la loi sur la protection des données du Nigeria (NDPA).",
+  "Accept All": "Tout accepter",
+  "Essential Only": "Essentiels uniquement",
+
+  // Change of Data Detailed Fields
+  "Change of Name": "Changement de nom",
+  "Change of Date of Birth": "Modification de la date de naissance",
+  "Existing Surname": "Nom actuel",
+  "Proposed New Surname": "Nouveau nom proposé",
+  "Existing Other Names": "Autres prénoms actuels",
+  "Proposed New Other Names": "Nouveaux autres prénoms proposés",
+  "Existing Date of Birth": "Date de naissance actuelle",
+  "Proposed New Date of Birth": "Nouvelle date de naissance proposée",
+  "Reason for Name Change": "Motif du changement de nom",
+  "Reason for Date of Birth Change": "Motif de la modification de la date de naissance",
+  "Select Change of Name or Change of Date of Birth below to add your change request.": "Sélectionnez Changement de nom ou Modification de la date de naissance ci-dessous pour ajouter votre demande.",
+  "Change of Data applies only to corrections of Name (Surname and Other Names) and Date of Birth. All other information may be updated directly on the form without an administrative charge.": "La modification des données s'applique uniquement aux corrections de nom (nom de famille et autres prénoms) et de date de naissance. Toutes les autres informations peuvent être mises à jour directement sur le formulaire sans frais administratifs.",
 };
 

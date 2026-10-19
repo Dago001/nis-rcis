@@ -272,12 +272,12 @@ class DraftController
 
         $sourceApp = (clone $query)
             ->whereIn('status', [
+                \App\Enums\ApplicationStatus::PendingApproval,
+                \App\Enums\ApplicationStatus::Vetted,
                 \App\Enums\ApplicationStatus::ApprovedForBiometrics,
                 \App\Enums\ApplicationStatus::BiometricsCaptured,
                 \App\Enums\ApplicationStatus::ReadyForCollection,
                 \App\Enums\ApplicationStatus::Issued,
-                \App\Enums\ApplicationStatus::Vetted,
-                \App\Enums\ApplicationStatus::Submitted,
             ])
             ->latest('id')
             ->first();
@@ -285,15 +285,6 @@ class DraftController
         if (! $sourceApp) {
             $sourceApp = $query->latest('id')->first();
         }
-
-        if (! $sourceApp) {
-            return response()->json([
-                'found' => false,
-                'message' => 'No previous application found to pre-populate renewal particulars.',
-            ]);
-        }
-
-        $cardNumber = $sourceApp->card?->card_number ?? $sourceApp->renewal_of_card_id ?? $cardNum;
 
         $formatDate = function ($dateVal) {
             if (! $dateVal) return '';
@@ -303,6 +294,117 @@ class DraftController
                 return (string) $dateVal;
             }
         };
+
+        if (! $sourceApp) {
+            $card = \App\Models\ResidenceCard::where('applicant_id', $applicant->id)
+                ->orWhereRaw('LOWER(email) = ?', [strtolower($applicant->email)])
+                ->latest('id')
+                ->first();
+
+            if ($card && $card->application_id) {
+                $sourceApp = \App\Models\Application::with(['card', 'documents'])->find($card->application_id);
+            }
+
+            if (! $sourceApp && $card) {
+                $particulars = [
+                    'surname' => $card->surname ?? '',
+                    'forenames' => $card->forenames ?? '',
+                    'nationality' => $card->nationality ?? '',
+                    'date_of_birth' => $formatDate($card->date_of_birth),
+                    'place_of_birth' => $card->place_of_birth ?? '',
+                    'sex' => $card->sex ?? '',
+                    'height' => $card->height ?? '',
+                    'complexion' => $card->complexion ?? '',
+                    'eye_color' => $card->eye_color ?? '',
+                    'hair_color' => $card->hair_color ?? '',
+                    'distinguished_features' => $card->distinguished_features ?? '',
+                    'blood_group' => $card->blood_group ?? '',
+                    'profession' => $card->profession ?? '',
+                    'home_country_address' => $card->home_country_address ?? '',
+                    'domicile' => $card->domicile ?? '',
+                    'domicile_state' => $card->domicile_state ?? '',
+                    'domicile_lga' => $card->domicile_lga ?? '',
+                    'change_of_address' => '',
+                    'travel_document_type' => $card->travel_document_type ?? 'PASSPORT',
+                    'passport_number' => $card->passport_number ?? '',
+                    'passport_issue_date' => $formatDate($card->passport_issue_date),
+                    'passport_expiry' => $formatDate($card->passport_expiry),
+                    'national_id_number' => $card->national_id_number ?? '',
+                    'tax_id_number' => $card->tax_id_number ?? '',
+                    'emergency_contact_name' => $card->emergency_contact_name ?? '',
+                    'emergency_contact_relation' => $card->emergency_contact_relation ?? '',
+                    'emergency_contact_phone' => $card->emergency_contact_phone ?? '',
+                    'emergency_contact_address' => $card->emergency_contact_address ?? '',
+                    'emergency_contact_state' => $card->emergency_contact_state ?? '',
+                    'emergency_contact_lga' => $card->emergency_contact_lga ?? '',
+                    'category' => $card->category ?? 'WORK',
+                    'employer_name' => $card->employer_name ?? '',
+                    'quota_reference' => $card->quota_reference ?? '',
+                    'phone' => $card->phone ?? $applicant->phone ?? '',
+                    'email' => $card->email ?? $applicant->email ?? '',
+                ];
+
+                return response()->json([
+                    'found' => true,
+                    'source_application_id' => null,
+                    'source_application_number' => '',
+                    'renewal_card_number' => $card->card_number ?? $cardNum,
+                    'particulars' => $particulars,
+                ]);
+            }
+
+            if (! $sourceApp) {
+                // Profile-based fallback
+                $particulars = [
+                    'surname' => $applicant->surname ?? '',
+                    'forenames' => $applicant->forenames ?? '',
+                    'nationality' => $applicant->nationality ?? '',
+                    'date_of_birth' => '',
+                    'place_of_birth' => '',
+                    'sex' => '',
+                    'height' => '',
+                    'complexion' => '',
+                    'eye_color' => '',
+                    'hair_color' => '',
+                    'distinguished_features' => '',
+                    'blood_group' => '',
+                    'profession' => '',
+                    'home_country_address' => '',
+                    'domicile' => '',
+                    'domicile_state' => '',
+                    'domicile_lga' => '',
+                    'change_of_address' => '',
+                    'travel_document_type' => 'PASSPORT',
+                    'passport_number' => $applicant->passport_number ?? '',
+                    'passport_issue_date' => '',
+                    'passport_expiry' => '',
+                    'national_id_number' => '',
+                    'tax_id_number' => '',
+                    'emergency_contact_name' => '',
+                    'emergency_contact_relation' => '',
+                    'emergency_contact_phone' => '',
+                    'emergency_contact_address' => '',
+                    'emergency_contact_state' => '',
+                    'emergency_contact_lga' => '',
+                    'category' => 'WORK',
+                    'employer_name' => '',
+                    'quota_reference' => '',
+                    'phone' => $applicant->phone ?? '',
+                    'email' => $applicant->email ?? '',
+                ];
+
+                return response()->json([
+                    'found' => true,
+                    'source_application_id' => null,
+                    'source_application_number' => '',
+                    'renewal_card_number' => $cardNum,
+                    'particulars' => $particulars,
+                ]);
+            }
+        }
+
+        $cardNumber = $sourceApp->card?->card_number ?? $sourceApp->renewal_of_card_id ?? $cardNum;
+
 
         $particulars = [
             'surname' => $sourceApp->surname ?? '',
