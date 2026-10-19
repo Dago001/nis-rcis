@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Alert, Panel, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
+import { useI18n } from "@/components/I18nProvider";
 import { naira } from "@/lib/format";
 
 type Analytics = {
@@ -16,6 +17,8 @@ type Analytics = {
     applications_this_month: number;
     applications_last_month: number;
     cards_issued: number;
+    new_cards_issued?: number;
+    renewal_cards_issued?: number;
     revenue_naira: number;
     revenue_this_month_naira: number;
     payments: number;
@@ -34,6 +37,8 @@ type Summary = {
   cards_expiring_30_days: number;
   watchlisted: number;
   paid_awaiting_submission: number;
+  new_cards_issued?: number;
+  renewal_cards_issued?: number;
   todays_appointments: number;
   sla: { target_working_days: number; overdue: number; assigned_to_me: number };
   card_stock: { remaining: number; low: boolean };
@@ -85,6 +90,7 @@ function Kpi({ label, value, note }: { label: string; value: string; note?: Reac
 
 export default function StaffDashboard() {
   const user = useStaff();
+  const { t } = useI18n();
   const [s, setS] = useState<Summary | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -113,16 +119,18 @@ export default function StaffDashboard() {
   if (!s || !s.analytics?.totals || !s.queue) return <Spinner />;
 
   const a = s.analytics;
-  const t = a.totals ?? {
+  const totals = a.totals ?? {
     applications: 0,
     applications_this_month: 0,
     applications_last_month: 0,
     cards_issued: 0,
+    new_cards_issued: 0,
+    renewal_cards_issued: 0,
     revenue_naira: 0,
     revenue_this_month_naira: 0,
     payments: 0,
   };
-  const delta = (t.applications_this_month ?? 0) - (t.applications_last_month ?? 0);
+  const delta = (totals.applications_this_month ?? 0) - (totals.applications_last_month ?? 0);
   const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
   const pipeline = PIPELINE.map(([key, label]) => ({ label, value: s.queue?.[key] ?? 0, href: `/staff/applications?status=${key}` }));
 
@@ -133,40 +141,45 @@ export default function StaffDashboard() {
       {/* Headline figures */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
-          label="Applications this month"
-          value={String(t.applications_this_month ?? 0)}
+          label={t("Applications this month")}
+          value={String(totals.applications_this_month ?? 0)}
           note={
             <>
-              <span className={delta > 0 ? "text-nis-primary" : delta < 0 ? "text-nis-red" : ""}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {delta > 0 ? "+" : ""}{delta}</span> vs last month · {t.applications ?? 0} in total
+              <span className={delta > 0 ? "text-nis-primary" : delta < 0 ? "text-nis-red" : ""}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {delta > 0 ? "+" : ""}{delta}</span> {t("vs last month")} · {totals.applications ?? 0} {t("in total")}
             </>
           }
         />
-        <Kpi label="Fees collected" value={naira(t.revenue_naira ?? 0)} note={`${naira(t.revenue_this_month_naira ?? 0)} this month · ${t.payments ?? 0} payments`} />
-        <Kpi label="Cards issued" value={String(t.cards_issued ?? 0)} note={`${(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} currently active`} />
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <Meter label="Approval rate" value={a.decisions?.approval_rate ?? null} />
-          <p className="mt-2 text-xs text-slate-500">{a.decisions?.approved ?? 0} approved · {a.decisions?.queried ?? 0} queried · {a.decisions?.rejected ?? 0} rejected</p>
-        </div>
+        <Kpi
+          label={t("Cards issued")}
+          value={String(totals.cards_issued ?? 0)}
+          note={`${(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} ${t("currently active")}`}
+        />
+        <Kpi
+          label={t("New Cards Issued")}
+          value={String(totals.new_cards_issued ?? s.new_cards_issued ?? 0)}
+          note={t("Officially issued new cards")}
+        />
+        <Kpi
+          label={t("Renewal Cards Issued")}
+          value={String(totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0)}
+          note={t("Officially issued renewal cards")}
+        />
       </div>
 
       {/* Work queues */}
       <section aria-label="Work queues">
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">Work queues</h2>
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-nis-primary">{t("Work queues")}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <Tile label="Paid – not submitted" value={s.paid_awaiting_submission ?? 0} href="/staff/payments?filter=awaiting_submission" tone="amber" />
-          <Tile label="Awaiting approval" value={s.queue?.PENDING_APPROVAL ?? 0} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
-          <Tile label="Queried" value={s.queue?.QUERIED ?? 0} href="/staff/applications?status=QUERIED" />
-          <Tile label="Biometrics today" value={s.todays_appointments ?? 0} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
-          <Tile label="Cards to approve" value={s.cards?.APPROVED ?? 0} href="/staff/cards?status=APPROVED" tone="amber" />
-          <Tile label="Ready for collection" value={s.queue?.READY_FOR_COLLECTION ?? 0} href="/staff/card-issuance?stage=awaiting_collection" tone="green" />
-          <Tile label="Active cards" value={(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} href="/staff/cards" tone="green" />
-          <Tile label="Expiring in 30 days" value={s.cards_expiring_30_days ?? 0} />
-          <Tile label="Expired cards" value={s.cards_expired ?? 0} href="/staff/cards?expired=1" />
-          <Tile label="Watchlisted" value={s.watchlisted ?? 0} href="/staff/cards?watchlisted=1" tone="red" />
-          <Tile label={`Past ${s.sla?.target_working_days ?? 10}-day target`} value={s.sla?.overdue ?? 0} href="/staff/applications?overdue=1" tone={s.sla?.overdue ? "red" : "slate"} />
-          <Tile label="Assigned to me" value={s.sla?.assigned_to_me ?? 0} href="/staff/applications?assigned=me&status=" />
-          <Tile label="Waiting at the centre" value={s.queue_today?.WAITING ?? 0} href="/staff/queue" />
-          <Tile label="Blank cards left" value={s.card_stock?.remaining ?? 0} href="/staff/card-stock" tone={s.card_stock?.low ? "red" : "slate"} />
+          <Tile label={t("Paid – not submitted")} value={s.paid_awaiting_submission ?? 0} href="/staff/payments?filter=awaiting_submission" tone="amber" />
+          <Tile label={t("Awaiting approval")} value={s.queue?.PENDING_APPROVAL ?? 0} href="/staff/applications?status=PENDING_APPROVAL" tone="amber" />
+          <Tile label={t("Queried")} value={s.queue?.QUERIED ?? 0} href="/staff/applications?status=QUERIED" />
+          <Tile label={t("Biometrics today")} value={s.todays_appointments ?? 0} href="/staff/applications?status=APPROVED_FOR_BIOMETRICS" />
+          <Tile label={t("Cards to approve")} value={s.cards?.APPROVED ?? 0} href="/staff/cards?status=APPROVED" tone="amber" />
+          <Tile label={t("Ready for collection")} value={s.queue?.READY_FOR_COLLECTION ?? 0} href="/staff/card-issuance?stage=awaiting_collection" tone="green" />
+          <Tile label={t("Active cards")} value={(s.cards?.ISSUED ?? 0) + (s.cards?.RENEWED ?? 0)} href="/staff/cards" tone="green" />
+          <Tile label={t("Expiring in 30 days")} value={s.cards_expiring_30_days ?? 0} />
+          <Tile label={t("Expired cards")} value={s.cards_expired ?? 0} href="/staff/cards?expired=1" />
+          <Tile label={t("Watchlisted")} value={s.watchlisted ?? 0} href="/staff/cards?watchlisted=1" tone="red" />
         </div>
       </section>
 
@@ -199,8 +212,7 @@ export default function StaffDashboard() {
         </ChartCard>
       </div>
 
-      {/* Applications by Type & Applications by Sex */}
-      {/* Applications by Type & Applications by Sex */}
+      {/* Applications by Type & Applications by Gender */}
       <div className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Applications by Type"
@@ -226,14 +238,14 @@ export default function StaffDashboard() {
         </ChartCard>
 
         <ChartCard
-          title="Applications by Gender"
-          subtitle="Male vs Female"
+          title={t("Applications by Gender")}
+          subtitle={t("Male vs Female")}
           table={
             <DataTable
-              head={["Gender", "Total"]}
+              head={[t("Gender"), t("Total")]}
               rows={[
-                ["Male", a.mix?.sex?.MALE ?? 0],
-                ["Female", a.mix?.sex?.FEMALE ?? 0],
+                [t("Male"), a.mix?.sex?.MALE ?? a.mix?.sex?.Male ?? 0],
+                [t("Female"), a.mix?.sex?.FEMALE ?? a.mix?.sex?.Female ?? 0],
               ]}
             />
           }
@@ -241,11 +253,11 @@ export default function StaffDashboard() {
           <div className="py-2">
             <DoughnutChart
               items={[
-                { label: "Male", value: a.mix?.sex?.MALE ?? 0, color: "#2b892b" },
-                { label: "Female", value: a.mix?.sex?.FEMALE ?? 0, color: "#58b258" },
+                { label: t("Male"), value: a.mix?.sex?.MALE ?? a.mix?.sex?.Male ?? 0, color: "#2E7D32" },
+                { label: t("Female"), value: a.mix?.sex?.FEMALE ?? a.mix?.sex?.Female ?? 0, color: "#8E44AD" },
               ]}
-              centerTitle="Gender"
-              centerSubtitle="Distribution"
+              centerTitle={t("Gender")}
+              centerSubtitle={t("Distribution")}
             />
           </div>
         </ChartCard>

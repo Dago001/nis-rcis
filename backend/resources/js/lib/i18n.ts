@@ -807,5 +807,25 @@ const FR: Record<string, string> = {
   "Normal Application Fee:": "Frais habituels de demande :",
   "Change of Data Fee:": "Frais de modification des données :",
   "Total Payable:": "Total à payer :",
+
+  // Admin Dashboard
+  "Renewal Cards Issued": "Cartes renouvelées délivrées",
+  "Distribution": "Répartition",
+  "Male vs Female": "Masculin vs Féminin",
+  "Applications this month": "Demandes ce mois-ci",
+  "Cards issued": "Cartes délivrées",
+  "currently active": "actuellement actives",
+  "vs last month": "par rapport au mois dernier",
+  "in total": "au total",
+  "Officially issued new cards": "Nouvelles cartes officiellement délivrées",
+  "Officially issued renewal cards": "Cartes renouvelées officiellement délivrées",
+  "Work queues": "Files de travail",
+  "Paid – not submitted": "Payé – non soumis",
+  "Awaiting approval": "En attente d'approbation",
+  "Biometrics today": "Biométrie aujourd'hui",
+  "Cards to approve": "Cartes à approuver",
+  "Active cards": "Cartes actives",
+  "Expiring in 30 days": "Expirant dans 30 jours",
+  "Expired cards": "Cartes expirées",
 };
 

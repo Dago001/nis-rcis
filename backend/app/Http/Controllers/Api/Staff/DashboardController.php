@@ -46,6 +46,7 @@ class DashboardController
         $data = \Illuminate\Support\Facades\Cache::remember("staff_summary_{$user->id}", 15, function () use ($user) {
             $applications = Application::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
             $cards = ResidenceCard::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+            $analytics = $this->analytics();
 
             return [
                 'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($applications[$s->value] ?? 0)]),
@@ -54,6 +55,8 @@ class DashboardController
                 'cards_expiring_30_days' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
                 'watchlisted' => ResidenceCard::where('is_watchlisted', true)->count(),
                 'paid_awaiting_submission' => Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count(),
+                'new_cards_issued' => (int) ($analytics['totals']['new_cards_issued'] ?? 0),
+                'renewal_cards_issued' => (int) ($analytics['totals']['renewal_cards_issued'] ?? 0),
                 'sla' => [
                     'target_working_days' => (int) config('nis.sla_working_days'),
                     'overdue' => Application::where('status', ApplicationStatus::PendingApproval)
@@ -64,7 +67,7 @@ class DashboardController
                 'card_stock' => app(CardProduction::class)->stock(),
                 'queue_today' => QueueTicket::whereDate('service_date', today())->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')->map(fn ($v) => (int) $v),
                 'todays_appointments' => Application::where('status', ApplicationStatus::ApprovedForBiometrics)->whereDate('appointment_date', today())->count(),
-                'analytics' => $this->analytics(),
+                'analytics' => $analytics,
                 'my_activity' => [
                     'decided' => Application::where('decided_by', $user->id)->count(),
                     'captured' => Application::where('biometrics_captured_by', $user->id)->count(),
@@ -146,6 +149,29 @@ class DashboardController
             $days = collect(range(0, 20))->map(fn ($i) => CarbonImmutable::today()->addDays($i))
                 ->reject(fn ($d) => $d->isWeekend())->take(10)->values();
 
+            $issuedCardsBase = ResidenceCard::query()
+                ->whereNotNull('issued_on')
+                ->whereIn('status', [CardStatus::Issued, CardStatus::Renewed]);
+
+            $newCardsIssued = (clone $issuedCardsBase)->where(function ($q) {
+                $q->whereHas('application', fn ($sq) => $sq->where('type', 'NEW')->orWhereNull('type'))
+                  ->orWhereDoesntHave('application');
+            })->where('status', CardStatus::Issued)->whereDoesntHave('renewals')->count();
+
+            $renewalCardsIssued = (clone $issuedCardsBase)->where(function ($q) {
+                $q->where('status', CardStatus::Renewed)
+                  ->orWhereHas('application', fn ($sq) => $sq->where('type', 'RENEWAL'))
+                  ->orWhereHas('renewals');
+            })->count();
+
+            $totalCardsIssued = (clone $issuedCardsBase)->count();
+
+            $sexRaw = $split('sex');
+            $sexNormalized = [
+                'MALE' => (int) ($sexRaw['MALE'] ?? $sexRaw['Male'] ?? $sexRaw['male'] ?? 0),
+                'FEMALE' => (int) ($sexRaw['FEMALE'] ?? $sexRaw['Female'] ?? $sexRaw['female'] ?? 0),
+            ];
+
             return [
                 'monthly' => $months->map(fn ($m) => [
                     'month' => $m,
@@ -157,7 +183,9 @@ class DashboardController
                     'applications' => Application::count(),
                     'applications_this_month' => (int) ($submitted[$months->last()] ?? 0),
                     'applications_last_month' => (int) ($submitted[$months[10]] ?? 0),
-                    'cards_issued' => ResidenceCard::whereNotNull('issued_on')->count(),
+                    'cards_issued' => $totalCardsIssued,
+                    'new_cards_issued' => $newCardsIssued,
+                    'renewal_cards_issued' => $renewalCardsIssued,
                     'revenue_naira' => (int) (clone $paid)->sum('amount_kobo') / 100,
                     'revenue_this_month_naira' => (int) ($revenue[$months->last()] ?? 0) / 100,
                     'payments' => (clone $paid)->count(),
@@ -182,7 +210,7 @@ class DashboardController
                 'mix' => [
                     'type' => $split('type'),
                     'channel' => $split('channel'),
-                    'sex' => $split('sex'),
+                    'sex' => $sexNormalized,
                 ],
                 'appointments' => $days->map(fn ($d) => ['date' => $d->toDateString(), 'total' => (int) ($appointments[$d->toDateString()] ?? 0)]),
             ];
@@ -195,6 +223,8 @@ class DashboardController
                     'applications_this_month' => 0,
                     'applications_last_month' => 0,
                     'cards_issued' => 0,
+                    'new_cards_issued' => 0,
+                    'renewal_cards_issued' => 0,
                     'revenue_naira' => 0,
                     'revenue_this_month_naira' => 0,
                     'payments' => 0,

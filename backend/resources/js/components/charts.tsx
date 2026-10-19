@@ -455,7 +455,12 @@ export function DoughnutChart({
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const total = items.reduce((sum, it) => sum + it.value, 0);
-  const colors = [items[0].color ?? "#2b892b", items[1].color ?? "#58b258"];
+  const colors = items.map((it, idx) => {
+    const l = (it.label || "").toLowerCase();
+    if (l.includes("female") || l.includes("féminin") || l.includes("feminin") || l === "f") return "#8E44AD";
+    if (l.includes("male") || l.includes("masculin") || l === "m") return "#2E7D32";
+    return it.color ?? (idx === 0 ? "#2E7D32" : "#8E44AD");
+  });
 
   const size = 200;
   const cx = size / 2;
@@ -527,7 +532,7 @@ export function DoughnutChart({
           </span>
           {hover !== null && (
             <span className="mt-1 text-xs font-bold text-slate-900 tabular-nums">
-              {format(items[hover].value)} ({total > 0 ? Math.round((items[hover].value / total) * 100) : 0}%)
+              {items[hover].label}: {format(items[hover].value)} ({total > 0 ? Math.round((items[hover].value / total) * 100) : 0}%)
             </span>
           )}
         </div>
