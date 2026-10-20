@@ -12,8 +12,8 @@ export function checkDigit(field: string): string {
 }
 
 /** Upper-case, strip accents and apostrophes, turn everything else that is not A–Z / 0–9 into "<". */
-function clean(value: string): string {
-  return value
+function clean(value?: string | null): string {
+  return (value ?? "")
     .normalize("NFD")
     .replace(/[̀-ͯ']/g, "")
     .toUpperCase()
@@ -56,7 +56,8 @@ export function td1Mrz(d: MrzInput): [string, string, string] {
 
   const dob = mrzDate(d.dateOfBirth);
   const exp = mrzDate(d.dateOfExpiry);
-  const sex = d.sex.toUpperCase().startsWith("M") ? "M" : d.sex.toUpperCase().startsWith("F") ? "F" : "<";
+  const s = (d.sex ?? "").toUpperCase();
+  const sex = s.startsWith("M") ? "M" : s.startsWith("F") ? "F" : "<";
   const head = dob + checkDigit(dob) + sex + exp + checkDigit(exp) + pad(countryCode(d.nationality), 3) + pad("", 11);
   const composite = line1.slice(5, 30) + head.slice(0, 7) + head.slice(8, 15) + head.slice(18, 29);
   const line2 = head + checkDigit(composite);
@@ -80,7 +81,8 @@ export function td2Mrz(d: MrzInput): [string, string] {
   const nat = pad(countryCode(d.nationality), 3);
   const dob = mrzDate(d.dateOfBirth);
   const dobWithCd = dob + checkDigit(dob);
-  const sex = d.sex.toUpperCase().startsWith("M") ? "M" : d.sex.toUpperCase().startsWith("F") ? "F" : "<";
+  const s = (d.sex ?? "").toUpperCase();
+  const sex = s.startsWith("M") ? "M" : s.startsWith("F") ? "F" : "<";
   const exp = mrzDate(d.dateOfExpiry);
   const expWithCd = exp + checkDigit(exp);
 

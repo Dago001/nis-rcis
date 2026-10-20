@@ -186,9 +186,19 @@ function Back({ p }: { p: PrintData }) {
 /** On-screen preview of an ID-1 card (85.6 × 54 mm): front with the holder's particulars, back with the QR code and MRZ. */
 export function PrintableCard({ p }: { p: PrintData }) {
   return (
-    <div className="no-print flex flex-wrap gap-6">
-      <Front p={p} />
-      <Back p={p} />
+    <div className="no-print flex flex-col items-center gap-6 md:flex-row md:flex-wrap md:justify-center md:items-start">
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Card Front
+        </span>
+        <Front p={p} />
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Card Back
+        </span>
+        <Back p={p} />
+      </div>
     </div>
   );
 }
