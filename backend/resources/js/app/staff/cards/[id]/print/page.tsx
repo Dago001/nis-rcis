@@ -133,6 +133,15 @@ export default function PrintCardPage() {
                 Go to Card Issuance →
               </Link>
             )}
+
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowSpoilModal(true)}
+              className="border-slate-300 bg-white text-slate-700 hover:border-red-300 hover:text-red-700 hover:bg-red-50/50"
+            >
+              Report Spoiled Card
+            </Button>
           </div>
         </div>
 
@@ -167,41 +176,25 @@ export default function PrintCardPage() {
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5 shadow-xs">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                    Production Status: Awaiting Production
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">Step 1 of 2</span>
-                </div>
-                <h3 className="text-base font-semibold text-slate-900">
-                  Physical Card Printing Workflow
-                </h3>
-                <p className="text-sm text-slate-600 max-w-3xl">
-                  1. Inspect the card particulars below. 2. Click <strong>Print Card</strong> to send the job to the card printer.
-                  3. After verifying physical card output, click <strong>Confirm Printed</strong> to update the system and advance the card to <strong>Card Issuance</strong>.
-                </p>
+          <div className="rounded-xl border border-[#D7E5DA] bg-[#F7FAF8] p-4 sm:p-5 shadow-xs">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-emerald-100/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-900 border border-emerald-200/60">
+                  Production Status: {card.production_status || "Awaiting Production"}
+                </span>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <Button
-                  variant="primary"
-                  onClick={handleConfirmPrinted}
-                  disabled={busy}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                >
-                  ✓ Confirm Printed
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setShowSpoilModal(true)}
-                  className="text-xs text-slate-500 hover:text-red-700 underline px-2 py-1"
-                >
-                  Report Spoiled Card
-                </button>
-              </div>
+              <h3 className="text-base font-semibold text-[#173B2B]">
+                Physical Card Printing Workflow
+              </h3>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-slate-700 leading-relaxed">
+                <li>Review and verify the card particulars displayed below.</li>
+                <li>
+                  Click <strong className="font-semibold text-slate-900">Print Card</strong> to initiate the authorized card-printing process.
+                </li>
+                <li>
+                  After confirming successful physical printing, click <strong className="font-semibold text-slate-900">Confirm Printed</strong> to update the production status and move the card to Card Issuance.
+                </li>
+              </ol>
             </div>
           </div>
         )}
