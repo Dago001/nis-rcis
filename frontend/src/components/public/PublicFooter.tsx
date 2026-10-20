@@ -34,7 +34,7 @@ export function PublicFooter() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
           <div>
             <h2 className="font-semibold text-slate-900">{t("Services")}</h2>
             <ul className="mt-3 space-y-2 text-slate-600">
@@ -53,6 +53,32 @@ export function PublicFooter() {
               <li><Link href="/privacy" className="hover:text-nis-primary">{t("Privacy notice")}</Link></li>
               <li><Link prefetch={false} href="/staff" className="hover:text-nis-primary">{t("NIS staff sign in")}</Link></li>
             </ul>
+          </div>
+          <div className="rounded-2xl border border-nis-primary/20 bg-nis-mint/60 p-5 shadow-sm max-w-sm">
+            <h2 className="font-semibold text-nis-primary-dark flex items-center gap-2">
+              <svg className="h-5 w-5 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <path d="M8 10h.01M12 10h.01M16 10h.01" />
+              </svg>
+              {t("Need Assistance?")}
+            </h2>
+            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+              {t("Have questions about application categories, requirements, fees, biometrics or renewals? Our virtual assistant is available 24/7.")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("nis-open-chat"));
+                }
+              }}
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-nis-primary px-4 py-2.5 text-xs font-semibold text-white shadow hover:bg-nis-primary-dark transition active:scale-95"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              {t("Chat with Our Virtual Assistant")}
+            </button>
           </div>
         </div>
       </div>

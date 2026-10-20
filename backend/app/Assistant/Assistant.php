@@ -92,16 +92,16 @@ class Assistant
 
     private function fromKnowledgeBase(string $message): Reply
     {
-        if (preg_match('/^\s*(hi|hello|hey|good (morning|afternoon|evening)|greetings)\b/i', $message)) {
-            return new Reply('Hello! I can answer questions about applying for, tracking and renewing a Nigerian residence card. What would you like to know?', 'knowledge');
+        if (preg_match('/^\s*(hi|hello|hey|good (morning|afternoon|evening)|greetings|bonjour|salut)\b/i', $message)) {
+            return new Reply('Welcome to the ECOWAS Residence Card Portal. I can help you understand application requirements, residence card categories, renewals, dependant applications, payments, appointments and application procedures. How may I assist you?', 'knowledge');
         }
 
         $match = $this->knowledge->search($message)[0] ?? null;
         if (! $match) {
             return new Reply(
-                'Sorry, I don\'t have an answer to that. I can help with applying, required documents, fees, appointments, tracking, renewal and card verification. You can also read the FAQ or contact us.',
+                "I couldn't find verified information about that question in the available portal guidance. Please consult the relevant application instructions or contact our official support channel.",
                 'fallback',
-                [['label' => 'FAQ', 'href' => '/faq'], ['label' => 'Contact us', 'href' => '/contact']],
+                [['label' => 'FAQ', 'href' => '/faq'], ['label' => 'Contact Support', 'href' => '/contact']],
             );
         }
 

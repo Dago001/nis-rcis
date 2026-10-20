@@ -75,32 +75,49 @@ function StatCard({ label, value, note, href }: { label: string; value: string |
 export default function StaffDashboard() {
   const user = useStaff();
   const { t } = useI18n();
-  const [s, setS] = useState<Summary | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const cached = sessionStorage.getItem("nis_staff_dashboard");
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [s, setS] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api<Summary>("staff", "dashboard")
+  const fetchDashboardData = (isRefresh = false) => {
+    setLoading(true);
+    setError(null);
+    const endpoint = isRefresh ? "dashboard?refresh=1" : "dashboard";
+    api<Summary>("staff", endpoint)
       .then((data) => {
         setS(data);
-        try {
-          sessionStorage.setItem("nis_staff_dashboard", JSON.stringify(data));
-        } catch {}
+        setError(null);
       })
       .catch((e) => {
-        if (!s) setError(e.message);
+        setError(e.message || "Unable to connect to the database reporting service.");
+      })
+      .finally(() => {
+        setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchDashboardData(false);
   }, []);
 
-  if (error && !s) return <Alert tone="danger">{error}</Alert>;
-  if (!s || !s.analytics?.totals || !s.queue) return <Spinner />;
+  if (loading && !s) return <Spinner label={t("Loading dashboard statistics…")} />;
+  if (!s && error) {
+    return (
+      <div className="space-y-4">
+        <PageTitle title={t("Dashboard")} subtitle={`${user.command} · ${user.role_label}`} />
+        <Alert tone="danger">{error}</Alert>
+        <button
+          type="button"
+          onClick={() => fetchDashboardData(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-nis-primary px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-nis-primary-dark"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>
+          <span>{t("Retry Loading Dashboard")}</span>
+        </button>
+      </div>
+    );
+  }
+  if (!s || !s.analytics?.totals || !s.queue) return <Spinner label={t("Loading dashboard statistics…")} />;
 
   const a = s.analytics;
   const totals = a.totals ?? {
@@ -130,7 +147,41 @@ export default function StaffDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title={t("Dashboard")} subtitle={`${user.command} · ${user.role_label}`} />
+      <PageTitle
+        title={t("Dashboard")}
+        subtitle={`${user.command} · ${user.role_label}`}
+        actions={
+          <button
+            type="button"
+            onClick={() => fetchDashboardData(true)}
+            disabled={loading}
+            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <svg className={`h-3.5 w-3.5 text-nis-primary ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M21 21v-5h-5" />
+            </svg>
+            <span>{loading ? t("Refreshing…") : t("Refresh Live Data")}</span>
+          </button>
+        }
+      />
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-center justify-between gap-3">
+          <div>
+            <span className="font-semibold">{t("Notice")}:</span> {error}
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchDashboardData(true)}
+            className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+          >
+            {t("Retry")}
+          </button>
+        </div>
+      )}
 
       {/* Primary Volume & Issuance Statistics */}
       <div>
@@ -299,14 +350,20 @@ export default function StaffDashboard() {
           }
         >
           <div className="py-2">
-            <DoughnutChart
-              items={[
-                { label: t("Male"), value: a.mix?.sex?.MALE ?? a.mix?.sex?.Male ?? 0, color: "#2E7D32" },
-                { label: t("Female"), value: a.mix?.sex?.FEMALE ?? a.mix?.sex?.Female ?? 0, color: "#8E44AD" },
-              ]}
-              centerTitle={t("Gender")}
-              centerSubtitle={t("Distribution")}
-            />
+            {(a.mix?.sex?.MALE ?? 0) === 0 && (a.mix?.sex?.FEMALE ?? 0) === 0 ? (
+              <div className="flex h-48 items-center justify-center text-xs text-slate-400">
+                {t("No gender records available")}
+              </div>
+            ) : (
+              <DoughnutChart
+                items={[
+                  { label: t("Male"), value: a.mix?.sex?.MALE ?? a.mix?.sex?.Male ?? 0, color: "#2E7D32" },
+                  { label: t("Female"), value: a.mix?.sex?.FEMALE ?? a.mix?.sex?.Female ?? 0, color: "#8E44AD" },
+                ]}
+                centerTitle={t("Gender")}
+                centerSubtitle={t("Distribution")}
+              />
+            )}
           </div>
         </ChartCard>
       </div>
