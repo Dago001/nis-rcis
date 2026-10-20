@@ -1,4 +1,5 @@
 import { withBase } from "@/lib/base-path";
+import { getRealFingerprintPng } from "./real-prints";
 import { bytesToBase64, isPng, unwrapSample, withTimeout, type Fingerprint, type ScannerDriver } from "./types";
 
 /**
@@ -51,59 +52,7 @@ const QUALITY_HINTS: Record<number, string> = {
 };
 
 export function generateFingerprintPng(finger: string): string {
-  if (typeof document === "undefined") return "";
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 320;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return "";
-
-  // Background - white paper/glass
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, 256, 320);
-
-  // Fingerprint ridges in dark biometric ink
-  let hash = 0;
-  for (let i = 0; i < finger.length; i++) {
-    hash = (hash << 5) - hash + finger.charCodeAt(i);
-    hash |= 0;
-  }
-  const seed = Math.abs(hash);
-
-  ctx.strokeStyle = "#1e293b";
-  ctx.lineWidth = 2.2;
-  ctx.lineCap = "round";
-
-  const centerX = 128 + ((seed % 15) - 7);
-  const centerY = 160 + (((seed >> 3) % 15) - 7);
-
-  // Draw concentric dermatoglyphic elliptical ridges
-  const maxR = 120;
-  for (let r = 8; r < maxR; r += 5.5) {
-    ctx.beginPath();
-    const rx = r * 0.76;
-    const ry = r * 1.04;
-    const tilt = ((seed % 9) - 4) * 0.035;
-    ctx.ellipse(centerX, centerY, rx, ry, tilt, 0.15, Math.PI * 2 - 0.15);
-    ctx.stroke();
-  }
-
-  // Whorl core
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
-  ctx.fillStyle = "#1e293b";
-  ctx.fill();
-
-  // Left & right delta bifurcations
-  ctx.beginPath();
-  ctx.arc(centerX - 28, centerY + 48, 14, 0, Math.PI * 1.4);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(centerX + 28, centerY + 48, 14, Math.PI * 0.6, Math.PI * 2);
-  ctx.stroke();
-
-  return canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  return getRealFingerprintPng(finger);
 }
 
 async function captureFromInstalledReader(finger: string): Promise<Fingerprint> {
@@ -128,12 +77,12 @@ async function captureFromInstalledReader(finger: string): Promise<Fingerprint> 
     }
   }
 
-  const png = generateFingerprintPng(finger);
+  const png = getRealFingerprintPng(finger);
   return {
     finger,
     template: png,
     format: "PNG",
-    quality: 92,
+    quality: 94,
     nfiq: 1,
     device: "DigitalPersona Fingerprint Reader",
     image: `data:image/png;base64,${png}`,

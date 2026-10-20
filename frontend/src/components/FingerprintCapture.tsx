@@ -163,10 +163,10 @@ export function FingerprintCapture({ onChange }: { onChange: (prints: Fingerprin
             return (
               <li key={code} className="rounded-xl border border-slate-200 bg-white p-3 text-center text-sm shadow-sm">
                 <div className="font-semibold text-xs text-slate-800">{label}</div>
-                <div className="mx-auto my-2 flex h-28 w-20 items-center justify-center overflow-hidden rounded border border-dashed border-slate-300 bg-slate-50">
+                <div className={`mx-auto my-2 flex h-28 w-20 items-center justify-center overflow-hidden rounded border ${p?.image ? "border-solid border-slate-300 bg-white shadow-inner" : "border-dashed border-slate-300 bg-slate-50"}`}>
                   {p?.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain" />
+                    <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain p-0.5" />
                   ) : (
                     <span className="px-1 text-[11px] text-slate-400">{p ? "Captured ✓" : "Pending"}</span>
                   )}
@@ -195,10 +195,10 @@ export function FingerprintCapture({ onChange }: { onChange: (prints: Fingerprin
             return (
               <li key={code} className="rounded-xl border border-slate-200 bg-white p-3 text-center text-sm shadow-sm">
                 <div className="font-semibold text-xs text-slate-800">{label}</div>
-                <div className="mx-auto my-2 flex h-28 w-20 items-center justify-center overflow-hidden rounded border border-dashed border-slate-300 bg-slate-50">
+                <div className={`mx-auto my-2 flex h-28 w-20 items-center justify-center overflow-hidden rounded border ${p?.image ? "border-solid border-slate-300 bg-white shadow-inner" : "border-dashed border-slate-300 bg-slate-50"}`}>
                   {p?.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain" />
+                    <img src={p.image} alt={`${label} fingerprint`} className="h-full w-full object-contain p-0.5" />
                   ) : (
                     <span className="px-1 text-[11px] text-slate-400">{p ? "Captured ✓" : "Pending"}</span>
                   )}
