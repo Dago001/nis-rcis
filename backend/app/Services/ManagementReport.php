@@ -13,6 +13,7 @@ use App\Models\Refund;
 use App\Models\ResidenceCard;
 use App\Support\WorkingDays;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Management report for a period (normally a month): applications, service
@@ -105,7 +106,15 @@ class ManagementReport
                 [
                     'title' => 'Applications by nationality (top 15)',
                     'headings' => ['Nationality', 'Applications'],
-                    'rows' => (clone $received)->selectRaw('nationality, count(*) as total')->groupBy('nationality')->orderByDesc('total')->limit(15)
+                    'rows' => (clone $received)
+                        ->whereNotNull('nationality')
+                        ->where('nationality', '!=', '')
+                        ->whereIn(DB::raw("UPPER(TRIM(nationality))"), array_map('strtoupper', array_merge(config('nis.ecowas_member_states', []), config('nis.ecowas_legacy_names', []))))
+                        ->whereNotIn(DB::raw("UPPER(TRIM(nationality))"), ['UNITED KINGDOM', 'UK', 'GREAT BRITAIN', 'BRITISH', 'GBR', 'ROYAUME-UNI'])
+                        ->selectRaw('UPPER(TRIM(nationality)) as nationality, count(*) as total')
+                        ->groupByRaw('1')
+                        ->orderByDesc('total')
+                        ->limit(15)
                         ->get()->map(fn ($r) => [$r->nationality, (int) $r->total])->all(),
                 ],
                 [

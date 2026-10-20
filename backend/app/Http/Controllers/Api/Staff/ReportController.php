@@ -123,8 +123,22 @@ class ReportController
             'active' => (clone $cards)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->count(),
             'revoked' => (clone $cards)->where('status', CardStatus::Revoked)->count(),
             'renewals' => $renewedIssued,
-            'nationalities' => (clone $cards)->distinct()->count('nationality'),
-            'by_nationality' => (clone $cards)->selectRaw('nationality, count(*) as total')->groupBy('nationality')->orderByDesc('total')->get(),
+            'nationalities' => (clone $cards)
+                ->whereNotNull('nationality')
+                ->where('nationality', '!=', '')
+                ->whereIn(DB::raw("UPPER(TRIM(nationality))"), array_map('strtoupper', array_merge(config('nis.ecowas_member_states', []), config('nis.ecowas_legacy_names', []))))
+                ->whereNotIn(DB::raw("UPPER(TRIM(nationality))"), ['UNITED KINGDOM', 'UK', 'GREAT BRITAIN', 'BRITISH', 'GBR', 'ROYAUME-UNI'])
+                ->distinct()
+                ->count('nationality'),
+            'by_nationality' => (clone $cards)
+                ->whereNotNull('nationality')
+                ->where('nationality', '!=', '')
+                ->whereIn(DB::raw("UPPER(TRIM(nationality))"), array_map('strtoupper', array_merge(config('nis.ecowas_member_states', []), config('nis.ecowas_legacy_names', []))))
+                ->whereNotIn(DB::raw("UPPER(TRIM(nationality))"), ['UNITED KINGDOM', 'UK', 'GREAT BRITAIN', 'BRITISH', 'GBR', 'ROYAUME-UNI'])
+                ->selectRaw('UPPER(TRIM(nationality)) as nationality, count(*) as total')
+                ->groupByRaw('1')
+                ->orderByDesc('total')
+                ->get(),
             'by_month' => (clone $cards)->selectRaw("{$monthFormat} as month, count(*) as total")->groupBy('month')->orderBy('month')->get(),
         ]);
     }

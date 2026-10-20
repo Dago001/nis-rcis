@@ -306,18 +306,25 @@ class DashboardController
             Log::warning('Dashboard recent activity query failed: ' . $e->getMessage());
         }
 
-        // Top Nationalities
+        // Top Nationalities: Strictly eligible ECOWAS nationalities from database records
         $nationalities = collect();
         try {
+            $ecowasAllowed = array_map('strtoupper', array_merge(
+                config('nis.ecowas_member_states', []),
+                config('nis.ecowas_legacy_names', [])
+            ));
+
             $nationalities = Application::query()
                 ->whereNotNull('nationality')
                 ->where('nationality', '!=', '')
-                ->selectRaw('nationality, count(*) as total')
+                ->whereIn(DB::raw("UPPER(TRIM(nationality))"), $ecowasAllowed)
+                ->whereNotIn(DB::raw("UPPER(TRIM(nationality))"), ['UNITED KINGDOM', 'UK', 'GREAT BRITAIN', 'BRITISH', 'GBR', 'ROYAUME-UNI'])
+                ->selectRaw("UPPER(TRIM(nationality)) as label, count(*) as total")
                 ->groupByRaw('1')
                 ->orderByRaw('count(*) DESC')
                 ->limit(8)
                 ->get()
-                ->map(fn ($r) => ['label' => $r->nationality, 'total' => (int) $r->total])
+                ->map(fn ($r) => ['label' => $r->label, 'total' => (int) $r->total])
                 ->values();
         } catch (\Throwable $e) {
             Log::warning('Dashboard nationalities query failed: ' . $e->getMessage());

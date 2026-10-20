@@ -417,9 +417,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {a.channel === "ASSISTED" ? t("Assisted") : t("Online")} · {applicationType(a)}
-                      </div>
+                      {!a.dependant_relationship && (
+                        <div className="text-xs text-slate-500">
+                          {a.channel === "ASSISTED" ? t("Assisted") : t("Online")} · {applicationType(a)}
+                        </div>
+                      )}
                       {(a.principal || (a as any).principal_application_number) && (
                         <div className="text-[11px] text-slate-500 mt-0.5">
                           {t("Principal")}: <span className="font-mono text-slate-700 font-medium">{a.principal?.application_number || (a as any).principal_application_number}</span>
