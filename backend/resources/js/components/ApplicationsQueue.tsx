@@ -406,17 +406,17 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                         >
                           {a.application_number}
                         </Link>
-                        {a.dependant_relationship && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                            {t("Dependant")} ({a.dependant_relationship})
-                          </span>
-                        )}
                         {!a.dependant_relationship && a.dependants && a.dependants.length > 0 && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {t("Principal")} ({a.dependants.length})
                           </span>
                         )}
                       </div>
+                      {a.dependant_relationship && (
+                        <div className="text-xs font-medium text-purple-700 mt-0.5">
+                          {t("Dependant")} ({a.dependant_relationship})
+                        </div>
+                      )}
                       {!a.dependant_relationship && (
                         <div className="text-xs font-medium text-slate-500">
                           {t(conciseApplicationType(a.type))}

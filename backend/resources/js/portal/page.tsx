@@ -276,10 +276,20 @@ export default function PortalHome() {
                       return (
                         <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
                           <td className="px-3.5 py-3 text-center text-xs font-medium text-slate-500">{sn}</td>
-                          <td className="px-3.5 py-3 whitespace-nowrap">
+                          <td className="px-3.5 py-3">
                             <Link href={`/portal/applications/${a.id}`} className="font-semibold text-nis-green hover:underline">
                               {a.application_number || a.reference_number}
                             </Link>
+                            {a.dependant_relationship && (
+                              <div className="text-xs font-medium text-purple-700 mt-0.5">
+                                {t("Dependant")} ({a.dependant_relationship})
+                              </div>
+                            )}
+                            {(a.principal || (a as any).principal_application_number) && (
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {t("Principal")}: <span className="font-mono text-slate-700 font-medium">{a.principal?.application_number || (a as any).principal_application_number}</span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-3.5 py-3 font-medium text-slate-700 whitespace-nowrap">
                             {categoryLabel}
