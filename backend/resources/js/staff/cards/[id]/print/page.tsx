@@ -149,7 +149,7 @@ export default function PrintCardPage() {
         {error && <Alert tone="danger">{error}</Alert>}
 
         {/* Workflow Guidance & Status Box */}
-        {isPrinted ? (
+        {isPrinted && (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 sm:p-5 shadow-xs">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white text-sm font-bold">
@@ -173,28 +173,6 @@ export default function PrintCardPage() {
                   </p>
                 )}
               </div>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-[#D7E5DA] bg-[#F7FAF8] p-4 sm:p-5 shadow-xs">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-emerald-100/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-900 border border-emerald-200/60">
-                  Production Status: {card.production_status || "Awaiting Production"}
-                </span>
-              </div>
-              <h3 className="text-base font-semibold text-[#173B2B]">
-                Physical Card Printing Workflow
-              </h3>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-slate-700 leading-relaxed">
-                <li>Review and verify the card particulars displayed below.</li>
-                <li>
-                  Click <strong className="font-semibold text-slate-900">Print Card</strong> to initiate the authorized card-printing process.
-                </li>
-                <li>
-                  After confirming successful physical printing, click <strong className="font-semibold text-slate-900">Confirm Printed</strong> to update the production status and move the card to Card Issuance.
-                </li>
-              </ol>
             </div>
           </div>
         )}
