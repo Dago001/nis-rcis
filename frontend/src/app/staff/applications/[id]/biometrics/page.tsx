@@ -122,7 +122,7 @@ export default function BiometricsDesk() {
                 {t("Enable Development Biometrics Simulation for this test application")}
               </label>
             </div>
-            {simulationMode ? (
+            {simulationMode && (
               <div className="text-xs text-amber-950 space-y-1">
                 <p className="font-semibold text-amber-900">
                   {t("No physical fingerprint scanner hardware is currently connected. You may proceed with testing by capturing facial photograph and signature only. Fingerprints will be recorded accurately as 'Not Captured — Development Simulation'.")}
@@ -131,10 +131,6 @@ export default function BiometricsDesk() {
                   Note: This simulated mode is strictly blocked in production environments. Test cards produced with simulated biometrics cannot be issued as genuine cards.
                 </p>
               </div>
-            ) : (
-              <p className="text-xs text-amber-900">
-                If fingerprint hardware is not connected during development or staging testing, enable the checkbox above to bypass the physical scanner.
-              </p>
             )}
           </div>
 
