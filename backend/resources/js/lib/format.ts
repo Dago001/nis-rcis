@@ -22,6 +22,14 @@ export function naira(amount: number): string {
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(amount);
 }
 
+/** Concise application type for administrative tables and views: "New", "Renewal" or "Replacement". */
+export function conciseApplicationType(type?: string | null): string {
+  const t = (type || "").toUpperCase().trim();
+  if (t === "RENEWAL") return "Renewal";
+  if (t === "REPLACE" || t === "REPLACEMENT") return "Replacement";
+  return "New";
+}
+
 /** "Renewal", "Replacement (lost/stolen card)" or "New card", plus "for spouse/child" on dependants' applications. */
 export function applicationType(a: { type: string; renewal_of_card_number?: string | null; dependant_relationship?: string | null }, withCard = false): string {
   const card = withCard && a.renewal_of_card_number ? ` of card ${a.renewal_of_card_number}` : "";

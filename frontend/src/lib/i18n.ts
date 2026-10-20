@@ -772,7 +772,14 @@ const FR: Record<string, string> = {
   "All Rights Reserved.": "Tous droits réservés.",
 
   // Renewal & Change of Data (COD)
+  "New": "Nouvelle demande",
   "Renewal": "Renouvellement",
+  "Replacement": "Remplacement",
+  "Not Captured — Development Simulation": "Non capturé — Simulation de développement",
+  "Development Biometrics Simulation Mode": "Mode simulation biométrique de développement",
+  "Simulated Biometrics (Non-Production Testing)": "Biométrie simulée (Test hors production)",
+  "Enable Development Biometrics Simulation for this test application": "Activer la simulation biométrique de développement pour cette demande de test",
+  "No physical fingerprint scanner hardware is currently connected. You may proceed with testing by capturing facial photograph and signature only. Fingerprints will be recorded accurately as 'Not Captured — Development Simulation'.": "Aucun scanner d'empreintes digitales physique n'est actuellement connecté. Vous pouvez poursuivre le test en capturant uniquement la photo du visage et la signature. Les empreintes digitales seront enregistrées précisément comme 'Non capturé — Simulation de développement'.",
   "Change of Data": "Modification des données",
   "Change of Data (COD)": "Modification des données",
   "Existing Information": "Informations actuelles",

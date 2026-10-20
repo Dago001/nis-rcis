@@ -9,7 +9,7 @@ import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
-import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
+import { dateTime, naira, nisDate, applicationType, conciseApplicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
 
@@ -151,7 +151,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             />
           </>
         }
-        subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
+        subtitle={`${conciseApplicationType(a.type)} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
             {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
@@ -290,9 +290,9 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
         <Dl
           items={[
             ["Application Reference", a.application_number],
-            ["Application Type", `${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true)}`],
+            ["Application Type", conciseApplicationType(a.type)],
             ["Category", a.category || "General"],
-            ["Classification", a.renewal_of_card_id ? "Renewal Application" : "New Application"],
+            ["Classification", `${conciseApplicationType(a.type)} Application`],
             ["Current Status", a.status === "VETTED" ? "Vetted – Awaiting Final Approval" : (a.status_label || a.status)],
             ["Submission Date", dateTime(a.submitted_at)],
             ["Enrollment Center", a.enrollment_center?.name || a.enrollment_center?.code || "—"],

@@ -9,7 +9,7 @@ import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
-import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
+import { dateTime, naira, nisDate, applicationType, conciseApplicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
 
@@ -151,7 +151,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             />
           </>
         }
-        subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
+        subtitle={`${conciseApplicationType(a.type)} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
             {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
@@ -290,9 +290,9 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
         <Dl
           items={[
             ["Application Reference", a.application_number],
-            ["Application Type", `${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true)}`],
+            ["Application Type", conciseApplicationType(a.type)],
             ["Category", a.category || "General"],
-            ["Classification", a.renewal_of_card_id ? "Renewal Application" : "New Application"],
+            ["Classification", `${conciseApplicationType(a.type)} Application`],
             ["Current Status", a.status === "VETTED" ? "Vetted – Awaiting Final Approval" : (a.status_label || a.status)],
             ["Submission Date", dateTime(a.submitted_at)],
             ["Enrollment Center", a.enrollment_center?.name || a.enrollment_center?.code || "—"],
@@ -325,7 +325,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             <Dl
               items={[
                 ["Full Name", `${a.surname}, ${a.forenames}`],
-                ["Sex", a.sex],
+                ["Gender", a.sex],
                 ["Date of Birth", nisDate(a.date_of_birth)],
                 ["Place of Birth", a.place_of_birth],
                 ["Nationality", a.nationality],
@@ -339,6 +339,66 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
           </div>
         </div>
       </Panel>
+
+      {/* Change of Data (COD) Requested Section */}
+      {Boolean(a.has_cod) && (
+        <Panel
+          title="Change of Data (COD) Requested"
+          subtitle="Applicant has requested formal modifications to their recorded particulars with supporting justification."
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900 font-medium">
+              <svg className="h-5 w-5 shrink-0 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>
+                <strong>Change of Data Requested:</strong> Approving this application will automatically apply the approved proposed values to the official application record and log the action.
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">Field Name</th>
+                    <th className="px-4 py-3">Original Recorded Value</th>
+                    <th className="px-4 py-3">Proposed New Value</th>
+                    <th className="px-4 py-3">Reason for Change</th>
+                    <th className="px-4 py-3">Supporting Document</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {Array.isArray(a.cod_changes) && a.cod_changes.length > 0 ? (
+                    a.cod_changes.map((c, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 font-medium text-slate-900">{c.field_label || c.field}</td>
+                        <td className="px-4 py-3 text-slate-500 font-mono text-xs">{c.original_value || "—"}</td>
+                        <td className="px-4 py-3 font-semibold text-nis-primary font-mono text-xs">{c.requested_value}</td>
+                        <td className="px-4 py-3 text-slate-700">{c.reason}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {c.document_name ? (
+                            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-800">
+                              📄 {c.document_name}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">See uploaded docs</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-4 text-center text-slate-500 italic">
+                        No specific field changes recorded.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Panel>
+      )}
 
       {/* 3. Passport & Travel Document Information */}
       <Panel title="Passport and Travel Document Information">

@@ -173,6 +173,10 @@ class CardIssuanceController
         $card = ResidenceCard::with('application.enrollmentCenter')->findOrFail($id);
         $app = $card->application ?? throw ValidationException::withMessages(['card' => 'Card is not linked to an application.']);
 
+        if (app()->isProduction() && ($card->statutory_protocol === 'DEVELOPMENT_SIMULATION' || str_contains((string) $card->statutory_protocol, 'SIMULATION'))) {
+            throw ValidationException::withMessages(['card' => "Card {$card->card_number} was created via Development Biometrics Simulation and cannot be issued in a production environment."]);
+        }
+
         if ($app->status === ApplicationStatus::Issued) {
             return response()->json([
                 'message' => "Card {$card->card_number} was already collected on {$app->collected_at?->format('d/m/Y H:i')}.",

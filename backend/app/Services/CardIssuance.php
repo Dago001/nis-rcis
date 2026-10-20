@@ -37,15 +37,24 @@ class CardIssuance
             throw ValidationException::withMessages(['status' => "Application {$application->application_number} is not approved for biometrics."]);
         }
 
+        $isSimulation = ! empty($input['simulation']);
+        if ($isSimulation && app()->isProduction()) {
+            throw new \DomainException('Biometrics simulation mode is strictly prohibited in production environments.');
+        }
+
         $photo = $this->storage->storeDataUrl($input['photo'], DocumentType::Photo, ['application_id' => $application->id], $officer);
         $signature = $this->storage->storeDataUrl($input['signature'], DocumentType::Signature, ['application_id' => $application->id], $officer);
+
+        $transitionNote = $isSimulation
+            ? 'Biometrics captured (Development Simulation Mode) at '.($input['issued_at'] ?? $application->enrollmentCenter?->name)
+            : 'Biometrics captured at '.($input['issued_at'] ?? $application->enrollmentCenter?->name);
 
         return $this->workflow->transition(
             $application,
             ApplicationStatus::BiometricsCaptured,
             $officer,
-            'Biometrics captured at '.($input['issued_at'] ?? $application->enrollmentCenter?->name),
-            function (Application $locked) use ($officer, $input, $photo, $signature) {
+            $transitionNote,
+            function (Application $locked) use ($officer, $input, $photo, $signature, $isSimulation) {
                 $cardNumber = $this->numbers->cardNumber();
                 $issuedOn = now();
 
@@ -54,6 +63,7 @@ class CardIssuance
                     'booklet_number' => $this->numbers->bookletNumber($cardNumber),
                     'issuing_country' => config('nis.issuing_country'),
                     'approving_authority' => config('nis.approving_authority'),
+                    'statutory_protocol' => $isSimulation ? 'DEVELOPMENT_SIMULATION' : '',
                     'decision_reference' => $locked->application_number,
                     'decision_date' => $locked->decided_at ?? now(),
                     'photo_path' => $photo->path,
@@ -73,15 +83,28 @@ class CardIssuance
                 $card->status = CardStatus::Approved;
                 $card->save();
 
+                $fingerprints = $isSimulation ? [
+                    [
+                        'status' => 'NOT_CAPTURED',
+                        'reason' => 'Not Captured — Development Simulation',
+                        'device' => 'Development Simulation',
+                        'timestamp' => now()->toIso8601String(),
+                    ],
+                ] : ($input['fingerprints'] ?? null);
+
                 $locked->fill([
                     'photo_path' => $photo->path,
                     'signature_path' => $signature->path,
-                    'fingerprint_template' => $input['fingerprint_template'] ?? null,
-                    'fingerprints' => $input['fingerprints'] ?? null,
+                    'fingerprint_template' => $isSimulation ? null : ($input['fingerprint_template'] ?? null),
+                    'fingerprints' => $fingerprints,
                     'biometrics_captured_by' => $officer->id,
                     'biometrics_captured_at' => now(),
                     'card_id' => $card->id,
                 ]);
+
+                if ($isSimulation) {
+                    Audit::log('BIOMETRICS_SIMULATION', "Development Biometrics Simulation captured for application {$locked->application_number} (photo + signature captured, fingerprints recorded as 'Not Captured — Development Simulation')", $card, actor: $officer);
+                }
 
                 Audit::log('CARD_CREATED', "Card {$card->card_number} created from application {$locked->application_number}", $card, actor: $officer);
 

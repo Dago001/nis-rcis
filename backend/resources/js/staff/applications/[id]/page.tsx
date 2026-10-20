@@ -9,7 +9,7 @@ import { hasRole, useStaff } from "@/components/StaffShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
-import { dateTime, naira, nisDate, applicationType } from "@/lib/format";
+import { dateTime, naira, nisDate, applicationType, conciseApplicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
 
@@ -69,7 +69,7 @@ export default function StaffApplicationPage() {
             />
           </>
         }
-        subtitle={`${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true).toLowerCase()} · submitted ${dateTime(a.submitted_at)}`}
+        subtitle={`${conciseApplicationType(a.type)} · submitted ${dateTime(a.submitted_at)}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
@@ -138,11 +138,7 @@ export default function StaffApplicationPage() {
       <ExternalChecks checks={detail.integration_checks} quota={a.quota_reference ?? null}
         canRun={hasRole(user, "VettingOfficer", "ApprovingOfficer", "SuperAdmin")} busy={busy} onRun={() => act("integration-checks")} />
 
-      {a.sla && (
-        <Alert tone={a.sla.overdue ? "danger" : "info"}>
-          Waiting <strong>{a.sla.working_days} working day{a.sla.working_days === 1 ? "" : "s"}</strong> since submission. Target: a decision within {a.sla.target} working days{a.sla.overdue ? " — this application is overdue." : "."}
-        </Alert>
-      )}
+
 
       <WorkPanel applicationId={a.id} assignedTo={a.assigned_to ?? null} canAssign={hasRole(user, "VettingOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin")} onChanged={load} />
 
@@ -183,7 +179,7 @@ export default function StaffApplicationPage() {
               items={[
                 ["Full Name", `${a.surname}, ${a.forenames}`],
                 ["Application Ref.", a.application_number],
-                ["Category / Type", `${a.category || "General"} · ${applicationType(a, true)}`],
+                ["Category / Type", `${a.category || "General"} · ${conciseApplicationType(a.type)}`],
                 ["Nationality", a.nationality],
                 ["Gender", a.sex],
                 ["Date of Birth", nisDate(a.date_of_birth)],
@@ -265,7 +261,7 @@ export default function StaffApplicationPage() {
       <Panel title="Application & Appointment Information">
         <Dl
           items={[
-            ["Application Type", `${a.channel === "ASSISTED" ? "Assisted" : "Online"} ${applicationType(a, true)}`],
+            ["Application Type", conciseApplicationType(a.type)],
             ["Submission Date", dateTime(a.submitted_at)],
             ["Current Status", a.status_label || a.status],
             ["Enrollment Center", a.enrollment_center?.name || "—"],

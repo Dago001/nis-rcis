@@ -448,16 +448,26 @@ class ApplicationController
 
     public function captureBiometrics(Request $request, int $id, CardIssuance $issuance): ApplicationResource
     {
-        $data = $request->validate([
+        $isSimulation = $request->boolean('simulation');
+        if ($isSimulation && app()->isProduction()) {
+            abort(403, 'Biometrics simulation mode is strictly prohibited in production environments.');
+        }
+
+        $rules = [
             'photo' => ['required', 'string', 'max:8000000'],
             'signature' => ['required', 'string', 'max:2000000'],
-            'fingerprint_template' => ['nullable', 'string', 'max:200000'],
+            'simulation' => ['nullable', 'boolean'],
+            'issued_at' => ['nullable', 'string', 'max:150'],
+        ];
+
+        if (! $isSimulation) {
+            $rules['fingerprint_template'] = ['nullable', 'string', 'max:200000'];
             // From the fingerprint scanner, base64: an ISO/IEC 19794-2 (or ANSI 378) template,
             // or a finger image (ISO/IEC 19794-4: WSQ or lossless PNG) from scanners such as
             // DigitalPersona whose browser software only hands out images.
-            'fingerprints' => [config('nis.fingerprints_required') ? 'required' : 'nullable', 'array', config('nis.fingerprints_required') ? 'min:2' : 'min:0', 'max:10'],
-            'fingerprints.*.finger' => ['required', 'distinct', Rule::in(self::FINGERS)],
-            'fingerprints.*.template' => ['required', 'string', 'max:'.max(self::FINGERPRINT_MAX), 'regex:/^[A-Za-z0-9+\/=]+$/',
+            $rules['fingerprints'] = [config('nis.fingerprints_required') ? 'required' : 'nullable', 'array', config('nis.fingerprints_required') ? 'min:2' : 'min:0', 'max:10'];
+            $rules['fingerprints.*.finger'] = ['required', 'distinct', Rule::in(self::FINGERS)];
+            $rules['fingerprints.*.template'] = ['required', 'string', 'max:'.max(self::FINGERPRINT_MAX), 'regex:/^[A-Za-z0-9+\/=]+$/',
                 function (string $attribute, mixed $value, \Closure $fail) use ($request) {
                     $format = $request->input(str_replace('.template', '.format', $attribute));
                     if (is_string($value) && strlen($value) > (self::FINGERPRINT_MAX[$format] ?? self::FINGERPRINT_MAX['ISO_19794_2'])) {
@@ -467,14 +477,16 @@ class ApplicationController
                     if ($start !== null && is_string($value) && ! str_starts_with((string) base64_decode(substr($value, 0, 8), true), $start)) {
                         $fail("The fingerprint image is not a {$format} image.");
                     }
-                }],
+                }];
             // Simulated prints (testing) are refused on the live system.
-            'fingerprints.*.format' => ['required', Rule::in(app()->isProduction() ? ['ISO_19794_2', 'ANSI_378', 'WSQ', 'PNG'] : ['ISO_19794_2', 'ANSI_378', 'WSQ', 'PNG', 'SIMULATED'])],
-            'fingerprints.*.quality' => ['nullable', 'integer', 'between:0,100'],
-            'fingerprints.*.nfiq' => ['nullable', 'integer', 'between:1,5'],
-            'fingerprints.*.device' => ['nullable', 'string', 'max:100'],
-            'issued_at' => ['nullable', 'string', 'max:150'],
-        ]);
+            $rules['fingerprints.*.format'] = ['required', Rule::in(app()->isProduction() ? ['ISO_19794_2', 'ANSI_378', 'WSQ', 'PNG'] : ['ISO_19794_2', 'ANSI_378', 'WSQ', 'PNG', 'SIMULATED'])];
+            $rules['fingerprints.*.quality'] = ['nullable', 'integer', 'between:0,100'];
+            $rules['fingerprints.*.nfiq'] = ['nullable', 'integer', 'between:1,5'];
+            $rules['fingerprints.*.device'] = ['nullable', 'string', 'max:100'];
+        }
+
+        $data = $request->validate($rules);
+        $data['simulation'] = $isSimulation;
 
         $target = Application::with('enrollmentCenter')->findOrFail($id);
         if ($target->status !== ApplicationStatus::ApprovedForBiometrics) {

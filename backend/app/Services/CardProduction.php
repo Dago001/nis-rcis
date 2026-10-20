@@ -44,6 +44,10 @@ class CardProduction
             throw ValidationException::withMessages(['card' => "Card {$card->card_number} is {$statusValue} and cannot be printed."]);
         }
 
+        if (app()->isProduction() && ($card->statutory_protocol === 'DEVELOPMENT_SIMULATION' || str_contains((string) $card->statutory_protocol, 'SIMULATION'))) {
+            throw ValidationException::withMessages(['card' => "Card {$card->card_number} was created via Development Biometrics Simulation and cannot be printed in production."]);
+        }
+
         return DB::transaction(function () use ($card, $officer, $outcome, $reason) {
             // Lock the card row for update to prevent concurrent duplicate prints
             $lockedCard = ResidenceCard::whereKey($card->id)->lockForUpdate()->firstOrFail();

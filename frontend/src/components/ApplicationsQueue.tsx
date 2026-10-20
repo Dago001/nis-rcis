@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
-import { nisDate, applicationType } from "@/lib/format";
+import { nisDate, applicationType, conciseApplicationType } from "@/lib/format";
 import type { Application, Paginated } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 
@@ -418,8 +418,8 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                         )}
                       </div>
                       {!a.dependant_relationship && (
-                        <div className="text-xs text-slate-500">
-                          {a.channel === "ASSISTED" ? t("Assisted") : t("Online")} · {applicationType(a)}
+                        <div className="text-xs font-medium text-slate-500">
+                          {t(conciseApplicationType(a.type))}
                         </div>
                       )}
                       {(a.principal || (a as any).principal_application_number) && (
@@ -459,15 +459,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                           label={a.vetting_status_label ?? (a.vetted_at || ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "Vetted" : (a.status === "PENDING_APPROVAL" ? "Awaiting Vetting" : a.status_label))}
                         />
                       )}
-                      {a.sla && (
-                        <div
-                          className={`mt-1 text-xs ${a.sla.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}
-                          title={`Target: decision within ${a.sla.target} working days`}
-                        >
-                          {a.sla.working_days} {a.sla.working_days === 1 ? t("working day") : t("working days")}
-                          {a.sla.overdue ? ` · ${t("overdue")}` : ""}
-                        </div>
-                      )}
+
                       {a.assigned_to && (
                         <div className="text-xs text-slate-500">→ {a.assigned_to.fullname}</div>
                       )}
