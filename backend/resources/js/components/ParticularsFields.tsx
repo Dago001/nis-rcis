@@ -318,7 +318,6 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           { title: "Proof of domicile in Nigeria (Utility bill / Tenancy agreement)", mandatory: true },
           ...specificDocs,
           { title: "Recent passport photograph on white background", mandatory: true },
-          { title: "Subject-to-Regularization / Entry visa", mandatory: false },
         ];
 
         return (
@@ -417,17 +416,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
       {text(props, "profession", "Profession / occupation", { required: true, upper: true })}
-      {select(
-        props,
-        "blood_group",
-        "Blood group",
-        ["UNKNOWN", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
-        { placeholder: "Select blood group…" }
-      )}
-      {text(props, "height", "Height", { hint: "e.g. 1.75m or 175cm", maxLength: 10 })}
-      {text(props, "complexion", "Complexion", { letters: true, upper: true, maxLength: 50 })}
-      {text(props, "eye_color", "Colour of eyes", { letters: true, upper: true, maxLength: 50 })}
-      {text(props, "hair_color", "Colour of hair", { letters: true, upper: true, maxLength: 50 })}
+      
       <div className="sm:col-span-2">{text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}</div>
 
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">

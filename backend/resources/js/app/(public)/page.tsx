@@ -34,8 +34,8 @@ const requirements: { title: string; body: string; icon: ReactNode }[] = [
     icon: <path d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM8 17h8" />,
   },
   {
-    title: "Residence Visa (STR)",
-    body: "Your Subject-to-Regularization or residence visa, and Category document (Admission letter for Students, Employment letter for Work, or CAC certificate for Business).",
+    title: "Category Document",
+    body: "Your category document (Admission letter for Students, Employment letter for Work, CAC certificate for Business, or Religious organization letter).",
     icon: <path d="M9 12l2 2 4-4M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z" />,
   },
   {
@@ -52,7 +52,7 @@ const requirements: { title: string; body: string; icon: ReactNode }[] = [
 
 const eligibility = [
   { image: "/images/hq-building.jpg", alt: "NIS Headquarters building", text: "Citizens of ECOWAS member states resident in Nigeria for employment, business or study." },
-  { image: "/images/hq-reception.jpg", alt: "NIS Headquarters reception", text: "ECOWAS citizens residing in Nigeria for Work, Business, or Study with valid residence visa or entry clearance." },
+  { image: "/images/hq-reception.jpg", alt: "NIS Headquarters reception", text: "ECOWAS citizens residing in Nigeria for Work, Business, or Study with valid travel credentials." },
   { image: "/images/card-template.jpg", alt: "Residence document", text: "Current residence card holders renewing a card that is expiring or has expired." },
 ];
 

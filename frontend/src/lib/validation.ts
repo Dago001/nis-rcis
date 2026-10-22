@@ -125,7 +125,7 @@ export const GENERAL_FIELDS = [
 export const PERSONAL_FIELDS = [
   "surname", "forenames", "nationality", "sex", "date_of_birth", "place_of_birth", "profession",
   "phone", "email",
-  "height", "complexion", "eye_color", "hair_color", "distinguished_features"
+  "distinguished_features"
 ];
 export const PASSPORT_FIELDS = ["passport_number", "passport_issue_date", "passport_expiry", "national_id_number", "tax_id_number"];
 export const CONTACT_FIELDS = [

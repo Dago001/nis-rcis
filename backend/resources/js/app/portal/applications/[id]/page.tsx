@@ -16,7 +16,6 @@ import type { Application } from "@/lib/types";
 const UPLOADABLE = [
   ["photo", "Passport photograph"],
   ["passport_copy", "International passport data page / ECOWAS Travel Certificate"],
-  ["residence_visa", "Subject-to-Regularization / residence visa"],
   ["quota_approval", "Expatriate quota approval"],
   ["domicile_proof", "Proof of domicile (Utility bill)"],
   ["cac_certificate", "CAC Business Registration Certificate"],

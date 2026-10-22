@@ -113,13 +113,6 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
     },
     ...catDocs,
     {
-      type: "residence_visa",
-      label: "Subject-to-Regularization / Entry visa (if applicable)",
-      required: false,
-      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-      kinds: "JPG, JPEG, PNG or PDF",
-    },
-    {
       type: "additional",
       label: "Additional supporting document",
       required: false,
@@ -135,7 +128,7 @@ const FIELD_STEP: Record<string, number> = {
   passport_number: 1, passport_issue_date: 1, passport_expiry: 1, national_id_number: 1, tax_id_number: 1,
   cod: 1,
   ...Object.fromEntries(PERSONAL_FIELDS.filter((f) => f !== "nationality").map((f) => [f, 2])),
-  blood_group: 2, renewal_card_number: 2, photo: 2, principal_application_id: 2, dependant_relationship: 2, phone: 2, email: 2,
+  renewal_card_number: 2, photo: 2, principal_application_id: 2, dependant_relationship: 2, phone: 2, email: 2,
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
   home_country_address: 3,
   documents: 4,
@@ -2166,8 +2159,7 @@ function Wizard() {
                     ["Surname", data.surname], ["Other names", data.forenames], ["Nationality", data.nationality], ["Gender", data.sex],
                     ["Date of birth", nisDate(data.date_of_birth)], ["Place of birth", data.place_of_birth], ["Profession", data.profession],
                     ["Phone number", data.phone], ["E-mail address", data.email],
-                    ["Blood group", data.blood_group || "UNKNOWN"], ["Height", data.height], ["Complexion", data.complexion],
-                    ["Colour of eyes", data.eye_color], ["Colour of hair", data.hair_color], ["Distinguishing features", data.distinguished_features || "NONE"],
+                    ["Distinguishing features", data.distinguished_features || "NONE"],
                   ]}
                 />
               </div>

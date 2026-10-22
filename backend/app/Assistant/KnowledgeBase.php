@@ -53,7 +53,7 @@ class KnowledgeBase
             [
                 'id' => 'category_work',
                 'question' => 'How do I apply under Work?',
-                'answer' => "To apply under the Work category, select 'Work' in Step 1. In addition to your international passport (or ECOWAS Travel Certificate), proof of domicile in Nigeria (utility bill), and passport photograph, you must upload your official Employment Appointment / Offer Letter issued by your Nigerian employer. An optional Subject-to-Regularization (STR) visa may also be uploaded if applicable.",
+                'answer' => "To apply under the Work category, select 'Work' in Step 1. In addition to your international passport (or ECOWAS Travel Certificate), proof of domicile in Nigeria (utility bill), and passport photograph, you must upload your official Employment Appointment / Offer Letter issued by your Nigerian employer.",
                 'keywords' => ['work', 'employment', 'job', 'employee', 'employer', 'appointment letter', 'offer letter', 'contract', 'how to apply under work', 'travail', 'emploi'],
                 'links' => [['label' => 'Apply under Work', 'href' => '/register']],
             ],
