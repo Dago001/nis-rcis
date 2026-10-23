@@ -32,6 +32,10 @@ return new class extends Migration
                 $table->index(['status', 'created_at']);
                 $table->index(['applicant_id', 'created_at']);
             });
+
+            if (DB::getDriverName() === 'pgsql') {
+                DB::unprepared('CREATE SEQUENCE IF NOT EXISTS lost_card_report_seq START 100001;');
+            }
         }
     }
 

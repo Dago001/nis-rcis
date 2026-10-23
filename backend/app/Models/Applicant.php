@@ -23,6 +23,7 @@ class Applicant extends Authenticatable implements MustVerifyEmail, OAuthenticat
 
     protected $fillable = [
         'email', 'password', 'surname', 'forenames', 'phone', 'nationality', 'passport_number',
+        'email_verified_at', 'privacy_consent_at', 'privacy_policy_version',
     ];
 
     protected $hidden = ['password', 'remember_token'];

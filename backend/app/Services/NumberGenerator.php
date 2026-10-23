@@ -13,6 +13,7 @@ class NumberGenerator
     private function nextVal(string $seqName, int $defaultStart): int
     {
         if (DB::getDriverName() === 'pgsql') {
+            DB::unprepared("CREATE SEQUENCE IF NOT EXISTS {$seqName} START {$defaultStart};");
             return (int) DB::scalar("SELECT nextval('{$seqName}')");
         }
 
