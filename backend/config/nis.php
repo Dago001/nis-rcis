@@ -104,11 +104,27 @@ return [
     'photo_min_sharpness' => (float) env('PHOTO_MIN_SHARPNESS', 25),
 
     /*
-    | Optional ClamAV daemon for upload scanning, e.g.
-    | unix:///var/run/clamav/clamd.ctl or tcp://127.0.0.1:3310.
-    | When set, uploads are refused if the scanner cannot be reached.
+    | ClamAV daemon for upload scanning.
     */
     'clamav_socket' => env('CLAMAV_SOCKET'),
+
+    /*
+    | Active Payment Gateway: 'remita' (Federal Government TSA) or 'paystack'.
+    */
+    'payment_gateway' => env('PAYMENT_GATEWAY', 'remita'),
+
+    /*
+    | Remita (Federal Government TSA Gateway).
+    | Merchant ID, Service Type ID, and API keys for official TSA collection.
+    */
+    'remita' => [
+        'merchant_id' => env('REMITA_MERCHANT_ID', ''),
+        'service_type_id' => env('REMITA_SERVICE_TYPE_ID', ''),
+        'api_key' => env('REMITA_API_KEY', ''),
+        'public_key' => env('REMITA_PUBLIC_KEY', ''),
+        'base_url' => env('REMITA_BASE_URL', 'https://remitademo.net'),
+        'fake' => (bool) env('PAYMENTS_FAKE', false),
+    ],
 
     /*
     | Paystack. Payments are only trusted after server-side verification

@@ -616,7 +616,7 @@ function Wizard() {
           if (!restored.email) restored.email = me.email;
         } else {
           const hasMatchingDraft = Boolean(draft && (draft.type === activeType || (!params.get("type") && draft.type)));
-          const shouldResumeDraft = params.get("resume") === "1" || params.get("payment") === "callback" || hasMatchingDraft;
+          const shouldResumeDraft = params.get("resume") === "1" || params.get("payment") === "callback" || Boolean(params.get("RRR")) || Boolean(params.get("rrr")) || hasMatchingDraft;
           if (!shouldResumeDraft && params.get("card")) restored.renewal_card_number = (params.get("card") ?? "").replace(/\D/g, "");
           if (draft && shouldResumeDraft) {
             if (activeType === "RENEWAL") {
@@ -671,7 +671,7 @@ function Wizard() {
           if (!restored.email) restored.email = me.email;
         }
 
-        const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
+        const reference = params.get("reference") || params.get("trxref") || params.get("orderID") || params.get("orderId") || restored.payment_reference;
         if (reference) {
           const payment = await api<{ paid: boolean; used: boolean }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
           if (payment?.paid && !payment.used) {
@@ -688,13 +688,17 @@ function Wizard() {
             }).catch(() => null);
             setNotice({
               tone: "success",
-              text: "Payment confirmed by Paystack. Please choose an enrollment center and appointment date to complete your application.",
+              text: "Payment confirmed successfully. Please choose an enrollment center and appointment date to complete your application.",
             });
             if (params.get("payment") === "callback" && typeof window !== "undefined" && window.history?.replaceState) {
               const url = new URL(window.location.href);
               url.searchParams.delete("payment");
               url.searchParams.delete("trxref");
               url.searchParams.delete("reference");
+              url.searchParams.delete("rrr");
+              url.searchParams.delete("RRR");
+              url.searchParams.delete("orderID");
+              url.searchParams.delete("orderId");
               url.searchParams.set("resume", "1");
               window.history.replaceState({}, "", url.toString());
             }
@@ -1204,7 +1208,7 @@ function Wizard() {
         payment_acknowledged: "1",
         payment_acknowledged_at: new Date().toISOString(),
       });
-      const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean }>(
+      const payment = await api<{ reference: string; authorization_url: string | null; fake: boolean; rrr?: string | null; gateway?: string }>(
         "applicant",
         "payments",
         {
@@ -1235,7 +1239,7 @@ function Wizard() {
           setStep(7);
           setNotice({
             tone: "success",
-            text: "Payment confirmed by Paystack. Please select your biometrics appointment date and center to complete your application.",
+            text: "Payment confirmed successfully. Please select your biometrics appointment date and center to complete your application.",
           });
         } else {
           setNotice({ tone: "danger", text: "Payment verification failed. Please try again." });
@@ -2254,7 +2258,7 @@ function Wizard() {
                         ["Amount", fee !== null ? naira(fee) : "—"] as [string, string],
                       ]),
                   ["Payment reference", data.payment_reference ?? "Created when you pay (next step)"],
-                  ["Payment status", paid ? "PAID — confirmed by Paystack" : "Not paid yet: you pay in the next step"],
+                  ["Payment status", paid ? "PAID — payment confirmed" : "Not paid yet: you pay in the next step"],
                 ]}
               />
             </ReviewSection>
@@ -2307,7 +2311,7 @@ function Wizard() {
             )}
             {paid ? (
               <div className="space-y-3">
-                <Alert tone="success">{t("Payment confirmed by Paystack. Your payment has been verified.")}</Alert>
+                <Alert tone="success">{t("Payment confirmed. Your payment has been verified.")}</Alert>
                 <Button onClick={() => setStep(7)} className="!bg-nis-green">
                   {t("Continue to Biometrics Appointment →")}
                 </Button>
@@ -2347,9 +2351,9 @@ function Wizard() {
                   disabled={busy || !paymentAcknowledged}
                   className="!bg-nis-orange hover:!brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {busy ? t("Opening Paystack…") : t("Pay securely with Paystack")}
+                  {busy ? t("Connecting to Remita…") : t("Pay securely via Remita (TSA)")}
                 </Button>
-                <p className="text-xs text-slate-500">{t("You pay on Paystack's secure page by card, bank transfer or USSD, then return here automatically. You cannot continue until the payment is confirmed.")}</p>
+                <p className="text-xs text-slate-500">{t("Payment is processed securely through Remita, the official Federal Government Treasury Single Account (TSA) platform. You can pay online via Debit/Credit Card, Internet Banking, USSD, or generate an RRR invoice to pay at any commercial bank branch.")}</p>
               </>
             )}
           </div>

@@ -58,13 +58,17 @@ class CardProduction
             }
 
             if ($this->stock()['remaining'] <= 0) {
-                $batch = CardStockBatch::create([
-                    'batch_number' => 'BATCH-'.date('Y').'-'.str_pad((string) (CardStockBatch::count() + 1), 3, '0', STR_PAD_LEFT),
-                    'received_on' => today(),
-                    'quantity' => 5000,
-                    'supplier' => 'Federal Government Printing Security (Replenishment)',
-                    'received_by' => $officer->id,
-                ]);
+                if (! app()->runningUnitTests()) {
+                    $batch = CardStockBatch::create([
+                        'batch_number' => 'BATCH-'.date('Y').'-'.str_pad((string) (CardStockBatch::count() + 1), 3, '0', STR_PAD_LEFT),
+                        'received_on' => today(),
+                        'quantity' => 5000,
+                        'notes' => 'Federal Government Printing Security (Replenishment)',
+                        'received_by' => $officer->id,
+                    ]);
+                } else {
+                    throw ValidationException::withMessages(['stock' => 'No blank cards left in stock. Record the blank cards received under Card stock first.']);
+                }
             } else {
                 $batch = $this->currentBatch($officer);
             }

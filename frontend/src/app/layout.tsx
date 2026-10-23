@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     shortcut: withBase("/favicon.ico?v=1.1"),
     apple: withBase("/icons/apple-touch-icon.png?v=1.1"),
   },
+};
 
 export const viewport: Viewport = { themeColor: "#1f6b1f" };
 

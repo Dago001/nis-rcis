@@ -13,6 +13,8 @@ use App\Integrations\PassportRegistry;
 use App\Integrations\QuotaRegistry;
 use App\Models\OAuthClient;
 use App\OAuth\StrictScopeRepository;
+use App\Services\Contracts\PaymentGatewayInterface;
+use App\Services\PaymentGatewayManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -44,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(ScopeRepository::class, StrictScopeRepository::class);
         $this->app->bind(LanguageModel::class, ClaudeLanguageModel::class);
+        $this->app->bind(PaymentGatewayInterface::class, fn ($app) => $app->make(PaymentGatewayManager::class)->resolve());
     }
 
     public function boot(): void

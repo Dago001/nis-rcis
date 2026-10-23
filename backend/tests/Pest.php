@@ -42,7 +42,7 @@ function particulars(array $overrides = []): array
         'domicile' => '12 Adeola Odeku Street, Victoria Island',
         'domicile_state' => 'Lagos', 'domicile_lga' => 'Eti Osa',
         'emergency_contact_state' => 'Federal Capital Territory', 'emergency_contact_lga' => 'Bwari',
-        'passport_number' => 'CM1234567', 'passport_expiry' => now()->addYears(3)->toDateString(),
+        'passport_number' => 'CM1234567', 'passport_issue_date' => now()->subYears(2)->toDateString(), 'passport_expiry' => now()->addYears(3)->toDateString(),
         'emergency_contact_name' => 'Marie Okafor', 'emergency_contact_relation' => 'Spouse',
         'emergency_contact_phone' => '+2348011111111', 'emergency_contact_address' => '12 Adeola Odeku Street, Lagos',
         'phone' => '+2348022222222', 'email' => 'jp@example.com',
@@ -53,16 +53,27 @@ function particulars(array $overrides = []): array
 
 function uploadDraftDocs(): void
 {
-    foreach (['photo' => 'photo.png', 'passport_copy' => 'passport.png', 'domicile_proof' => 'utility.png', 'residence_visa' => 'visa.png'] as $type => $name) {
+    foreach (['photo' => 'photo.png', 'passport_copy' => 'passport.png', 'domicile_proof' => 'utility.png', 'residence_visa' => 'visa.png', 'appointment_letter' => 'appointment.png'] as $type => $name) {
         test()->post('/api/v1/applicant/draft/documents', [
             'type' => $type, 'file' => UploadedFile::fake()->createWithContent($name, test()->pngBytes()),
         ], ['Accept' => 'application/json'])->assertCreated();
     }
 }
 
-function paidReference(): string
+function paidReference(array $overrides = []): string
 {
-    $reference = test()->postJson('/api/v1/applicant/payments')->assertCreated()->json('reference');
+    $applicant = auth('applicant-api')->user();
+    if ($applicant) {
+        $p = particulars($overrides);
+        \App\Models\ApplicationDraft::updateOrCreate(
+            ['applicant_id' => $applicant->id],
+            ['type' => $p['type'] ?? 'NEW', 'current_step' => 6, 'data' => $p]
+        );
+    }
+
+    $reference = test()->postJson('/api/v1/applicant/payments', [
+        'acknowledged_non_refundable' => true,
+    ])->assertCreated()->json('reference');
     test()->postJson("/api/v1/applicant/payments/{$reference}/verify")->assertOk()->assertJsonPath('paid', true);
 
     return $reference;

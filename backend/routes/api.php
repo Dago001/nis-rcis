@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Public\HealthController;
 use App\Http\Controllers\Api\Public\PartnerController;
 use App\Http\Controllers\Api\Public\PaystackWebhookController;
+use App\Http\Controllers\Api\Public\RemitaWebhookController;
 use App\Http\Controllers\Api\Public\PublicController;
 use App\Http\Controllers\Api\Staff\ApplicationController as StaffApplications;
 use App\Http\Controllers\Api\Staff\ApprovalController;
@@ -68,6 +69,7 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::post('webhooks/paystack', PaystackWebhookController::class);
+    Route::post('webhooks/remita', RemitaWebhookController::class);
 
     // ------------------------------------------------- Applicant account (guest)
     Route::prefix('applicant')->group(function () {

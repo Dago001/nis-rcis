@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ApplicationStatus;
 use App\Enums\CardStatus;
 use App\Enums\StaffRole;
 use App\Models\Applicant;
@@ -161,7 +162,11 @@ it('refuses submission without verified payment or required documents', function
         ->assertUnprocessable()->assertJsonValidationErrors('documents');
 
     uploadDraftDocs();
-    $unpaid = $this->postJson('/api/v1/applicant/payments')->json('reference');
+    \App\Models\ApplicationDraft::updateOrCreate(
+        ['applicant_id' => $applicant->id],
+        ['type' => 'NEW', 'current_step' => 6, 'data' => particulars()]
+    );
+    $unpaid = $this->postJson('/api/v1/applicant/payments', ['acknowledged_non_refundable' => true])->json('reference');
     $this->postJson('/api/v1/applicant/applications', particulars(['payment_reference' => $unpaid]))
         ->assertUnprocessable()->assertJsonValidationErrors('payment_reference');
 });

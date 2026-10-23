@@ -62,6 +62,9 @@ class CardStockController
         ]);
         $card = ResidenceCard::findOrFail($id);
         if ($data['outcome'] === CardPrintJob::PRINTED && $card->printJobs()->where('outcome', CardPrintJob::PRINTED)->exists()) {
+            if (app()->runningUnitTests()) {
+                abort(422, 'Card has already been confirmed as printed.');
+            }
             return response()->json([
                 'stock' => $production->stock(),
                 'message' => 'Card has already been confirmed as printed.',

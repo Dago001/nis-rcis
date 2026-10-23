@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Applicant;
 use App\Models\Applicant;
 use App\Models\Payment;
 use App\Models\Refund;
-use App\Services\PaystackGateway;
+use App\Services\PaymentGatewayManager;
 use App\Services\RefundService;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -61,7 +61,7 @@ class PaymentRecordsController
             'payment' => $payment,
             'applicant' => $applicant,
             'application' => $payment->application,
-            'receipt' => PaystackGateway::receipt($payment),
+            'receipt' => PaymentGatewayManager::receipt($payment),
             'logo' => $logoData,
         ])->render();
 

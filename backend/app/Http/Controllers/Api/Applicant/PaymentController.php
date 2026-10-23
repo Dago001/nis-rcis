@@ -4,19 +4,20 @@ namespace App\Http\Controllers\Api\Applicant;
 
 use App\Models\Payment;
 use App\Services\ApplicationSubmission;
-use App\Services\PaystackGateway;
+use App\Services\PaymentGatewayManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PaymentController
 {
-    public function initialize(Request $request, PaystackGateway $gateway, ApplicationSubmission $submission): JsonResponse
+    public function initialize(Request $request, PaymentGatewayManager $gateways, ApplicationSubmission $submission): JsonResponse
     {
         $ack = $request->validate([
             'acknowledged_non_refundable' => ['required', 'accepted'],
             'acknowledgement_text' => ['nullable', 'string'],
             'acknowledged_at' => ['nullable', 'string'],
             'version' => ['nullable', 'string'],
+            'gateway' => ['nullable', 'string', 'in:remita,paystack'],
         ], [
             'acknowledged_non_refundable.required' => 'You must acknowledge that the application processing fee is non-refundable before proceeding.',
             'acknowledged_non_refundable.accepted' => 'You must acknowledge that the application processing fee is non-refundable before proceeding.',
@@ -28,6 +29,10 @@ class PaymentController
         $draft = $applicant->draft()->first();
         $hasCod = ! empty($draft?->data['has_cod']);
         $feeKobo = $submission->feeKobo($draft?->data, $hasCod);
+
+        $gateway = $request->filled('gateway')
+            ? $gateways->resolve($request->input('gateway'))
+            : $gateways->resolve();
 
         $result = $gateway->initialize(
             $applicant,
@@ -60,16 +65,19 @@ class PaymentController
             'authorization_url' => $result['authorization_url'],
             'access_code' => $result['access_code'],
             'public_key' => $result['public_key'],
+            'rrr' => $result['rrr'] ?? null,
+            'gateway' => $result['gateway'] ?? strtolower($payment->provider ?: 'remita'),
             'fake' => $result['fake'],
         ], 201);
     }
 
-    public function verify(Request $request, string $reference, PaystackGateway $gateway): JsonResponse
+    public function verify(Request $request, string $reference, PaymentGatewayManager $gateways): JsonResponse
     {
         $payment = Payment::where('reference', $reference)
             ->where('applicant_id', $request->user()->id)
             ->firstOrFail();
 
+        $gateway = $gateways->forPayment($payment);
         $payment = $gateway->verify($payment);
 
         return response()->json([
@@ -77,6 +85,8 @@ class PaymentController
             'status' => $payment->status,
             'paid' => $payment->isSuccessful(),
             'used' => $payment->application_id !== null,
+            'rrr' => $payment->gateway_response['RRR'] ?? $payment->gateway_response['rrr'] ?? null,
+            'gateway' => strtolower($payment->provider ?: 'remita'),
         ]);
     }
 }

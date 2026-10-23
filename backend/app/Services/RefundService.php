@@ -8,20 +8,21 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\User;
 use App\Notifications\RefundDecided;
+use App\Services\PaymentGatewayManager;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Fee refunds: the applicant asks, a Super Administrator decides, and an
- * approved refund is sent back through Paystack.
+ * approved refund is sent back through the originating payment gateway (Remita or Paystack).
  *
  * Eligible: a confirmed payment that was never used for an application,
  * or whose application was rejected.
  */
 class RefundService
 {
-    public function __construct(private readonly PaystackGateway $paystack) {}
+    public function __construct(private readonly PaymentGatewayManager $gateways) {}
 
     public function eligible(Payment $payment): bool
     {
@@ -57,7 +58,7 @@ class RefundService
             $refund = Refund::whereKey($refund->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($refund->status, ['REQUESTED', 'FAILED'], true), 422, 'This refund has already been decided.');
 
-            $result = $this->paystack->refund($refund->payment);
+            $result = $this->gateways->forPayment($refund->payment)->refund($refund->payment);
             $refund->fill([
                 'status' => $result['ok'] ? 'PROCESSED' : 'FAILED',
                 'decided_by' => $officer->id,

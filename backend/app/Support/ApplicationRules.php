@@ -37,15 +37,15 @@ class ApplicationRules
             // Strictly disallow non-ECOWAS countries (e.g. United Kingdom, UK, Great Britain, British, etc.)
             'nationality' => ['required', 'string', 'max:100', function (string $attribute, mixed $value, \Closure $fail) use ($keepNationality) {
                 $valUpper = strtoupper(trim((string) $value));
+                if ($keepNationality && $valUpper === strtoupper(trim((string) $keepNationality))) {
+                    return;
+                }
                 $ineligible = ['UNITED KINGDOM', 'UK', 'GREAT BRITAIN', 'BRITISH', 'GBR', 'ROYAUME-UNI'];
                 if (in_array($valUpper, $ineligible, true)) {
                     $fail('United Kingdom is not an ECOWAS member state and cannot be selected for an ECOWAS Residence Card.');
                     return;
                 }
                 $allowed = [...config('nis.ecowas_member_states', []), ...config('nis.ecowas_legacy_names', [])];
-                if ($keepNationality && ! in_array(strtoupper(trim((string) $keepNationality)), $ineligible, true)) {
-                    $allowed[] = $keepNationality;
-                }
                 $upperAllowed = array_map('strtoupper', array_filter($allowed));
                 if (! in_array($valUpper, $upperAllowed, true)) {
                     $fail('The ECOWAS residence card is only for citizens of ECOWAS member states.');

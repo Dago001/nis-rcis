@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Applicant;
 use App\Models\Payment;
+use App\Services\Contracts\PaymentGatewayInterface;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -14,7 +15,7 @@ use RuntimeException;
  * backend itself confirms it with Paystack (verify API or signed webhook),
  * and only if the amount and currency match what we asked for.
  */
-class PaystackGateway
+class PaystackGateway implements PaymentGatewayInterface
 {
     public function __construct(private NumberGenerator $numbers) {}
 
@@ -53,12 +54,13 @@ class PaystackGateway
     }
 
     /**
-     * @return array{payment: Payment, authorization_url: ?string, access_code: ?string, public_key: ?string, fake: bool}
+     * @return array{payment: Payment, authorization_url: ?string, access_code: ?string, public_key: ?string, rrr: ?string, gateway: string, fake: bool}
      */
     public function initialize(Applicant $applicant, int $amountKobo, string $callbackUrl): array
     {
         $payment = Payment::create([
             'applicant_id' => $applicant->id,
+            'provider' => 'PAYSTACK',
             'reference' => $this->numbers->paymentReference(),
             'amount_kobo' => $amountKobo,
             'currency' => 'NGN',
@@ -66,7 +68,15 @@ class PaystackGateway
         ]);
 
         if ($this->isFake()) {
-            return ['payment' => $payment, 'authorization_url' => null, 'access_code' => null, 'public_key' => null, 'fake' => true];
+            return [
+                'payment' => $payment,
+                'authorization_url' => null,
+                'access_code' => null,
+                'public_key' => null,
+                'rrr' => null,
+                'gateway' => 'paystack',
+                'fake' => true,
+            ];
         }
 
         $response = $this->client()->post('/transaction/initialize', [
@@ -83,6 +93,8 @@ class PaystackGateway
             'authorization_url' => $response['authorization_url'] ?? null,
             'access_code' => $response['access_code'] ?? null,
             'public_key' => config('nis.paystack.public_key'),
+            'rrr' => null,
+            'gateway' => 'paystack',
             'fake' => false,
         ];
     }
