@@ -10,6 +10,7 @@ use App\Models\ResidenceCard;
 use App\Services\AppointmentScheduler;
 use App\Services\DocumentStorage;
 use Carbon\CarbonImmutable;
+use Database\Seeders\EnrollmentCenterSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,10 @@ class PublicController
 {
     public function centers(): JsonResponse
     {
+        if (NisZone::where('is_active', true)->count() < 8 || EnrollmentCenter::whereNotNull('zone_code')->count() < 50) {
+            (new EnrollmentCenterSeeder)->run();
+        }
+
         $centers = EnrollmentCenter::where('is_active', true)
             ->orderBy('name')
             ->get([

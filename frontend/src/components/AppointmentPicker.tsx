@@ -22,7 +22,8 @@ const DEFAULT_ZONES: { code: string; name: string; headquarters: string }[] = [
 
 /**
  * Dynamic, database-driven cascading appointment picker:
- * Select Zone -> Select Command / Enrollment Centre -> State / Location (Read-only) -> Date -> Time Slot.
+ * Select Zone -> Select Command / Enrollment Centre -> Appointment Date -> Time Slot.
+ * (State / Location field removed per official specifications).
  */
 export function AppointmentPicker({
   data,
@@ -41,39 +42,63 @@ export function AppointmentPicker({
   const [centers, setCenters] = useState<EnrollmentCenter[]>([]);
   const [zones, setZones] = useState<NisZone[]>([]);
   const [selectedZone, setSelectedZone] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [weekend, setWeekend] = useState(false);
 
   // Load active enrollment centers and zones directory from API
   useEffect(() => {
-    api<{ data: EnrollmentCenter[]; zones?: NisZone[] }>("public", "enrollment-centers").then((r) => {
-      setCenters(r.data);
-      if (r.zones && r.zones.length > 0) {
-        setZones(r.zones);
-      } else {
-        // Fallback: aggregate zones from centers data
-        const zoneMap = new Map<string, NisZone>();
-        DEFAULT_ZONES.forEach((dz) => {
-          zoneMap.set(dz.code, { id: 0, code: dz.code, name: dz.name, headquarters: dz.headquarters });
-        });
-        r.data.forEach((c) => {
-          const zCode = c.zone_code || (c.zone_id ? `ZONE_${c.zone_id}` : "");
-          if (zCode && !zoneMap.has(zCode)) {
-            zoneMap.set(zCode, {
-              id: c.zone_id ?? 0,
-              code: zCode,
-              name: c.zone_name ?? zCode,
-              headquarters: "",
-            });
-          }
-        });
-        setZones(Array.from(zoneMap.values()));
-      }
-    });
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+
+    api<{ data: EnrollmentCenter[]; zones?: NisZone[] }>("public", "enrollment-centers")
+      .then((r) => {
+        if (cancelled) return;
+        const fetchedCenters = r.data || [];
+        setCenters(fetchedCenters);
+
+        if (r.zones && r.zones.length > 0) {
+          setZones(r.zones);
+        } else {
+          // Fallback: aggregate zones from centers data
+          const zoneMap = new Map<string, NisZone>();
+          DEFAULT_ZONES.forEach((dz) => {
+            zoneMap.set(dz.code, { id: 0, code: dz.code, name: dz.name, headquarters: dz.headquarters });
+          });
+          fetchedCenters.forEach((c) => {
+            const zCode = c.zone_code || (c.zone_id ? `ZONE_${c.zone_id}` : "");
+            if (zCode && !zoneMap.has(zCode)) {
+              zoneMap.set(zCode, {
+                id: c.zone_id ?? 0,
+                code: zCode,
+                name: c.zone_name ?? zCode,
+                headquarters: "",
+              });
+            }
+          });
+          setZones(Array.from(zoneMap.values()));
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : "Unable to load commands. Please try again.");
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // When centers are loaded or data.enrollment_center_id exists, synchronize selected Zone
+  // Synchronize selected Zone from data or draft
   useEffect(() => {
+    if (data.enrollment_zone && !selectedZone) {
+      setSelectedZone(data.enrollment_zone);
+      return;
+    }
     if (!data.enrollment_center_id || centers.length === 0) return;
     const currentCenter = centers.find((c) => String(c.id) === String(data.enrollment_center_id));
     if (currentCenter) {
@@ -82,7 +107,7 @@ export function AppointmentPicker({
         setSelectedZone(zKey);
       }
     }
-  }, [data.enrollment_center_id, centers, selectedZone]);
+  }, [data.enrollment_center_id, data.enrollment_zone, centers, selectedZone]);
 
   // Fetch slot availability for selected center and date
   useEffect(() => {
@@ -108,42 +133,68 @@ export function AppointmentPicker({
 
   const [tomorrow] = useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
 
-  const center = useMemo(() => {
-    return centers.find((c) => String(c.id) === String(data.enrollment_center_id));
-  }, [centers, data.enrollment_center_id]);
-
   // Commands filtered strictly by the selected Zone
   const availableCommands = useMemo(() => {
     if (!selectedZone) return [];
-    return centers.filter(
-      (c) =>
-        c.zone_code === selectedZone ||
-        String(c.zone_id) === selectedZone ||
-        (c.zone_name && selectedZone.includes(c.zone_name))
-    );
-  }, [centers, selectedZone]);
+
+    // Filter centers returned from database
+    const matched = centers.filter((c) => {
+      if (c.zone_code === selectedZone) return true;
+      if (String(c.zone_id) === selectedZone) return true;
+      if (c.zone_name && selectedZone.includes(c.zone_name)) return true;
+      const zNorm = selectedZone.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      const cNorm = (c.zone_code || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      return Boolean(zNorm && cNorm && zNorm === cNorm);
+    });
+
+    if (matched.length > 0) {
+      return matched;
+    }
+
+    // Secondary fallback: check if zone in zones list has nested commands
+    const zoneObj = zones.find((z) => z.code === selectedZone || String(z.id) === selectedZone);
+    if (zoneObj && (zoneObj as any).commands?.length > 0) {
+      return (zoneObj as any).commands.map((cmd: any) => ({
+        id: cmd.center_id || cmd.id,
+        code: cmd.code,
+        name: cmd.name,
+        state: cmd.state,
+        address: cmd.location,
+        zone_code: selectedZone,
+        zone_id: zoneObj.id,
+        is_biometric_enabled: cmd.is_biometric_enabled ?? true,
+        is_booking_enabled: cmd.is_booking_enabled ?? true,
+      }));
+    }
+
+    return [];
+  }, [centers, zones, selectedZone]);
 
   // Handle Zone selection change
   const handleZoneChange = (zoneCode: string) => {
     setSelectedZone(zoneCode);
     set("enrollment_zone", zoneCode);
 
-    // If current center does not belong to newly selected zone, reset command & slot
-    if (center && center.zone_code !== zoneCode && String(center.zone_id) !== zoneCode) {
-      set("enrollment_center_id", "");
-      set("appointment_time", "");
-      touch?.("enrollment_center_id");
-    }
+    // Clear previous command and slot selection when changing zone
+    set("enrollment_center_id", "");
+    set("appointment_time", "");
+    set("enrollment_command", "");
+    set("enrollment_state", "");
+    touch?.("enrollment_center_id");
   };
 
   // Handle Command selection change
   const handleCommandChange = (centerId: string) => {
     set("enrollment_center_id", centerId);
     set("appointment_time", "");
-    const selected = centers.find((c) => String(c.id) === centerId);
+    const selected = centers.find((c) => String(c.id) === centerId)
+      || availableCommands.find((c) => String(c.id) === centerId);
     if (selected) {
-      set("enrollment_command", selected.command_name || selected.name);
+      set("enrollment_command", (selected as any).command_name || selected.name);
       set("enrollment_state", selected.state);
+      if (selected.zone_code) {
+        set("enrollment_zone", selected.zone_code);
+      }
     }
   };
 
@@ -188,47 +239,28 @@ export function AppointmentPicker({
             touch?.("enrollment_center_id");
           }}
           required
-          disabled={!selectedZone || availableCommands.length === 0}
+          disabled={loading || Boolean(loadError) || !selectedZone || availableCommands.length === 0}
         >
           <option value="">
-            {!selectedZone
-              ? t("Select a zone first")
+            {loading
+              ? t("Loading commands...")
+              : loadError
+              ? t("Unable to load commands. Please try again.")
+              : !selectedZone
+              ? t("Select a Zone first")
               : availableCommands.length === 0
-              ? t("No centers found for this zone")
+              ? t("No enrollment centres currently available for this zone")
               : t("Select a Command…")}
           </option>
-          {availableCommands.map((c) => {
-            const isBookingDisabled = c.is_booking_enabled === false;
-            return (
-              <option key={c.id} value={c.id} disabled={isBookingDisabled}>
-                {c.name} {isBookingDisabled ? `(${t("Awaiting Operational Deployment")})` : `— ${c.state}`}
-              </option>
-            );
-          })}
+          {availableCommands.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
         </Select>
       </Field>
 
-      {/* Field 3: State / Location (Read-only, auto-populated) */}
-      <div className="sm:col-span-2">
-        <Field
-          label={t("State / Location")}
-          hint={center?.address ? `${t("Address")}: ${center.address}` : t("Auto-populated from selected Command")}
-        >
-          <Input
-            type="text"
-            readOnly
-            value={
-              center
-                ? `${center.state}${center.address ? ` — ${center.address}` : ` (${center.name})`}`
-                : ""
-            }
-            placeholder={t("State and verified center location will appear automatically")}
-            className="bg-slate-50 text-slate-700 cursor-default font-medium"
-          />
-        </Field>
-      </div>
-
-      {/* Appointment Date */}
+      {/* Field 3: Appointment Date */}
       <Field
         label={t("Appointment date")}
         required
@@ -256,7 +288,7 @@ export function AppointmentPicker({
         />
       </Field>
 
-      {/* Time Slot */}
+      {/* Field 4: Time Slot */}
       <Field label={t("Time slot")} required error={errors.appointment_time}>
         <Select
           name="appointment_time"

@@ -92,8 +92,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Lagos Border Patrol Command (LABPC)',
                 'state' => 'Lagos',
                 'location' => 'Seme / Badagry Border Axis, Lagos',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_A',
@@ -101,8 +101,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Lagos Seaport and Marine Command (LASPMC)',
                 'state' => 'Lagos',
                 'location' => 'Apapa Port Complex, Lagos',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_A',
@@ -128,8 +128,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Seme Border Command (SEBC)',
                 'state' => 'Lagos',
                 'location' => 'Seme Border, Badagry, Lagos',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_A',
@@ -137,8 +137,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Idiroko Border Command (IDBC)',
                 'state' => 'Ogun',
                 'location' => 'Idiroko Border, Ogun State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
 
             // ZONE B (KADUNA)
@@ -184,8 +184,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Illela Border Command (ILBC)',
                 'state' => 'Sokoto',
                 'location' => 'Illela Border, Sokoto State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_B',
@@ -193,8 +193,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Jibiya Border Command (JIBC)',
                 'state' => 'Katsina',
                 'location' => 'Jibia Border, Katsina State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_B',
@@ -220,8 +220,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Immigration Training School Kano (ITSK)',
                 'state' => 'Kano',
                 'location' => 'Kano, Kano State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_B',
@@ -229,8 +229,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Immigration Command and Staff College (ICSC)',
                 'state' => 'Sokoto',
                 'location' => 'Sokoto, Sokoto State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
 
             // ZONE C (BAUCHI)
@@ -343,8 +343,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Nigeria Immigration Training Scholl Orlu (NITSOL)',
                 'state' => 'Imo',
                 'location' => 'Orlu, Imo State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_E',
@@ -361,8 +361,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Nigeria Immigration Training School Ahoada (NITSA)',
                 'state' => 'Rivers',
                 'location' => 'Ahoada, Rivers State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_E',
@@ -406,8 +406,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'Mfun Border Command (MFBC)',
                 'state' => 'Cross River',
                 'location' => 'Mfun Border, Cross River State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
             [
                 'zone_code' => 'ZONE_E',
@@ -415,8 +415,8 @@ class EnrollmentCenterSeeder extends Seeder
                 'name' => 'River Marine Command, Onne (RVMC)',
                 'state' => 'Rivers',
                 'location' => 'Onne Port, Rivers State',
-                'is_biometric_enabled' => false,
-                'is_booking_enabled' => false,
+                'is_biometric_enabled' => true,
+                'is_booking_enabled' => true,
             ],
 
             // ZONE F (IBADAN)
