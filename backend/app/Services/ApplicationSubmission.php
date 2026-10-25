@@ -73,7 +73,15 @@ class ApplicationSubmission
 
         $missing = collect($requiredTypes)
             ->reject(fn (DocumentType $t) => $documents->contains('type', $t))
-            ->map->label();
+            ->map(function (DocumentType $t) {
+                if ($t === DocumentType::EmergencyContactIdNigeria) {
+                    return 'the identification document of your Emergency Contact in Nigeria';
+                }
+                if ($t === DocumentType::EmergencyContactIdHome) {
+                    return 'the identification document of your Emergency Contact in Home Country';
+                }
+                return $t->label();
+            });
         if ($missing->isNotEmpty()) {
             if ($missing->count() === 1) {
                 throw ValidationException::withMessages(['documents' => 'Please upload '.$missing->first().'.']);
@@ -295,7 +303,15 @@ class ApplicationSubmission
 
         $missing = collect($requiredTypes)
             ->reject(fn (DocumentType $t) => $documents->contains('type', $t))
-            ->map->label();
+            ->map(function (DocumentType $t) {
+                if ($t === DocumentType::EmergencyContactIdNigeria) {
+                    return 'the identification document of your Emergency Contact in Nigeria';
+                }
+                if ($t === DocumentType::EmergencyContactIdHome) {
+                    return 'the identification document of your Emergency Contact in Home Country';
+                }
+                return $t->label();
+            });
         if ($missing->isNotEmpty()) {
             if ($missing->count() === 1) {
                 throw ValidationException::withMessages(['documents' => 'Please upload '.$missing->first().'.']);

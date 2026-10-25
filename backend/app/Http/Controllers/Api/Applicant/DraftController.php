@@ -157,6 +157,29 @@ class DraftController
 
         $uploaded = $storage->storeUpload($request->file('file'), DocumentType::from($data['type']), ['draft_id' => $draft->id], $applicant);
 
+        $idDocType = $request->input('id_document_type');
+        if ($data['type'] === DocumentType::EmergencyContactIdNigeria->value) {
+            $uploaded->contact_type = 'nigeria';
+            if ($idDocType) {
+                $uploaded->id_document_type = $idDocType;
+                $draftData = $draft->data ?? [];
+                $draftData['emergency_contact_id_type'] = $idDocType;
+                $draft->data = $draftData;
+                $draft->save();
+            }
+            $uploaded->save();
+        } elseif ($data['type'] === DocumentType::EmergencyContactIdHome->value) {
+            $uploaded->contact_type = 'home_country';
+            if ($idDocType) {
+                $uploaded->id_document_type = $idDocType;
+                $draftData = $draft->data ?? [];
+                $draftData['home_country_emergency_contact_id_type'] = $idDocType;
+                $draft->data = $draftData;
+                $draft->save();
+            }
+            $uploaded->save();
+        }
+
         return response()->json([
             'draft' => $this->present($draft->load('documents')),
             'uploaded_document' => [
@@ -341,6 +364,8 @@ class DraftController
                     'home_country_emergency_contact_relation' => $card->home_country_emergency_contact_relation ?? '',
                     'home_country_emergency_contact_phone' => $card->home_country_emergency_contact_phone ?? '',
                     'home_country_emergency_contact_address' => $card->home_country_emergency_contact_address ?? '',
+                    'emergency_contact_id_type' => $card->emergency_contact_id_type ?? '',
+                    'home_country_emergency_contact_id_type' => $card->home_country_emergency_contact_id_type ?? '',
                     'category' => $card->category ?? 'WORK',
                     'employer_name' => $card->employer_name ?? '',
                     'quota_reference' => $card->quota_reference ?? '',
@@ -394,6 +419,8 @@ class DraftController
                     'home_country_emergency_contact_relation' => '',
                     'home_country_emergency_contact_phone' => '',
                     'home_country_emergency_contact_address' => '',
+                    'emergency_contact_id_type' => '',
+                    'home_country_emergency_contact_id_type' => '',
                     'category' => 'WORK',
                     'employer_name' => '',
                     'quota_reference' => '',
@@ -449,6 +476,8 @@ class DraftController
             'home_country_emergency_contact_relation' => $sourceApp->home_country_emergency_contact_relation ?? '',
             'home_country_emergency_contact_phone' => $sourceApp->home_country_emergency_contact_phone ?? '',
             'home_country_emergency_contact_address' => $sourceApp->home_country_emergency_contact_address ?? '',
+            'emergency_contact_id_type' => $sourceApp->emergency_contact_id_type ?? '',
+            'home_country_emergency_contact_id_type' => $sourceApp->home_country_emergency_contact_id_type ?? '',
             'category' => $sourceApp->category ?? 'WORK',
             'employer_name' => $sourceApp->employer_name ?? '',
             'quota_reference' => $sourceApp->quota_reference ?? '',

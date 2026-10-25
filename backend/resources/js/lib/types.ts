@@ -33,6 +33,8 @@ export type DocumentType =
   | "cac_certificate"
   | "domicile_proof"
   | "quota_approval"
+  | "emergency_contact_id_nigeria"
+  | "emergency_contact_id_home"
   | "additional";
 
 export type Particulars = {
@@ -64,10 +66,12 @@ export type Particulars = {
   emergency_contact_address: string;
   emergency_contact_state?: string | null;
   emergency_contact_lga?: string | null;
+  emergency_contact_id_type?: string | null;
   home_country_emergency_contact_name?: string | null;
   home_country_emergency_contact_relation?: string | null;
   home_country_emergency_contact_phone?: string | null;
   home_country_emergency_contact_address?: string | null;
+  home_country_emergency_contact_id_type?: string | null;
 };
 
 export type EnrollmentCenter = {
@@ -87,6 +91,8 @@ export type ApplicationDocument = {
   size_bytes: number;
   version: number;
   uploaded_at: string;
+  original_name?: string;
+  url?: string | null;
 };
 
 export type Application = Particulars & {

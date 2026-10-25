@@ -18,6 +18,8 @@ enum DocumentType: string
     case ReligiousActivitiesDetails = 'religious_activities_details';
     case ReligiousRegistration = 'religious_registration';
     case ReligiousAffiliation = 'religious_affiliation';
+    case EmergencyContactIdNigeria = 'emergency_contact_id_nigeria';
+    case EmergencyContactIdHome = 'emergency_contact_id_home';
     case Additional = 'additional';
 
     public function label(): string
@@ -37,6 +39,8 @@ enum DocumentType: string
             self::ReligiousActivitiesDetails => 'Details of Intended Religious Activities',
             self::ReligiousRegistration => 'Evidence of Host Organization Registration or Recognition',
             self::ReligiousAffiliation => "Evidence of Applicant's Religious Role or Affiliation",
+            self::EmergencyContactIdNigeria => 'Emergency Contact in Nigeria — Identification Document',
+            self::EmergencyContactIdHome => 'Emergency Contact in Home Country — Identification Document',
             self::Additional => 'Additional document',
         };
     }
@@ -44,7 +48,13 @@ enum DocumentType: string
     /** Documents an applicant must upload before submitting. */
     public static function requiredForSubmission(): array
     {
-        return [self::Photo, self::PassportCopy, self::DomicileProof];
+        return [
+            self::Photo,
+            self::PassportCopy,
+            self::DomicileProof,
+            self::EmergencyContactIdNigeria,
+            self::EmergencyContactIdHome,
+        ];
     }
 
     /** Types applicants may upload (signature is captured at the desk). */
@@ -64,6 +74,8 @@ enum DocumentType: string
             self::ReligiousActivitiesDetails,
             self::ReligiousRegistration,
             self::ReligiousAffiliation,
+            self::EmergencyContactIdNigeria,
+            self::EmergencyContactIdHome,
             self::Additional,
         ];
     }

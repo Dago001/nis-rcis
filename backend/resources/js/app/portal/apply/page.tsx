@@ -113,6 +113,20 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
     },
     ...catDocs,
     {
+      type: "emergency_contact_id_nigeria",
+      label: "Identification Document of Emergency Contact in Nigeria",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    {
+      type: "emergency_contact_id_home",
+      label: "Identification Document of Emergency Contact in Home Country",
+      required: true,
+      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+      kinds: "JPG, JPEG, PNG or PDF",
+    },
+    {
       type: "additional",
       label: "Additional supporting document",
       required: false,
@@ -262,9 +276,30 @@ function Wizard() {
         const requiredDocs = getDocuments(resolvedCategory, documents);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
         if (absent.length === 1) {
-          e.documents = `Please upload ${absent[0].label}.`;
+          if (absent[0].type === "emergency_contact_id_nigeria") {
+            e.documents = "Please upload the identification document of your Emergency Contact in Nigeria.";
+          } else if (absent[0].type === "emergency_contact_id_home") {
+            e.documents = "Please upload the identification document of your Emergency Contact in Home Country.";
+          } else {
+            e.documents = `Please upload ${absent[0].label}.`;
+          }
         } else if (absent.length > 1) {
-          e.documents = `Please upload: ${absent.map((d) => d.label).join(", ")}.`;
+          const names = absent.map((d) => {
+            if (d.type === "emergency_contact_id_nigeria") {
+              return "the identification document of your Emergency Contact in Nigeria";
+            }
+            if (d.type === "emergency_contact_id_home") {
+              return "the identification document of your Emergency Contact in Home Country";
+            }
+            return d.label;
+          });
+          e.documents = `Please upload: ${names.join(", ")}.`;
+        }
+        if (!data.emergency_contact_id_type) {
+          e.emergency_contact_id_type = "Please select the identification document type for Emergency Contact in Nigeria.";
+        }
+        if (!data.home_country_emergency_contact_id_type) {
+          e.home_country_emergency_contact_id_type = "Please select the identification document type for Emergency Contact in Home Country.";
         }
       }
       if (n === 5 && hasCod) {
@@ -1057,7 +1092,14 @@ function Wizard() {
         setNotice({ tone: "success", text: `${spec.label} uploaded successfully.` });
       } else {
         await saveDraft(step);
-        const result = await upload<{ draft: Draft }>("applicant", "draft/documents", { type: spec.type, file });
+        const idDocType = spec.type === "emergency_contact_id_nigeria"
+          ? data.emergency_contact_id_type
+          : spec.type === "emergency_contact_id_home"
+          ? data.home_country_emergency_contact_id_type
+          : undefined;
+        const uploadPayload: Record<string, any> = { type: spec.type, file };
+        if (idDocType) uploadPayload.id_document_type = idDocType;
+        const result = await upload<{ draft: Draft }>("applicant", "draft/documents", uploadPayload);
         setDocuments(result.draft.documents);
         const uploaded = result.draft.documents.find((d) => d.type === spec.type);
         setDocStates((prev) => ({
@@ -2040,6 +2082,36 @@ function Wizard() {
                         {!isUploading && !isUploaded && !isError && (
                           <p className="text-xs text-slate-500">{t("PDF, JPG or PNG up to 2 MB")}</p>
                         )}
+
+                        {(d.type === "emergency_contact_id_nigeria" || d.type === "emergency_contact_id_home") && (
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 max-w-sm">
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              {t("Document Type")} <span className="text-red-600">*</span>
+                            </label>
+                            <select
+                              value={(d.type === "emergency_contact_id_nigeria" ? data.emergency_contact_id_type : data.home_country_emergency_contact_id_type) || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setData((prev) => ({
+                                  ...prev,
+                                  [d.type === "emergency_contact_id_nigeria" ? "emergency_contact_id_type" : "home_country_emergency_contact_id_type"]: val,
+                                }));
+                              }}
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-nis-primary focus:outline-none focus:ring-1 focus:ring-nis-primary"
+                            >
+                              <option value="">{t("Select identification type")}</option>
+                              <option value="NATIONAL_ID">{t("National Identity Card")}</option>
+                              <option value="PASSPORT">{t("International Passport")}</option>
+                              <option value="ECOWAS_TC">{t("ECOWAS Travel Certificate")}</option>
+                            </select>
+                            {((d.type === "emergency_contact_id_nigeria" && errors.emergency_contact_id_type) ||
+                              (d.type === "emergency_contact_id_home" && errors.home_country_emergency_contact_id_type)) && (
+                              <p className="mt-1 text-xs font-medium text-red-600">
+                                {t(d.type === "emergency_contact_id_nigeria" ? errors.emergency_contact_id_type : errors.home_country_emergency_contact_id_type)}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2100,13 +2172,18 @@ function Wizard() {
                       )}
 
                       {!isUploaded && !isError && (
-                        <UploadButton
-                          label={isUploading ? t("Uploading…") : t("Upload document")}
-                          accept={d.accept}
-                          disabled={busy || isUploading}
-                          onFile={(f) => uploadDocFile(d, f)}
-                          className="!text-xs !py-1.5 !px-3 !bg-nis-primary !text-white hover:!bg-nis-primary-dark"
-                        />
+                        <div className="flex flex-col sm:items-end gap-1">
+                          {(d.type === "emergency_contact_id_nigeria" || d.type === "emergency_contact_id_home") && (
+                            <span className="text-[11px] font-medium text-slate-500">{t("Upload Identification Document")}</span>
+                          )}
+                          <UploadButton
+                            label={isUploading ? t("Uploading…") : t("Choose file")}
+                            accept={d.accept}
+                            disabled={busy || isUploading}
+                            onFile={(f) => uploadDocFile(d, f)}
+                            className="!text-xs !py-1.5 !px-3 !bg-nis-primary !text-white hover:!bg-nis-primary-dark"
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2202,26 +2279,65 @@ function Wizard() {
                 {[PHOTO, ...currentDocs].map((d) => {
                   const current = documents.find((x) => x.type === d.type);
                   if (!current && !d.required) return null;
+                  const isContactDoc = d.type === "emergency_contact_id_nigeria" || d.type === "emergency_contact_id_home";
+                  const selectedIdType = d.type === "emergency_contact_id_nigeria"
+                    ? data.emergency_contact_id_type
+                    : d.type === "emergency_contact_id_home"
+                    ? data.home_country_emergency_contact_id_type
+                    : null;
+                  const idTypeLabel = selectedIdType === "NATIONAL_ID"
+                    ? "National Identity Card / National Identification Document"
+                    : selectedIdType === "PASSPORT"
+                    ? "International Passport"
+                    : selectedIdType === "ECOWAS_TC"
+                    ? "ECOWAS Travel Certificate"
+                    : selectedIdType;
+
                   return (
-                    <li key={d.type} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-slate-800 font-medium">{t(d.label)}:</span>
-                        <span className={`truncate text-xs font-medium ${current ? "text-slate-600" : "text-red-600"}`}>
-                          {current ? current.original_name : t("missing")}
-                        </span>
+                    <li key={d.type} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3">
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="text-sm font-semibold text-slate-800">
+                          {isContactDoc
+                            ? t(d.type === "emergency_contact_id_nigeria"
+                                ? "Identification Document — Emergency Contact in Nigeria"
+                                : "Identification Document — Emergency Contact in Home Country")
+                            : t(d.label)}
+                        </div>
+                        {isContactDoc && idTypeLabel && (
+                          <div className="text-xs text-slate-600">
+                            <span className="font-medium text-slate-500">{t("Document Type")}:</span>{" "}
+                            <span className="font-medium text-slate-800">{t(idTypeLabel)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-medium text-slate-500">{t("Status")}:</span>{" "}
+                          {current ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              {t("Uploaded")}
+                              <span className="font-normal text-slate-500">({current.original_name})</span>
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-red-600">{t("Missing")}</span>
+                          )}
+                        </div>
                       </div>
                       {current && (
-                        <button
-                          type="button"
-                          onClick={() => view(current)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary transition hover:text-nis-primary-dark hover:underline"
-                        >
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                          <span>{t("View")}</span>
-                        </button>
+                        <div className="shrink-0 pt-1 sm:pt-0">
+                          <button
+                            type="button"
+                            onClick={() => view(current)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-nis-primary transition hover:bg-slate-50 hover:text-nis-primary-dark hover:underline"
+                          >
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <span>{t("View")}</span>
+                          </button>
+                        </div>
                       )}
                     </li>
                   );

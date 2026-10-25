@@ -88,10 +88,12 @@ class ApplicationRules
             'emergency_contact_address' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
             'emergency_contact_state' => ['required', 'string', Rule::in(NigeriaLgas::states())],
             'emergency_contact_lga' => ['required', 'string', new NigerianLga('emergency_contact_state')],
+            'emergency_contact_id_type' => ['nullable', 'string', 'max:50'],
             'home_country_emergency_contact_name' => ['required', 'string', 'max:150', 'regex:'.self::NAME],
             'home_country_emergency_contact_relation' => ['required', 'string', 'max:50', 'regex:'.self::NAME],
             'home_country_emergency_contact_phone' => ['required', 'string', 'regex:'.self::PHONE],
             'home_country_emergency_contact_address' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
+            'home_country_emergency_contact_id_type' => ['nullable', 'string', 'max:50'],
         ];
     }
 
@@ -127,8 +129,8 @@ class ApplicationRules
     public static function normalise(array $data): array
     {
         $upper = ['quota_reference', 'employer_name', 'surname', 'forenames', 'nationality', 'place_of_birth', 'profession', 'passport_number',
-            'emergency_contact_name', 'emergency_contact_relation',
-            'home_country_emergency_contact_name', 'home_country_emergency_contact_relation',
+            'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_id_type',
+            'home_country_emergency_contact_name', 'home_country_emergency_contact_relation', 'home_country_emergency_contact_id_type',
             'distinguished_features', 'complexion', 'eye_color', 'hair_color'];
 
         // Convert empty strings for optional fields into null so validation passes

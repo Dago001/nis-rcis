@@ -55,7 +55,7 @@ export function DocumentList({ scope, applicationId, documents }: { scope: ApiSc
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-slate-200">
           <tr>
-            <th className="px-4 py-3">Supporting Document</th>
+            <th className="px-4 py-3">Document Name</th>
             <th className="px-4 py-3 text-right">Action</th>
           </tr>
         </thead>
