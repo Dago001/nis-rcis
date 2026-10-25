@@ -2,7 +2,7 @@
 
 import { ECOWAS_NATIONALITIES } from "@/lib/nationalities";
 import { NIGERIA_LGAS, NIGERIA_STATES } from "@/lib/nigeria-lgas";
-import { RELATIONSHIPS } from "@/lib/validation";
+import { formatRelationship, RELATIONSHIPS } from "@/lib/validation";
 import { lettersOnly, PhoneInput } from "./inputs";
 import { Field, Input, Select, Textarea } from "./ui";
 import { useI18n } from "./I18nProvider";
@@ -478,8 +478,14 @@ export function ContactFields(props: Props) {
   const { data, errors, set, touch, focus, readOnly } = props;
   const { t } = useI18n();
   const rawRelation = (data.emergency_contact_relation ?? "").trim();
-  const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === rawRelation.toLowerCase());
+  const normalizedRelation = formatRelationship(rawRelation);
+  const matchedRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === normalizedRelation.toLowerCase() || r.toLowerCase() === rawRelation.toLowerCase());
   const otherRelation = data.emergency_contact_relation_other === "1" || Boolean(rawRelation && !matchedRelation);
+
+  const rawHomeRelation = (data.home_country_emergency_contact_relation ?? "").trim();
+  const normalizedHomeRelation = formatRelationship(rawHomeRelation);
+  const matchedHomeRelation = RELATIONSHIPS.find((r) => r.toLowerCase() === normalizedHomeRelation.toLowerCase() || r.toLowerCase() === rawHomeRelation.toLowerCase());
+  const otherHomeRelation = data.home_country_emergency_contact_relation_other === "1" || Boolean(rawHomeRelation && !matchedHomeRelation);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -707,6 +713,80 @@ export function ContactFields(props: Props) {
             onBlur={() => {
               focus?.(null);
               touch?.("emergency_contact_address");
+            }}
+          />
+        </Field>
+      </div>
+
+      {/* Emergency contact in Home Country */}
+      <h3 className="pt-3 text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Emergency contact in Home Country")}</h3>
+      {text(props, "home_country_emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
+      <Field label="Relationship" required error={otherHomeRelation ? undefined : errors.home_country_emergency_contact_relation}>
+        <Select
+          name="home_country_emergency_contact_relation"
+          value={otherHomeRelation ? OTHER : matchedHomeRelation ?? ""}
+          className={!otherHomeRelation && errors.home_country_emergency_contact_relation ? "!border-red-500" : ""}
+          onFocus={() => focus?.("home_country_emergency_contact_relation")}
+          onChange={(e) => {
+            if (e.target.value === OTHER) {
+              set("home_country_emergency_contact_relation_other", "1");
+              set("home_country_emergency_contact_relation", "");
+            } else {
+              set("home_country_emergency_contact_relation_other", "");
+              set("home_country_emergency_contact_relation", e.target.value);
+            }
+          }}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("home_country_emergency_contact_relation");
+          }}
+        >
+          <option value="">{t("Select relationship…")}</option>
+          {RELATIONSHIPS.map((r) => <option key={r} value={r}>{t(r)}</option>)}
+          <option value={OTHER}>{t("OTHER")}</option>
+        </Select>
+      </Field>
+      {otherHomeRelation && (
+        <div className="sm:col-span-2">
+          {text(props, "home_country_emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50 })}
+        </div>
+      )}
+
+      <div
+        onFocus={() => focus?.("home_country_emergency_contact_phone")}
+        onBlur={() => {
+          focus?.(null);
+          touch?.("home_country_emergency_contact_phone");
+        }}
+      >
+        <Field label="Phone number" required error={errors.home_country_emergency_contact_phone}>
+          <PhoneInput
+            value={data.home_country_emergency_contact_phone ?? ""}
+            onChange={(v) => {
+              set("home_country_emergency_contact_phone", v);
+            }}
+          />
+        </Field>
+      </div>
+
+      <div className="sm:col-span-2">
+        <Field
+          label="Address"
+          required
+          error={errors.home_country_emergency_contact_address}
+          hint="Full residential address in home country"
+        >
+          <Input
+            name="home_country_emergency_contact_address"
+            value={data.home_country_emergency_contact_address ?? ""}
+            maxLength={300}
+            aria-invalid={Boolean(errors.home_country_emergency_contact_address)}
+            className={errors.home_country_emergency_contact_address ? "!border-red-500" : ""}
+            onFocus={() => focus?.("home_country_emergency_contact_address")}
+            onChange={(e) => set("home_country_emergency_contact_address", e.target.value)}
+            onBlur={() => {
+              focus?.(null);
+              touch?.("home_country_emergency_contact_address");
             }}
           />
         </Field>

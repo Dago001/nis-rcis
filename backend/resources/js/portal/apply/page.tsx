@@ -10,7 +10,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { api, ApiError, upload } from "@/lib/api-client";
 import { naira, nisDate } from "@/lib/format";
 import type { Application, CodChangeItem, EnrollmentCenter } from "@/lib/types";
-import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, GENERAL_FIELDS, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
+import { APPOINTMENT_FIELDS, CONTACT_FIELDS, fieldError, formatRelationship, GENERAL_FIELDS, PASSPORT_FIELDS, PERSONAL_FIELDS, validate } from "@/lib/validation";
 
 const COD_AVAILABLE_OPTIONS: { key: string; label: string; docHint?: string }[] = [
   { key: "name", label: "Change of Name", docHint: "e.g. Marriage Certificate, Newspaper Publication, Deed Poll, Court Affidavit" },
@@ -506,6 +506,10 @@ function Wizard() {
             emergency_contact_address: app.emergency_contact_address || "",
             emergency_contact_state: app.emergency_contact_state || "",
             emergency_contact_lga: app.emergency_contact_lga || "",
+            home_country_emergency_contact_name: (app as any).home_country_emergency_contact_name || "",
+            home_country_emergency_contact_relation: (app as any).home_country_emergency_contact_relation || "",
+            home_country_emergency_contact_phone: (app as any).home_country_emergency_contact_phone || "",
+            home_country_emergency_contact_address: (app as any).home_country_emergency_contact_address || "",
             phone: app.phone || "",
             email: app.email || "",
           };
@@ -2175,11 +2179,20 @@ function Wizard() {
               />
             </ReviewSection>
 
-            <ReviewSection title="Emergency contact" onEdit={() => goTo(3)}>
+            <ReviewSection title="Emergency contact in Nigeria" onEdit={() => goTo(3)}>
               <ReviewGrid
                 items={[
-                  ["Full name", data.emergency_contact_name], ["Relationship", data.emergency_contact_relation], ["Phone number", data.emergency_contact_phone],
+                  ["Full name", data.emergency_contact_name], ["Relationship", formatRelationship(data.emergency_contact_relation)], ["Phone number", data.emergency_contact_phone],
                   ["Address", data.emergency_contact_address], ["Local government area", data.emergency_contact_lga], ["State", data.emergency_contact_state],
+                ]}
+              />
+            </ReviewSection>
+
+            <ReviewSection title="Emergency contact in Home Country" onEdit={() => goTo(3)}>
+              <ReviewGrid
+                items={[
+                  ["Full name", data.home_country_emergency_contact_name], ["Relationship", formatRelationship(data.home_country_emergency_contact_relation)], ["Phone number", data.home_country_emergency_contact_phone],
+                  ["Address", data.home_country_emergency_contact_address],
                 ]}
               />
             </ReviewSection>

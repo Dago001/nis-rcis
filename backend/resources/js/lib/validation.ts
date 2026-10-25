@@ -103,6 +103,10 @@ export const RULES: Record<string, Check> = {
   emergency_contact_state: required("State"),
   emergency_contact_lga: all(required("Local government area"), (v, d) => (d.emergency_contact_state && !NIGERIA_LGAS[d.emergency_contact_state]?.includes(v) ? "Select a local government area." : undefined)),
   emergency_contact_address: all(required("Address"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_emergency_contact_name: all(required("Full name"), pattern(NAME, lettersOnly)),
+  home_country_emergency_contact_relation: all(required("Relationship"), pattern(NAME, lettersOnly)),
+  home_country_emergency_contact_phone: all(required("Phone number"), pattern(PHONE, "Enter a valid phone number (digits only).")),
+  home_country_emergency_contact_address: all(required("Address"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
 
   enrollment_center_id: required("Enrollment center"),
   appointment_date: all(required("Appointment date"), (v) => {
@@ -133,6 +137,8 @@ export const CONTACT_FIELDS = [
   "domicile_state", "domicile_lga", "domicile", "change_of_address",
   "emergency_contact_name", "emergency_contact_relation", "emergency_contact_phone",
   "emergency_contact_state", "emergency_contact_lga", "emergency_contact_address",
+  "home_country_emergency_contact_name", "home_country_emergency_contact_relation",
+  "home_country_emergency_contact_phone", "home_country_emergency_contact_address",
 ];
 export const APPOINTMENT_FIELDS = ["enrollment_center_id", "appointment_date", "appointment_time"];
 
@@ -151,9 +157,40 @@ export function validate(fields: string[], data: Data): Record<string, string> {
   return errors;
 }
 
+export function formatRelationship(rel?: string | null): string {
+  if (!rel) return "";
+  const upper = rel.trim().toUpperCase();
+  switch (upper) {
+    case "HUSBAND":
+    case "WIFE":
+      return "SPOUSE";
+    case "GRANDFATHER":
+    case "GRANDMOTHER":
+    case "GRAND-FATHER":
+    case "GRAND-MOTHER":
+    case "GRANDPARENT":
+      return "GRAND-PARENT";
+    case "GRANDSON":
+    case "GRANDDAUGHTER":
+    case "GRAND-SON":
+    case "GRAND-DAUGHTER":
+    case "GRANDCHILD":
+    case "GRAND_CHILD":
+      return "GRAND-CHILD";
+    case "STEPFATHER":
+      return "STEP-FATHER";
+    case "STEPMOTHER":
+      return "STEP-MOTHER";
+    default:
+      return upper;
+  }
+}
+
 export const RELATIONSHIPS = [
-  "SPOUSE", "HUSBAND", "WIFE", "FATHER", "MOTHER", "SON", "DAUGHTER", "BROTHER", "SISTER",
-  "UNCLE", "AUNT", "NEPHEW", "NIECE", "COUSIN", "GRANDFATHER", "GRANDMOTHER", "GRANDSON", "GRANDDAUGHTER",
+  "SPOUSE", "FATHER", "MOTHER", "SON", "DAUGHTER", "BROTHER", "SISTER",
+  "UNCLE", "AUNT", "NEPHEW", "NIECE", "COUSIN",
+  "GRAND-PARENT", "GRAND-CHILD",
   "FATHER-IN-LAW", "MOTHER-IN-LAW", "BROTHER-IN-LAW", "SISTER-IN-LAW", "SON-IN-LAW", "DAUGHTER-IN-LAW",
-  "STEPFATHER", "STEPMOTHER", "GUARDIAN", "FIANCE", "FIANCEE", "FRIEND", "COLLEAGUE", "EMPLOYER", "LANDLORD", "NEIGHBOUR",
+  "STEP-FATHER", "STEP-MOTHER",
+  "GUARDIAN", "FIANCE", "FIANCEE", "FRIEND", "COLLEAGUE", "EMPLOYER", "LANDLORD", "NEIGHBOUR",
 ];

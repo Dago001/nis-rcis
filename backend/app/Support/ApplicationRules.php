@@ -88,6 +88,10 @@ class ApplicationRules
             'emergency_contact_address' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
             'emergency_contact_state' => ['required', 'string', Rule::in(NigeriaLgas::states())],
             'emergency_contact_lga' => ['required', 'string', new NigerianLga('emergency_contact_state')],
+            'home_country_emergency_contact_name' => ['required', 'string', 'max:150', 'regex:'.self::NAME],
+            'home_country_emergency_contact_relation' => ['required', 'string', 'max:50', 'regex:'.self::NAME],
+            'home_country_emergency_contact_phone' => ['required', 'string', 'regex:'.self::PHONE],
+            'home_country_emergency_contact_address' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
         ];
     }
 
@@ -123,7 +127,9 @@ class ApplicationRules
     public static function normalise(array $data): array
     {
         $upper = ['quota_reference', 'employer_name', 'surname', 'forenames', 'nationality', 'place_of_birth', 'profession', 'passport_number',
-            'emergency_contact_name', 'emergency_contact_relation', 'distinguished_features', 'complexion', 'eye_color', 'hair_color'];
+            'emergency_contact_name', 'emergency_contact_relation',
+            'home_country_emergency_contact_name', 'home_country_emergency_contact_relation',
+            'distinguished_features', 'complexion', 'eye_color', 'hair_color'];
 
         // Convert empty strings for optional fields into null so validation passes
         foreach (['national_id_number', 'tax_id_number', 'change_of_address', 'quota_reference', 'employer_name', 'height', 'complexion', 'eye_color', 'hair_color', 'distinguished_features', 'blood_group'] as $optKey) {
@@ -133,7 +139,7 @@ class ApplicationRules
         }
 
         // Phone numbers are stored as + and digits only.
-        foreach (['phone', 'emergency_contact_phone'] as $key) {
+        foreach (['phone', 'emergency_contact_phone', 'home_country_emergency_contact_phone'] as $key) {
             if (isset($data[$key]) && is_string($data[$key])) {
                 $raw = trim($data[$key]);
                 if (preg_match('/^\s*\+?[0-9 ()-]+$/', $raw)) {
@@ -161,7 +167,7 @@ class ApplicationRules
             $data['email'] = strtolower(trim($data['email']));
         }
 
-        foreach (['home_country_address', 'domicile', 'emergency_contact_address', 'change_of_address'] as $addrKey) {
+        foreach (['home_country_address', 'domicile', 'emergency_contact_address', 'home_country_emergency_contact_address', 'change_of_address'] as $addrKey) {
             if (isset($data[$addrKey]) && is_string($data[$addrKey])) {
                 $data[$addrKey] = trim($data[$addrKey]);
             }

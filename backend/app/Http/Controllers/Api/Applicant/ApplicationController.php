@@ -145,7 +145,10 @@ class ApplicationController
             'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
             'national_id_number', 'tax_id_number', 'emergency_contact_name',
             'emergency_contact_relation', 'emergency_contact_phone', 'emergency_contact_address',
-            'emergency_contact_state', 'emergency_contact_lga', 'height', 'complexion',
+            'emergency_contact_state', 'emergency_contact_lga',
+            'home_country_emergency_contact_name', 'home_country_emergency_contact_relation',
+            'home_country_emergency_contact_phone', 'home_country_emergency_contact_address',
+            'height', 'complexion',
             'eye_color', 'hair_color', 'distinguished_features', 'blood_group',
         ];
 

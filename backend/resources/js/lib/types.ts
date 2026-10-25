@@ -64,6 +64,10 @@ export type Particulars = {
   emergency_contact_address: string;
   emergency_contact_state?: string | null;
   emergency_contact_lga?: string | null;
+  home_country_emergency_contact_name?: string | null;
+  home_country_emergency_contact_relation?: string | null;
+  home_country_emergency_contact_phone?: string | null;
+  home_country_emergency_contact_address?: string | null;
 };
 
 export type EnrollmentCenter = {

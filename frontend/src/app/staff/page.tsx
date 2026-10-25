@@ -59,14 +59,11 @@ type Summary = {
 const monthLabel = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short" });
 const monthLong = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-function StatCard({ label, value, note, href }: { label: string; value: string | number; note?: string; href?: string }) {
+function StatCard({ label, value, href }: { label: string; value: string | number; href?: string }) {
   const content = (
-    <div className="h-full rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div>
-        <div className="text-[11px] sm:text-xs font-normal tracking-wide text-slate-500 uppercase">{label}</div>
-        <div className="mt-1.5 text-2xl sm:text-3xl font-medium text-slate-900 tracking-tight">{value}</div>
-      </div>
-      {note && <div className="mt-2 text-xs text-slate-500 font-normal leading-snug">{note}</div>}
+    <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3.5 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div className="text-[11px] sm:text-xs font-medium tracking-wide text-slate-500 uppercase truncate" title={label}>{label}</div>
+      <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">{value}</div>
     </div>
   );
   return href ? <Link href={href} className="block h-full">{content}</Link> : content;
@@ -192,30 +189,25 @@ export default function StaffDashboard() {
           <StatCard
             label={t("Total Applications")}
             value={totals.applications ?? 0}
-            note={t("All submitted applications")}
             href="/staff/applications"
           />
           <StatCard
             label={t("Applications This Month")}
             value={totals.applications_this_month ?? 0}
-            note={t("Submitted in current calendar month")}
           />
           <StatCard
             label={t("Total Cards Issued")}
             value={totals.cards_issued ?? 0}
-            note={t("Officially issued residence cards")}
             href="/staff/reports"
           />
           <StatCard
             label={t("New Cards Issued")}
             value={totals.new_cards_issued ?? s.new_cards_issued ?? 0}
-            note={t("Officially issued new cards")}
             href="/staff/reports?category=NEW"
           />
           <StatCard
             label={t("Renewal Cards Issued")}
             value={totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0}
-            note={t("Officially issued renewal cards")}
             href="/staff/reports?category=RENEWAL"
           />
         </div>
@@ -230,31 +222,26 @@ export default function StaffDashboard() {
           <StatCard
             label={t("Awaiting Vetting")}
             value={s.queue?.PENDING_APPROVAL ?? 0}
-            note={t("Pending initial security vetting")}
             href="/staff/applications?status=PENDING_APPROVAL"
           />
           <StatCard
             label={t("Awaiting Approval")}
             value={s.queue?.VETTED ?? 0}
-            note={t("Vetted, pending Comptroller approval")}
             href="/staff/approvals"
           />
           <StatCard
             label={t("Biometrics Completed")}
             value={s.queue?.BIOMETRICS_CAPTURED ?? 0}
-            note={t("Biometrics enrolled, ready for card")}
             href="/staff/applications?status=BIOMETRICS_CAPTURED"
           />
           <StatCard
             label={t("Awaiting Card Production")}
             value={s.cards?.APPROVED ?? 0}
-            note={t("Approved, pending batch printing")}
             href="/staff/cards?status=APPROVED"
           />
           <StatCard
             label={t("Awaiting Card Issuance")}
             value={s.queue?.READY_FOR_COLLECTION ?? 0}
-            note={t("Printed, awaiting card collection")}
             href="/staff/card-issuance?stage=awaiting_collection"
           />
         </div>

@@ -12,6 +12,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { dateTime, naira, nisDate, applicationType, conciseApplicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
+import { formatRelationship } from "@/lib/validation";
 
 type ExternalCheck = {
   service: "INTERPOL_SLTD" | "MOI_QUOTA";
@@ -333,7 +334,8 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
                 ["E-mail Address", a.email],
                 ["Residential Address", a.domicile ? `${a.domicile}${a.domicile_lga ? `, ${a.domicile_lga} LGA` : ""}${a.domicile_state ? `, ${a.domicile_state} State` : ""}` : "—"],
                 ["Physical Features", `Height: ${a.height ?? "—"} · Complexion: ${a.complexion ?? "—"} · Eyes: ${a.eye_color ?? "—"} · Hair: ${a.hair_color ?? "—"}`],
-                ["Emergency Contact", `${a.emergency_contact_name || "—"} (${a.emergency_contact_relation || "—"}) ${a.emergency_contact_phone || ""}`],
+                ["Emergency Contact (Nigeria)", `${a.emergency_contact_name || "—"} (${formatRelationship(a.emergency_contact_relation) || "—"}) ${a.emergency_contact_phone || ""}`],
+                ...(a.home_country_emergency_contact_name ? [["Emergency Contact (Home Country)", `${a.home_country_emergency_contact_name} (${formatRelationship(a.home_country_emergency_contact_relation) || "—"}) ${a.home_country_emergency_contact_phone || ""} · ${a.home_country_emergency_contact_address || ""}`] as [string, string]] : []),
               ]}
             />
           </div>

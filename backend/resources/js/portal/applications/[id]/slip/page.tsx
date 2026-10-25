@@ -10,6 +10,7 @@ import { api } from "@/lib/api-client";
 import { naira, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { withBase } from "@/lib/base-path";
+import { formatRelationship } from "@/lib/validation";
 
 type Payment = {
   reference: string;
@@ -233,14 +234,25 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
           />
         </Box>
 
-        <Box title="Emergency Contact Information">
+        <Box title="Emergency Contact Information (Nigeria)">
           <Pairs
             rows={[
-              ["Name of Contact", a.emergency_contact_name, "Relationship", title(a.emergency_contact_relation)],
+              ["Name of Contact", a.emergency_contact_name, "Relationship", title(formatRelationship(a.emergency_contact_relation))],
               ["Address", [a.emergency_contact_address, a.emergency_contact_lga, a.emergency_contact_state].filter(Boolean).join(", "), "Contact Number", a.emergency_contact_phone],
             ]}
           />
         </Box>
+
+        {Boolean(a.home_country_emergency_contact_name) && (
+          <Box title="Emergency Contact Information (Home Country)">
+            <Pairs
+              rows={[
+                ["Name of Contact", a.home_country_emergency_contact_name, "Relationship", title(formatRelationship(a.home_country_emergency_contact_relation))],
+                ["Address", a.home_country_emergency_contact_address, "Contact Number", a.home_country_emergency_contact_phone],
+              ]}
+            />
+          </Box>
+        )}
 
         <Box title="Biometrics Appointment">
           <Pairs rows={[["Enrollment Center", show(center?.name), "Appointment Date / Time", `${ddmmyyyy(a.appointment_date)} ${a.appointment_time}`]]} />
