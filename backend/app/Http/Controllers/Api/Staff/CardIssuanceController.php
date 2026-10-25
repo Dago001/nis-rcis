@@ -45,7 +45,10 @@ class CardIssuanceController
 
         // Filter by enrollment center
         if (! empty($centerId)) {
-            $query->whereHas('application', fn ($q) => $q->where('enrollment_center_id', $centerId));
+            $query->where(function ($q) use ($centerId) {
+                $q->where('actual_enrollment_center_id', $centerId)
+                  ->orWhereHas('application', fn ($aq) => $aq->where('actual_enrollment_center_id', $centerId)->orWhere('enrollment_center_id', $centerId));
+            });
         }
 
         // Search
@@ -77,16 +80,55 @@ class CardIssuanceController
 
         $paginated = $query->paginate($perPage);
 
-        // Compute summary counts for printed cards
+        // Compute summary counts for issued cards and printed cards
         $printedBase = ResidenceCard::query()->whereHas('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
+
+        $issuedBase = ResidenceCard::query()
+            ->where(function ($q) {
+                $q->whereIn('status', [\App\Enums\CardStatus::Issued, \App\Enums\CardStatus::Renewed])
+                  ->orWhereHas('application', fn ($aq) => $aq->where('status', ApplicationStatus::Issued));
+            });
+
+        if (! empty($centerId)) {
+            $printedBase->where(function ($q) use ($centerId) {
+                $q->where('actual_enrollment_center_id', $centerId)
+                  ->orWhereHas('application', fn ($aq) => $aq->where('actual_enrollment_center_id', $centerId)->orWhere('enrollment_center_id', $centerId));
+            });
+            $issuedBase->where(function ($q) use ($centerId) {
+                $q->where('actual_enrollment_center_id', $centerId)
+                  ->orWhereHas('application', fn ($aq) => $aq->where('actual_enrollment_center_id', $centerId)->orWhere('enrollment_center_id', $centerId));
+            });
+        }
+
+        $totalIssued = (clone $issuedBase)->count();
+        $newIssued = (clone $issuedBase)->where(function ($q) {
+            $q->whereDoesntHave('renewals')
+              ->where(function ($sq) {
+                  $sq->whereDoesntHave('application')
+                    ->orWhereHas('application', fn ($aq) => $aq->whereNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
+              });
+        })->count();
+        $renewalIssued = (clone $issuedBase)->where(function ($q) {
+            $q->where('status', \App\Enums\CardStatus::Renewed)
+              ->orWhereHas('renewals')
+              ->orWhereHas('application', fn ($aq) => $aq->whereNotNull('renewal_of_card_id')->orWhere('type', 'RENEWAL'));
+        })->count();
+
+        if ($newIssued + $renewalIssued < $totalIssued) {
+            $newIssued += ($totalIssued - ($newIssued + $renewalIssued));
+        }
+
         $stats = [
+            'total_cards_issued' => $totalIssued,
+            'new_cards_issued' => $newIssued,
+            'renewal_cards_issued' => $renewalIssued,
             'awaiting_issuance' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued))->count(),
-            'issued_total' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::Issued))->count(),
+            'issued_total' => $totalIssued,
             'total_printed' => (clone $printedBase)->count(),
             // Backwards compatibility keys
             'awaiting_collection' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued))->count(),
             'ready_to_notify' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::BiometricsCaptured))->count(),
-            'collected_total' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', ApplicationStatus::Issued))->count(),
+            'collected_total' => $totalIssued,
             'total_produced' => (clone $printedBase)->count(),
         ];
 

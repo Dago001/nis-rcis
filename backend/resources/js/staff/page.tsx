@@ -26,6 +26,9 @@ type Analytics = {
     applications_this_month: number;
     applications_last_month: number;
     cards_issued: number;
+    cards_produced?: number;
+    new_cards_produced?: number;
+    renewal_cards_produced?: number;
     new_cards_issued?: number;
     renewal_cards_issued?: number;
     revenue_naira: number;
@@ -47,6 +50,9 @@ type Summary = {
   cards_expiring_30_days: number;
   watchlisted: number;
   paid_awaiting_submission: number;
+  total_cards_produced?: number;
+  new_cards_produced?: number;
+  renewal_cards_produced?: number;
   new_cards_issued?: number;
   renewal_cards_issued?: number;
   todays_appointments: number;
@@ -61,9 +67,9 @@ const monthLong = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString
 
 function StatCard({ label, value, href }: { label: string; value: string | number; href?: string }) {
   const content = (
-    <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3.5 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div className="text-[11px] sm:text-xs font-medium tracking-wide text-slate-500 uppercase truncate" title={label}>{label}</div>
-      <div className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">{value}</div>
+    <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal" title={label}>{label}</div>
+      <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">{value}</div>
     </div>
   );
   return href ? <Link href={href} className="block h-full">{content}</Link> : content;
@@ -121,6 +127,9 @@ export default function StaffDashboard() {
     applications: 0,
     applications_this_month: 0,
     applications_last_month: 0,
+    cards_produced: 0,
+    new_cards_produced: 0,
+    renewal_cards_produced: 0,
     cards_issued: 0,
     new_cards_issued: 0,
     renewal_cards_issued: 0,
@@ -180,12 +189,12 @@ export default function StaffDashboard() {
         </div>
       )}
 
-      {/* Primary Volume & Issuance Statistics */}
+      {/* Primary Application & Card Statistics */}
       <div>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-nis-primary">
-          {t("Application & Card Issuance Statistics")}
+          {t("Application & Card Statistics")}
         </h2>
-        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <StatCard
             label={t("Total Applications")}
             value={totals.applications ?? 0}
@@ -196,9 +205,19 @@ export default function StaffDashboard() {
             value={totals.applications_this_month ?? 0}
           />
           <StatCard
+            label={t("Biometrics Completed")}
+            value={s.queue?.BIOMETRICS_CAPTURED ?? 0}
+            href="/staff/applications?status=BIOMETRICS_CAPTURED"
+          />
+          <StatCard
+            label={t("Total Cards Produced")}
+            value={totals.cards_produced ?? s.total_cards_produced ?? 0}
+            href="/staff/cards"
+          />
+          <StatCard
             label={t("Total Cards Issued")}
             value={totals.cards_issued ?? 0}
-            href="/staff/reports"
+            href="/staff/card-issuance"
           />
           <StatCard
             label={t("New Cards Issued")}
@@ -209,40 +228,6 @@ export default function StaffDashboard() {
             label={t("Renewal Cards Issued")}
             value={totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0}
             href="/staff/reports?category=RENEWAL"
-          />
-        </div>
-      </div>
-
-      {/* Operational Stage Queues */}
-      <div>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-          {t("Operational Stage Backlogs")}
-        </h2>
-        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCard
-            label={t("Awaiting Vetting")}
-            value={s.queue?.PENDING_APPROVAL ?? 0}
-            href="/staff/applications?status=PENDING_APPROVAL"
-          />
-          <StatCard
-            label={t("Awaiting Approval")}
-            value={s.queue?.VETTED ?? 0}
-            href="/staff/approvals"
-          />
-          <StatCard
-            label={t("Biometrics Completed")}
-            value={s.queue?.BIOMETRICS_CAPTURED ?? 0}
-            href="/staff/applications?status=BIOMETRICS_CAPTURED"
-          />
-          <StatCard
-            label={t("Awaiting Card Production")}
-            value={s.cards?.APPROVED ?? 0}
-            href="/staff/cards?status=APPROVED"
-          />
-          <StatCard
-            label={t("Awaiting Card Issuance")}
-            value={s.queue?.READY_FOR_COLLECTION ?? 0}
-            href="/staff/card-issuance?stage=awaiting_collection"
           />
         </div>
       </div>

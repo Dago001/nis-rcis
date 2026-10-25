@@ -29,6 +29,8 @@ class CardController
         $data = $request->validate([
             'status' => ['nullable', 'string'],
             'filter' => ['nullable', 'string'],
+            'center_id' => ['nullable', 'integer'],
+            'enrollment_center_id' => ['nullable', 'integer'],
             'category' => ['nullable', 'string'],
             'watchlisted' => ['nullable', 'boolean'],
             'expired' => ['nullable', 'boolean'],
@@ -64,6 +66,15 @@ class CardController
                    });
             });
         });
+
+        // Filter by enrollment center (using applicant's actual biometric enrollment centre)
+        $centerId = $data['center_id'] ?? $data['enrollment_center_id'] ?? null;
+        if (! empty($centerId)) {
+            $query->where(function ($q) use ($centerId) {
+                $q->where('actual_enrollment_center_id', $centerId)
+                  ->orWhereHas('application', fn ($aq) => $aq->where('actual_enrollment_center_id', $centerId)->orWhere('enrollment_center_id', $centerId));
+            });
+        }
 
         $activeFilter = $data['filter'] ?? $data['status'] ?? null;
         if ($activeFilter === 'awaiting_production' || ! empty($data['unprinted'])) {
@@ -143,8 +154,41 @@ class CardController
         }
 
         $perPage = (int) ($data['per_page'] ?? 10);
+        $paginated = $query->paginate($perPage);
 
-        return CardResource::collection($query->paginate($perPage));
+        // Compute confirmed production statistics reflecting selected enrollment centre
+        $producedBase = ResidenceCard::query()->whereHas('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'));
+        if (! empty($centerId)) {
+            $producedBase->where(function ($q) use ($centerId) {
+                $q->where('actual_enrollment_center_id', $centerId)
+                  ->orWhereHas('application', fn ($aq) => $aq->where('actual_enrollment_center_id', $centerId)->orWhere('enrollment_center_id', $centerId));
+            });
+        }
+
+        $totalProduced = (clone $producedBase)->count();
+        $newProduced = (clone $producedBase)->where(function ($q) {
+            $q->whereDoesntHave('renewals')
+              ->where(function ($sq) {
+                  $sq->whereDoesntHave('application')
+                    ->orWhereHas('application', fn ($aq) => $aq->whereNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
+              });
+        })->count();
+        $renewalProduced = (clone $producedBase)->where(function ($q) {
+            $q->whereHas('renewals')
+              ->orWhereHas('application', fn ($aq) => $aq->whereNotNull('renewal_of_card_id')->orWhere('type', 'RENEWAL'));
+        })->count();
+
+        if ($newProduced + $renewalProduced < $totalProduced) {
+            $newProduced += ($totalProduced - ($newProduced + $renewalProduced));
+        }
+
+        return CardResource::collection($paginated)->additional([
+            'stats' => [
+                'total_cards_produced' => $totalProduced,
+                'new_cards_produced' => $newProduced,
+                'renewal_cards_produced' => $renewalProduced,
+            ],
+        ]);
     }
 
     public function show(int $id, DocumentStorage $storage): JsonResponse

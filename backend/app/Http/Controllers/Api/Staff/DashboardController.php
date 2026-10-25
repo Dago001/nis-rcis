@@ -66,6 +66,9 @@ class DashboardController
             $totalCardsIssued = (int) ($analytics['totals']['cards_issued'] ?? 0);
             $newCardsIssued = (int) ($analytics['totals']['new_cards_issued'] ?? 0);
             $renewalCardsIssued = (int) ($analytics['totals']['renewal_cards_issued'] ?? 0);
+            $totalCardsProduced = (int) ($analytics['totals']['cards_produced'] ?? 0);
+            $newCardsProduced = (int) ($analytics['totals']['new_cards_produced'] ?? 0);
+            $renewalCardsProduced = (int) ($analytics['totals']['renewal_cards_produced'] ?? 0);
 
             $cardStock = ['remaining' => 0, 'low' => false];
             try {
@@ -81,6 +84,9 @@ class DashboardController
                 'cards_expiring_30_days' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
                 'watchlisted' => ResidenceCard::where('is_watchlisted', true)->count(),
                 'paid_awaiting_submission' => Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count(),
+                'total_cards_produced' => $totalCardsProduced,
+                'new_cards_produced' => $newCardsProduced,
+                'renewal_cards_produced' => $renewalCardsProduced,
                 'new_cards_issued' => $newCardsIssued,
                 'renewal_cards_issued' => $renewalCardsIssued,
                 'sla' => [
@@ -250,6 +256,27 @@ class DashboardController
             $newCardsIssued += ($totalCardsIssued - ($newCardsIssued + $renewalCardsIssued));
         }
 
+        // Cards produced calculations (verified confirmed print jobs with outcome PRINTED)
+        $producedCardsBase = ResidenceCard::query()->whereHas('printJobs', fn ($q) => $q->where('outcome', \App\Models\CardPrintJob::PRINTED));
+        $totalCardsProduced = (clone $producedCardsBase)->count();
+
+        $newCardsProduced = (clone $producedCardsBase)->where(function ($q) {
+            $q->whereDoesntHave('renewals')
+              ->where(function ($sq) {
+                  $sq->whereDoesntHave('application')
+                    ->orWhereHas('application', fn ($aq) => $aq->whereNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
+              });
+        })->count();
+
+        $renewalCardsProduced = (clone $producedCardsBase)->where(function ($q) {
+            $q->whereHas('renewals')
+              ->orWhereHas('application', fn ($aq) => $aq->whereNotNull('renewal_of_card_id')->orWhere('type', 'RENEWAL'));
+        })->count();
+
+        if ($newCardsProduced + $renewalCardsProduced < $totalCardsProduced) {
+            $newCardsProduced += ($totalCardsProduced - ($newCardsProduced + $renewalCardsProduced));
+        }
+
         // Gender calculation: case-insensitive, supporting MALE/M and FEMALE/F
         $maleCount = 0;
         $femaleCount = 0;
@@ -341,6 +368,9 @@ class DashboardController
                 'applications' => $totalApplications,
                 'applications_this_month' => $appsThisMonth,
                 'applications_last_month' => $appsLastMonth,
+                'cards_produced' => $totalCardsProduced,
+                'new_cards_produced' => $newCardsProduced,
+                'renewal_cards_produced' => $renewalCardsProduced,
                 'cards_issued' => $totalCardsIssued,
                 'new_cards_issued' => $newCardsIssued,
                 'renewal_cards_issued' => $renewalCardsIssued,

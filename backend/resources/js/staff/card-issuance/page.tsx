@@ -51,6 +51,9 @@ type CardIssuanceItem = {
 type CardIssuanceResponse = {
   data: CardIssuanceItem[];
   stats: {
+    total_cards_issued?: number;
+    new_cards_issued?: number;
+    renewal_cards_issued?: number;
     awaiting_issuance: number;
     issued_total: number;
     total_printed: number;
@@ -261,35 +264,32 @@ function CardIssuanceContent() {
       />
 
       {/* KPI / Summary Tiles */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
-          <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
-            {t("Awaiting Issuance")}
-          </span>
-          <span className="mt-1 text-2xl font-medium text-slate-900">
-            {stats.awaiting_issuance ?? stats.awaiting_collection ?? 0}
-          </span>
-          <span className="mt-0.5 text-xs text-slate-500">{t("Printed cards ready for collection")}</span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("Total Cards Issued")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {stats.total_cards_issued ?? stats.issued_total ?? 0}
+          </div>
         </div>
 
-        <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
-          <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
-            {t("Issued Cards")}
-          </span>
-          <span className="mt-1 text-2xl font-medium text-slate-900">
-            {stats.issued_total ?? stats.collected_total ?? 0}
-          </span>
-          <span className="mt-0.5 text-xs text-slate-500">{t("Successfully handed over to applicants")}</span>
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("New Cards Issued")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {stats.new_cards_issued ?? 0}
+          </div>
         </div>
 
-        <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs">
-          <span className="text-xs font-medium uppercase tracking-wider text-slate-600">
-            {t("All Printed Cards")}
-          </span>
-          <span className="mt-1 text-2xl font-medium text-slate-900">
-            {stats.total_printed ?? stats.total_produced ?? 0}
-          </span>
-          <span className="mt-0.5 text-xs text-slate-500">{t("Total verified printed cards")}</span>
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("Renewal Cards Issued")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {stats.renewal_cards_issued ?? 0}
+          </div>
         </div>
       </div>
 

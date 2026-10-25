@@ -10,7 +10,18 @@ import { useI18n } from "@/components/I18nProvider";
 import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
 import { nisDate } from "@/lib/format";
-import type { Card, Paginated } from "@/lib/types";
+import type { Card, EnrollmentCenter, Paginated } from "@/lib/types";
+
+type NisCommand = { id: number; center_id?: number; code: string; name: string; state: string; location: string };
+type NisZone = { id: number; code: string; name: string; headquarters: string; commands?: NisCommand[] };
+
+type CardProductionResponse = Paginated<Card> & {
+  stats?: {
+    total_cards_produced: number;
+    new_cards_produced: number;
+    renewal_cards_produced: number;
+  };
+};
 
 const FILTER_OPTIONS = [
   { key: "", label: "All Cards" },
@@ -26,6 +37,7 @@ function CardProductionContent() {
   const { t } = useI18n();
 
   const currentFilter = searchParams.get("filter") ?? "";
+  const currentCenter = searchParams.get("center_id") ?? "";
   const currentSearch = searchParams.get("search") ?? "";
   const currentPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const perPage = 10;
@@ -36,8 +48,66 @@ function CardProductionContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Dynamic enrollment centers state
+  const [centers, setCenters] = useState<EnrollmentCenter[]>([]);
+  const [zones, setZones] = useState<NisZone[]>([]);
+  const [loadingCenters, setLoadingCenters] = useState(false);
+
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const latestRequestRef = useRef(0);
+
+  // Fetch enrollment centres directory
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingCenters(true);
+    api<{ data: EnrollmentCenter[]; zones?: NisZone[] }>("public", "enrollment-centers")
+      .then((res) => {
+        if (cancelled) return;
+        setCenters(res.data || []);
+        if (res.zones && res.zones.length > 0) {
+          setZones(res.zones);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingCenters(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Group centers by Zone for the dropdown filter
+  const groupedCenters = (() => {
+    if (zones.length > 0) {
+      const groups: { zoneName: string; centers: EnrollmentCenter[] }[] = [];
+      const assignedIds = new Set<number>();
+
+      zones.forEach((z) => {
+        const matching = centers.filter(
+          (c) => (c.zone_id && c.zone_id === z.id) || (c.zone_code && c.zone_code === z.code) || (c.zone_name && c.zone_name.toLowerCase() === z.name.toLowerCase())
+        );
+        if (matching.length > 0) {
+          matching.forEach((c) => assignedIds.add(c.id));
+          groups.push({ zoneName: z.name, centers: matching });
+        }
+      });
+
+      const remaining = centers.filter((c) => !assignedIds.has(c.id));
+      if (remaining.length > 0) {
+        groups.push({ zoneName: t("Other Enrollment Centres"), centers: remaining });
+      }
+      return groups;
+    }
+
+    const map = new Map<string, EnrollmentCenter[]>();
+    centers.forEach((c) => {
+      const zName = c.zone_name || t("NIS Commands");
+      if (!map.has(zName)) map.set(zName, []);
+      map.get(zName)!.push(c);
+    });
+    return Array.from(map.entries()).map(([zoneName, centers]) => ({ zoneName, centers }));
+  })();
 
   // Sync external URL search parameter changes
   useEffect(() => {
@@ -96,10 +166,12 @@ function CardProductionContent() {
   const buildUrl = (overrides: Record<string, string | number | boolean | null>) => {
     const p = new URLSearchParams();
     const filter = overrides.filter !== undefined ? overrides.filter : currentFilter;
+    const center = overrides.center_id !== undefined ? overrides.center_id : currentCenter;
     const search = overrides.search !== undefined ? overrides.search : debouncedSearch;
     const page = overrides.page !== undefined ? overrides.page : currentPage;
 
     if (filter) p.set("filter", String(filter));
+    if (center) p.set("center_id", String(center));
     if (search) p.set("search", String(search));
     p.set("page", String(page));
     p.set("per_page", String(perPage));
@@ -125,16 +197,20 @@ function CardProductionContent() {
     router.push(buildUrl({ filter: filterKey, page: 1 }));
   };
 
+  const handleCenterChange = (centerId: string) => {
+    router.push(buildUrl({ center_id: centerId, page: 1 }));
+  };
+
   const handleSelectSuggestion = (c: Card) => {
     setShowDropdown(false);
     router.push(`/staff/cards/${c.id}`);
   };
 
-  // Fetch paginated cards
-  const queryUrl = `cards?filter=${encodeURIComponent(currentFilter)}&search=${encodeURIComponent(debouncedSearch)}&page=${currentPage}&per_page=${perPage}`;
-  const { data: result } = useFetch<Paginated<Card>>("staff", queryUrl);
+  // Fetch paginated cards and confirmed production statistics
+  const queryUrl = `cards?filter=${encodeURIComponent(currentFilter)}&center_id=${encodeURIComponent(currentCenter)}&search=${encodeURIComponent(debouncedSearch)}&page=${currentPage}&per_page=${perPage}`;
+  const { data: result } = useFetch<CardProductionResponse>("staff", queryUrl);
 
-  const previousResultRef = useRef<Paginated<Card> | null>(null);
+  const previousResultRef = useRef<CardProductionResponse | null>(null);
   if (result) {
     previousResultRef.current = result;
   }
@@ -169,10 +245,40 @@ function CardProductionContent() {
         subtitle={t("Prepare, inspect and print official ECOWAS Residence Cards for verified applicants.")}
       />
 
+      {/* KPI / Statistics Cards */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("Total Cards Produced")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {displayResult?.stats?.total_cards_produced ?? 0}
+          </div>
+        </div>
+
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("New Cards Produced")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {displayResult?.stats?.new_cards_produced ?? 0}
+          </div>
+        </div>
+
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("Renewal Cards Produced")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {displayResult?.stats?.renewal_cards_produced ?? 0}
+          </div>
+        </div>
+      </div>
+
       {/* Unified Search Bar & Dropdown Filter Row */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
         {/* Search Bar with Live Suggestions */}
-        <div ref={searchContainerRef} className="relative flex-1 min-w-[260px]">
+        <div ref={searchContainerRef} className="relative flex-1 min-w-[240px]">
           <form onSubmit={handleSearchSubmit} className="relative">
             <div className="relative flex items-center">
               <span className="pointer-events-none absolute left-3.5 text-slate-400">
@@ -255,8 +361,30 @@ function CardProductionContent() {
           )}
         </div>
 
-        {/* Card Production Dropdown Filter */}
-        <div className="w-full md:w-56 shrink-0">
+        {/* Enrollment Centre Filter */}
+        <div className="w-full sm:w-64 shrink-0">
+          <select
+            id="enrollment-centre-filter"
+            aria-label={t("Enrollment Centre")}
+            value={currentCenter}
+            onChange={(e) => handleCenterChange(e.target.value)}
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-colors focus:border-nis-primary focus:outline-none focus:ring-2 focus:ring-nis-primary/20"
+          >
+            <option value="">{loadingCenters ? t("Loading centres…") : t("All Enrollment Centres")}</option>
+            {groupedCenters.map((group) => (
+              <optgroup key={group.zoneName} label={group.zoneName}>
+                {group.centers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.command_name || c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        {/* Card Production Status Filter */}
+        <div className="w-full sm:w-52 shrink-0">
           <select
             value={currentFilter}
             onChange={(e) => handleFilterChange(e.target.value)}
@@ -294,7 +422,7 @@ function CardProductionContent() {
           ) : (
             <p className="text-sm font-medium text-slate-600">{t("No card records found.")}</p>
           )}
-          {(debouncedSearch || currentFilter) && (
+          {(debouncedSearch || currentFilter || currentCenter) && (
             <div className="mt-3">
               <Link
                 href="/staff/cards"
