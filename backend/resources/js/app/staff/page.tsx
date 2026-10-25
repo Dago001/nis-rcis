@@ -215,6 +215,18 @@ export default function StaffDashboard() {
 
   const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
 
+  const procOverview: ProcessingOverview = a.processing_overview ?? s.processing_overview ?? {
+    cards_produced: totals.cards_produced ?? s.total_cards_produced ?? 0,
+    cards_issued: totals.cards_issued ?? 0,
+    new_cards_issued: totals.new_cards_issued ?? s.new_cards_issued ?? 0,
+    renewal_cards_issued: totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0,
+    queried: 0,
+    rejected: 0,
+  };
+
+  const statesData: StateCountItem[] = a.applications_by_state ?? s.applications_by_state ?? [];
+  const top5Data: TopStateItem[] = a.top5_states ?? s.top5_states ?? [];
+
   return (
     <div className="space-y-6">
       <PageTitle
