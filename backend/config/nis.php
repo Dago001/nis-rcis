@@ -109,9 +109,9 @@ return [
     'clamav_socket' => env('CLAMAV_SOCKET'),
 
     /*
-    | Active Payment Gateway: 'remita' (Federal Government TSA) or 'paystack'.
+    | Active Payment Gateway: 'paystack' (default) or 'remita' (Federal Government TSA).
     */
-    'payment_gateway' => env('PAYMENT_GATEWAY', 'remita'),
+    'payment_gateway' => env('PAYMENT_GATEWAY', 'paystack'),
 
     /*
     | Remita (Federal Government TSA Gateway).

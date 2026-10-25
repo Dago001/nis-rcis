@@ -7,6 +7,8 @@ use App\Services\ApplicationSubmission;
 use App\Services\PaymentGatewayManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class PaymentController
 {
@@ -30,15 +32,29 @@ class PaymentController
         $hasCod = ! empty($draft?->data['has_cod']);
         $feeKobo = $submission->feeKobo($draft?->data, $hasCod);
 
-        $gateway = $request->filled('gateway')
-            ? $gateways->resolve($request->input('gateway'))
-            : $gateways->resolve();
+        $gatewayName = $request->input('gateway') ?: config('nis.payment_gateway', 'paystack');
 
-        $result = $gateway->initialize(
-            $applicant,
-            $feeKobo,
-            config('nis.frontend_url').'/portal/apply?payment=callback',
-        );
+        try {
+            $gateway = $gateways->resolve($gatewayName);
+
+            $result = $gateway->initialize(
+                $applicant,
+                $feeKobo,
+                config('nis.frontend_url').'/portal/apply?payment=callback',
+            );
+        } catch (Throwable $e) {
+            Log::error('Payment initialization error', [
+                'gateway' => $gatewayName,
+                'applicant_id' => $applicant->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Payment initialization failed: '.$e->getMessage(),
+                'gateway' => $gatewayName,
+            ], 502);
+        }
 
         $payment = $result['payment'];
         $gatewayResponse = $payment->gateway_response ?? [];
@@ -77,8 +93,25 @@ class PaymentController
             ->where('applicant_id', $request->user()->id)
             ->firstOrFail();
 
-        $gateway = $gateways->forPayment($payment);
-        $payment = $gateway->verify($payment);
+        try {
+            $gateway = $gateways->forPayment($payment);
+            $payment = $gateway->verify($payment);
+        } catch (Throwable $e) {
+            Log::error('Payment verification error', [
+                'reference' => $reference,
+                'applicant_id' => $request->user()->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'reference' => $payment->reference,
+                'status' => $payment->status,
+                'paid' => false,
+                'used' => $payment->application_id !== null,
+                'message' => 'Payment verification failed: '.$e->getMessage(),
+                'gateway' => strtolower($payment->provider ?: 'paystack'),
+            ], 502);
+        }
 
         return response()->json([
             'reference' => $payment->reference,

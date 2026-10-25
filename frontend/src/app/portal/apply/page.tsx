@@ -1380,6 +1380,7 @@ function Wizard() {
         {
           method: "POST",
           json: {
+            gateway: "paystack",
             acknowledged_non_refundable: true,
             acknowledged_at: new Date().toISOString(),
             acknowledgement_text:

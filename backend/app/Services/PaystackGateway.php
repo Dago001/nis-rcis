@@ -8,7 +8,9 @@ use App\Services\Contracts\PaymentGatewayInterface;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 /**
  * Paystack integration. A payment is only ever marked SUCCESS after the
@@ -26,7 +28,11 @@ class PaystackGateway implements PaymentGatewayInterface
      */
     public function isFake(): bool
     {
-        return config('nis.paystack.fake') && ! app()->isProduction() && blank(config('nis.paystack.secret_key'));
+        if ((bool) config('nis.paystack.fake')) {
+            return true;
+        }
+
+        return ! app()->isProduction() && blank(config('nis.paystack.secret_key'));
     }
 
     /**
@@ -79,14 +85,38 @@ class PaystackGateway implements PaymentGatewayInterface
             ];
         }
 
-        $response = $this->client()->post('/transaction/initialize', [
-            'email' => $applicant->email,
-            'amount' => $amountKobo,
-            'currency' => 'NGN',
-            'reference' => $payment->reference,
-            'callback_url' => $callbackUrl,
-            'metadata' => ['applicant_id' => $applicant->id, 'purpose' => 'RESIDENCE_CARD_FEE'],
-        ])->throw()->json('data');
+        try {
+            $client = $this->client();
+            $httpResponse = $client->post('/transaction/initialize', [
+                'email' => $applicant->email,
+                'amount' => $amountKobo,
+                'currency' => 'NGN',
+                'reference' => $payment->reference,
+                'callback_url' => $callbackUrl,
+                'metadata' => ['applicant_id' => $applicant->id, 'purpose' => 'RESIDENCE_CARD_FEE'],
+            ]);
+
+            if ($httpResponse->failed()) {
+                $err = $httpResponse->json('message') ?? ('Paystack initialization failed (HTTP '.$httpResponse->status().')');
+                Log::error('Paystack initialization HTTP failure', [
+                    'status' => $httpResponse->status(),
+                    'body' => $httpResponse->body(),
+                    'reference' => $payment->reference,
+                ]);
+                throw new RuntimeException("Paystack error: {$err}");
+            }
+
+            $response = $httpResponse->json('data') ?? [];
+        } catch (Throwable $e) {
+            if ($e instanceof RuntimeException) {
+                throw $e;
+            }
+            Log::error('Paystack connection exception', [
+                'error' => $e->getMessage(),
+                'reference' => $payment->reference,
+            ]);
+            throw new RuntimeException('Unable to reach Paystack payment gateway: '.$e->getMessage(), 0, $e);
+        }
 
         return [
             'payment' => $payment,
@@ -108,9 +138,23 @@ class PaystackGateway implements PaymentGatewayInterface
             return $payment;
         }
 
-        $data = $this->isFake()
-            ? ['status' => 'success', 'amount' => $payment->amount_kobo, 'currency' => 'NGN', 'channel' => 'fake', 'paid_at' => now()->toIso8601String()]
-            : $this->client()->get('/transaction/verify/'.rawurlencode($payment->reference))->throw()->json('data');
+        if ($this->isFake()) {
+            $data = ['status' => 'success', 'amount' => $payment->amount_kobo, 'currency' => 'NGN', 'channel' => 'fake', 'paid_at' => now()->toIso8601String()];
+        } else {
+            try {
+                $response = $this->client()->get('/transaction/verify/'.rawurlencode($payment->reference));
+                if ($response->failed()) {
+                    $err = $response->json('message') ?? ('Paystack verification failed (HTTP '.$response->status().')');
+                    throw new RuntimeException("Paystack error: {$err}");
+                }
+                $data = $response->json('data') ?? [];
+            } catch (Throwable $e) {
+                if ($e instanceof RuntimeException) {
+                    throw $e;
+                }
+                throw new RuntimeException('Unable to reach Paystack to verify payment: '.$e->getMessage(), 0, $e);
+            }
+        }
 
         return $this->record($payment, $data);
     }
@@ -189,9 +233,12 @@ class PaystackGateway implements PaymentGatewayInterface
     {
         $secret = config('nis.paystack.secret_key');
         if (! $secret) {
-            throw new RuntimeException('PAYSTACK_SECRET_KEY is not configured.');
+            throw new RuntimeException('PAYSTACK_SECRET_KEY is not configured in your server .env file.');
         }
 
-        return Http::baseUrl(config('nis.paystack.base_url'))->withToken($secret)->acceptJson()->timeout(20);
+        return Http::baseUrl(config('nis.paystack.base_url', 'https://api.paystack.co'))
+            ->withToken($secret)
+            ->acceptJson()
+            ->timeout(20);
     }
 }
