@@ -110,14 +110,44 @@ type Summary = {
 const monthLabel = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short" });
 const monthLong = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-function StatCard({ label, value, href }: { label: string; value: string | number; href?: string }) {
+function StatCard({
+  label,
+  value,
+  href,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  href?: string;
+  icon?: React.ReactNode;
+}) {
   const content = (
-    <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
-      <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal" title={label}>{label}</div>
-      <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">{value}</div>
+    <div className="h-full min-h-[96px] sm:min-h-[105px] rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="text-[13px] sm:text-sm font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal"
+          title={label}
+        >
+          {label}
+        </span>
+        {icon && (
+          <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 text-slate-500">
+            {icon}
+          </div>
+        )}
+      </div>
+      <div className="text-[22px] sm:text-2xl font-medium text-slate-900 tracking-tight tabular-nums mt-1.5">
+        {value}
+      </div>
     </div>
   );
-  return href ? <Link href={href} className="block h-full">{content}</Link> : content;
+  return href ? (
+    <Link href={href} className="block h-full group focus:outline-none">
+      {content}
+    </Link>
+  ) : (
+    content
+  );
 }
 
 export default function StaffDashboard() {
@@ -185,17 +215,6 @@ export default function StaffDashboard() {
 
   const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
 
-  const processingStages = [
-    { label: t("Awaiting Vetting"), value: s.queue?.PENDING_APPROVAL ?? 0, href: "/staff/applications?status=PENDING_APPROVAL" },
-    { label: t("Queried"), value: s.queue?.QUERIED ?? 0, href: "/staff/applications?status=QUERIED" },
-    { label: t("Awaiting Approval"), value: s.queue?.VETTED ?? 0, href: "/staff/approvals" },
-    { label: t("Approved & Awaiting Biometrics"), value: s.queue?.APPROVED_FOR_BIOMETRICS ?? 0, href: "/staff/applications?status=APPROVED_FOR_BIOMETRICS" },
-    { label: t("Biometrics Completed"), value: s.queue?.BIOMETRICS_CAPTURED ?? 0, href: "/staff/applications?status=BIOMETRICS_CAPTURED" },
-    { label: t("Awaiting Card Production"), value: s.cards?.APPROVED ?? 0, href: "/staff/cards?status=APPROVED" },
-    { label: t("Awaiting Card Issuance"), value: s.queue?.READY_FOR_COLLECTION ?? 0, href: "/staff/card-issuance?stage=awaiting_collection" },
-    { label: t("Total Cards Issued"), value: totals.cards_issued ?? 0, href: "/staff/reports" },
-  ];
-
   return (
     <div className="space-y-6">
       <PageTitle
@@ -234,45 +253,94 @@ export default function StaffDashboard() {
         </div>
       )}
 
-      {/* Primary Application & Card Statistics */}
+      {/* Primary Application & Card Statistics: 2 rows x 3 columns = 6 horizontal rectangular cards */}
       <div>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-nis-primary">
+        <h2 className="mb-2.5 text-xs font-medium uppercase tracking-[0.16em] text-nis-primary">
           {t("Application & Card Statistics")}
         </h2>
-        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+          {/* Row 1, Card 1: Total Applications */}
           <StatCard
             label={t("Total Applications")}
             value={totals.applications ?? 0}
             href="/staff/applications"
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <line x1="10" y1="9" x2="8" y2="9" />
+              </svg>
+            }
           />
+
+          {/* Row 1, Card 2: Applications This Month */}
           <StatCard
             label={t("Applications This Month")}
             value={totals.applications_this_month ?? 0}
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            }
           />
-          <StatCard
-            label={t("Biometrics Completed")}
-            value={s.queue?.BIOMETRICS_CAPTURED ?? 0}
-            href="/staff/applications?status=BIOMETRICS_CAPTURED"
-          />
+
+          {/* Row 1, Card 3: Total Cards Produced */}
           <StatCard
             label={t("Total Cards Produced")}
             value={totals.cards_produced ?? s.total_cards_produced ?? 0}
             href="/staff/cards"
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+            }
           />
+
+          {/* Row 2, Card 4: Total Cards Issued */}
           <StatCard
             label={t("Total Cards Issued")}
             value={totals.cards_issued ?? 0}
             href="/staff/card-issuance"
+            icon={
+              <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            }
           />
+
+          {/* Row 2, Card 5: New Cards Issued */}
           <StatCard
             label={t("New Cards Issued")}
             value={totals.new_cards_issued ?? s.new_cards_issued ?? 0}
             href="/staff/reports?category=NEW"
+            icon={
+              <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <line x1="20" y1="8" x2="20" y2="14" />
+                <line x1="23" y1="11" x2="17" y2="11" />
+              </svg>
+            }
           />
+
+          {/* Row 2, Card 6: Renewal Cards Issued */}
           <StatCard
             label={t("Renewal Cards Issued")}
             value={totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0}
             href="/staff/reports?category=RENEWAL"
+            icon={
+              <svg className="w-4 h-4 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21.5 2v6h-6" />
+                <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+            }
           />
         </div>
       </div>
