@@ -416,8 +416,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
       {text(props, "profession", "Profession / occupation", { required: true, upper: true })}
-      
-      <div className="sm:col-span-2">{text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}</div>
+      {text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}
 
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">
         {isDependant ? t("Applicant Contact Details") : t("Your contact details")}
@@ -491,33 +490,31 @@ export function ContactFields(props: Props) {
     <div className="grid gap-4 sm:grid-cols-2">
       {/* Home country residential address - max 10 words */}
       <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential address in Home Country")}</h3>
-      <div className="sm:col-span-2">
-        <Field
-          label="Address in country of origin"
-          required
-          error={errors.home_country_address}
-          hint="Permanent residential address in your home country (Maximum 10 words)"
-        >
-          <Input
-            name="home_country_address"
-            value={data.home_country_address ?? ""}
-            maxLength={300}
-            readOnly={readOnly}
-            disabled={readOnly}
-            aria-invalid={Boolean(errors.home_country_address)}
-            className={errors.home_country_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
-            onFocus={() => focus?.("home_country_address")}
-            onChange={(e) => {
-              if (readOnly) return;
-              set("home_country_address", e.target.value);
-            }}
-            onBlur={() => {
-              focus?.(null);
-              touch?.("home_country_address");
-            }}
-          />
-        </Field>
-      </div>
+      <Field
+        label="Address in country of origin"
+        required
+        error={errors.home_country_address}
+        hint="Permanent residential address in your home country (Maximum 10 words)"
+      >
+        <Input
+          name="home_country_address"
+          value={data.home_country_address ?? ""}
+          maxLength={300}
+          readOnly={readOnly}
+          disabled={readOnly}
+          aria-invalid={Boolean(errors.home_country_address)}
+          className={errors.home_country_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
+          onFocus={() => focus?.("home_country_address")}
+          onChange={(e) => {
+            if (readOnly) return;
+            set("home_country_address", e.target.value);
+          }}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("home_country_address");
+          }}
+        />
+      </Field>
 
       {/* Residential address in Nigeria:
           Row 1: Street Address & Change of Address side-by-side on same row.
@@ -769,28 +766,26 @@ export function ContactFields(props: Props) {
         </Field>
       </div>
 
-      <div className="sm:col-span-2">
-        <Field
-          label="Address"
-          required
-          error={errors.home_country_emergency_contact_address}
-          hint="Full residential address in home country"
-        >
-          <Input
-            name="home_country_emergency_contact_address"
-            value={data.home_country_emergency_contact_address ?? ""}
-            maxLength={300}
-            aria-invalid={Boolean(errors.home_country_emergency_contact_address)}
-            className={errors.home_country_emergency_contact_address ? "!border-red-500" : ""}
-            onFocus={() => focus?.("home_country_emergency_contact_address")}
-            onChange={(e) => set("home_country_emergency_contact_address", e.target.value)}
-            onBlur={() => {
-              focus?.(null);
-              touch?.("home_country_emergency_contact_address");
-            }}
-          />
-        </Field>
-      </div>
+      <Field
+        label="Address"
+        required
+        error={errors.home_country_emergency_contact_address}
+        hint="Full residential address in home country"
+      >
+        <Input
+          name="home_country_emergency_contact_address"
+          value={data.home_country_emergency_contact_address ?? ""}
+          maxLength={300}
+          aria-invalid={Boolean(errors.home_country_emergency_contact_address)}
+          className={errors.home_country_emergency_contact_address ? "!border-red-500" : ""}
+          onFocus={() => focus?.("home_country_emergency_contact_address")}
+          onChange={(e) => set("home_country_emergency_contact_address", e.target.value)}
+          onBlur={() => {
+            focus?.(null);
+            touch?.("home_country_emergency_contact_address");
+          }}
+        />
+      </Field>
     </div>
   );
 }
