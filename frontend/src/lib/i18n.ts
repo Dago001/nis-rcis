@@ -949,5 +949,28 @@ const FR: Record<string, string> = {
   "Uploaded": "Téléversé",
   "Status": "Statut",
   "Missing": "Manquant",
+
+  // NIS Zonal & Command-based Biometric Centers
+  "Enrollment Centre": "Centre d'enrôlement",
+  "Select Zone": "Sélectionner une zone",
+  "Select Command": "Sélectionner un commandement",
+  "Select Command / Enrollment Centre": "Sélectionner un commandement / centre d'enrôlement",
+  "State / Location": "État / Localisation",
+  "Biometrics Appointment": "Rendez-vous biométrique",
+  "Enrollment Date": "Date d'enrôlement",
+  "Production Location": "Lieu de production",
+  "Awaiting Operational Deployment": "En attente de déploiement opérationnel",
+  "Select a Zone…": "Sélectionner une zone…",
+  "Select a Command…": "Sélectionner un commandement…",
+  "Select a zone first": "Sélectionner d'abord une zone",
+  "No centers found for this zone": "Aucun centre trouvé pour cette zone",
+  "Auto-populated from selected Command": "Rempli automatiquement à partir du commandement sélectionné",
+  "State and verified center location will appear automatically": "L'état et l'adresse vérifiée du centre apparaîtront automatiquement",
+  "All Zones": "Toutes les zones",
+  "All Commands": "Tous les commandements",
+  "Center Location": "Emplacement du centre",
+  "Center Address": "Adresse du centre",
+  "Zone & State": "Zone et État",
+  "Zone / State": "Zone / État",
 };
 

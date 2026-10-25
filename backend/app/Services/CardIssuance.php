@@ -58,6 +58,16 @@ class CardIssuance
                 $cardNumber = $this->numbers->cardNumber();
                 $issuedOn = now();
 
+                $center = $locked->enrollmentCenter;
+                $actualCenterId = ! empty($input['actual_enrollment_center_id']) ? (int) $input['actual_enrollment_center_id'] : $locked->enrollment_center_id;
+                $actualCenter = ($actualCenterId && $actualCenterId !== $locked->enrollment_center_id)
+                    ? \App\Models\EnrollmentCenter::find($actualCenterId)
+                    : $center;
+
+                $actualCommand = $actualCenter?->command_name ?? $actualCenter?->name ?? $officer->command;
+                $actualZone = $actualCenter?->zone_name ?? $center?->zone_name;
+                $actualState = $actualCenter?->state ?? $center?->state;
+
                 $card = new ResidenceCard([
                     ...$locked->only(Application::PARTICULARS),
                     'booklet_number' => $this->numbers->bookletNumber($cardNumber),
@@ -72,7 +82,11 @@ class CardIssuance
                     'issuing_officer_name' => mb_strtoupper($officer->fullname),
                     'issuing_officer_service_no' => $officer->service_number,
                     'issued_on' => $issuedOn->toDateString(),
-                    'issued_at' => mb_strtoupper($input['issued_at'] ?? $locked->enrollmentCenter?->name ?? $officer->command),
+                    'issued_at' => mb_strtoupper($input['issued_at'] ?? $actualCommand ?? 'NIS SERVICE HEADQUARTERS'),
+                    'enrollment_zone' => $actualZone,
+                    'enrollment_command' => $actualCommand,
+                    'actual_enrollment_center_id' => $actualCenterId,
+                    'production_location' => 'NIS Service Headquarters',
                     'expires_on' => $issuedOn->copy()->addYears(config('nis.card_validity_years'))->subDay()->toDateString(),
                     'authority_signature' => 'COMPTROLLER GENERAL',
                     'created_by' => $officer->id,
@@ -99,6 +113,10 @@ class CardIssuance
                     'fingerprints' => $fingerprints,
                     'biometrics_captured_by' => $officer->id,
                     'biometrics_captured_at' => now(),
+                    'actual_enrollment_center_id' => $actualCenterId,
+                    'actual_enrollment_command' => $actualCommand,
+                    'actual_enrollment_zone' => $actualZone,
+                    'actual_enrollment_state' => $actualState,
                     'card_id' => $card->id,
                 ]);
 

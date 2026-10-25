@@ -18,7 +18,8 @@ class User extends Authenticatable implements OAuthenticatable
 
     protected $fillable = [
         'username', 'fullname', 'service_number', 'email', 'password',
-        'role', 'command', 'state', 'lga', 'is_active', 'must_change_password', 'photo_path',
+        'role', 'command', 'state', 'lga', 'zone_id', 'command_id', 'enrollment_center_id',
+        'is_active', 'must_change_password', 'photo_path',
     ];
 
     protected $hidden = ['password', 'remember_token', 'two_factor_secret', 'two_factor_last_step'];
@@ -50,5 +51,20 @@ class User extends Authenticatable implements OAuthenticatable
     public function auditLabel(): string
     {
         return "{$this->fullname} ({$this->service_number})";
+    }
+
+    public function zone(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(NisZone::class, 'zone_id');
+    }
+
+    public function nisCommand(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(NisCommand::class, 'command_id');
+    }
+
+    public function enrollmentCenter(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCenter::class, 'enrollment_center_id');
     }
 }

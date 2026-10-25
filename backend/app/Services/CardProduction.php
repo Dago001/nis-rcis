@@ -81,6 +81,7 @@ class CardProduction
                 'card_id' => $lockedCard->id,
                 'batch_id' => $batch?->id,
                 'outcome' => $outcome,
+                'production_location' => 'NIS Service Headquarters',
                 'spoil_reason' => $outcome === CardPrintJob::SPOILED ? $reason : null,
                 'printed_by' => $officer->id,
             ]);

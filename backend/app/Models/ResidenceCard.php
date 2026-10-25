@@ -76,6 +76,11 @@ class ResidenceCard extends Model
         return $this->hasOne(Application::class, 'card_id');
     }
 
+    public function actualEnrollmentCenter(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCenter::class, 'actual_enrollment_center_id');
+    }
+
     public function applicant(): BelongsTo
     {
         return $this->belongsTo(Applicant::class);

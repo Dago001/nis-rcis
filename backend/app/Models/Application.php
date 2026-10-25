@@ -73,6 +73,11 @@ class Application extends Model
         return $this->belongsTo(EnrollmentCenter::class);
     }
 
+    public function actualEnrollmentCenter(): BelongsTo
+    {
+        return $this->belongsTo(EnrollmentCenter::class, 'actual_enrollment_center_id');
+    }
+
     public function card(): BelongsTo
     {
         return $this->belongsTo(ResidenceCard::class, 'card_id');

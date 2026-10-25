@@ -232,6 +232,7 @@ export default function ReportsPage() {
       nationality: String(f.get("nationality") ?? "").trim(),
       card_category: String(f.get("card_category") ?? ""),
       category: String(f.get("category") ?? ""),
+      zone: String(f.get("zone") ?? ""),
       search: searchInput.trim(),
     });
   }
@@ -248,6 +249,7 @@ export default function ReportsPage() {
       nationality: "",
       card_category: "",
       category: "",
+      zone: "",
       search: "",
     });
     setFormKey((k) => k + 1);
@@ -621,7 +623,10 @@ export default function ReportsPage() {
                       <td className="px-4 py-3 font-semibold text-slate-900 font-mono">{b.application_number}</td>
                       <td className="px-4 py-3 font-medium text-slate-900">{b.applicant_name}</td>
                       <td className="px-4 py-3">{t(b.nationality)}</td>
-                      <td className="px-4 py-3 text-xs">{b.center}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900 text-xs">{b.command || b.center}</div>
+                        <div className="text-[11px] text-slate-500">{[b.zone, b.state].filter(Boolean).join(" • ")}</div>
+                      </td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap">{dateTime(b.biometrics_completed_at)}</td>
                       <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
                     </tr>
@@ -639,6 +644,7 @@ export default function ReportsPage() {
                     <th className="px-4 py-3.5">Card Number</th>
                     <th className="px-4 py-3.5">Holder</th>
                     <th className="px-4 py-3.5">Batch</th>
+                    <th className="px-4 py-3.5">Production Location</th>
                     <th className="px-4 py-3.5">Printed By</th>
                     <th className="px-4 py-3.5">Print Date</th>
                     <th className="px-4 py-3.5">Outcome</th>
@@ -653,6 +659,10 @@ export default function ReportsPage() {
                       <td className="px-4 py-3 font-semibold text-slate-900 font-mono">{p.card_number}</td>
                       <td className="px-4 py-3 font-medium text-slate-900">{p.holder_name}</td>
                       <td className="px-4 py-3 text-xs font-mono">{p.batch_number}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <span className="font-medium text-slate-800">{p.production_location || "NIS Service Headquarters"}</span>
+                        {p.enrollment_command && <div className="text-[10px] text-slate-500">Enrolled: {p.enrollment_command}</div>}
+                      </td>
                       <td className="px-4 py-3 text-xs">{p.printed_by}</td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap">{dateTime(p.created_at)}</td>
                       <td className="px-4 py-3">

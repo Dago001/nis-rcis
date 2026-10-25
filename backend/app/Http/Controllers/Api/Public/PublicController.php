@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Public;
 
 use App\Models\Application;
 use App\Models\EnrollmentCenter;
+use App\Models\NisZone;
 use App\Models\QueueTicket;
 use App\Models\ResidenceCard;
 use App\Services\AppointmentScheduler;
@@ -19,9 +20,38 @@ class PublicController
 {
     public function centers(): JsonResponse
     {
+        $centers = EnrollmentCenter::where('is_active', true)
+            ->orderBy('name')
+            ->get([
+                'id', 'code', 'name', 'state', 'address', 'time_slots',
+                'zone_id', 'command_id', 'zone_code', 'zone_name', 'command_name',
+                'is_biometric_enabled', 'is_booking_enabled',
+            ]);
+
+        $zones = NisZone::where('is_active', true)
+            ->with(['commands' => fn ($q) => $q->where('is_active', true)->orderBy('name')])
+            ->orderBy('code')
+            ->get()
+            ->map(fn ($z) => [
+                'id' => $z->id,
+                'code' => $z->code,
+                'name' => $z->name,
+                'headquarters' => $z->headquarters,
+                'commands' => $z->commands->map(fn ($c) => [
+                    'id' => $c->id,
+                    'center_id' => $c->enrollmentCenter?->id,
+                    'code' => $c->code,
+                    'name' => $c->name,
+                    'state' => $c->state,
+                    'location' => $c->location,
+                    'is_biometric_enabled' => (bool) $c->is_biometric_enabled,
+                    'is_booking_enabled' => (bool) $c->is_booking_enabled,
+                ]),
+            ]);
+
         return response()->json([
-            'data' => EnrollmentCenter::where('is_active', true)->orderBy('name')
-                ->get(['id', 'code', 'name', 'state', 'address', 'time_slots']),
+            'data' => $centers,
+            'zones' => $zones,
             'fee_naira' => config('nis.fee_naira'),
         ]);
     }

@@ -600,6 +600,9 @@ class ReportController
         $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
         [$from, $to] = $this->range($request);
         $search = $request->input('search');
+        $zone = $request->input('zone');
+        $command = $request->input('command');
+        $state = $request->input('state');
 
         $query = \App\Models\Application::with(['applicant', 'enrollmentCenter'])
             ->whereNotNull('biometrics_completed_at')
@@ -615,6 +618,25 @@ class ReportController
             });
         }
 
+        if (! empty($zone)) {
+            $query->where(function ($q) use ($zone) {
+                $q->where('actual_enrollment_zone', 'like', "%{$zone}%")
+                  ->orWhereHas('enrollmentCenter', fn ($ec) => $ec->where('zone_name', 'like', "%{$zone}%")->orWhere('zone_code', $zone));
+            });
+        }
+        if (! empty($command)) {
+            $query->where(function ($q) use ($command) {
+                $q->where('actual_enrollment_command', 'like', "%{$command}%")
+                  ->orWhereHas('enrollmentCenter', fn ($ec) => $ec->where('command_name', 'like', "%{$command}%")->orWhere('name', 'like', "%{$command}%"));
+            });
+        }
+        if (! empty($state)) {
+            $query->where(function ($q) use ($state) {
+                $q->where('actual_enrollment_state', 'like', "%{$state}%")
+                  ->orWhereHas('enrollmentCenter', fn ($ec) => $ec->where('state', 'like', "%{$state}%"));
+            });
+        }
+
         $paginated = $query->paginate($perPage);
 
         return response()->json([
@@ -623,9 +645,13 @@ class ReportController
                 'application_number' => $a->application_number,
                 'applicant_name' => trim("{$a->first_name} {$a->last_name}"),
                 'nationality' => $a->nationality,
-                'center' => $a->enrollmentCenter?->name ?? 'NIS HQ',
+                'center' => $a->actual_enrollment_command ?? $a->enrollmentCenter?->command_name ?? $a->enrollmentCenter?->name ?? 'NIS HQ',
+                'command' => $a->actual_enrollment_command ?? $a->enrollmentCenter?->command_name ?? $a->enrollmentCenter?->name ?? 'NIS HQ',
+                'zone' => $a->actual_enrollment_zone ?? $a->enrollmentCenter?->zone_name ?? 'Zone D (Minna)',
+                'state' => $a->actual_enrollment_state ?? $a->enrollmentCenter?->state ?? 'FCT',
                 'biometrics_completed_at' => $a->biometrics_completed_at?->toIso8601String(),
                 'status' => $a->status->value,
+                'production_location' => 'NIS Service Headquarters',
             ]),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
@@ -646,7 +672,7 @@ class ReportController
         $search = $request->input('search');
         $outcome = $request->input('outcome');
 
-        $query = \App\Models\CardPrintJob::with(['card', 'batch', 'printedBy'])
+        $query = \App\Models\CardPrintJob::with(['card.application.enrollmentCenter', 'batch', 'printedBy'])
             ->whereBetween('created_at', ["{$from} 00:00:00", "{$to} 23:59:59"])
             ->orderByDesc('id');
 
@@ -671,6 +697,9 @@ class ReportController
                 'holder_name' => $j->card ? trim("{$j->card->surname}, {$j->card->forenames}") : '—',
                 'batch_number' => $j->batch?->batch_number ?? '—',
                 'outcome' => $j->outcome,
+                'production_location' => $j->production_location ?? 'NIS Service Headquarters',
+                'enrollment_zone' => $j->card?->enrollment_zone ?? $j->card?->application?->enrollmentCenter?->zone_name ?? 'Zone D (Minna)',
+                'enrollment_command' => $j->card?->enrollment_command ?? $j->card?->application?->enrollmentCenter?->command_name ?? $j->card?->application?->enrollmentCenter?->name ?? 'NIS Headquarters, Abuja',
                 'spoil_reason' => $j->spoil_reason,
                 'printed_by' => $j->printedBy?->fullname ?? 'Production Officer',
                 'created_at' => $j->created_at?->toIso8601String(),

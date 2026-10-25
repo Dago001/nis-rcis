@@ -243,7 +243,18 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
         </Box>
 
         <Box title="Biometrics Appointment">
-          <Pairs rows={[["Enrollment Center", show(center?.name), "Appointment Date / Time", `${ddmmyyyy(a.appointment_date)} ${a.appointment_time}`]]} />
+          <Pairs
+            rows={[
+              [
+                "Enrollment Center", show(center?.name || a.enrollment_center?.command_name || a.enrollment_center?.name),
+                "Zone / State", show([center?.zone_name, center?.state].filter(Boolean).join(" • ") || "Zone D (Minna) • FCT"),
+              ],
+              [
+                "Center Location", show(center?.address || (center?.name ? `${center.name}, ${center.state}` : "Nigeria Immigration Service Headquarters, Sauka, Airport Road, Abuja")),
+                "Appointment Date / Time", `${ddmmyyyy(a.appointment_date)} ${a.appointment_time}`,
+              ],
+            ]}
+          />
         </Box>
       </div>
 
@@ -338,7 +349,9 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
         <Row k="Appointment Request Date" v={dateTime(slip.submitted_at ?? a.submitted_at)} />
         <Row k="Appointment Date" v={`${a.appointment_date} ${a.appointment_time}`} />
         <Row k="Appointment for" v="Residence Card (biometrics capture)" />
-        <Row k="Center Address" v={center ? `${center.name}: ${center.address}` : "NIS Headquarters, Abuja"} />
+        <Row k="Enrollment Center" v={center?.name || a.enrollment_center?.command_name || a.enrollment_center?.name || "NIS Headquarters, Abuja"} />
+        <Row k="Zone & State" v={[center?.zone_name, center?.state].filter(Boolean).join(" • ") || "Zone D (Minna) • FCT"} />
+        <Row k="Center Address" v={center?.address ? `${center.name}: ${center.address}` : (center?.name ? `${center.name}, ${center.state}` : "Nigeria Immigration Service Headquarters, Sauka, Airport Road, Abuja")} />
         <Row
           k="Application Status"
           v={

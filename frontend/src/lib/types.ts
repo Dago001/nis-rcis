@@ -71,12 +71,39 @@ export type Particulars = {
   home_country_emergency_contact_id_type?: string | null;
 };
 
+export type NisZone = {
+  id: number;
+  code: string;
+  name: string;
+  headquarters: string;
+  commands?: NisCommand[];
+};
+
+export type NisCommand = {
+  id: number;
+  center_id?: number;
+  zone_id?: number;
+  code: string;
+  name: string;
+  state: string;
+  location: string;
+  is_biometric_enabled?: boolean;
+  is_booking_enabled?: boolean;
+};
+
 export type EnrollmentCenter = {
   id: number;
   code: string;
   name: string;
   state: string;
   address: string;
+  zone_id?: number;
+  command_id?: number;
+  zone_code?: string;
+  zone_name?: string;
+  command_name?: string;
+  is_biometric_enabled?: boolean;
+  is_booking_enabled?: boolean;
   time_slots?: string[];
 };
 
@@ -109,6 +136,8 @@ export type Application = Particulars & {
   phone: string;
   email: string;
   enrollment_center?: EnrollmentCenter;
+  actual_enrollment_center?: { id: number; command_name: string; zone_name: string; state: string } | null;
+  production_location?: string;
   appointment_date: string;
   appointment_time: string;
   fee_amount_naira: number;

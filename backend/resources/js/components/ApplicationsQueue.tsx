@@ -383,7 +383,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                 <th className="w-12 px-3 py-3 text-center font-semibold">{t("S/N")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Application")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Applicant")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Command / Location")}</th>
+                <th className="px-4 py-3 font-semibold">{t("Enrollment Centre")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Nationality")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Appointment")}</th>
                 <th className="px-4 py-3 font-semibold">{t("Status")}</th>
@@ -433,11 +433,11 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                       <div className="text-xs text-slate-500">{a.passport_number}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">
-                        {a.domicile_state ? `${a.domicile_state} ${t("State")}` : "—"}
+                      <div className="font-semibold text-slate-900">
+                        {a.enrollment_center?.command_name || a.enrollment_center?.name || (a.domicile_state ? `${a.domicile_state} ${t("State")}` : "—")}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {a.domicile_lga ? `${a.domicile_lga} LGA` : a.domicile || ""}
+                        {[a.enrollment_center?.zone_name, a.enrollment_center?.state].filter(Boolean).join(" • ") || (a.domicile_lga ? `${a.domicile_lga} LGA` : a.domicile || "")}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{a.nationality}</td>

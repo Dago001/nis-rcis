@@ -362,6 +362,46 @@ class DashboardController
             ],
             'recent_activity' => $recentActivity,
             'nationalities' => $nationalities,
+            'biometrics_by_zone' => (function () {
+                try {
+                    return \App\Models\Application::query()
+                        ->whereNotNull('biometrics_completed_at')
+                        ->join('enrollment_centers', 'applications.enrollment_center_id', '=', 'enrollment_centers.id')
+                        ->selectRaw("COALESCE(applications.actual_enrollment_zone, enrollment_centers.zone_name, 'Zone D (Minna)') as zone, count(*) as total")
+                        ->groupByRaw('1')
+                        ->pluck('total', 'zone');
+                } catch (\Throwable) {
+                    return collect();
+                }
+            })(),
+            'biometrics_by_command' => (function () {
+                try {
+                    return \App\Models\Application::query()
+                        ->whereNotNull('biometrics_completed_at')
+                        ->join('enrollment_centers', 'applications.enrollment_center_id', '=', 'enrollment_centers.id')
+                        ->selectRaw("COALESCE(applications.actual_enrollment_command, enrollment_centers.command_name, enrollment_centers.name) as command, count(*) as total")
+                        ->groupByRaw('1')
+                        ->orderByDesc('total')
+                        ->limit(10)
+                        ->pluck('total', 'command');
+                } catch (\Throwable) {
+                    return collect();
+                }
+            })(),
+            'appointments_by_center' => (function () {
+                try {
+                    return \App\Models\Application::query()
+                        ->where('status', \App\Enums\ApplicationStatus::ApprovedForBiometrics)
+                        ->join('enrollment_centers', 'applications.enrollment_center_id', '=', 'enrollment_centers.id')
+                        ->selectRaw("enrollment_centers.name as center, count(*) as total")
+                        ->groupByRaw('1')
+                        ->orderByDesc('total')
+                        ->limit(10)
+                        ->pluck('total', 'center');
+                } catch (\Throwable) {
+                    return collect();
+                }
+            })(),
             'mix' => [
                 'type' => $split('type'),
                 'channel' => $split('channel'),
