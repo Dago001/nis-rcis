@@ -972,5 +972,6 @@ const FR: Record<string, string> = {
   "Center Address": "Adresse du centre",
   "Zone & State": "Zone et État",
   "Zone / State": "Zone / État",
+  "Please complete all highlighted required fields before proceeding.": "Veuillez remplir tous les champs obligatoires mis en évidence avant de continuer.",
 };
 

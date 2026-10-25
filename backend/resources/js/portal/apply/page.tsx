@@ -146,6 +146,8 @@ const FIELD_STEP: Record<string, number> = {
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
   home_country_address: 3,
   documents: 4,
+  emergency_contact_id_type: 4,
+  home_country_emergency_contact_id_type: 4,
   declaration: 5,
   payment_reference: 6,
   ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
@@ -372,7 +374,16 @@ function Wizard() {
     return shown;
   }, [touched, data, serverErrors, stepError, focusedField]);
 
-  const currentStepHasErrors = [...stepFields(step), "photo", "documents", "payment_reference", "declaration", "cod"].some((f) => errors[f] && FIELD_STEP[f] === step);
+  const currentStepHasErrors = [
+    ...stepFields(step),
+    "photo",
+    "documents",
+    "emergency_contact_id_type",
+    "home_country_emergency_contact_id_type",
+    "payment_reference",
+    "declaration",
+    "cod",
+  ].some((f) => errors[f] && FIELD_STEP[f] === step);
 
   const serializeCodChanges = useCallback((): CodChangeItem[] => {
     if (!hasCod || !Array.isArray(codChanges)) return [];
@@ -781,27 +792,124 @@ function Wizard() {
     };
   }, [photo, localPhotoPreview, photoLink?.id, photoLink?.url, queriedApp?.id]);
 
-  /** Check a whole step; shows every problem at once. */
+  /** Check a whole step; shows every problem at once, scrolls to first invalid field and focuses it. */
   function checkStep(n: number): boolean {
     const fields = stepFields(n);
-    setTouched((t) => new Set([...t, ...fields]));
-    const fieldProblems = validate(fields, data);
     const extra = extraErrors(n);
+    const allStepFields = [...fields, ...Object.keys(extra)];
+    setTouched((t) => new Set([...t, ...allStepFields]));
+    const fieldProblems = validate(fields, data);
     const problems = { ...fieldProblems, ...extra };
     setStepError(extra);
 
     if (Object.keys(problems).length > 0) {
       setFocusedField(null);
-      const firstInvalidField = fields.find((f) => Boolean(problems[f]));
-      if (firstInvalidField) {
-        const el = document.querySelector(`[name="${firstInvalidField}"]`) as HTMLElement;
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-        el?.focus?.();
+
+      // Collect all candidate elements for problem fields
+      const candidates: { el: HTMLElement; key: string; msg: string }[] = [];
+
+      // Step 4 specific: check document uploads and ID types
+      if (n === 4) {
+        if (problems.emergency_contact_id_type) {
+          const el = document.querySelector<HTMLElement>('select[name="emergency_contact_id_type"], [data-field="emergency_contact_id_type"]');
+          if (el) candidates.push({ el, key: "emergency_contact_id_type", msg: problems.emergency_contact_id_type });
+        }
+        if (problems.home_country_emergency_contact_id_type) {
+          const el = document.querySelector<HTMLElement>('select[name="home_country_emergency_contact_id_type"], [data-field="home_country_emergency_contact_id_type"]');
+          if (el) candidates.push({ el, key: "home_country_emergency_contact_id_type", msg: problems.home_country_emergency_contact_id_type });
+        }
+        if (problems.documents) {
+          const requiredDocs = getDocuments(resolvedCategory, documents);
+          const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
+          for (const d of absent) {
+            const el = document.getElementById(`doc-card-${d.type}`) || document.querySelector<HTMLElement>(`[data-doc-type="${d.type}"]`);
+            if (el) {
+              const msg = d.type === "emergency_contact_id_nigeria"
+                ? "Please upload the identification document of your Emergency Contact in Nigeria."
+                : d.type === "emergency_contact_id_home"
+                ? "Please upload the identification document of your Emergency Contact in Home Country."
+                : `Please upload ${d.label}.`;
+              candidates.push({ el, key: d.type, msg });
+            }
+          }
+        }
+      }
+
+      // Check all problem keys
+      for (const [key, msg] of Object.entries(problems)) {
+        if (n === 4 && (key === "documents" || key === "emergency_contact_id_type" || key === "home_country_emergency_contact_id_type")) {
+          continue;
+        }
+        let el: HTMLElement | null = null;
+        if (key === "photo") {
+          el = document.getElementById("photo-upload-section") || document.querySelector<HTMLElement>('[data-field="photo"]');
+        } else if (key === "declaration") {
+          el = document.querySelector<HTMLElement>('input[name="declaration"]') || document.getElementById("declaration-checkbox");
+        } else if (key === "cod") {
+          el = document.getElementById("cod-section");
+        } else {
+          el = document.querySelector<HTMLElement>(`[data-field="${key}"] input:not([type="hidden"]), [data-field="${key}"] select, [name="${key}"]:not([type="hidden"]), [name="${key}_national"], [name="${key}"], #${key}`);
+        }
+        if (el) {
+          if ((el as HTMLInputElement).type === "hidden") {
+            const visible = el.parentElement?.querySelector<HTMLElement>("input:not([type='hidden']), select, textarea, button");
+            if (visible) el = visible;
+          }
+          candidates.push({ el, key, msg });
+        }
+      }
+
+      // Sort candidate elements by document visual position (top-to-bottom)
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => {
+          if (a.el === b.el) return 0;
+          return a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+        });
+
+        const first = candidates[0];
+        const container = first.el.closest("label") || first.el.closest(".rounded-xl") || first.el;
+        const rect = container.getBoundingClientRect();
+        const headerOffset = 100;
+        const targetTop = window.scrollY + rect.top - headerOffset;
+
+        window.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: "smooth",
+        });
+
+        const focusable = first.el.matches("input:not([type='hidden']), select, textarea, button, [tabindex]")
+          ? first.el
+          : first.el.querySelector<HTMLElement>("input:not([type='hidden']), select, textarea, button, [tabindex]");
+
+        if (focusable && typeof focusable.focus === "function") {
+          setTimeout(() => {
+            try {
+              focusable.focus({ preventScroll: true });
+            } catch (_) {
+              focusable.focus();
+            }
+          }, 150);
+        }
+
+        const problemCount = Object.keys(problems).length;
+        setNotice({
+          tone: "danger",
+          text: problemCount === 1 && first.msg
+            ? t(first.msg)
+            : t("Please complete all highlighted required fields before proceeding."),
+        });
       } else {
         window.scrollTo({ top: 0, behavior: "smooth" });
+        setNotice({
+          tone: "danger",
+          text: t("Please complete all highlighted required fields before proceeding."),
+        });
       }
+
       return false;
     }
+
+    setNotice(null);
     return true;
   }
 
@@ -862,8 +970,11 @@ function Wizard() {
         setServerErrors((prev) => ({ ...prev, passport_number: msg }));
         setNotice({ tone: "danger", text: msg });
         const el = document.querySelector('[name="passport_number"]') as HTMLElement;
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-        el?.focus?.();
+        if (el) {
+          const rect = (el.closest("label") || el).getBoundingClientRect();
+          window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - 100), behavior: "smooth" });
+          el.focus?.({ preventScroll: true });
+        }
         return;
       }
     }
@@ -890,7 +1001,20 @@ function Wizard() {
       setNotice(null);
       goTo(step + 1);
     } catch (e) {
-      setNotice({ tone: "danger", text: (e as Error).message });
+      if (e instanceof ApiError && e.errors) {
+        setServerErrors(Object.fromEntries(Object.entries(e.errors).map(([k, v]) => [k, Array.isArray(v) ? v[0] : String(v)])));
+        const firstField = Object.keys(e.errors)[0];
+        const msg = Object.values(e.errors)[0]?.[0] || e.message;
+        setNotice({ tone: "danger", text: msg });
+        const el = document.querySelector(`[name="${firstField}"], [data-field="${firstField}"]`) as HTMLElement;
+        if (el) {
+          const rect = (el.closest("label") || el).getBoundingClientRect();
+          window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - 100), behavior: "smooth" });
+          el.focus?.({ preventScroll: true });
+        }
+      } else {
+        setNotice({ tone: "danger", text: (e as Error).message || "A network or server error occurred while saving your progress. Please try again." });
+      }
     } finally {
       setBusy(false);
     }
@@ -1644,7 +1768,7 @@ function Wizard() {
                 </Button>
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 shadow-xs space-y-5">
+              <div id="cod-section" data-field="cod" className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 shadow-xs space-y-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -1982,6 +2106,9 @@ function Wizard() {
                 return (
                   <div
                     key={d.type}
+                    id={`doc-card-${d.type}`}
+                    data-doc-type={d.type}
+                    data-field={d.type}
                     className={`flex flex-col gap-4 rounded-xl border p-4 shadow-sm transition-all sm:flex-row sm:items-center sm:justify-between ${cardStyle}`}
                   >
                     {/* Left: Thumbnail / Badge & metadata */}
@@ -2089,6 +2216,8 @@ function Wizard() {
                               {t("Document Type")} <span className="text-red-600">*</span>
                             </label>
                             <select
+                              name={d.type === "emergency_contact_id_nigeria" ? "emergency_contact_id_type" : "home_country_emergency_contact_id_type"}
+                              data-field={d.type === "emergency_contact_id_nigeria" ? "emergency_contact_id_type" : "home_country_emergency_contact_id_type"}
                               value={(d.type === "emergency_contact_id_nigeria" ? data.emergency_contact_id_type : data.home_country_emergency_contact_id_type) || ""}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -2396,6 +2525,9 @@ function Wizard() {
               <label className="flex items-start gap-3.5 cursor-pointer">
                 <input
                   type="checkbox"
+                  id="declaration-checkbox"
+                  name="declaration"
+                  data-field="declaration"
                   className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-nis-primary focus:ring-nis-primary/30"
                   checked={data.declaration === "1"}
                   onChange={(e) => {
@@ -2617,7 +2749,11 @@ function PhotoUpload({
   const displayUrl = localPreview || url;
 
   return (
-    <div className={`flex flex-col gap-5 rounded-xl border p-4 sm:flex-row sm:items-center ${error ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}>
+    <div
+      id="photo-upload-section"
+      data-field="photo"
+      className={`flex flex-col gap-5 rounded-xl border p-4 sm:flex-row sm:items-center ${error ? "border-red-400 bg-red-50" : "border-slate-200 bg-nis-mint"}`}
+    >
       <div className="relative flex h-40 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white shadow-inner">
         {displayUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

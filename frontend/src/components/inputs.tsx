@@ -77,6 +77,8 @@ export function PhoneInput({
       </Select>
       <Input
         id={id}
+        name={name ? `${name}_national` : undefined}
+        data-field={name}
         type="tel"
         inputMode="numeric"
         autoComplete="tel-national"

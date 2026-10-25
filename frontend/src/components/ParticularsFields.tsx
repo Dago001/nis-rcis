@@ -317,6 +317,8 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           { title: "International Passport data page OR ECOWAS Travel Certificate", mandatory: true },
           { title: "Proof of domicile in Nigeria (Utility bill / Tenancy agreement)", mandatory: true },
           ...specificDocs,
+          { title: "Identification Document of Emergency Contact in Nigeria", mandatory: true },
+          { title: "Identification Document of Emergency Contact in Home Country", mandatory: true },
           { title: "Recent passport photograph on white background", mandatory: true },
         ];
 
@@ -433,6 +435,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
       ) : (
         <>
           <div
+            data-field="phone"
             onFocus={() => focus?.("phone")}
             onBlur={() => {
               focus?.(null);
@@ -446,6 +449,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
               hint={isDependant ? "Pre-populated with guardian contact. Editable for dependent if desired." : undefined}
             >
               <PhoneInput
+                name="phone"
                 value={data.phone ?? ""}
                 disabled={readOnly}
                 onChange={(v) => {
@@ -638,6 +642,7 @@ export function ContactFields(props: Props) {
 
       {/* Row 2: Phone number & State */}
       <div
+        data-field="emergency_contact_phone"
         onFocus={() => focus?.("emergency_contact_phone")}
         onBlur={() => {
           focus?.(null);
@@ -646,6 +651,7 @@ export function ContactFields(props: Props) {
       >
         <Field label="Phone number" required error={errors.emergency_contact_phone}>
           <PhoneInput
+            name="emergency_contact_phone"
             value={data.emergency_contact_phone ?? ""}
             onChange={(v) => {
               set("emergency_contact_phone", v);
@@ -750,6 +756,7 @@ export function ContactFields(props: Props) {
       )}
 
       <div
+        data-field="home_country_emergency_contact_phone"
         onFocus={() => focus?.("home_country_emergency_contact_phone")}
         onBlur={() => {
           focus?.(null);
@@ -758,6 +765,7 @@ export function ContactFields(props: Props) {
       >
         <Field label="Phone number" required error={errors.home_country_emergency_contact_phone}>
           <PhoneInput
+            name="home_country_emergency_contact_phone"
             value={data.home_country_emergency_contact_phone ?? ""}
             onChange={(v) => {
               set("home_country_emergency_contact_phone", v);
