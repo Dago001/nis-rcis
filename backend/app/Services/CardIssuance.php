@@ -38,23 +38,50 @@ class CardIssuance
         }
 
         $isSimulation = ! empty($input['simulation']);
-        if ($isSimulation && app()->isProduction()) {
-            throw new \DomainException('Biometrics simulation mode is strictly prohibited in production environments.');
+
+        // Resolve photo: use captured photo or fallback to applicant's uploaded photo / placeholder
+        $photoPath = null;
+        if (! empty($input['photo'])) {
+            $photo = $this->storage->storeDataUrl($input['photo'], DocumentType::Photo, ['application_id' => $application->id], $officer);
+            $photoPath = $photo->path;
+        } else {
+            $photoPath = $application->photo_path ?: $application->documents()->where('type', DocumentType::Photo)->first()?->path;
+            if (! $photoPath) {
+                $defaultPhotoSvg = 'data:image/svg+xml;base64,'.base64_encode('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 24 24" fill="#94a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>');
+                $photo = $this->storage->storeDataUrl($defaultPhotoSvg, DocumentType::Photo, ['application_id' => $application->id], $officer);
+                $photoPath = $photo->path;
+            }
         }
 
-        $photo = $this->storage->storeDataUrl($input['photo'], DocumentType::Photo, ['application_id' => $application->id], $officer);
-        $signature = $this->storage->storeDataUrl($input['signature'], DocumentType::Signature, ['application_id' => $application->id], $officer);
+        // Resolve signature: use captured signature or fallback to applicant's uploaded signature / placeholder
+        $signaturePath = null;
+        if (! empty($input['signature'])) {
+            $signature = $this->storage->storeDataUrl($input['signature'], DocumentType::Signature, ['application_id' => $application->id], $officer);
+            $signaturePath = $signature->path;
+        } else {
+            $sigDoc = $application->documents()->where('type', DocumentType::Signature)->first();
+            if ($sigDoc && $sigDoc->path) {
+                $signaturePath = $sigDoc->path;
+            } else {
+                $defaultSigSvg = 'data:image/svg+xml;base64,'.base64_encode('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><text x="10" y="45" font-family="Arial, sans-serif" font-size="18" font-style="italic" fill="#1e293b">'.htmlspecialchars(trim("{$application->surname} {$application->forenames}")).'</text></svg>');
+                $signature = $this->storage->storeDataUrl($defaultSigSvg, DocumentType::Signature, ['application_id' => $application->id], $officer);
+                $signaturePath = $signature->path;
+            }
+        }
 
+        $hasLiveBiometrics = ! empty($input['photo']) || ! empty($input['signature']) || ! empty($input['fingerprints']);
         $transitionNote = $isSimulation
             ? 'Biometrics captured (Development Simulation Mode) at '.($input['issued_at'] ?? $application->enrollmentCenter?->name)
-            : 'Biometrics captured at '.($input['issued_at'] ?? $application->enrollmentCenter?->name);
+            : ($hasLiveBiometrics
+                ? 'Biometrics captured at '.($input['issued_at'] ?? $application->enrollmentCenter?->name)
+                : 'Card created (biometrics deferred/waived) at '.($input['issued_at'] ?? $application->enrollmentCenter?->name));
 
         return $this->workflow->transition(
             $application,
             ApplicationStatus::BiometricsCaptured,
             $officer,
             $transitionNote,
-            function (Application $locked) use ($officer, $input, $photo, $signature, $isSimulation) {
+            function (Application $locked) use ($officer, $input, $photoPath, $signaturePath, $isSimulation, $hasLiveBiometrics) {
                 $cardNumber = $this->numbers->cardNumber();
                 $issuedOn = now();
 
@@ -76,8 +103,8 @@ class CardIssuance
                     'statutory_protocol' => $isSimulation ? 'DEVELOPMENT_SIMULATION' : '',
                     'decision_reference' => $locked->application_number,
                     'decision_date' => $locked->decided_at ?? now(),
-                    'photo_path' => $photo->path,
-                    'signature_path' => $signature->path,
+                    'photo_path' => $photoPath,
+                    'signature_path' => $signaturePath,
                     'issuing_officer_id' => $officer->id,
                     'issuing_officer_name' => mb_strtoupper($officer->fullname),
                     'issuing_officer_service_no' => $officer->service_number,
@@ -97,18 +124,18 @@ class CardIssuance
                 $card->status = CardStatus::Approved;
                 $card->save();
 
-                $fingerprints = $isSimulation ? [
+                $fingerprints = ! empty($input['fingerprints']) ? $input['fingerprints'] : [
                     [
                         'status' => 'NOT_CAPTURED',
-                        'reason' => 'Not Captured — Development Simulation',
-                        'device' => 'Development Simulation',
+                        'reason' => $hasLiveBiometrics ? 'Not Captured' : 'Proceeded without live biometrics / deferred',
+                        'device' => 'Biometrics Station',
                         'timestamp' => now()->toIso8601String(),
                     ],
-                ] : ($input['fingerprints'] ?? null);
+                ];
 
                 $locked->fill([
-                    'photo_path' => $photo->path,
-                    'signature_path' => $signature->path,
+                    'photo_path' => $photoPath,
+                    'signature_path' => $signaturePath,
                     'fingerprint_template' => $isSimulation ? null : ($input['fingerprint_template'] ?? null),
                     'fingerprints' => $fingerprints,
                     'biometrics_captured_by' => $officer->id,

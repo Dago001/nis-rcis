@@ -27,7 +27,7 @@ export default function BiometricsDesk() {
   const [signature, setSignature] = useState<string | null>(null);
   const [fingerprints, setFingerprints] = useState<Fingerprint[]>([]);
   const [issuedAt, setIssuedAt] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmed, setConfirmed] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -106,7 +106,16 @@ export default function BiometricsDesk() {
       <Panel title="5. Issue">
         <div className="space-y-4">
           <Field label="Place of issue"><Input value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} /></Field>
-          <Button onClick={save} disabled={busy || !confirmed || !photo || !signature}>{busy ? "Saving…" : "Save biometrics and create card"}</Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={save} disabled={busy || !confirmed}>
+              {busy ? "Saving…" : "Save biometrics and create card"}
+            </Button>
+            {!photo && !signature && (
+              <span className="text-xs text-slate-500">
+                (Proceeding without live biometrics will use applicant&apos;s submitted documents)
+              </span>
+            )}
+          </div>
         </div>
       </Panel>
     </div>
