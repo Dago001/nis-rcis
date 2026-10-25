@@ -563,4 +563,251 @@ export function DoughnutChart({
   );
 }
 
+/** Horizontal bar chart for Nigerian States with hover tooltips and scrollable capacity. */
+export function StateHorizontalBarChart({
+  items,
+  format = String,
+  notAssignedLabel = "Not Yet Assigned",
+}: {
+  items: { state: string; total: number }[];
+  format?: (n: number) => string;
+  notAssignedLabel?: string;
+}) {
+  const [hoveredState, setHoveredState] = useState<string | null>(null);
+  const max = Math.max(1, ...items.map((i) => i.total));
+
+  if (!items.length) {
+    return <p className="py-8 text-center text-sm text-slate-500">No state application records available yet.</p>;
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {items.map((item) => {
+        const isNotAssigned = item.state.toLowerCase() === "not yet assigned";
+        const label = isNotAssigned ? notAssignedLabel : item.state;
+        const widthPct = Math.max(item.total ? 3 : 0, (item.total / max) * 100);
+        const isHovered = hoveredState === item.state;
+
+        return (
+          <div
+            key={item.state}
+            className="group relative flex items-center gap-3 text-xs sm:text-sm"
+            onMouseEnter={() => setHoveredState(item.state)}
+            onMouseLeave={() => setHoveredState(null)}
+          >
+            <span
+              className={`w-28 sm:w-36 shrink-0 truncate font-medium ${
+                isNotAssigned ? "text-slate-500 italic" : "text-slate-700"
+              }`}
+              title={label}
+            >
+              {label}
+            </span>
+
+            <div className="relative h-4 flex-1 rounded bg-slate-100 overflow-hidden">
+              <div
+                className={`h-full rounded-r transition-all duration-300 ${
+                  isNotAssigned ? "bg-slate-400" : isHovered ? "bg-nis-primary-dark" : "bg-nis-primary"
+                }`}
+                style={{ width: `${widthPct}%` }}
+              />
+            </div>
+
+            <span className="w-12 shrink-0 text-right font-medium tabular-nums text-slate-700">
+              {format(item.total)}
+            </span>
+
+            {isHovered && (
+              <div className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white shadow-md whitespace-nowrap">
+                {label}: {format(item.total)} {item.total === 1 ? "application" : "applications"}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Top 5 States ranking chart with rank badges (1-5), progress bars, and tooltips. */
+export function Top5StatesChart({
+  items,
+  format = String,
+}: {
+  items: { rank: number; state: string; total: number }[];
+  format?: (n: number) => string;
+}) {
+  const [hoveredRank, setHoveredRank] = useState<number | null>(null);
+  const max = Math.max(1, ...items.map((i) => i.total));
+
+  if (!items.length) {
+    return <p className="py-8 text-center text-sm text-slate-500">No state ranking data available yet.</p>;
+  }
+
+  const badgeColors: Record<number, { bg: string; text: string; bar: string }> = {
+    1: { bg: "bg-amber-100 text-amber-800 border-amber-300", text: "text-amber-900", bar: "bg-[#2b892b]" },
+    2: { bg: "bg-slate-100 text-slate-700 border-slate-300", text: "text-slate-800", bar: "bg-[#349734]" },
+    3: { bg: "bg-orange-100 text-orange-800 border-orange-300", text: "text-orange-900", bar: "bg-[#3da53d]" },
+    4: { bg: "bg-slate-50 text-slate-600 border-slate-200", text: "text-slate-700", bar: "bg-[#48b348]" },
+    5: { bg: "bg-slate-50 text-slate-600 border-slate-200", text: "text-slate-700", bar: "bg-[#54c054]" },
+  };
+
+  return (
+    <div className="space-y-4 py-1">
+      {items.map((item) => {
+        const badge = badgeColors[item.rank] || badgeColors[5];
+        const widthPct = Math.max(item.total ? 4 : 0, (item.total / max) * 100);
+        const isHovered = hoveredRank === item.rank;
+
+        return (
+          <div
+            key={item.rank}
+            className="group relative"
+            onMouseEnter={() => setHoveredRank(item.rank)}
+            onMouseLeave={() => setHoveredRank(null)}
+          >
+            <div className="mb-1.5 flex items-center justify-between gap-2 text-xs sm:text-sm">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full border text-[11px] sm:text-xs font-bold ${badge.bg}`}
+                >
+                  {item.rank}
+                </span>
+                <span className="truncate font-medium text-slate-800 text-sm">
+                  {item.state}
+                </span>
+              </div>
+              <span className="shrink-0 font-semibold tabular-nums text-slate-900 text-sm">
+                {format(item.total)}
+              </span>
+            </div>
+
+            <div className="relative h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${badge.bar} ${
+                  isHovered ? "brightness-110" : ""
+                }`}
+                style={{ width: `${widthPct}%` }}
+              />
+            </div>
+
+            {isHovered && (
+              <div className="pointer-events-none absolute -top-7 right-0 z-20 rounded bg-slate-900 px-2 py-0.5 text-xs font-medium text-white shadow-md whitespace-nowrap">
+                Rank #{item.rank}: {item.state} ({format(item.total)} apps)
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Structured breakdown for Application Processing Overview */
+export function ProcessingOverviewChart({
+  data,
+  t,
+}: {
+  data: {
+    cards_produced: number;
+    cards_issued: number;
+    new_cards_issued: number;
+    renewal_cards_issued: number;
+    queried: number;
+    rejected: number;
+  };
+  t: (key: string) => string;
+}) {
+  const max = Math.max(
+    1,
+    data.cards_produced,
+    data.cards_issued,
+    data.queried,
+    data.rejected
+  );
+
+  const getWidth = (val: number) => Math.max(val ? 3 : 0, (val / max) * 100);
+
+  return (
+    <div className="space-y-4 py-1 text-xs sm:text-sm">
+      {/* 1. Total Cards Produced */}
+      <div>
+        <div className="mb-1 flex items-center justify-between text-slate-700">
+          <span className="font-medium text-slate-800">{t("Total Cards Produced")}</span>
+          <span className="font-semibold tabular-nums text-slate-900">{data.cards_produced}</span>
+        </div>
+        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${getWidth(data.cards_produced)}%` }} />
+        </div>
+      </div>
+
+      {/* 2. Total Cards Issued & Breakdown */}
+      <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
+        <div className="mb-1 flex items-center justify-between text-slate-700">
+          <span className="font-medium text-slate-800">{t("Total Cards Issued")}</span>
+          <span className="font-semibold tabular-nums text-slate-900">{data.cards_issued}</span>
+        </div>
+        <div className="h-3 w-full rounded-full bg-slate-200 overflow-hidden">
+          <div className="h-full rounded-full bg-nis-primary transition-all" style={{ width: `${getWidth(data.cards_issued)}%` }} />
+        </div>
+
+        {/* Breakdown sub-bars */}
+        <div className="mt-3 pl-3 space-y-2 border-l-2 border-slate-300">
+          <div>
+            <div className="mb-0.5 flex items-center justify-between text-xs text-slate-600">
+              <span className="flex items-center gap-1">
+                <span className="text-slate-400">↳</span> {t("New Cards Issued")}
+              </span>
+              <span className="font-medium tabular-nums text-slate-800">{data.new_cards_issued}</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-all"
+                style={{ width: `${getWidth(data.new_cards_issued)}%` }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-0.5 flex items-center justify-between text-xs text-slate-600">
+              <span className="flex items-center gap-1">
+                <span className="text-slate-400">↳</span> {t("Renewal Cards Issued")}
+              </span>
+              <span className="font-medium tabular-nums text-slate-800">{data.renewal_cards_issued}</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-indigo-500 transition-all"
+                style={{ width: `${getWidth(data.renewal_cards_issued)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Queried Applications */}
+      <div>
+        <div className="mb-1 flex items-center justify-between text-slate-700">
+          <span className="font-medium text-amber-800">{t("Queried Applications")}</span>
+          <span className="font-semibold tabular-nums text-amber-900">{data.queried}</span>
+        </div>
+        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${getWidth(data.queried)}%` }} />
+        </div>
+      </div>
+
+      {/* 4. Rejected Applications */}
+      <div>
+        <div className="mb-1 flex items-center justify-between text-slate-700">
+          <span className="font-medium text-rose-800">{t("Rejected Applications")}</span>
+          <span className="font-semibold tabular-nums text-rose-900">{data.rejected}</span>
+        </div>
+        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${getWidth(data.rejected)}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export { compact };

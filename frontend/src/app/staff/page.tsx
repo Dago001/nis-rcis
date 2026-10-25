@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BarList, ChartCard, DataTable, DoughnutChart, Legend, LineChart, SERIES, VerticalTwoBarChart } from "@/components/charts";
+import {
+  BarList,
+  ChartCard,
+  DataTable,
+  DoughnutChart,
+  Legend,
+  LineChart,
+  ProcessingOverviewChart,
+  SERIES,
+  StateHorizontalBarChart,
+  Top5StatesChart,
+  VerticalTwoBarChart,
+} from "@/components/charts";
 import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Alert, Panel, Spinner } from "@/components/ui";
@@ -19,8 +31,35 @@ type RecentActivityItem = {
   created_at: string;
 };
 
+type StateCountItem = {
+  state: string;
+  total: number;
+};
+
+type TopStateItem = {
+  rank: number;
+  state: string;
+  total: number;
+};
+
+type ProcessingOverview = {
+  cards_produced: number;
+  cards_issued: number;
+  new_cards_issued: number;
+  renewal_cards_issued: number;
+  queried: number;
+  rejected: number;
+};
+
 type Analytics = {
-  monthly: { month: string; submitted: number; issued: number; revenue_naira: number }[];
+  monthly: {
+    month: string;
+    submitted: number;
+    new_applications?: number;
+    renewal_applications?: number;
+    issued: number;
+    revenue_naira: number;
+  }[];
   totals: {
     applications: number;
     applications_this_month: number;
@@ -38,6 +77,9 @@ type Analytics = {
   decisions: { approved: number; queried: number; rejected: number; approval_rate: number | null };
   processing_days: { submission_to_decision: number; decision_to_biometrics: number; biometrics_to_ready: number; ready_to_collection: number };
   nationalities: { label: string; total: number }[];
+  applications_by_state?: StateCountItem[];
+  top5_states?: TopStateItem[];
+  processing_overview?: ProcessingOverview;
   mix: { type: Record<string, number>; channel: Record<string, number>; sex: Record<string, number> };
   appointments: { date: string; total: number }[];
   recent_activity?: RecentActivityItem[];
@@ -55,6 +97,9 @@ type Summary = {
   renewal_cards_produced?: number;
   new_cards_issued?: number;
   renewal_cards_issued?: number;
+  applications_by_state?: StateCountItem[];
+  top5_states?: TopStateItem[];
+  processing_overview?: ProcessingOverview;
   todays_appointments: number;
   sla: { target_working_days: number; overdue: number; assigned_to_me: number };
   card_stock: { remaining: number; low: boolean };
@@ -232,72 +277,107 @@ export default function StaffDashboard() {
         </div>
       </div>
 
-      {/* Operational Charts Row 1: Trends & Stage Distribution */}
+      {/* Operational Charts Row 1: Monthly Trends (New vs Renewal) & Processing Overview */}
       <div className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title={t("Monthly Application Trends")}
-          subtitle={t("Applications submitted and cards issued over last 12 months")}
+          subtitle={t("New vs Renewal applications submitted over the last 12 months")}
           legend={
             <Legend
               items={[
-                { label: t("Applications submitted"), color: SERIES[0], kind: "line" },
-                { label: t("Cards issued"), color: SERIES[1], kind: "line" },
+                { label: t("New Applications"), color: SERIES[0], kind: "line" },
+                { label: t("Renewal Applications"), color: SERIES[1], kind: "line" },
               ]}
             />
           }
           table={
             <DataTable
-              head={[t("Month"), t("Applications"), t("Cards issued")]}
-              rows={(a.monthly ?? []).map((m) => [monthLong(m.month), m.submitted, m.issued])}
+              head={[t("Month"), t("New Applications"), t("Renewal Applications")]}
+              rows={(a.monthly ?? []).map((m) => [
+                monthLong(m.month),
+                m.new_applications ?? m.submitted,
+                m.renewal_applications ?? 0,
+              ])}
             />
           }
         >
           <LineChart
             labels={months}
             series={[
-              { name: t("Applications submitted"), values: (a.monthly ?? []).map((m) => m.submitted) },
-              { name: t("Cards issued"), values: (a.monthly ?? []).map((m) => m.issued) },
+              { name: t("New Applications"), values: (a.monthly ?? []).map((m) => m.new_applications ?? m.submitted) },
+              { name: t("Renewal Applications"), values: (a.monthly ?? []).map((m) => m.renewal_applications ?? 0) },
             ]}
           />
         </ChartCard>
 
         <ChartCard
           title={t("Application Processing Overview")}
-          subtitle={t("Distribution across current workflow stages")}
+          subtitle={t("Outcomes for card production, issuance, queries and rejections")}
           table={
             <DataTable
-              head={[t("Stage"), t("Applications")]}
-              rows={processingStages.map((p) => [p.label, p.value])}
+              head={[t("Processing Outcome"), t("Total Count"), t("Classification / Status")]}
+              rows={[
+                [t("Total Cards Produced"), procOverview.cards_produced, t("Physical production confirmed")],
+                [t("Total Cards Issued"), procOverview.cards_issued, t("Officially issued to applicants")],
+                [`  ↳ ${t("New Cards Issued")}`, procOverview.new_cards_issued, t("Breakdown of Total Issued")],
+                [`  ↳ ${t("Renewal Cards Issued")}`, procOverview.renewal_cards_issued, t("Breakdown of Total Issued")],
+                [t("Queried Applications"), procOverview.queried, t("Currently queried (action required)")],
+                [t("Rejected Applications"), procOverview.rejected, t("Currently rejected")],
+              ]}
             />
           }
         >
-          <BarList items={processingStages} />
+          <ProcessingOverviewChart data={procOverview} t={t} />
         </ChartCard>
       </div>
 
-      {/* Operational Charts Row 2: Card Issuance Breakdown & Gender Distribution */}
+      {/* Operational Charts Row 2: State Distribution & Top 5 States */}
       <div className="grid gap-6 xl:grid-cols-2">
         <ChartCard
-          title={t("Card Issuance Overview")}
-          subtitle={t("New vs Renewal Cards Issued")}
+          title={t("Total Applications by State")}
+          subtitle={t("Distribution based on biometric enrollment State / Command")}
           table={
             <DataTable
-              head={[t("Card Type"), t("Total Issued")]}
-              rows={[
-                [t("New Cards"), totals.new_cards_issued ?? s.new_cards_issued ?? 0],
-                [t("Renewal Cards"), totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0],
-              ]}
+              head={[t("State / Location"), t("Applications")]}
+              rows={statesData.map((st) => [
+                st.state.toLowerCase() === "not yet assigned" ? t("Not Yet Assigned") : st.state,
+                st.total,
+              ])}
             />
           }
         >
-          <div className="py-2">
-            <VerticalTwoBarChart
-              items={[
-                { label: t("New Cards"), value: totals.new_cards_issued ?? s.new_cards_issued ?? 0, color: "#2E7D32" },
-                { label: t("Renewal Cards"), value: totals.renewal_cards_issued ?? s.renewal_cards_issued ?? 0, color: "#16A34A" },
-              ]}
-            />
+          <div className="max-h-[340px] overflow-y-auto pr-2">
+            <StateHorizontalBarChart items={statesData} notAssignedLabel={t("Not Yet Assigned")} />
           </div>
+        </ChartCard>
+
+        <ChartCard
+          title={t("Top 5 States by Applications")}
+          subtitle={t("Highest volume biometric enrollment States")}
+          table={
+            <DataTable
+              head={[t("Rank"), t("State"), t("Applications")]}
+              rows={top5Data.map((st) => [`#${st.rank}`, st.state, st.total])}
+            />
+          }
+        >
+          <Top5StatesChart items={top5Data} />
+        </ChartCard>
+      </div>
+
+      {/* Operational Charts Row 3: Top Nationalities & Applications by Gender */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title={t("Top Nationalities")}
+          subtitle={t("ECOWAS member state applicants")}
+          table={
+            <DataTable
+              head={[t("Nationality"), t("Applications")]}
+              rows={(a.nationalities ?? []).map((n) => [n.label, n.total])}
+            />
+          }
+        >
+          <BarList items={(a.nationalities ?? []).map((n) => ({ label: n.label, value: n.total }))} />
         </ChartCard>
 
         <ChartCard
@@ -338,57 +418,6 @@ export default function StaffDashboard() {
             )}
           </div>
         </ChartCard>
-      </div>
-
-      {/* Operational Charts Row 3: Top Nationalities & Pending Processing Summary */}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <ChartCard
-          title={t("Top Nationalities")}
-          subtitle={t("ECOWAS member state applicants")}
-          table={
-            <DataTable
-              head={[t("Nationality"), t("Applications")]}
-              rows={(a.nationalities ?? []).map((n) => [n.label, n.total])}
-            />
-          }
-        >
-          <BarList items={(a.nationalities ?? []).map((n) => ({ label: n.label, value: n.total }))} />
-        </ChartCard>
-
-        <Panel title={t("Pending Processing Summary")}>
-          <div className="divide-y divide-slate-100 text-xs sm:text-sm">
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-slate-600">{t("Paid – not submitted")}</span>
-              <Link href="/staff/payments?filter=awaiting_submission" className="font-medium text-amber-600 hover:underline">
-                {s.paid_awaiting_submission ?? 0} {t("applications")}
-              </Link>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-slate-600">{t("Awaiting Vetting")}</span>
-              <Link href="/staff/applications?status=PENDING_APPROVAL" className="font-medium text-slate-900 hover:underline">
-                {s.queue?.PENDING_APPROVAL ?? 0} {t("applications")}
-              </Link>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-slate-600">{t("Awaiting Approval")}</span>
-              <Link href="/staff/approvals" className="font-medium text-slate-900 hover:underline">
-                {s.queue?.VETTED ?? 0} {t("applications")}
-              </Link>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-slate-600">{t("Awaiting Card Production")}</span>
-              <Link href="/staff/cards?status=APPROVED" className="font-medium text-amber-700 hover:underline">
-                {s.cards?.APPROVED ?? 0} {t("cards")}
-              </Link>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-slate-600">{t("Awaiting Card Issuance")}</span>
-              <Link href="/staff/card-issuance?stage=awaiting_collection" className="font-medium text-emerald-700 hover:underline">
-                {s.queue?.READY_FOR_COLLECTION ?? 0} {t("cards ready")}
-              </Link>
-            </div>
-          </div>
-        </Panel>
       </div>
 
       {/* Feature E: Recent Operational Activity */}

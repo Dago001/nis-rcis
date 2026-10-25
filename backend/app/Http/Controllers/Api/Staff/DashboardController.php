@@ -89,6 +89,9 @@ class DashboardController
                 'renewal_cards_produced' => $renewalCardsProduced,
                 'new_cards_issued' => $newCardsIssued,
                 'renewal_cards_issued' => $renewalCardsIssued,
+                'applications_by_state' => $analytics['applications_by_state'] ?? [],
+                'top5_states' => $analytics['top5_states'] ?? [],
+                'processing_overview' => $analytics['processing_overview'] ?? [],
                 'sla' => [
                     'target_working_days' => (int) config('nis.sla_working_days', 10),
                     'overdue' => Application::where('status', ApplicationStatus::PendingApproval)
@@ -149,6 +152,20 @@ class DashboardController
         $submitted = $perMonth(Application::query(), 'submitted_at');
         if ($submitted->isEmpty()) {
             $submitted = $perMonth(Application::query(), 'created_at');
+        }
+
+        $newSubmitted = $perMonth(Application::query()->where(function ($q) {
+            $q->where('type', 'NEW')->orWhereNull('type');
+        }), 'submitted_at');
+        if ($newSubmitted->isEmpty()) {
+            $newSubmitted = $perMonth(Application::query()->where(function ($q) {
+                $q->where('type', 'NEW')->orWhereNull('type');
+            }), 'created_at');
+        }
+
+        $renewalSubmitted = $perMonth(Application::query()->where('type', 'RENEWAL'), 'submitted_at');
+        if ($renewalSubmitted->isEmpty()) {
+            $renewalSubmitted = $perMonth(Application::query()->where('type', 'RENEWAL'), 'created_at');
         }
 
         $issued = $perMonth(ResidenceCard::query()->whereIn('status', [CardStatus::Issued, CardStatus::Renewed]), 'issued_on');
@@ -357,13 +374,75 @@ class DashboardController
             Log::warning('Dashboard nationalities query failed: ' . $e->getMessage());
         }
 
+        // Total applications by biometric enrollment State
+        $applicationsByState = (function () {
+            try {
+                return Application::query()
+                    ->leftJoin('enrollment_centers as ec_actual', 'applications.actual_enrollment_center_id', '=', 'ec_actual.id')
+                    ->leftJoin('enrollment_centers as ec_selected', 'applications.enrollment_center_id', '=', 'ec_selected.id')
+                    ->selectRaw("
+                        CASE
+                            WHEN applications.actual_enrollment_state IS NOT NULL AND TRIM(applications.actual_enrollment_state) != ''
+                                THEN TRIM(applications.actual_enrollment_state)
+                            WHEN ec_actual.state IS NOT NULL AND TRIM(ec_actual.state) != ''
+                                THEN TRIM(ec_actual.state)
+                            WHEN ec_selected.state IS NOT NULL AND TRIM(ec_selected.state) != ''
+                                THEN TRIM(ec_selected.state)
+                            ELSE 'Not Yet Assigned'
+                        END as state_name,
+                        count(applications.id) as total
+                    ")
+                    ->groupByRaw('1')
+                    ->orderByDesc('total')
+                    ->get()
+                    ->map(fn ($r) => [
+                        'state' => (string) $r->state_name,
+                        'total' => (int) $r->total,
+                    ])
+                    ->values();
+            } catch (\Throwable $e) {
+                Log::warning('Dashboard applications by state query failed: ' . $e->getMessage());
+                return collect();
+            }
+        })();
+
+        // Top 5 States by applications (excluding 'Not Yet Assigned')
+        $top5States = $applicationsByState
+            ->reject(fn ($item) => strtolower($item['state']) === 'not yet assigned' || $item['state'] === '—')
+            ->sortByDesc('total')
+            ->values()
+            ->take(5)
+            ->map(function ($item, $idx) {
+                return [
+                    'rank' => $idx + 1,
+                    'state' => $item['state'],
+                    'total' => $item['total'],
+                ];
+            })
+            ->values();
+
+        $queriedApplicationsCount = Application::where('status', ApplicationStatus::Queried)->count();
+        $rejectedApplicationsCount = Application::where('status', ApplicationStatus::Rejected)->count();
+
         return [
             'monthly' => $months->map(fn ($m) => [
                 'month' => $m,
                 'submitted' => (int) ($submitted[$m] ?? 0),
+                'new_applications' => (int) ($newSubmitted[$m] ?? 0),
+                'renewal_applications' => (int) ($renewalSubmitted[$m] ?? 0),
                 'issued' => (int) ($issued[$m] ?? 0),
                 'revenue_naira' => (int) ($revenue[$m] ?? 0) / 100,
             ])->values(),
+            'applications_by_state' => $applicationsByState,
+            'top5_states' => $top5States,
+            'processing_overview' => [
+                'cards_produced' => $totalCardsProduced,
+                'cards_issued' => $totalCardsIssued,
+                'new_cards_issued' => $newCardsIssued,
+                'renewal_cards_issued' => $renewalCardsIssued,
+                'queried' => $queriedApplicationsCount,
+                'rejected' => $rejectedApplicationsCount,
+            ],
             'totals' => [
                 'applications' => $totalApplications,
                 'applications_this_month' => $appsThisMonth,
