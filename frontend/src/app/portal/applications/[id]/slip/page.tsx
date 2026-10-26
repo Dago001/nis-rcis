@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Barcode } from "@/components/Barcode";
+import { QrCode } from "@/components/QrCode";
 import { Alert, Button, Spinner } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { naira, applicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { withBase } from "@/lib/base-path";
+import { formatRelationship } from "@/lib/validation";
 
 type Payment = {
   reference: string;
@@ -24,8 +26,11 @@ type Payment = {
 type Slip = {
   application: Application;
   photo_url: string | null;
+  signature_url?: string | null;
   qr_payload: string;
   appointment_slip_available: boolean;
+  temporary_slip_available?: boolean;
+  is_card_produced?: boolean;
   payment: Payment | null;
   documents: { type: string; label: string }[];
   submitted_at: string | null;
@@ -56,11 +61,12 @@ function birthDate(value?: string | null): string {
 const show = (v?: string | null) => (v && v.trim() ? v : "Not Provided");
 const title = (v?: string | null) => (v ? v.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase()) : "Not Provided");
 
-/** Application print-out and biometrics appointment slip. */
+/** Application print-out, biometrics appointment slip, and temporary residence slip. */
 function SlipView() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const appointment = searchParams.get("kind") === "appointment";
+  const temporary = searchParams.get("kind") === "temporary";
   const fromStaff = searchParams.get("from") === "staff";
   const returnTo = searchParams.get("return_to");
   const [slip, setSlip] = useState<Slip | null>(null);
@@ -83,6 +89,7 @@ function SlipView() {
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!slip) return <Spinner />;
   if (appointment && !slip.appointment_slip_available) return <Alert tone="warning">The appointment slip is available once your biometrics appointment is booked.</Alert>;
+  if (temporary && !slip.temporary_slip_available) return <Alert tone="warning">The temporary residence slip is only available after your biometrics have been captured at the enrollment center.</Alert>;
 
   const isAdministrative = fromStaff || Boolean(returnTo && returnTo.startsWith("/staff/"));
   const backHref = isAdministrative
@@ -106,7 +113,7 @@ function SlipView() {
       </div>
 
       <div className="w-full overflow-x-auto pb-6">
-        {appointment ? <AppointmentSlip slip={slip} /> : <ApplicationSlip slip={slip} />}
+        {temporary ? <TemporarySlip slip={slip} /> : appointment ? <AppointmentSlip slip={slip} /> : <ApplicationSlip slip={slip} />}
       </div>
     </div>
   );
@@ -233,14 +240,25 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
           />
         </Box>
 
-        <Box title="Emergency Contact Information">
+        <Box title="Emergency Contact Information (Nigeria)">
           <Pairs
             rows={[
-              ["Name of Contact", a.emergency_contact_name, "Relationship", title(a.emergency_contact_relation)],
+              ["Name of Contact", a.emergency_contact_name, "Relationship", title(formatRelationship(a.emergency_contact_relation))],
               ["Address", [a.emergency_contact_address, a.emergency_contact_lga, a.emergency_contact_state].filter(Boolean).join(", "), "Contact Number", a.emergency_contact_phone],
             ]}
           />
         </Box>
+
+        {Boolean(a.home_country_emergency_contact_name) && (
+          <Box title="Emergency Contact Information (Home Country)">
+            <Pairs
+              rows={[
+                ["Name of Contact", a.home_country_emergency_contact_name, "Relationship", title(formatRelationship(a.home_country_emergency_contact_relation))],
+                ["Address", a.home_country_emergency_contact_address, "Contact Number", a.home_country_emergency_contact_phone],
+              ]}
+            />
+          </Box>
+        )}
 
         <Box title="Biometrics Appointment">
           <Pairs
@@ -388,6 +406,186 @@ function AppointmentSlip({ slip }: { slip: Slip }) {
         <li>Arrive 30 minutes before your appointment time.</li>
       </ul>
       <p className="mt-10 text-center text-xs text-slate-500">Page 1</p>
+    </article>
+  );
+}
+
+/* ------------------------------------------------------------------ Temporary Residence Slip */
+
+function TemporarySlip({ slip }: { slip: Slip }) {
+  const a = slip.application;
+  const center = a.enrollment_center;
+  const isInvalid = Boolean(slip.is_card_produced);
+
+  return (
+    <article className="relative mx-auto max-w-[210mm] min-w-[320px] bg-white p-4 text-slate-900 shadow-sm sm:p-8 print:p-0 print:shadow-none overflow-hidden">
+      {/* If card is already produced, show a prominent diagonal invalidity watermark */}
+      {isInvalid && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center opacity-30 select-none">
+          <div className="rotate-[-35deg] border-8 border-red-700 px-10 py-4 text-center text-5xl font-black uppercase tracking-widest text-red-700">
+            INVALID — CARD ISSUED<br />
+            <span className="text-2xl font-bold tracking-wider">NULL &amp; VOID</span>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="border-b-2 border-nis-primary pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Image src={withBase("/images/nis-logo.png")} alt="NIS Logo" width={68} height={68} />
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Federal Republic of Nigeria</div>
+              <div className="text-xl font-black text-nis-primary leading-tight">NIGERIA IMMIGRATION SERVICE</div>
+              <div className="text-xs font-semibold text-slate-700">Directorate of Visa &amp; Residency · ECOWAS Unit</div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="inline-block rounded-md bg-amber-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-800 border border-amber-300">
+              Interim Attestation
+            </div>
+            <div className="mt-1 text-xs text-slate-500">Form NIS-EC-TR01</div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-center text-white">
+          <h1 className="text-lg font-bold uppercase tracking-wider sm:text-xl">
+            Temporary Residence Slip · Attestation Temporaire de Résidence
+          </h1>
+          <p className="text-xs text-slate-300">
+            Official proof of biometric enrollment pending physical ECOWAS Residence Card production
+          </p>
+        </div>
+      </div>
+
+      {/* Invalidation Alert Banner */}
+      {isInvalid ? (
+        <div className="mt-4 rounded-lg border-2 border-red-600 bg-red-50 p-3 text-center text-red-800 font-bold">
+          ⚠️ NOTICE: THIS TEMPORARY SLIP IS EXPIRED AND INVALID. The official ECOWAS Residence Card has been produced/issued for this applicant.
+        </div>
+      ) : (
+        <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+          ✓ <strong>VALID INTERIM DOCUMENT:</strong> The bearer has successfully enrolled physical biometrics. Valid across Nigeria until the original smart card is collected.
+        </div>
+      )}
+
+      {/* Top Identity Block: Photo, Signature, Application Numbers, QR Code */}
+      <div className="mt-4 grid grid-cols-1 gap-4 border border-slate-300 p-4 sm:grid-cols-4 print:grid-cols-4">
+        {/* Photo & Signature */}
+        <div className="flex flex-col items-center justify-between border-b pb-3 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-4 print:border-b-0 print:border-r print:pr-4">
+          <div className="h-36 w-28 overflow-hidden rounded border border-slate-300 bg-slate-100">
+            {slip.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={slip.photo_url} alt="Applicant" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">Photo</div>
+            )}
+          </div>
+          <div className="mt-2 w-full text-center">
+            <span className="text-[10px] font-semibold uppercase text-slate-500">Live Signature</span>
+            <div className="h-10 w-full overflow-hidden rounded border border-slate-200 bg-white p-1">
+              {slip.signature_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={slip.signature_url} alt="Signature" className="h-full w-full object-contain" />
+              ) : (
+                <div className="text-[11px] text-slate-400 italic">Captured on desk</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Primary Data */}
+        <div className="space-y-2 sm:col-span-2 print:col-span-2">
+          <div>
+            <div className="text-[11px] uppercase text-slate-500 font-semibold">Full Legal Name</div>
+            <div className="text-base font-bold text-slate-900">{a.surname}, {a.forenames}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-slate-500">Nationality:</span>
+              <div className="font-semibold">{a.nationality}</div>
+            </div>
+            <div>
+              <span className="text-slate-500">Gender / Sex:</span>
+              <div className="font-semibold">{a.sex}</div>
+            </div>
+            <div>
+              <span className="text-slate-500">Date of Birth:</span>
+              <div className="font-semibold">{birthDate(a.date_of_birth)}</div>
+            </div>
+            <div>
+              <span className="text-slate-500">Place of Birth:</span>
+              <div className="font-semibold">{show(a.place_of_birth)}</div>
+            </div>
+            <div>
+              <span className="text-slate-500">Travel Document:</span>
+              <div className="font-semibold">{a.passport_number}</div>
+            </div>
+            <div>
+              <span className="text-slate-500">Category:</span>
+              <div className="font-semibold uppercase">{show(a.category || "WORK")}</div>
+            </div>
+          </div>
+          <div className="pt-1">
+            <Barcode value={a.application_number} height={32} moduleWidth={1.1} />
+            <div className="text-[11px] font-mono tracking-wider text-slate-600">{a.application_number}</div>
+          </div>
+        </div>
+
+        {/* QR Code & Reference */}
+        <div className="flex flex-col items-center justify-center border-t pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4 print:border-t-0 print:border-l print:pl-4">
+          <QrCode value={slip.qr_payload} size={110} />
+          <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Scan to Verify</span>
+          <span className="text-[10px] font-mono text-slate-600 break-all">{a.reference_number}</span>
+        </div>
+      </div>
+
+      {/* Address & Enrollment Particulars */}
+      <div className="mt-4 grid grid-cols-1 divide-y border border-slate-300 sm:grid-cols-2 sm:divide-x sm:divide-y-0 print:grid-cols-2 print:divide-x print:divide-y-0 text-xs">
+        <div className="p-3 space-y-1">
+          <div className="font-bold uppercase text-slate-800 border-b pb-1">Residential Address (Nigeria)</div>
+          <div><span className="text-slate-500">Street:</span> <span className="font-medium">{a.domicile}</span></div>
+          <div><span className="text-slate-500">LGA:</span> <span className="font-medium">{show(a.domicile_lga)}</span></div>
+          <div><span className="text-slate-500">State:</span> <span className="font-medium">{show(a.domicile_state)}</span></div>
+          <div><span className="text-slate-500">Phone:</span> <span className="font-medium">{a.phone}</span></div>
+        </div>
+        <div className="p-3 space-y-1">
+          <div className="font-bold uppercase text-slate-800 border-b pb-1">Enrollment &amp; Vetting Particulars</div>
+          <div><span className="text-slate-500">Enrollment Center:</span> <span className="font-medium">{center?.name ?? "NIS Headquarters, Abuja"}</span></div>
+          <div><span className="text-slate-500">Biometrics Status:</span> <span className="font-semibold text-emerald-700">10 Fingers &amp; Facial Captured</span></div>
+          <div><span className="text-slate-500">Captured On:</span> <span className="font-medium">{dateTime(a.biometrics_captured_at ?? (a as { updated_at?: string | null }).updated_at)}</span></div>
+          <div><span className="text-slate-500">Fee Status:</span> <span className="font-bold text-nis-primary">{a.payment_status}</span></div>
+        </div>
+      </div>
+
+      {/* Legal Conditions & Disclaimers */}
+      <div className="mt-4 rounded border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-700 space-y-1">
+        <div className="font-bold uppercase text-slate-900">Terms of Temporary Residence Slip:</div>
+        <ol className="list-decimal pl-4 space-y-0.5">
+          <li>This slip is issued under the authority of the Nigeria Immigration Service as temporary attestation of lawful ECOWAS residence enrollment.</li>
+          <li>It affords the holder lawful resident status in the Federal Republic of Nigeria during the period of card production.</li>
+          <li><strong>AUTOMATIC EXPIRATION:</strong> This temporary slip immediately becomes <strong className="text-red-700">NULL, VOID AND INVALID</strong> once the holder&apos;s physical ECOWAS Residence Card is produced and issued.</li>
+          <li>Law enforcement and security agencies may verify the authenticity of this slip in real-time using the QR code.</li>
+        </ol>
+      </div>
+
+      {/* Official Sign-off Box */}
+      <div className="mt-5 grid grid-cols-2 gap-8 text-center text-xs">
+        <div>
+          <div className="h-10 border-b border-dashed border-slate-400"></div>
+          <div className="mt-1 font-semibold text-slate-700">Holder&apos;s Signature</div>
+        </div>
+        <div>
+          <div className="h-10 border-b border-dashed border-slate-400 flex items-center justify-center text-[11px] font-bold text-nis-primary">
+            NIGERIA IMMIGRATION SERVICE
+          </div>
+          <div className="mt-1 font-semibold text-slate-700">Authorized Immigration Officer / Official Stamp</div>
+        </div>
+      </div>
+
+      <p className="mt-6 text-center text-[10px] text-slate-400">
+        NIS RCIS System · Document ID: TR-{a.reference_number} · Page 1 of 1
+      </p>
     </article>
   );
 }

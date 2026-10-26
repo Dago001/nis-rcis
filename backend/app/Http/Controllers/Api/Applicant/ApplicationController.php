@@ -222,7 +222,7 @@ class ApplicationController
      */
     public function slip(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
-        $application = $this->owned($request, $id)->load(['enrollmentCenter', 'documents', 'principal']);
+        $application = $this->owned($request, $id)->load(['enrollmentCenter', 'documents', 'principal', 'card']);
         $payment = $application->payments()->where('status', 'SUCCESS')->latest('id')->first();
 
         return response()->json([
@@ -232,8 +232,8 @@ class ApplicationController
                 ->reject(fn ($d) => $d->type === DocumentType::Signature)
                 ->map(fn ($d) => ['type' => $d->type->value, 'label' => $d->type->label()])->values(),
             'submitted_at' => $application->submitted_at?->toIso8601String(),
-            'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
-            'signature_url' => $storage->temporaryUrlForPath($application->signature_path),
+            'photo_url' => $storage->temporaryUrlForPath($application->photo_path ?? $application->documents->firstWhere('type', DocumentType::Photo)?->path),
+            'signature_url' => $storage->temporaryUrlForPath($application->signature_path ?? $application->documents->firstWhere('type', DocumentType::Signature)?->path),
             'qr_payload' => "NIS-RCIS|APP:{$application->application_number}|REF:{$application->reference_number}",
             'appointment_slip_available' => ! empty($application->appointment_date) && ! in_array($application->status, [
                 ApplicationStatus::Queried, ApplicationStatus::Rejected,
