@@ -12,6 +12,16 @@
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}?v=1.1">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/apple-touch-icon.png') }}?v=1.1">
 
+    @php
+        $turnstileSiteKey = config('services.turnstile.site_key') ?: '0x4AAAAAAFpWM5olq43To2dX';
+    @endphp
+    @if ($turnstileSiteKey)
+        <script>
+            window.__TURNSTILE_SITE_KEY__ = @json($turnstileSiteKey);
+        </script>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    @endif
+
     @if (app()->environment('local') && file_exists(public_path('hot')))
         @viteReactRefresh
     @endif

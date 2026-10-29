@@ -51,6 +51,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'locale' => app()->getLocale(),
+            'turnstile_site_key' => config('services.turnstile.site_key') ?: '0x4AAAAAAFpWM5olq43To2dX',
             'auth' => [
                 'applicant' => $applicant ? [
                     'id' => $applicant->id,

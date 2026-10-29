@@ -14,6 +14,10 @@ export default function ForgotPasswordPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!turnstileToken) {
+      setError("Please complete the security challenge below.");
+      return;
+    }
     setBusy(true);
     setError(null);
 

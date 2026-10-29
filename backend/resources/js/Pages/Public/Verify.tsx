@@ -43,18 +43,22 @@ function VerifyContent() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!turnstileToken) {
+      setManualError("Please complete the security challenge before verifying.");
+      return;
+    }
     setManual(null);
     setManualError(null);
     setBusy(true);
 
     const formData = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
-    if (turnstileToken) {
-      formData["cf-turnstile-response"] = turnstileToken;
-    }
+    formData["cf-turnstile-response"] = turnstileToken;
     const query = new URLSearchParams(formData);
 
     try {
       setManual(await api<Verification>("public", `verify-card?${query}`));
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     } catch (e) {
       setManualError((e as Error).message);
       turnstileRef.current?.reset();

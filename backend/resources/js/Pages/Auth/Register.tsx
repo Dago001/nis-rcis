@@ -67,6 +67,10 @@ function RegisterForm() {
     event.preventDefault();
     setTouched({ surname: true, forenames: true, email: true, phone: true, password: true, password_confirmation: true, privacy_consent: true });
     if (Object.keys(clientErrors).length) return;
+    if (!turnstileToken) {
+      setServerErrors((e) => ({ ...e, "cf-turnstile-response": t("Please complete the security challenge below.") }));
+      return;
+    }
     setBusy(true);
     setServerErrors({});
     try {

@@ -30,10 +30,12 @@ export default function TrackPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
-    if (turnstileToken) {
-      formData["cf-turnstile-response"] = turnstileToken;
+    if (!turnstileToken) {
+      setError("Please complete the security challenge below.");
+      return;
     }
+    const formData = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    formData["cf-turnstile-response"] = turnstileToken;
     const query = new URLSearchParams(formData);
 
     setBusy(true);
@@ -42,6 +44,8 @@ export default function TrackPage() {
 
     try {
       setResult(await api<TrackResult>("public", `track?${query}`));
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     } catch (e) {
       setError(e instanceof ApiError && e.status === 429 ? "Too many attempts. Please wait a minute." : (e as Error).message);
       turnstileRef.current?.reset();

@@ -31,6 +31,9 @@ if [ -d "$BACKEND_DIR" ]; then
     cd "$BACKEND_DIR"
     mkdir -p app/Rules app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant app/Http/Controllers/Api/Public app/Http/Controllers/Auth app/Http/Middleware resources/views/auth config routes
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/routes/api.php -o routes/api.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/routes/web.php -o routes/web.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/app.blade.php -o resources/views/app.blade.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Middleware/HandleInertiaRequests.php -o app/Http/Middleware/HandleInertiaRequests.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Rules/Turnstile.php -o app/Rules/Turnstile.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/config/services.php -o config/services.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Middleware/SecurityHeaders.php -o app/Http/Middleware/SecurityHeaders.php
@@ -83,19 +86,22 @@ fi
 
 # Step 3: Update Inertia Public Build Assets
 echo "[3/4] Updating Public Build Assets..."
-if [ -d "$BUILD_DIR" ]; then
-    cd "$BUILD_DIR"
-    echo "  -> Downloading complete build package..."
-    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/frontend-dist/build_update.tar.gz -o build_update.tar.gz
-    tar -xzf build_update.tar.gz
-    rm -f build_update.tar.gz
-    echo "  -> Public build assets updated."
-fi
-if [ -d "$BACKEND_DIR/public/build" ]; then
+mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+echo "  -> Downloading complete build package..."
+curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/frontend-dist/build_update.tar.gz -o build_update.tar.gz
+tar -xzf build_update.tar.gz
+rm -f build_update.tar.gz
+chmod -R 755 "$BUILD_DIR" 2>/dev/null || true
+echo "  -> Public build assets updated."
+
+if [ -d "$BACKEND_DIR" ]; then
+    mkdir -p "$BACKEND_DIR/public/build"
     cd "$BACKEND_DIR/public/build"
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/frontend-dist/build_update.tar.gz -o build_update.tar.gz
     tar -xzf build_update.tar.gz
     rm -f build_update.tar.gz
+    chmod -R 755 "$BACKEND_DIR/public/build" 2>/dev/null || true
 fi
 
 # Step 4: Restart Workers
