@@ -29,7 +29,8 @@ fi
 echo "[2/4] Updating Backend Controllers & Services..."
 if [ -d "$BACKEND_DIR" ]; then
     cd "$BACKEND_DIR"
-    mkdir -p app/Rules app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant app/Http/Controllers/Auth app/Http/Middleware resources/views/auth config
+    mkdir -p app/Rules app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant app/Http/Controllers/Auth app/Http/Middleware resources/views/auth config routes
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/routes/api.php -o routes/api.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Rules/Turnstile.php -o app/Rules/Turnstile.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/config/services.php -o config/services.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Middleware/SecurityHeaders.php -o app/Http/Middleware/SecurityHeaders.php
