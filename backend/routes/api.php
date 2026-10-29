@@ -55,6 +55,7 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('public')->group(function () {
         Route::get('push-key', [PushController::class, 'key']);
+        Route::get('turnstile-key', fn () => response()->json(['site_key' => config('services.turnstile.site_key') ?: null]));
         Route::get('announcements', [SettingController::class, 'publicAnnouncements']);
         Route::get('enrollment-centers', [PublicController::class, 'centers']);
         Route::get('enrollment-centers/{center}/availability', [PublicController::class, 'availability']);
@@ -297,6 +298,7 @@ Route::prefix('v1')->group(function () {
 
 // Backward compatibility for Next.js public-account endpoints
 Route::prefix('public-account')->group(function () {
+    Route::get('turnstile-key', fn () => response()->json(['site_key' => config('services.turnstile.site_key') ?: null]));
     Route::post('register', [AccountController::class, 'register'])->middleware('throttle:registration');
     Route::post('email/resend', [AccountController::class, 'resendVerification'])->middleware('throttle:registration');
     Route::post('password/forgot', [AccountController::class, 'forgotPassword'])->middleware('throttle:registration');

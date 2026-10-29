@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 
 declare global {
   interface Window {
@@ -42,7 +42,12 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(function Turns
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const siteKey = customSiteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const [resolvedSiteKey, setResolvedSiteKey] = useState<string | null>(
+    customSiteKey ||
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+    (typeof process !== "undefined" && (process.env?.TURNSTILE_SITE_KEY || process.env?.SITE_KEY)) ||
+    null
+  );
 
   useImperativeHandle(ref, () => ({
     reset: () => {
@@ -56,8 +61,27 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(function Turns
     },
   }));
 
+  // Fetch from /api/turnstile-key if not already provided via env
   useEffect(() => {
-    if (!siteKey || !containerRef.current) return;
+    if (resolvedSiteKey) return;
+
+    let active = true;
+    fetch("/api/turnstile-key")
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && data?.site_key) {
+          setResolvedSiteKey(data.site_key);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [resolvedSiteKey]);
+
+  useEffect(() => {
+    if (!resolvedSiteKey || !containerRef.current) return;
 
     let isMounted = true;
 
@@ -74,7 +98,7 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(function Turns
 
       try {
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
-          sitekey: siteKey!,
+          sitekey: resolvedSiteKey!,
           action,
           theme: "light",
           callback: (token: string) => {
@@ -123,9 +147,9 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(function Turns
         widgetIdRef.current = null;
       }
     };
-  }, [siteKey, action, onVerify, onExpire, onError]);
+  }, [resolvedSiteKey, action, onVerify, onExpire, onError]);
 
-  if (!siteKey) return null;
+  if (!resolvedSiteKey) return null;
 
   return (
     <div className={className ?? "my-3 flex justify-center"}>
