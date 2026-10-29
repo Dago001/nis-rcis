@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Models\Applicant;
+use App\Rules\Turnstile;
 use App\Support\Audit;
 use App\Support\Features;
 use Illuminate\Http\RedirectResponse;
@@ -36,9 +37,16 @@ class ApplicantLoginController
 
     public function login(Request $request): RedirectResponse
     {
+        if ($request->filled('turnstile_token') && ! $request->filled('cf-turnstile-response')) {
+            $request->merge(['cf-turnstile-response' => $request->input('turnstile_token')]);
+        }
+
         $data = $request->validate([
             'identifier' => ['required', 'email', 'max:255'],
             'password' => ['required', 'string', 'max:200'],
+            'cf-turnstile-response' => Turnstile::rule(),
+        ], [
+            'cf-turnstile-response.required' => 'Please complete the security challenge.',
         ]);
 
         $email = strtolower($data['identifier']);

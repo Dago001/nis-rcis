@@ -97,6 +97,9 @@
         }
         .env-banner { background: #ea7317; color: #fff; text-align: center; font: 600 13px/1.4 system-ui, sans-serif; padding: 6px 12px; letter-spacing: .04em; }
     </style>
+    @if(config('services.turnstile.site_key'))
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endif
 </head>
 <body>
 @if (filled(config('nis.environment_label')))

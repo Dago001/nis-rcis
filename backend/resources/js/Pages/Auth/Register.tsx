@@ -1,4 +1,4 @@
-import React, { Suspense, useState, type FormEvent } from "react";
+import React, { Suspense, useState, useRef, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -9,6 +9,7 @@ import { ApiError } from "@/lib/api-client";
 import { useI18n } from "@/components/I18nProvider";
 import type { Translate } from "@/lib/i18n";
 import { AuthLayout } from "@/components/public/PublicLayout";
+import { Turnstile, type TurnstileRef } from "@/components/Turnstile";
 
 async function post(path: string, body: unknown) {
   const response = await fetch(`/api/public-account/${path}`, {
@@ -51,6 +52,8 @@ function RegisterForm() {
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const turnstileRef = useRef<TurnstileRef>(null);
 
   const clientErrors = check(values, resend, t);
   const errorFor = (field: keyof Values) => (touched[field] ? clientErrors[field] : undefined) ?? serverErrors[field];
@@ -67,11 +70,24 @@ function RegisterForm() {
     setBusy(true);
     setServerErrors({});
     try {
-      const body = resend ? { email: values.email.trim() } : { ...values, privacy_consent: values.privacy_consent === "1", surname: values.surname.trim(), forenames: values.forenames.trim(), email: values.email.trim() };
+      const body = resend
+        ? { email: values.email.trim(), "cf-turnstile-response": turnstileToken }
+        : {
+            ...values,
+            privacy_consent: values.privacy_consent === "1",
+            surname: values.surname.trim(),
+            forenames: values.forenames.trim(),
+            email: values.email.trim(),
+            "cf-turnstile-response": turnstileToken,
+          };
       const result = await post(resend ? "email/resend" : "register", body);
       setMessage(result.message);
     } catch (e) {
-      if (e instanceof ApiError) setServerErrors({ ...e.fieldErrors(), _: e.message });
+      if (e instanceof ApiError) {
+        setServerErrors({ ...e.fieldErrors(), _: e.message });
+        turnstileRef.current?.reset();
+        setTurnstileToken("");
+      }
     } finally {
       setBusy(false);
     }
@@ -134,6 +150,21 @@ function RegisterForm() {
             {errorFor("privacy_consent") && <span className="mt-1 block text-xs text-red-700">{errorFor("privacy_consent")}</span>}
           </div>
         </>
+      )}
+      <Turnstile
+        ref={turnstileRef}
+        action={resend ? "resend" : "register"}
+        onVerify={(token) => {
+          setTurnstileToken(token);
+          setServerErrors((e) => ({ ...e, turnstile: "", "cf-turnstile-response": "" }));
+        }}
+        onExpire={() => setTurnstileToken("")}
+      />
+      {serverErrors["cf-turnstile-response"] && (
+        <Alert tone="danger">{serverErrors["cf-turnstile-response"]}</Alert>
+      )}
+      {serverErrors.turnstile && (
+        <Alert tone="danger">{serverErrors.turnstile}</Alert>
       )}
       <Button type="submit" disabled={busy} className="w-full">{busy ? t("Please wait…") : resend ? t("Resend verification e-mail") : t("Create account")}</Button>
       <p className="text-center text-sm text-slate-600">{t("Already registered?")} <Link href="/login" className="text-nis-primary underline">{t("Sign in")}</Link></p>

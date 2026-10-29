@@ -31,12 +31,13 @@ const scannerOrigin = [
 // development, where hot reloading needs eval().
 const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${apiOrigins}`,
   "font-src 'self'",
   // Link prefetches can follow the sign-in redirect to the authorization server.
-  `connect-src 'self' ${apiOrigins} ${scannerOrigin}`,
+  `connect-src 'self' ${apiOrigins} ${scannerOrigin} https://challenges.cloudflare.com`,
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

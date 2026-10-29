@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Applicant;
 
 use App\Models\Applicant;
 use App\Models\Application;
+use App\Rules\Turnstile;
 use App\Support\ApplicationRules;
 use App\Support\Audit;
 use App\Support\Features;
@@ -20,6 +21,10 @@ class AccountController
 {
     public function register(Request $request): JsonResponse
     {
+        if ($request->filled('turnstile_token') && ! $request->filled('cf-turnstile-response')) {
+            $request->merge(['cf-turnstile-response' => $request->input('turnstile_token')]);
+        }
+
         $data = $request->validate([
             'surname' => ['required', 'string', 'max:100', 'regex:'.ApplicationRules::NAME],
             'forenames' => ['required', 'string', 'max:150', 'regex:'.ApplicationRules::NAME],
@@ -31,7 +36,11 @@ class AccountController
             }],
             'password' => ['required', 'confirmed', PasswordRule::min(6)->letters()->numbers()],
             'privacy_consent' => ['accepted'],
-        ], ['privacy_consent.accepted' => 'You must read and accept the privacy notice to create an account.']);
+            'cf-turnstile-response' => Turnstile::rule(),
+        ], [
+            'privacy_consent.accepted' => 'You must read and accept the privacy notice to create an account.',
+            'cf-turnstile-response.required' => 'Please complete the security challenge.',
+        ]);
 
         $email = strtolower($data['email']);
 
@@ -86,7 +95,16 @@ class AccountController
 
     public function resendVerification(Request $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'email']]);
+        if ($request->filled('turnstile_token') && ! $request->filled('cf-turnstile-response')) {
+            $request->merge(['cf-turnstile-response' => $request->input('turnstile_token')]);
+        }
+
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'cf-turnstile-response' => Turnstile::rule(),
+        ], [
+            'cf-turnstile-response.required' => 'Please complete the security challenge.',
+        ]);
         $applicant = Applicant::where('email', strtolower($data['email']))->first();
 
         if ($applicant && ! $applicant->hasVerifiedEmail()) {
@@ -102,7 +120,16 @@ class AccountController
 
     public function forgotPassword(Request $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'email']]);
+        if ($request->filled('turnstile_token') && ! $request->filled('cf-turnstile-response')) {
+            $request->merge(['cf-turnstile-response' => $request->input('turnstile_token')]);
+        }
+
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'cf-turnstile-response' => Turnstile::rule(),
+        ], [
+            'cf-turnstile-response.required' => 'Please complete the security challenge.',
+        ]);
         try {
             Password::broker('applicants')->sendResetLink(['email' => strtolower($data['email'])]);
         } catch (\Throwable $e) {
