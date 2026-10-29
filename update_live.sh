@@ -25,11 +25,20 @@ else
     echo "  [SKIP] $FRONTEND_DIR not found."
 fi
 
-# Step 2: Update Backend Controllers
-echo "[2/4] Updating Backend Controllers & API..."
+# Step 2: Update Backend Controllers & Configuration
+echo "[2/4] Updating Backend Controllers & Services..."
 if [ -d "$BACKEND_DIR" ]; then
     cd "$BACKEND_DIR"
-    mkdir -p app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant
+    mkdir -p app/Rules app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant app/Http/Controllers/Auth app/Http/Middleware resources/views/auth config
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Rules/Turnstile.php -o app/Rules/Turnstile.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/config/services.php -o config/services.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Middleware/SecurityHeaders.php -o app/Http/Middleware/SecurityHeaders.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Auth/ApplicantLoginController.php -o app/Http/Controllers/Auth/ApplicantLoginController.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Auth/StaffLoginController.php -o app/Http/Controllers/Auth/StaffLoginController.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Applicant/AccountController.php -o app/Http/Controllers/Api/Applicant/AccountController.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/layout.blade.php -o resources/views/layout.blade.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/auth/applicant-login.blade.php -o resources/views/auth/applicant-login.blade.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/auth/staff-login.blade.php -o resources/views/auth/staff-login.blade.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Staff/ApplicationController.php -o app/Http/Controllers/Api/Staff/ApplicationController.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Applicant/ApplicationController.php -o app/Http/Controllers/Api/Applicant/ApplicationController.php
     echo "  -> Clearing Laravel cache..."
