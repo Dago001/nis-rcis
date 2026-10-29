@@ -83,11 +83,18 @@ fi
 # Step 3: Update Inertia Public Build Assets
 echo "[3/4] Updating Public Build Assets..."
 if [ -d "$BUILD_DIR" ]; then
-    mkdir -p "$BUILD_DIR/assets"
-    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/public/build/manifest.json -o "$BUILD_DIR/manifest.json"
-    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/public/build/assets/Slip-2pgJmLOP.js -o "$BUILD_DIR/assets/Slip-2pgJmLOP.js"
-    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/public/build/assets/QrCode-BuufxRkh.js -o "$BUILD_DIR/assets/QrCode-BuufxRkh.js"
+    cd "$BUILD_DIR"
+    echo "  -> Downloading complete build package..."
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/frontend-dist/build_update.tar.gz -o build_update.tar.gz
+    tar -xzf build_update.tar.gz
+    rm -f build_update.tar.gz
     echo "  -> Public build assets updated."
+fi
+if [ -d "$BACKEND_DIR/public/build" ]; then
+    cd "$BACKEND_DIR/public/build"
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/frontend-dist/build_update.tar.gz -o build_update.tar.gz
+    tar -xzf build_update.tar.gz
+    rm -f build_update.tar.gz
 fi
 
 # Step 4: Restart Workers

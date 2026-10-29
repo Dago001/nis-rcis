@@ -51,10 +51,15 @@ echo "DONE PACKAGING: $tarSize bytes\n";
 // Automatically publish to frontend-dist branch for direct curl deployment
 $tar = "$dist/next_update.tar.gz";
 $blob = trim(shell_exec("git hash-object -w \"$tar\""));
+
+$buildTar = "$dist/build_update.tar.gz";
+exec("tar -czf \"$buildTar\" -C \"c:/nis-rcis-new/backend/public/build\" .");
+$buildBlob = trim(shell_exec("git hash-object -w \"$buildTar\""));
+
 $descriptorspec = [0 => ["pipe", "r"], 1 => ["pipe", "w"], 2 => ["pipe", "w"]];
 $process = proc_open("git mktree", $descriptorspec, $pipes);
 if (is_resource($process)) {
-    fwrite($pipes[0], "100644 blob $blob\tnext_update.tar.gz\n");
+    fwrite($pipes[0], "100644 blob $blob\tnext_update.tar.gz\n100644 blob $buildBlob\tbuild_update.tar.gz\n");
     fclose($pipes[0]);
     $tree = trim(stream_get_contents($pipes[1]));
     fclose($pipes[1]);
