@@ -42,6 +42,37 @@ if [ -d "$BACKEND_DIR" ]; then
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/auth/staff-login.blade.php -o resources/views/auth/staff-login.blade.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Staff/ApplicationController.php -o app/Http/Controllers/Api/Staff/ApplicationController.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Applicant/ApplicationController.php -o app/Http/Controllers/Api/Applicant/ApplicationController.php
+
+    # Auto-detect Turnstile keys if entered into any surrounding .env file
+    sync_env_keys() {
+        local src="$1"
+        local dst="$2"
+        if [ -f "$src" ] && [ -f "$dst" ]; then
+            for key in SITE_KEY SECRET_KEY TURNSTILE_SITE_KEY TURNSTILE_SECRET_KEY TURNSTILE_ENABLED; do
+                local val
+                val=$(grep -E "^${key}=" "$src" 2>/dev/null | tail -n 1)
+                if [ -n "$val" ]; then
+                    if grep -q "^${key}=" "$dst" 2>/dev/null; then
+                        sed -i "s|^${key}=.*|$val|" "$dst"
+                    else
+                        echo "$val" >> "$dst"
+                    fi
+                fi
+            done
+        fi
+    }
+    sync_env_keys "/home/nimcosel/domains/rcis.nimcoselection.com/backend/.env" "$BACKEND_DIR/.env"
+    sync_env_keys "/home/nimcosel/domains/rcis.nimcoselection.com/.env" "$BACKEND_DIR/.env"
+    sync_env_keys "/home/nimcosel/domains/rcis.nimcoselection.com/public_html/.env" "$BACKEND_DIR/.env"
+    sync_env_keys "/home/nimcosel/domains/rcis.nimcoselection.com/public_html/frontend/.env" "$BACKEND_DIR/.env"
+    sync_env_keys "/home/nimcosel/domains/rcis.nimcoselection.com/public_html/frontend/.env.production" "$BACKEND_DIR/.env"
+
+    if grep -E -q "^(SITE_KEY|TURNSTILE_SITE_KEY)=" "$BACKEND_DIR/.env" 2>/dev/null; then
+        echo "  -> Cloudflare Turnstile keys detected in backend/.env: ACTIVE"
+    else
+        echo "  -> Notice: SITE_KEY has not been added to $BACKEND_DIR/.env yet."
+    fi
+
     echo "  -> Clearing Laravel cache..."
     php artisan optimize:clear 2>/dev/null || true
     echo "  -> Backend updated successfully."
