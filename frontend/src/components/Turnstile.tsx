@@ -61,12 +61,16 @@ export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(function Turns
     },
   }));
 
-  // Fetch from /api/turnstile-key if not already provided via env
+  // Fetch from /api/public-account/turnstile-key if not already provided via env
   useEffect(() => {
     if (resolvedSiteKey) return;
 
     let active = true;
-    fetch("/api/turnstile-key")
+    fetch("/api/public-account/turnstile-key")
+      .then((res) => {
+        if (!res.ok) return fetch("/api/turnstile-key");
+        return res;
+      })
       .then((res) => res.json())
       .then((data) => {
         if (active && data?.site_key) {

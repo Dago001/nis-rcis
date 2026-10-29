@@ -304,3 +304,5 @@ Route::prefix('public-account')->group(function () {
     Route::post('password/forgot', [AccountController::class, 'forgotPassword'])->middleware('throttle:registration');
     Route::post('password/reset', [AccountController::class, 'resetPassword'])->middleware('throttle:login');
 });
+
+Route::get('turnstile-key', fn () => response()->json(['site_key' => config('services.turnstile.site_key') ?: null]));
