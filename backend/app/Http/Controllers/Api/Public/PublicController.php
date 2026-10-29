@@ -7,6 +7,7 @@ use App\Models\EnrollmentCenter;
 use App\Models\NisZone;
 use App\Models\QueueTicket;
 use App\Models\ResidenceCard;
+use App\Rules\Turnstile;
 use App\Services\AppointmentScheduler;
 use App\Services\DocumentStorage;
 use Carbon\CarbonImmutable;
@@ -97,9 +98,16 @@ class PublicController
      */
     public function track(Request $request): JsonResponse
     {
+        if ($request->filled('turnstile_token') && ! $request->filled('cf-turnstile-response')) {
+            $request->merge(['cf-turnstile-response' => $request->input('turnstile_token')]);
+        }
+
         $data = $request->validate([
             'application_number' => ['required', 'string', 'max:32'],
             'passport_number' => ['required', 'string', 'max:20'],
+            'cf-turnstile-response' => Turnstile::rule(),
+        ], [
+            'cf-turnstile-response.required' => 'Please complete the security challenge.',
         ]);
 
         $number = strtoupper(trim($data['application_number']));
@@ -132,10 +140,17 @@ class PublicController
      */
     public function verifyCard(Request $request, DocumentStorage $storage): JsonResponse
     {
+        if ($request->filled('turnstile_token') && ! $request->filled('cf-turnstile-response')) {
+            $request->merge(['cf-turnstile-response' => $request->input('turnstile_token')]);
+        }
+
         $data = $request->validate([
             'token' => ['required_without_all:card_number,passport_number', 'nullable', 'string', 'size:64'],
             'card_number' => ['required_without:token', 'nullable', 'string', 'max:20'],
             'passport_number' => ['required_with:card_number', 'nullable', 'string', 'max:20'],
+            'cf-turnstile-response' => $request->filled('token') ? ['nullable'] : Turnstile::rule(),
+        ], [
+            'cf-turnstile-response.required' => 'Please complete the security challenge.',
         ]);
 
         $byToken = ! empty($data['token']);

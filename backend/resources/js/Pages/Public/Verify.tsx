@@ -1,4 +1,4 @@
-import React, { Suspense, useState, type FormEvent } from "react";
+import React, { Suspense, useState, useRef, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { ContentLayout } from "@/components/public/PublicLayout";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -6,6 +6,7 @@ import { Alert, Button, Dl, Field, Input, Panel } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { useFetch } from "@/lib/use-fetch";
 import { dateTime, nisDate } from "@/lib/format";
+import { Turnstile, type TurnstileRef } from "@/components/Turnstile";
 
 type Verification = {
   status: string;
@@ -33,6 +34,9 @@ function VerifyContent() {
   const byToken = useFetch<Verification>("public", token ? `verify-card?${new URLSearchParams({ token })}` : null);
   const [manual, setManual] = useState<Verification | null>(null);
   const [manualError, setManualError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileRef>(null);
 
   const result = token ? byToken.data : manual;
   const error = token ? byToken.error : manualError;
@@ -41,11 +45,22 @@ function VerifyContent() {
     event.preventDefault();
     setManual(null);
     setManualError(null);
-    const query = new URLSearchParams(Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>);
+    setBusy(true);
+
+    const formData = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    if (turnstileToken) {
+      formData["cf-turnstile-response"] = turnstileToken;
+    }
+    const query = new URLSearchParams(formData);
+
     try {
       setManual(await api<Verification>("public", `verify-card?${query}`));
     } catch (e) {
       setManualError((e as Error).message);
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -53,10 +68,24 @@ function VerifyContent() {
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-xl font-semibold">Verify an ECOWAS residence card</h1>
       {!token && (
-        <form onSubmit={submit} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <Field label="Card number"><Input name="card_number" required /></Field>
-          <Field label="Passport number"><Input name="passport_number" required /></Field>
-          <Button type="submit">Verify</Button>
+        <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-6 space-y-4 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Card number">
+              <Input name="card_number" required placeholder="RC-2026-..." />
+            </Field>
+            <Field label="Passport number">
+              <Input name="passport_number" required />
+            </Field>
+          </div>
+          <Turnstile
+            ref={turnstileRef}
+            action="verify"
+            onVerify={setTurnstileToken}
+            onExpire={() => setTurnstileToken("")}
+          />
+          <Button type="submit" disabled={busy} className="w-full sm:w-auto">
+            {busy ? "Verifying…" : "Verify residence card"}
+          </Button>
         </form>
       )}
       {error && <Alert tone="danger">{error}</Alert>}
@@ -66,6 +95,7 @@ function VerifyContent() {
             <Alert tone={explain[result.status]?.[1] ?? "info"}>{explain[result.status]?.[0] ?? result.status}</Alert>
             <div className="flex flex-col gap-5 sm:flex-row">
               {result.photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={result.photo_url} alt="Card holder" className="h-40 w-32 rounded-lg border object-cover" />
               )}
               <Dl

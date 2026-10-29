@@ -29,7 +29,7 @@ fi
 echo "[2/4] Updating Backend Controllers & Services..."
 if [ -d "$BACKEND_DIR" ]; then
     cd "$BACKEND_DIR"
-    mkdir -p app/Rules app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant app/Http/Controllers/Auth app/Http/Middleware resources/views/auth config routes
+    mkdir -p app/Rules app/Http/Controllers/Api/Staff app/Http/Controllers/Api/Applicant app/Http/Controllers/Api/Public app/Http/Controllers/Auth app/Http/Middleware resources/views/auth config routes
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/routes/api.php -o routes/api.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Rules/Turnstile.php -o app/Rules/Turnstile.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/config/services.php -o config/services.php
@@ -37,6 +37,7 @@ if [ -d "$BACKEND_DIR" ]; then
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Auth/ApplicantLoginController.php -o app/Http/Controllers/Auth/ApplicantLoginController.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Auth/StaffLoginController.php -o app/Http/Controllers/Auth/StaffLoginController.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Applicant/AccountController.php -o app/Http/Controllers/Api/Applicant/AccountController.php
+    curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/app/Http/Controllers/Api/Public/PublicController.php -o app/Http/Controllers/Api/Public/PublicController.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/layout.blade.php -o resources/views/layout.blade.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/auth/applicant-login.blade.php -o resources/views/auth/applicant-login.blade.php
     curl -sL https://raw.githubusercontent.com/Dago001/nis-rcis/main/backend/resources/views/auth/staff-login.blade.php -o resources/views/auth/staff-login.blade.php

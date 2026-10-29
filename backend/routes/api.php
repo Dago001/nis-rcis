@@ -62,8 +62,8 @@ Route::prefix('v1')->group(function () {
         Route::get('enrollment-centers/{center}/queue', [PublicController::class, 'queueDisplay'])->middleware('throttle:120,1');
 
         Route::middleware('throttle:public-lookup')->group(function () {
-            Route::get('track', [PublicController::class, 'track']);
-            Route::get('verify-card', [PublicController::class, 'verifyCard']);
+            Route::match(['get', 'post'], 'track', [PublicController::class, 'track']);
+            Route::match(['get', 'post'], 'verify-card', [PublicController::class, 'verifyCard']);
         });
 
         Route::post('assistant', [AssistantController::class, 'guest'])->middleware('throttle:assistant');

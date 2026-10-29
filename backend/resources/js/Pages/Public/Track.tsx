@@ -1,10 +1,11 @@
-import React, { useState, type FormEvent } from "react";
+import React, { useState, useRef, type FormEvent } from "react";
 import { ContentLayout } from "@/components/public/PublicLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Tracker } from "@/components/Tracker";
 import { Alert, Button, Dl, Field, Input, Panel } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { nisDate, applicationType } from "@/lib/format";
+import { Turnstile, type TurnstileRef } from "@/components/Turnstile";
 
 type TrackResult = {
   application_number: string;
@@ -23,17 +24,27 @@ export default function Track() {
   const [result, setResult] = useState<TrackResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileRef>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const query = new URLSearchParams(Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>);
+    const formData = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    if (turnstileToken) {
+      formData["cf-turnstile-response"] = turnstileToken;
+    }
+    const query = new URLSearchParams(formData);
+
     setBusy(true);
     setError(null);
     setResult(null);
+
     try {
       setResult(await api<TrackResult>("public", `track?${query}`));
     } catch (e) {
       setError(e instanceof ApiError && e.status === 429 ? "Too many attempts. Please wait a minute." : (e as Error).message);
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     } finally {
       setBusy(false);
     }
@@ -43,10 +54,24 @@ export default function Track() {
     <ContentLayout>
       <div className="mx-auto max-w-2xl space-y-6">
         <h1 className="text-xl font-semibold">Track your application</h1>
-        <form onSubmit={submit} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <Field label="Application or reference number"><Input name="application_number" required placeholder="RC-2026-100001" /></Field>
-          <Field label="Passport number"><Input name="passport_number" required /></Field>
-          <Button type="submit" disabled={busy}>Track</Button>
+        <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-6 space-y-4 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Application or reference number">
+              <Input name="application_number" required placeholder="RC-2026-100001" />
+            </Field>
+            <Field label="Passport number">
+              <Input name="passport_number" required />
+            </Field>
+          </div>
+          <Turnstile
+            ref={turnstileRef}
+            action="track"
+            onVerify={setTurnstileToken}
+            onExpire={() => setTurnstileToken("")}
+          />
+          <Button type="submit" disabled={busy} className="w-full sm:w-auto">
+            {busy ? "Checking…" : "Track application"}
+          </Button>
         </form>
         {error && <Alert tone="danger">{error}</Alert>}
         {result && (
