@@ -27,7 +27,7 @@ class ResetTestAccountsData extends Command
     public function handle(): int
     {
         $targetOption = $this->option('target');
-        $targets = $targetOption ? array_map('trim', explode(',', $targetOption)) : ['ezeab.nis@gmail.com'];
+        $targets = $targetOption ? array_map('trim', explode(',', $targetOption)) : TestAccountResetter::TARGET_EMAILS;
 
         if ($this->option('inspect') || $this->option('dry-run')) {
             $this->info('Running pre-deletion inventory inspect...');
