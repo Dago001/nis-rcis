@@ -5,352 +5,668 @@
 <title>Temporary Residence Card - {{ $card['temporary_card_number'] }}</title>
 <style>
     @page {
-        margin: 15mm 15mm 15mm 15mm;
+        margin: 8mm 10mm 8mm 10mm;
         size: A4 portrait;
     }
     body {
         font-family: DejaVu Sans, Helvetica, Arial, sans-serif;
-        color: #1e293b;
+        color: #10241a;
         margin: 0;
         padding: 0;
-        font-size: 11px;
-        line-height: 1.4;
+        font-size: 9pt;
+        line-height: 1.35;
     }
-    .watermark-banner {
-        background-color: #fffbeb;
-        border: 1px dashed #d97706;
-        color: #92400e;
+    .header-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 5mm;
+    }
+    .header-logo {
+        width: 18mm;
+        text-align: left;
+        vertical-align: middle;
+    }
+    .header-text {
         text-align: center;
-        padding: 6px 10px;
-        margin-bottom: 15px;
-        border-radius: 4px;
-        font-size: 9.5px;
+        vertical-align: middle;
+    }
+    .header-country {
+        font-size: 11pt;
         font-weight: bold;
-        letter-spacing: 0.5px;
-    }
-    .card-container {
-        border: 2.5px solid #15803d;
-        border-radius: 8px;
-        padding: 16px 20px;
-        background-color: #ffffff;
-        position: relative;
-    }
-    .card-header {
-        text-align: center;
-        border-bottom: 2px solid #15803d;
-        padding-bottom: 12px;
-        margin-bottom: 14px;
-    }
-    .logo {
-        height: 58px;
-        margin-bottom: 4px;
-    }
-    .country {
-        font-size: 13px;
-        font-weight: bold;
-        color: #0f172a;
         letter-spacing: 1px;
+        color: #062e1b;
         text-transform: uppercase;
     }
-    .agency {
-        font-size: 15px;
+    .header-agency {
+        font-size: 13pt;
         font-weight: bold;
-        color: #15803d;
         letter-spacing: 0.8px;
+        color: #0a4a2c;
         text-transform: uppercase;
-        margin-top: 2px;
+        margin-top: 1px;
     }
-    .directorate {
-        font-size: 9px;
+    .header-sub {
+        font-size: 7.5pt;
         color: #475569;
-        margin-top: 2px;
+        margin-top: 1px;
     }
-    .doc-title-box {
+
+    /* Prominent 30-Day Validity Banner */
+    .validity-container {
+        border: 1.5px solid #0a4a2c;
         background-color: #f0fdf4;
-        border: 1px solid #86efac;
-        padding: 6px 12px;
-        border-radius: 4px;
-        margin: 10px auto 14px;
+        border-radius: 3mm;
+        padding: 2.5mm 4mm;
+        margin-bottom: 5mm;
         text-align: center;
     }
-    .doc-title {
-        font-size: 14px;
+    .validity-title {
+        font-size: 10pt;
         font-weight: bold;
-        color: #166534;
+        color: #0a4a2c;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    .doc-subtitle {
-        font-size: 10px;
-        font-style: italic;
-        color: #15803d;
-    }
-    .main-grid {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 14px;
-    }
-    .main-grid td {
-        vertical-align: top;
-    }
-    .photo-col {
-        width: 140px;
-        padding-right: 18px;
-        text-align: center;
-    }
-    .photo-box {
-        width: 130px;
-        height: 160px;
-        border: 1.5px solid #cbd5e1;
-        border-radius: 4px;
-        overflow: hidden;
-        background-color: #f8fafc;
-        margin: 0 auto;
-    }
-    .photo-img {
-        width: 130px;
-        height: 160px;
-        object-fit: cover;
-    }
-    .sig-box {
-        width: 130px;
-        height: 48px;
-        border: 1px dashed #cbd5e1;
-        border-radius: 4px;
-        margin: 8px auto 0;
-        background-color: #f8fafc;
-        text-align: center;
-    }
-    .sig-img {
-        max-width: 120px;
-        max-height: 44px;
-    }
-    .sig-label {
-        font-size: 8px;
-        color: #64748b;
-        margin-top: 2px;
-        text-transform: uppercase;
-    }
-    .particulars-col {
-        padding-right: 15px;
-    }
-    .particulars-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .particulars-table td {
-        padding: 4.5px 6px;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: 10.5px;
-    }
-    .particulars-table .lbl {
-        width: 36%;
-        font-weight: 600;
-        color: #64748b;
-        text-transform: uppercase;
-        font-size: 9px;
-    }
-    .particulars-table .val {
-        color: #0f172a;
-        font-weight: 600;
-    }
-    .val-highlight {
-        color: #15803d !important;
-        font-weight: bold;
-    }
-    .qr-col {
-        width: 135px;
-        text-align: center;
-        border-left: 1px solid #e2e8f0;
-        padding-left: 14px;
-    }
-    .qr-box {
-        width: 120px;
-        height: 120px;
-        margin: 0 auto;
-        padding: 4px;
-        background: #ffffff;
-        border: 1px solid #cbd5e1;
-        border-radius: 4px;
-    }
-    .qr-box img {
-        width: 112px;
-        height: 112px;
-    }
-    .qr-desc {
-        font-size: 8px;
-        color: #64748b;
-        margin-top: 6px;
-        line-height: 1.2;
-    }
-    .status-badge {
-        display: inline-block;
-        background-color: #dcfce7;
-        color: #166534;
-        border: 1px solid #86efac;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-weight: bold;
-        font-size: 9px;
-        text-transform: uppercase;
-        margin-top: 6px;
-    }
-    .notice-box {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        padding: 10px 14px;
-        margin-top: 10px;
-        font-size: 9px;
-        color: #475569;
-        line-height: 1.45;
-    }
-    .notice-title {
+    .validity-dates {
+        margin-top: 1.5mm;
+        font-size: 8.5pt;
         font-weight: bold;
         color: #1e293b;
-        text-transform: uppercase;
-        margin-bottom: 3px;
-        font-size: 9.5px;
     }
-    .footer {
-        margin-top: 20px;
+    .validity-dates .highlight {
+        color: #b3261e;
+    }
+
+    /* Cards Side by Side */
+    .cards-row {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 5mm;
+    }
+    .card-cell {
+        width: 50%;
+        vertical-align: top;
         text-align: center;
-        font-size: 8.5px;
+    }
+    .card-side-label {
+        font-size: 7pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        color: #475569;
+        letter-spacing: 1px;
+        margin-bottom: 1.5mm;
+    }
+
+    /* Standard ID-1 Dimensions: 85.6mm x 54.0mm */
+    .id1-card {
+        position: relative;
+        width: 85.6mm;
+        height: 54.0mm;
+        margin: 0 auto;
+        border-radius: 3.4mm;
+        overflow: hidden;
+        border: 0.3mm solid #0a4a2c;
+        background-color: #f6f4ea;
+        text-align: left;
+    }
+    .template-bg {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 85.6mm;
+        height: 54.0mm;
+        z-index: 1;
+    }
+    .temp-card-banner {
+        position: absolute;
+        left: 2.4mm;
+        right: 2.4mm;
+        top: 8.6mm;
+        background-color: #0a4a2c;
+        color: #ffffff;
+        font-size: 6pt;
+        font-weight: bold;
+        text-align: center;
+        letter-spacing: 0.8px;
+        padding: 0.6mm 0;
+        border: 0.25mm solid #c9a13b;
+        border-radius: 0.8mm;
+        z-index: 5;
+        text-transform: uppercase;
+    }
+    .temp-card-banner-back {
+        position: absolute;
+        left: 2.4mm;
+        right: 2.4mm;
+        top: 2.5mm;
+        background-color: #0a4a2c;
+        color: #ffffff;
+        font-size: 6pt;
+        font-weight: bold;
+        text-align: center;
+        letter-spacing: 0.8px;
+        padding: 0.6mm 0;
+        border: 0.25mm solid #c9a13b;
+        border-radius: 0.8mm;
+        z-index: 5;
+        text-transform: uppercase;
+    }
+
+    .photo-box {
+        position: absolute;
+        left: 2.6mm;
+        top: 12.4mm;
+        width: 19.2mm;
+        height: 24.6mm;
+        border-radius: 1.2mm;
+        overflow: hidden;
+        z-index: 3;
+        background-color: #dfe7ee;
+    }
+    .photo-box img {
+        width: 100%;
+        height: 100%;
+    }
+    .sig-box {
+        position: absolute;
+        left: 2.4mm;
+        top: 39.5mm;
+        width: 21.3mm;
+        height: 5.2mm;
+        z-index: 3;
+        text-align: center;
+    }
+    .sig-box img {
+        max-width: 100%;
+        max-height: 5.2mm;
+    }
+    .card-no {
+        position: absolute;
+        right: 2.8mm;
+        top: 12.8mm;
+        font-family: DejaVu Sans Mono, monospace;
+        font-size: 6.2pt;
+        font-weight: bold;
+        color: #b3261e;
+        letter-spacing: 0.5px;
+        z-index: 4;
+        text-align: right;
+    }
+    .val-surname {
+        position: absolute;
+        left: 24.2mm;
+        top: 14.2mm;
+        width: 44mm;
+        font-size: 7pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-forenames {
+        position: absolute;
+        left: 24.2mm;
+        top: 19.6mm;
+        width: 44mm;
+        font-size: 7pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-nationality {
+        position: absolute;
+        left: 24.2mm;
+        top: 26.1mm;
+        width: 19.5mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-sex {
+        position: absolute;
+        left: 45.6mm;
+        top: 26.1mm;
+        width: 16mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        z-index: 4;
+    }
+    .val-dob {
+        position: absolute;
+        left: 24.2mm;
+        top: 31.0mm;
+        width: 19.5mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 4;
+    }
+    .val-passport {
+        position: absolute;
+        left: 45.6mm;
+        top: 31.0mm;
+        width: 18.5mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-issued-on {
+        position: absolute;
+        left: 24.2mm;
+        top: 35.8mm;
+        width: 19.5mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 4;
+    }
+    .val-expires-on {
+        position: absolute;
+        left: 45.6mm;
+        top: 35.8mm;
+        width: 18.5mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #b3261e;
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 4;
+    }
+    .val-state-code {
+        position: absolute;
+        left: 24.2mm;
+        top: 40.8mm;
+        width: 19.5mm;
+        font-size: 5.8pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        z-index: 4;
+    }
+    .nis-watermark {
+        position: absolute;
+        right: 4.2mm;
+        top: 19.6mm;
+        width: 9.4mm;
+        height: 12.8mm;
+        z-index: 2;
+        text-align: center;
+    }
+    .nis-watermark img {
+        max-width: 9.4mm;
+        max-height: 12.8mm;
+        opacity: 0.22;
+    }
+
+    /* Back Card Components */
+    .qr-box {
+        position: absolute;
+        left: 3.0mm;
+        top: 8.1mm;
+        width: 17.5mm;
+        height: 19.4mm;
+        z-index: 3;
+        text-align: center;
+    }
+    .qr-box img {
+        width: 16.5mm;
+        height: 16.5mm;
+    }
+    .val-issued-at {
+        position: absolute;
+        left: 23.4mm;
+        top: 14.3mm;
+        width: 20.5mm;
+        font-size: 5.4pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-card-type {
+        position: absolute;
+        left: 45.5mm;
+        top: 14.3mm;
+        width: 22.0mm;
+        font-size: 5.4pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 4;
+    }
+    .val-domicile {
+        position: absolute;
+        left: 23.4mm;
+        top: 17.8mm;
+        width: 58.0mm;
+        font-size: 4.8pt;
+        font-weight: 600;
+        color: #10241a;
+        line-height: 1.15;
+        max-height: 5.2mm;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-profession {
+        position: absolute;
+        left: 23.4mm;
+        top: 23.3mm;
+        width: 20.5mm;
+        font-size: 5.4pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 4;
+    }
+    .val-height {
+        position: absolute;
+        left: 45.5mm;
+        top: 23.3mm;
+        width: 18.5mm;
+        font-size: 5.4pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        z-index: 4;
+    }
+    .val-back-issued-on {
+        position: absolute;
+        left: 23.4mm;
+        top: 27.8mm;
+        width: 20.5mm;
+        font-size: 5.4pt;
+        font-weight: bold;
+        color: #10241a;
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 4;
+    }
+    .val-back-expires-on {
+        position: absolute;
+        left: 45.5mm;
+        top: 27.8mm;
+        width: 18.5mm;
+        font-size: 5.4pt;
+        font-weight: bold;
+        color: #b3261e;
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 4;
+    }
+    .validity-block-back {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 9.8mm;
+        background-color: #062e1b;
+        color: #ffffff;
+        text-align: center;
+        z-index: 5;
+        padding-top: 1.2mm;
+    }
+    .validity-block-back .line-1 {
+        font-size: 5.2pt;
+        font-weight: bold;
+        letter-spacing: 0.8px;
+        color: #e8cf7a;
+        text-transform: uppercase;
+    }
+    .validity-block-back .line-2 {
+        font-size: 4.8pt;
+        font-weight: normal;
+        margin-top: 0.5mm;
+        color: #ffffff;
+    }
+
+    /* Summary Details Table */
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 3mm;
+        font-size: 7.5pt;
+    }
+    .summary-table th, .summary-table td {
+        padding: 1.8mm 2.5mm;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+    }
+    .summary-table th {
+        font-weight: bold;
+        color: #475569;
+        text-transform: uppercase;
+        width: 25%;
+        background-color: #f8fafc;
+    }
+    .summary-table td {
+        color: #0f172a;
+    }
+
+    /* Notice Box */
+    .notice-box {
+        margin-top: 4mm;
+        border: 1px solid #cbd5e1;
+        background-color: #f8fafc;
+        border-radius: 2mm;
+        padding: 2.5mm 3.5mm;
+        font-size: 6.8pt;
+        color: #475569;
+        line-height: 1.35;
+    }
+    .notice-title {
+        font-size: 7.2pt;
+        font-weight: bold;
+        color: #0f172a;
+        text-transform: uppercase;
+        margin-bottom: 1mm;
+    }
+
+    .footer {
+        margin-top: 4mm;
+        text-align: center;
+        font-size: 6.5pt;
         color: #94a3b8;
         border-top: 1px solid #e2e8f0;
-        padding-top: 10px;
+        padding-top: 2mm;
     }
 </style>
 </head>
 <body>
 
-    <div class="watermark-banner">
-        ★ {{ $card['disclaimer'] }} ★
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td class="header-logo">
+                @if($logo)
+                    <img src="{{ $logo }}" style="height: 14mm;" alt="NIS Logo" />
+                @endif
+            </td>
+            <td class="header-text">
+                <div class="header-country">Federal Republic of Nigeria</div>
+                <div class="header-agency">Nigeria Immigration Service</div>
+                <div class="header-sub">Directorate of Visa and Residency &middot; ECOWAS Residence Card System</div>
+            </td>
+            <td class="header-logo" style="text-align: right;">
+                @if($logo)
+                    <img src="{{ $logo }}" style="height: 14mm;" alt="NIS Logo" />
+                @endif
+            </td>
+        </tr>
+    </table>
+
+    <!-- Prominent 30-Day Validity Banner -->
+    <div class="validity-container">
+        <div class="validity-title">TEMPORARY RESIDENCE CARD &middot; INTERIM RESIDENCE CREDENTIAL</div>
+        <div class="validity-dates">
+            <span>VALIDITY: {{ $card['validity_period'] }}</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;&vert;&nbsp;&nbsp;&nbsp;&nbsp;
+            <span>VALID FROM: <strong>{{ $card['valid_from'] }}</strong></span>
+            &nbsp;&nbsp;&nbsp;&nbsp;&vert;&nbsp;&nbsp;&nbsp;&nbsp;
+            <span>VALID UNTIL: <strong class="highlight">{{ $card['valid_until'] }}</strong></span>
+        </div>
     </div>
 
-    <div class="card-container">
-        <!-- Header -->
-        <div class="card-header">
-            @if(!empty($logo))
-                <img src="{{ $logo }}" class="logo" alt="Nigeria Immigration Service">
-            @endif
-            <div class="country">Federal Republic of Nigeria</div>
-            <div class="agency">Nigeria Immigration Service</div>
-            <div class="directorate">Directorate of Visa and Residency · ECOWAS Residence Card System</div>
+    <!-- Front & Back Cards Side-by-Side (ID-1 proportions: 85.6mm x 54.0mm) -->
+    <table class="cards-row">
+        <tr>
+            <!-- CARD FRONT -->
+            <td class="card-cell">
+                <div class="card-side-label">Card Front</div>
+                <div class="id1-card">
+                    @if($frontTemplate)
+                        <img src="{{ $frontTemplate }}" class="template-bg" alt="" />
+                    @endif
 
-            <div class="doc-title-box">
-                <div class="doc-title">Temporary Residence Card / Carte de Séjour Temporaire</div>
-                <div class="doc-subtitle">Official Interim Proof of Biometrics Completion & Residency</div>
-            </div>
-        </div>
+                    <!-- Identification Banner -->
+                    <div class="temp-card-banner">Temporary Residence Card</div>
 
-        <!-- Main Particulars Grid -->
-        <table class="main-grid">
-            <tr>
-                <!-- Applicant Photo & Signature -->
-                <td class="photo-col">
+                    <!-- Photo -->
                     <div class="photo-box">
-                        @if(!empty($photo))
-                            <img src="{{ $photo }}" class="photo-img" alt="Applicant Photo">
-                        @else
-                            <div style="padding-top: 60px; color: #94a3b8; font-size: 10px;">PHOTO<br>CAPTURED</div>
+                        @if($photo)
+                            <img src="{{ $photo }}" alt="Applicant Photograph" />
                         @endif
                     </div>
-                    @if(!empty($signature))
-                        <div class="sig-box">
-                            <img src="{{ $signature }}" class="sig-img" alt="Holder Signature">
-                        </div>
-                        <div class="sig-label">Digital Signature</div>
+
+                    <!-- Signature -->
+                    <div class="sig-box">
+                        @if($signature)
+                            <img src="{{ $signature }}" alt="Holder Signature" />
+                        @endif
+                    </div>
+
+                    <!-- Card / Ref Number -->
+                    <div class="card-no">{{ $card['temporary_card_number'] }}</div>
+
+                    <!-- Particulars -->
+                    <div class="val-surname">{{ $card['surname'] }}</div>
+                    <div class="val-forenames">{{ $card['forenames'] }}</div>
+                    <div class="val-nationality">{{ $card['nationality'] }}</div>
+                    <div class="val-sex">{{ $card['sex'] }}</div>
+                    <div class="val-dob">{{ $card['dob_card'] }}</div>
+                    <div class="val-passport">{{ $card['passport_number'] }}</div>
+                    <div class="val-issued-on">{{ $card['issue_date_card'] }}</div>
+                    <div class="val-expires-on">{{ $card['expiry_date_card'] }}</div>
+                    <div class="val-state-code">{{ $card['state_code'] }}</div>
+
+                    <!-- Watermark -->
+                    <div class="nis-watermark">
+                        @if($logo)
+                            <img src="{{ $logo }}" alt="" />
+                        @endif
+                    </div>
+                </div>
+            </td>
+
+            <!-- CARD BACK -->
+            <td class="card-cell">
+                <div class="card-side-label">Card Back</div>
+                <div class="id1-card">
+                    @if($backTemplate)
+                        <img src="{{ $backTemplate }}" class="template-bg" alt="" />
                     @endif
-                </td>
 
-                <!-- Applicant Particulars -->
-                <td class="particulars-col">
-                    <table class="particulars-table">
-                        <tr>
-                            <td class="lbl">Document Ref</td>
-                            <td class="val val-highlight">{{ $card['temporary_card_number'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Application No</td>
-                            <td class="val">{{ $card['application_number'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Reference No</td>
-                            <td class="val">{{ $card['reference_number'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Full Name</td>
-                            <td class="val" style="font-size: 11.5px; font-weight: bold;">{{ $card['applicant_name'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Nationality</td>
-                            <td class="val">{{ $card['nationality'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Passport No</td>
-                            <td class="val">{{ $card['passport_number'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Category</td>
-                            <td class="val">{{ $card['category'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Date of Birth</td>
-                            <td class="val">{{ $card['date_of_birth'] }} (Gender: {{ $card['sex'] }})</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Domicile / Address</td>
-                            <td class="val">{{ $card['domicile'] }}{{ $card['domicile_state'] ? ', '.$card['domicile_state'] : '' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Enrollment Office</td>
-                            <td class="val">{{ $card['enrollment_center'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Date of Capture</td>
-                            <td class="val">{{ $card['issue_date'] }}</td>
-                        </tr>
-                        <tr>
-                            <td class="lbl">Valid Until</td>
-                            <td class="val val-highlight">{{ $card['expiry_date'] }} ({{ $card['validity_period'] }})</td>
-                        </tr>
-                    </table>
-                </td>
+                    <!-- Identification Banner Back -->
+                    <div class="temp-card-banner-back">Temporary Residence Card</div>
 
-                <!-- QR Code & Status -->
-                <td class="qr-col">
+                    <!-- Verification QR -->
                     <div class="qr-box">
-                        <img src="{{ $card['qr_svg'] }}" alt="Security QR Code">
+                        <img src="{{ $card['qr_svg'] }}" alt="Verification QR Code" />
                     </div>
-                    <div class="status-badge">✓ BIOMETRICS COMPLETED</div>
-                    <div class="qr-desc">
-                        Official verification barcode.<br>
-                        Scan by law enforcement or immigration officer to verify authenticity.
+
+                    <!-- Back Particulars -->
+                    <div class="val-issued-at">{{ $card['enrollment_center'] }}</div>
+                    <div class="val-card-type">{{ $card['card_type'] }}</div>
+                    <div class="val-domicile">{{ $card['domicile_full'] }}</div>
+                    <div class="val-profession">{{ $card['profession'] }}</div>
+                    <div class="val-height">{{ $card['height'] }}</div>
+                    <div class="val-back-issued-on">{{ $card['issue_date_card'] }}</div>
+                    <div class="val-back-expires-on">{{ $card['expiry_date_card'] }}</div>
+
+                    <!-- Bottom Validity Block (Replacing MRZ) -->
+                    <div class="validity-block-back">
+                        <div class="line-1">TEMPORARY RESIDENCE CARD &middot; VALIDITY: {{ $card['validity_period'] }}</div>
+                        <div class="line-2">VALID FROM: {{ $card['issue_date_card'] }} &nbsp;&vert;&nbsp; VALID UNTIL: {{ $card['expiry_date_card'] }}</div>
                     </div>
-                </td>
-            </tr>
-        </table>
+                </div>
+            </td>
+        </tr>
+    </table>
 
-        <!-- Regulatory Notice & Instructions -->
-        <div class="notice-box">
-            <div class="notice-title">Important Legal & Regulatory Notice:</div>
-            <div>
-                1. <strong>Interim Validity:</strong> This Temporary Residence Card is issued to confirm that the holder has completed physical biometrics enrollment for the ECOWAS Residence Card under the authority of the Comptroller General of Immigration.
-            </div>
-            <div style="margin-top: 3px;">
-                2. <strong>Duration:</strong> {{ $card['validity_note'] }}
-            </div>
-            <div style="margin-top: 3px;">
-                3. <strong>Card Replacement:</strong> Upon physical collection of the permanent ECOWAS Residence Card at the designated enrollment center, this temporary card must be surrendered or deemed automatically superseded.
-            </div>
-        </div>
+    <!-- Verified Particulars Summary Table -->
+    <table class="summary-table">
+        <tr>
+            <th>Document Ref</th>
+            <td><strong>{{ $card['temporary_card_number'] }}</strong></td>
+            <th>Application No</th>
+            <td>{{ $card['application_number'] }}</td>
+        </tr>
+        <tr>
+            <th>Full Name</th>
+            <td><strong>{{ $card['applicant_name'] }}</strong></td>
+            <th>Nationality</th>
+            <td>{{ $card['nationality'] }}</td>
+        </tr>
+        <tr>
+            <th>Passport Number</th>
+            <td>{{ $card['passport_number'] }}</td>
+            <th>Date of Birth</th>
+            <td>{{ $card['date_of_birth'] }} (Sex: {{ $card['sex'] }})</td>
+        </tr>
+        <tr>
+            <th>Enrollment Center</th>
+            <td>{{ $card['enrollment_center'] }}</td>
+            <th>Biometrics Captured</th>
+            <td>{{ $card['valid_from'] }}</td>
+        </tr>
+        <tr>
+            <th>Validity Period</th>
+            <td><strong>VALIDITY: {{ $card['validity_period'] }}</strong></td>
+            <th>Validity Expiry</th>
+            <td><strong style="color: #b3261e;">{{ $card['valid_until'] }}</strong></td>
+        </tr>
+    </table>
 
-        <!-- Footer -->
-        <div class="footer">
-            Generated electronically by Nigeria Immigration Service RCIS Portal on {{ now()->timezone(config('app.timezone', 'Africa/Lagos'))->format('d/m/Y H:i') }} WAT.<br>
-            Official Template Preview · Directorate of Visa and Residency · All Rights Reserved.
+    <!-- Regulatory Notice -->
+    <div class="notice-box">
+        <div class="notice-title">Official Regulatory &amp; Legal Notice:</div>
+        <div>
+            1. <strong>Interim Legal Effect:</strong> This official Temporary Residence Card certifies that the holder has completed mandatory biometric enrollment and is lawful resident in Nigeria pending production and issuance of the permanent ECOWAS Residence Card.
         </div>
+        <div style="margin-top: 1mm;">
+            2. <strong>Validity Policy:</strong> VALIDITY: {{ $card['validity_period'] }} &mdash; Valid from {{ $card['valid_from'] }} until {{ $card['valid_until'] }} (30 calendar days from confirmed biometric enrollment date). Reprinting does not extend or reset validity.
+        </div>
+        <div style="margin-top: 1mm;">
+            3. <strong>Card Collection:</strong> When notified that your permanent card is ready, present your international passport and this temporary card at your designated enrollment center to collect your permanent card.
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        Federal Republic of Nigeria &middot; Nigeria Immigration Service &middot; Electronic Credential &middot; All Rights Reserved.
     </div>
 
 </body>

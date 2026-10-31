@@ -20,6 +20,7 @@ return [
     'fee_naira' => (int) env('RESIDENCE_CARD_FEE_NAIRA', 35000),
     'cod_fee_naira' => (int) env('NIS_COD_FEE_NAIRA', 15000),
     'card_validity_years' => (int) env('CARD_VALIDITY_YEARS', 2),
+    'temporary_card_validity_days' => (int) env('TEMPORARY_CARD_VALIDITY_DAYS', 30),
 
     // Service-level target: decide an application within this many working
     // days of submission. Public holidays (YYYY-MM-DD) are not working days.

@@ -1,0 +1,484 @@
+@font-face { font-family: NisCardInter; font-weight: 400; font-display: block; src: url("./card-fonts/inter-400.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 500; font-display: block; src: url("./card-fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 600; font-display: block; src: url("./card-fonts/inter-600.woff2") format("woff2"); }
+@font-face { font-family: NisCardInter; font-weight: 700; font-display: block; src: url("./card-fonts/inter-700.woff2") format("woff2"); }
+@font-face { font-family: NisCardCinzel; font-weight: 700; font-display: block; src: url("./card-fonts/cinzel-700.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 500; font-display: block; src: url("./card-fonts/plex-500.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 600; font-display: block; src: url("./card-fonts/plex-600.woff2") format("woff2"); }
+@font-face { font-family: NisCardPlex; font-weight: 700; font-display: block; src: url("./card-fonts/plex-600.woff2") format("woff2"); }
+
+/* Designed at 856 × 540 px and scaled to exactly 85.6 × 54 mm (ID-1 / CR80): 1 design px = 0.1 mm. */
+.slot {
+  width: 85.6mm;
+  height: 54mm;
+  flex: none;
+  box-sizing: border-box;
+}
+
+.card {
+  --g900: #062e1b;
+  --g800: #0a4a2c;
+  --g700: #0e5f38;
+  --g600: #15784a;
+  --gold: #c9a13b;
+  --gold2: #e8cf7a;
+  --ink: #10241a;
+  --paper: #f6f4ea;
+  --red: #b3261e;
+  position: relative;
+  width: 856px;
+  height: 540px;
+  border-radius: 34px;
+  overflow: hidden;
+  background: var(--paper);
+  isolation: isolate;
+  transform: scale(0.3779528);
+  transform-origin: top left;
+  font-family: NisCardInter, system-ui, sans-serif;
+  color: var(--ink);
+  line-height: normal;
+  box-shadow: 0 0 0 1px rgba(6, 46, 27, 0.35), 0 4px 12px rgba(0, 0, 0, 0.12);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.card * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.templateBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Prominent Temporary Residence Card Identification Banners */
+.temporaryBannerFront {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 86px;
+  background: var(--g800);
+  color: #ffffff;
+  font-family: NisCardInter, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.14em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1.5px solid var(--gold);
+  text-transform: uppercase;
+  z-index: 5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.temporaryBannerBack {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 24px;
+  background: var(--g800);
+  color: #ffffff;
+  font-family: NisCardInter, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.14em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1.5px solid var(--gold);
+  text-transform: uppercase;
+  z-index: 5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Front components */
+.photo {
+  position: absolute;
+  left: 26px;
+  top: 124px;
+  width: 192px;
+  height: 246px;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 2;
+  background: linear-gradient(180deg, #dfe7ee, #c9d4de);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sig {
+  position: absolute;
+  left: 24px;
+  top: 395px;
+  width: 213px;
+  height: 52px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sig img {
+  max-width: 100%;
+  max-height: 50px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.cardNo {
+  position: absolute;
+  right: 28px;
+  top: 128px;
+  text-align: right;
+  z-index: 2;
+  font-family: NisCardPlex, monospace;
+  font-weight: 700;
+  font-size: 21px;
+  color: var(--red);
+  letter-spacing: .08em;
+}
+
+.ghost {
+  position: absolute;
+  right: 40px;
+  top: 196px;
+  width: 98px;
+  height: 128px;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 2;
+}
+.ghost img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .28;
+  filter: grayscale(1);
+  mix-blend-mode: multiply;
+}
+
+.nisLogoWatermark {
+  position: absolute;
+  right: 42px;
+  top: 196px;
+  width: 94px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+.nisLogoWatermark img {
+  max-width: 86px;
+  max-height: 86px;
+  object-fit: contain;
+  opacity: 0.22;
+  filter: grayscale(0.1);
+}
+
+/* Front dynamic values mapped directly to template coordinates */
+.valSurname {
+  position: absolute;
+  left: 242px;
+  top: 142px;
+  width: 440px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valForenames {
+  position: absolute;
+  left: 242px;
+  top: 196px;
+  width: 440px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valNationality {
+  position: absolute;
+  left: 242px;
+  top: 261px;
+  width: 195px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valSex {
+  position: absolute;
+  left: 456px;
+  top: 261px;
+  width: 160px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valDob {
+  position: absolute;
+  left: 242px;
+  top: 310px;
+  width: 195px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valPassport {
+  position: absolute;
+  left: 456px;
+  top: 310px;
+  width: 185px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valIssuedOn {
+  position: absolute;
+  left: 242px;
+  top: 358px;
+  width: 195px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valExpiresOn {
+  position: absolute;
+  left: 456px;
+  top: 358px;
+  width: 185px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--red);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valStateCode {
+  position: absolute;
+  left: 242px;
+  top: 408px;
+  width: 195px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* Back components */
+.qr {
+  position: absolute;
+  left: 30px;
+  top: 81px;
+  width: 175px;
+  height: 194px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.qr img, .qr svg {
+  width: 165px;
+  height: 165px;
+}
+
+.valIssuedAt {
+  position: absolute;
+  left: 234px;
+  top: 143px;
+  width: 205px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valCardType {
+  position: absolute;
+  left: 455px;
+  top: 143px;
+  width: 220px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valDomicile {
+  position: absolute;
+  left: 234px;
+  top: 178px;
+  width: 580px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.18;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valProfession {
+  position: absolute;
+  left: 234px;
+  top: 233px;
+  width: 205px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.valHeight {
+  position: absolute;
+  left: 455px;
+  top: 233px;
+  width: 185px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valBackIssuedOn {
+  position: absolute;
+  left: 234px;
+  top: 278px;
+  width: 205px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.valBackExpiresOn {
+  position: absolute;
+  left: 455px;
+  top: 278px;
+  width: 185px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--red);
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* Dedicated 30-Day Validity Block on Card Back replacing MRZ */
+.validityBlockBack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 98px;
+  background: var(--g900);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  border-bottom-left-radius: 34px;
+  border-bottom-right-radius: 34px;
+}
+
+.validityLine1 {
+  font-family: NisCardInter, sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--gold2);
+  text-transform: uppercase;
+}
+
+.validityLine2 {
+  font-family: NisCardInter, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 4px;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+}
+
+@media print {
+  .card {
+    box-shadow: 0 0 0 1px rgba(6, 46, 27, 0.4) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
