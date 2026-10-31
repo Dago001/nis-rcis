@@ -20,11 +20,12 @@ export type Props = {
   readOnlyFields?: string[];
 };
 
-type TextOptions = { required?: boolean; type?: string; hint?: string; upper?: boolean; letters?: boolean; digits?: boolean; maxLength?: number; max?: string; min?: string };
+type TextOptions = { required?: boolean; type?: string; hint?: string; upper?: boolean; letters?: boolean; digits?: boolean; maxLength?: number; max?: string; min?: string; placeholder?: string };
 
 function text(props: Props, name: string, label: string, opts: TextOptions = {}) {
   const isReadOnly = Boolean(props.readOnly || (props.readOnlyFields && props.readOnlyFields.includes(name)));
   const hasError = Boolean(props.errors[name]);
+  const { t } = useI18n();
   return (
     <Field label={label} required={opts.required} error={props.errors[name]} hint={opts.hint}>
       <Input
@@ -37,6 +38,7 @@ function text(props: Props, name: string, label: string, opts: TextOptions = {})
         min={opts.min}
         readOnly={isReadOnly}
         disabled={isReadOnly}
+        placeholder={opts.placeholder ? t(opts.placeholder) : undefined}
         aria-invalid={hasError}
         className={hasError ? "!border-red-500" : isReadOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
         onFocus={() => props.focus?.(name)}
@@ -124,11 +126,11 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
   );
   const selectedNat = matchedNat ? matchedNat.value : normalizedNat;
 
-  const rawCat = (data.category ?? "WORK").trim().toUpperCase();
-  const selectedCat = ["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(rawCat) ? rawCat : "WORK";
+  const rawCat = (data.category ?? "").trim().toUpperCase();
+  const selectedCat = ["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(rawCat) ? rawCat : "";
 
-  const rawDocType = (data.travel_document_type ?? "PASSPORT").trim().toUpperCase();
-  const selectedDocType = rawDocType === "ECOWAS_TC" ? "ECOWAS_TC" : "PASSPORT";
+  const rawDocType = (data.travel_document_type ?? "").trim().toUpperCase();
+  const selectedDocType = rawDocType === "ECOWAS_TC" ? "ECOWAS_TC" : rawDocType === "PASSPORT" ? "PASSPORT" : "";
 
   const numLabel = selectedDocType === "ECOWAS_TC"
     ? "ECOWAS Travel Certificate Number"
@@ -196,6 +198,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               touch?.("category");
             }}
           >
+            <option value="">{t("Select Category / Class")}</option>
             <option value="WORK">{t("Work (Employment)")}</option>
             <option value="BUSINESS">{t("Business (Trade / Artisans / Enterprise)")}</option>
             <option value="STUDENT">{t("Student (Intent)")}</option>
@@ -226,6 +229,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               touch?.("travel_document_type");
             }}
           >
+            <option value="">{t("Select Document")}</option>
             <option value="PASSPORT">{t("Passport")}</option>
             <option value="ECOWAS_TC">{t("ECOWAS Travel Certificate")}</option>
           </Select>
@@ -239,6 +243,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             maxLength={20}
             readOnly={readOnly}
             disabled={readOnly}
+            placeholder={selectedDocType === "ECOWAS_TC" ? t("Enter ECOWAS Travel Certificate Number") : t("Enter Passport Number")}
             aria-invalid={Boolean(errors.passport_number)}
             className={errors.passport_number ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
             onFocus={() => focus?.("passport_number")}
@@ -273,6 +278,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
         {text(props, "national_id_number", "National Identification Number (if any)", {
           required: false,
           maxLength: 30,
+          placeholder: "Enter National Identification Number",
           hint: "Optional national ID number from country of origin or Nigeria",
         })}
 
@@ -280,13 +286,15 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
         {text(props, "tax_id_number", "Tax Identification Number (if any)", {
           required: false,
           maxLength: 30,
+          placeholder: "Enter Tax Identification Number",
           hint: "Optional tax identification number",
         })}
       </div>
 
       {/* Category Required Supporting Documents - Complete Professionally Numbered List */}
       {(() => {
-        const cat = data.category || "WORK";
+        const cat = data.category;
+        if (!cat) return null;
         let categoryTitle = "Work";
         let specificDocs: { title: string; mandatory: boolean }[] = [];
 
@@ -306,12 +314,12 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
           categoryTitle = "Cleric / Missionaries";
           specificDocs = [
             { title: "Appointment Letter / Contract Letter", mandatory: true },
-            { title: "Evidence of Host Organization Registration or Recognition", mandatory: true },
+            { title: "Evidence of Host Organization Registration or Recognition", mandatory: false },
           ];
         } else {
           categoryTitle = "Work";
           specificDocs = [
-            { title: "Appointment Letter / Contract Letter", mandatory: true },
+            { title: "Appointment Letter / Contract Letter", mandatory: false },
           ];
         }
 
@@ -393,9 +401,9 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
           />
         </Field>
       ) : (
-        text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100 })
+        text(props, "surname", "Surname", { required: true, upper: true, letters: true, maxLength: 100, placeholder: "Enter Surname" })
       )}
-      {text(props, "forenames", "Other names", { required: true, upper: true, letters: true })}
+      {text(props, "forenames", "Other names", { required: true, upper: true, letters: true, placeholder: "Enter Other Names" })}
       <Field label="Nationality" hint="Selected in Step 1 (General Information)">
         <Input
           name="nationality"
@@ -416,9 +424,9 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
         { required: true, placeholder: "Select gender…" }
       )}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
-      {text(props, "place_of_birth", "Place of birth", { required: true, upper: true })}
-      {text(props, "profession", "Profession / occupation", { required: true, upper: true })}
-      {text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true })}
+      {text(props, "place_of_birth", "Place of birth", { required: true, upper: true, placeholder: "Enter Place of Birth" })}
+      {text(props, "profession", "Profession / occupation", { required: true, upper: true, placeholder: "Enter Profession / Occupation" })}
+      {text(props, "distinguished_features", "Distinguishing features", { hint: "Leave blank for NONE", upper: true, placeholder: "Enter Distinguishing Features (or leave blank for NONE)" })}
 
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">
         {isDependant ? t("Applicant Contact Details") : t("Your contact details")}
@@ -452,6 +460,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
                 name="phone"
                 value={data.phone ?? ""}
                 disabled={readOnly}
+                placeholder={t("Enter Phone Number")}
                 onChange={(v) => {
                   if (readOnly) return;
                   set("phone", v);
@@ -464,6 +473,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
             type: "email",
             maxLength: 255,
             hint: isDependant ? "Pre-populated with guardian contact. Editable for dependent if desired." : undefined,
+            placeholder: "Enter E-mail Address",
           })}
         </>
       )}
@@ -506,6 +516,7 @@ export function ContactFields(props: Props) {
           maxLength={300}
           readOnly={readOnly}
           disabled={readOnly}
+          placeholder={t("Enter permanent residential address in country of origin")}
           aria-invalid={Boolean(errors.home_country_address)}
           className={errors.home_country_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
           onFocus={() => focus?.("home_country_address")}
@@ -533,6 +544,7 @@ export function ContactFields(props: Props) {
           maxLength={150}
           readOnly={readOnly}
           disabled={readOnly}
+          placeholder={t("Enter residential address in Nigeria (House number, street, area)")}
           aria-invalid={Boolean(errors.domicile)}
           className={errors.domicile ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
           onFocus={() => focus?.("domicile")}
@@ -555,6 +567,7 @@ export function ContactFields(props: Props) {
           maxLength={150}
           readOnly={readOnly}
           disabled={readOnly}
+          placeholder={t("Enter Change of Address (if any)")}
           aria-invalid={Boolean(errors.change_of_address)}
           className={errors.change_of_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
           onFocus={() => focus?.("change_of_address")}
@@ -608,7 +621,7 @@ export function ContactFields(props: Props) {
 
       {/* Emergency contact in Nigeria */}
       <h3 className="pt-2 text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Emergency contact in Nigeria")}</h3>
-      {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
+      {text(props, "emergency_contact_name", "Full name", { required: true, upper: true, letters: true, placeholder: "Enter Full Name" })}
       <Field label="Relationship" required error={otherRelation ? undefined : errors.emergency_contact_relation}>
         <Select
           name="emergency_contact_relation"
@@ -636,7 +649,7 @@ export function ContactFields(props: Props) {
       </Field>
       {otherRelation && (
         <div className="sm:col-span-2">
-          {text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50 })}
+          {text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50, placeholder: "Enter the relationship" })}
         </div>
       )}
 
@@ -653,6 +666,7 @@ export function ContactFields(props: Props) {
           <PhoneInput
             name="emergency_contact_phone"
             value={data.emergency_contact_phone ?? ""}
+            placeholder={t("Enter Phone Number")}
             onChange={(v) => {
               set("emergency_contact_phone", v);
             }}
@@ -709,6 +723,7 @@ export function ContactFields(props: Props) {
             name="emergency_contact_address"
             value={data.emergency_contact_address ?? ""}
             maxLength={150}
+            placeholder={t("Enter Street Address in Nigeria")}
             aria-invalid={Boolean(errors.emergency_contact_address)}
             className={errors.emergency_contact_address ? "!border-red-500" : ""}
             onFocus={() => focus?.("emergency_contact_address")}
@@ -723,7 +738,7 @@ export function ContactFields(props: Props) {
 
       {/* Emergency contact in Home Country */}
       <h3 className="pt-3 text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Emergency contact in Home Country")}</h3>
-      {text(props, "home_country_emergency_contact_name", "Full name", { required: true, upper: true, letters: true })}
+      {text(props, "home_country_emergency_contact_name", "Full name", { required: true, upper: true, letters: true, placeholder: "Enter Full Name" })}
       <Field label="Relationship" required error={otherHomeRelation ? undefined : errors.home_country_emergency_contact_relation}>
         <Select
           name="home_country_emergency_contact_relation"
@@ -751,7 +766,7 @@ export function ContactFields(props: Props) {
       </Field>
       {otherHomeRelation && (
         <div className="sm:col-span-2">
-          {text(props, "home_country_emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50 })}
+          {text(props, "home_country_emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50, placeholder: "Enter the relationship" })}
         </div>
       )}
 
@@ -767,6 +782,7 @@ export function ContactFields(props: Props) {
           <PhoneInput
             name="home_country_emergency_contact_phone"
             value={data.home_country_emergency_contact_phone ?? ""}
+            placeholder={t("Enter Phone Number")}
             onChange={(v) => {
               set("home_country_emergency_contact_phone", v);
             }}
@@ -784,6 +800,7 @@ export function ContactFields(props: Props) {
           name="home_country_emergency_contact_address"
           value={data.home_country_emergency_contact_address ?? ""}
           maxLength={300}
+          placeholder={t("Enter residential address in home country")}
           aria-invalid={Boolean(errors.home_country_emergency_contact_address)}
           className={errors.home_country_emergency_contact_address ? "!border-red-500" : ""}
           onFocus={() => focus?.("home_country_emergency_contact_address")}

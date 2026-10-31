@@ -89,7 +89,7 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
     catDocs.push({
       type: "appointment_letter",
       label: "Appointment Letter / Contract Letter",
-      required: true,
+      required: false,
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
     });
@@ -105,7 +105,7 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
       {
         type: "religious_registration",
         label: "Evidence of Host Organization Registration or Recognition",
-        required: true,
+        required: false,
         accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
         kinds: "JPG, JPEG, PNG or PDF",
       }
@@ -191,8 +191,8 @@ function Wizard() {
     return t === "RENEWAL" || t === "REPLACE" ? t : "NEW";
   });
   const [data, setData] = useState<Record<string, string>>({
-    category: "WORK",
-    travel_document_type: "PASSPORT",
+    category: "",
+    travel_document_type: "",
   });
   const [documents, setDocuments] = useState<DraftDoc[]>([]);
   const [touched, setTouched] = useState<Set<string>>(new Set());
@@ -499,8 +499,8 @@ function Wizard() {
           setFee(centerList.fee_naira);
 
           const restored: Record<string, string> = {
-            category: (app.category || "WORK").toUpperCase(),
-            travel_document_type: (app as any).travel_document_type || "PASSPORT",
+            category: app.category ? app.category.toUpperCase() : "",
+            travel_document_type: (app as any).travel_document_type || "",
             surname: app.surname || "",
             forenames: app.forenames || "",
             nationality: app.nationality || "",
@@ -580,8 +580,8 @@ function Wizard() {
 
         let restored: Record<string, string> = {
           nationality: "",
-          category: "WORK",
-          travel_document_type: "PASSPORT",
+          category: "",
+          travel_document_type: "",
           surname: me.surname,
           forenames: isDependantFlow ? "" : me.forenames,
         };
@@ -856,18 +856,15 @@ function Wizard() {
           }, 150);
         }
 
-        const problemCount = Object.keys(problems).length;
         setNotice({
           tone: "danger",
-          text: problemCount === 1 && first.msg
-            ? t(first.msg)
-            : t("Please complete all highlighted required fields before proceeding."),
+          text: t("Please fill in all required fields before you can proceed."),
         });
       } else {
         window.scrollTo({ top: 0, behavior: "smooth" });
         setNotice({
           tone: "danger",
-          text: t("Please complete all highlighted required fields before proceeding."),
+          text: t("Please fill in all required fields before you can proceed."),
         });
       }
 
@@ -1712,7 +1709,6 @@ function Wizard() {
       </div>
 
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
-      {currentStepHasErrors && <Alert tone="danger">{t("Please correct the highlighted details.")}</Alert>}
       {errors.cod && <Alert tone="danger">{t(errors.cod)}</Alert>}
 
       <Panel title={t(STEPS[step - 1])}>

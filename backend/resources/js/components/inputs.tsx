@@ -34,6 +34,7 @@ export function PhoneInput({
   disabled,
   defaultIso = "NG",
   id,
+  placeholder,
   countries = COUNTRIES,
 }: {
   value: string;
@@ -43,6 +44,7 @@ export function PhoneInput({
   disabled?: boolean;
   defaultIso?: string;
   id?: string;
+  placeholder?: string;
   /** Calling codes to offer (all countries unless limited, e.g. ECOWAS_COUNTRIES). */
   countries?: Country[];
 }) {
@@ -82,7 +84,7 @@ export function PhoneInput({
         type="tel"
         inputMode="numeric"
         autoComplete="tel-national"
-        placeholder={country.iso === "NG" ? "8012345678" : "Phone number"}
+        placeholder={placeholder ?? (country.iso === "NG" ? "8012345678" : "Phone number")}
         value={national}
         required={required}
         disabled={disabled}

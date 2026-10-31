@@ -67,10 +67,10 @@ class ApplicationSubmission
             $requiredTypes[] = DocumentType::AcceptanceLetter;
             $requiredTypes[] = DocumentType::ProofOfPayment;
         } elseif ($category === 'WORK') {
-            $requiredTypes[] = DocumentType::AppointmentLetter;
+            // Appointment Letter / Contract Letter is optional
         } elseif ($category === 'RELIGIOUS') {
             $requiredTypes[] = DocumentType::ReligiousInvitation;
-            $requiredTypes[] = DocumentType::ReligiousRegistration;
+            // Evidence of Host Organization Registration is optional
         }
 
         $missing = collect($requiredTypes)
@@ -299,10 +299,10 @@ class ApplicationSubmission
             $requiredTypes[] = DocumentType::AcceptanceLetter;
             $requiredTypes[] = DocumentType::ProofOfPayment;
         } elseif ($category === 'WORK') {
-            $requiredTypes[] = DocumentType::AppointmentLetter;
+            // Appointment Letter / Contract Letter is optional
         } elseif ($category === 'RELIGIOUS') {
             $requiredTypes[] = DocumentType::ReligiousInvitation;
-            $requiredTypes[] = DocumentType::ReligiousRegistration;
+            // Evidence of Host Organization Registration is optional
         }
 
         $missing = collect($requiredTypes)

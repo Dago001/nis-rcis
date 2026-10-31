@@ -105,7 +105,7 @@ export default function BiometricsDesk() {
 
       <Panel title="5. Issue">
         <div className="space-y-4">
-          <Field label="Place of issue"><Input value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} /></Field>
+          <Field label="Place of issue"><Input value={issuedAt} placeholder="Enter Place of Issue" onChange={(e) => setIssuedAt(e.target.value)} /></Field>
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={save} disabled={busy || !confirmed}>
               {busy ? "Saving…" : "Save biometrics and create card"}
