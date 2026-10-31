@@ -392,7 +392,7 @@ export default function StaffDashboard() {
 
         <ChartCard
           title={t("Application Processing Overview")}
-          subtitle={t("Outcomes for card production, issuance, queries and rejections")}
+          subtitle={t("Outcomes for card production, issuance and queries")}
           table={
             <DataTable
               head={[t("Processing Outcome"), t("Total Count"), t("Classification / Status")]}
@@ -402,7 +402,6 @@ export default function StaffDashboard() {
                 [`  ↳ ${t("New Cards Issued")}`, procOverview.new_cards_issued, t("Breakdown of Total Issued")],
                 [`  ↳ ${t("Renewal Cards Issued")}`, procOverview.renewal_cards_issued, t("Breakdown of Total Issued")],
                 [t("Queried Applications"), procOverview.queried, t("Currently queried (action required)")],
-                [t("Rejected Applications"), procOverview.rejected, t("Currently rejected")],
               ]}
             />
           }

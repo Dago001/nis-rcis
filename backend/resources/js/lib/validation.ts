@@ -14,6 +14,31 @@ export const PASSPORT = /^[A-Z0-9]{6,15}$/;
 type Data = Record<string, string | undefined>;
 type Check = (value: string, data: Data) => string | undefined;
 
+export function getLagosCalendarDate(dateInput?: string | Date | null): string {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(validDate);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  return `${year}-${month}-${day}`;
+}
+
+export function getEarliestAppointmentDate(paidAt?: string | null): string {
+  const baseDay = getLagosCalendarDate(paidAt);
+  const [y, m, d] = baseDay.split("-").map(Number);
+  const utcDate = new Date(Date.UTC(y, m - 1, d + 4));
+  const resYear = utcDate.getUTCFullYear();
+  const resMonth = String(utcDate.getUTCMonth() + 1).padStart(2, "0");
+  const resDay = String(utcDate.getUTCDate()).padStart(2, "0");
+  return `${resYear}-${resMonth}-${resDay}`;
+}
+
 const today = () => new Date().toISOString().slice(0, 10);
 const addMonths = (months: number) => {
   const d = new Date();
@@ -118,9 +143,13 @@ export const RULES: Record<string, Check> = {
   home_country_emergency_contact_postal_code: pattern(/^[A-Za-z0-9 -]{2,20}$/, "Enter a valid postal or ZIP code."),
 
   enrollment_center_id: required("Enrollment center"),
-  appointment_date: all(required("Appointment date"), (v) => {
+  appointment_date: all(required("Appointment date"), (v, d) => {
     const day = new Date(`${v}T12:00:00`).getDay();
-    return v <= today() ? "Choose a future date." : day === 0 || day === 6 ? "Appointments are on weekdays only." : undefined;
+    const earliest = getEarliestAppointmentDate(d?.paid_at);
+    if (v < earliest) {
+      return `Appointments are only available from ${earliest} (4 calendar days after payment).`;
+    }
+    return day === 0 || day === 6 ? "Appointments are on weekdays only." : undefined;
   }),
   appointment_time: required("Time slot"),
 };

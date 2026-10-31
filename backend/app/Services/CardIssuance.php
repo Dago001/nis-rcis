@@ -33,8 +33,8 @@ class CardIssuance
      */
     public function captureBiometrics(Application $application, User $officer, array $input): Application
     {
-        if ($application->status !== ApplicationStatus::ApprovedForBiometrics) {
-            throw ValidationException::withMessages(['status' => "Application {$application->application_number} is not approved for biometrics."]);
+        if (! in_array($application->status, [ApplicationStatus::Vetted, ApplicationStatus::ApprovedForBiometrics], true)) {
+            throw ValidationException::withMessages(['status' => "Application {$application->application_number} must be vetted before capturing biometrics."]);
         }
 
         $isSimulation = ! empty($input['simulation']);

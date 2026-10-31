@@ -714,7 +714,7 @@ export function ProcessingOverviewChart({
     new_cards_issued: number;
     renewal_cards_issued: number;
     queried: number;
-    rejected: number;
+    rejected?: number;
   };
   t: (key: string) => string;
 }) {
@@ -722,88 +722,112 @@ export function ProcessingOverviewChart({
     1,
     data.cards_produced,
     data.cards_issued,
-    data.queried,
-    data.rejected
+    data.queried
   );
 
-  const getWidth = (val: number) => Math.max(val ? 3 : 0, (val / max) * 100);
+  const getWidth = (val: number) => Math.max(val ? 4 : 0, Math.min(100, (val / max) * 100));
 
   return (
-    <div className="space-y-4 py-1 text-xs sm:text-sm">
+    <div className="space-y-4 py-1 text-xs">
       {/* 1. Total Cards Produced */}
-      <div>
-        <div className="mb-1 flex items-center justify-between text-slate-700">
-          <span className="font-medium text-slate-800">{t("Total Cards Produced")}</span>
-          <span className="font-semibold tabular-nums text-slate-900">{data.cards_produced}</span>
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 transition-colors">
+        <div className="flex items-center justify-between text-slate-700 mb-1.5">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 shrink-0" />
+            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{t("Total Cards Produced")}</span>
+          </div>
+          <span className="font-bold tabular-nums text-emerald-900 text-sm sm:text-base">{data.cards_produced.toLocaleString()}</span>
         </div>
-        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${getWidth(data.cards_produced)}%` }} />
+        <div className="h-2.5 w-full rounded-full bg-emerald-100/70 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-600 transition-all duration-500 ease-out"
+            style={{ width: `${getWidth(data.cards_produced)}%` }}
+          />
+        </div>
+        <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+          <span>{t("Verified biometrics and approved for production")}</span>
+          <span className="font-medium text-slate-600">{max > 0 ? `${Math.round((data.cards_produced / max) * 100)}%` : "0%"}</span>
         </div>
       </div>
 
       {/* 2. Total Cards Issued & Breakdown */}
-      <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
-        <div className="mb-1 flex items-center justify-between text-slate-700">
-          <span className="font-medium text-slate-800">{t("Total Cards Issued")}</span>
-          <span className="font-semibold tabular-nums text-slate-900">{data.cards_issued}</span>
-        </div>
-        <div className="h-3 w-full rounded-full bg-slate-200 overflow-hidden">
-          <div className="h-full rounded-full bg-nis-primary transition-all" style={{ width: `${getWidth(data.cards_issued)}%` }} />
+      <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3 space-y-2.5 transition-colors">
+        <div>
+          <div className="flex items-center justify-between text-slate-700 mb-1.5">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-nis-primary shrink-0" />
+              <span className="font-semibold text-slate-900 text-xs sm:text-sm">{t("Total Cards Issued")}</span>
+            </div>
+            <span className="font-bold tabular-nums text-nis-primary text-sm sm:text-base">{data.cards_issued.toLocaleString()}</span>
+          </div>
+          <div className="h-2.5 w-full rounded-full bg-slate-200/80 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-nis-primary transition-all duration-500 ease-out"
+              style={{ width: `${getWidth(data.cards_issued)}%` }}
+            />
+          </div>
         </div>
 
-        {/* Breakdown sub-bars */}
-        <div className="mt-3 pl-3 space-y-2 border-l-2 border-slate-300">
-          <div>
-            <div className="mb-0.5 flex items-center justify-between text-xs text-slate-600">
-              <span className="flex items-center gap-1">
-                <span className="text-slate-400">↳</span> {t("New Cards Issued")}
+        {/* Breakdown Sub-bars */}
+        <div className="grid sm:grid-cols-2 gap-2.5 pt-1 border-t border-blue-100/70">
+          <div className="rounded-lg bg-white/80 p-2 border border-slate-200/60">
+            <div className="flex items-center justify-between text-[11px] mb-1">
+              <span className="font-medium text-slate-700 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                {t("New Cards Issued")}
               </span>
-              <span className="font-medium tabular-nums text-slate-800">{data.new_cards_issued}</span>
+              <span className="font-semibold tabular-nums text-slate-900">{data.new_cards_issued.toLocaleString()}</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-blue-500 transition-all"
-                style={{ width: `${getWidth(data.new_cards_issued)}%` }}
+                className="h-full rounded-full bg-blue-500 transition-all duration-500 ease-out"
+                style={{ width: `${data.cards_issued ? (data.new_cards_issued / data.cards_issued) * 100 : 0}%` }}
               />
+            </div>
+            <div className="mt-1 text-[10px] text-slate-500 text-right">
+              {data.cards_issued ? `${Math.round((data.new_cards_issued / data.cards_issued) * 100)}% of issued` : "0%"}
             </div>
           </div>
 
-          <div>
-            <div className="mb-0.5 flex items-center justify-between text-xs text-slate-600">
-              <span className="flex items-center gap-1">
-                <span className="text-slate-400">↳</span> {t("Renewal Cards Issued")}
+          <div className="rounded-lg bg-white/80 p-2 border border-slate-200/60">
+            <div className="flex items-center justify-between text-[11px] mb-1">
+              <span className="font-medium text-slate-700 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                {t("Renewal Cards Issued")}
               </span>
-              <span className="font-medium tabular-nums text-slate-800">{data.renewal_cards_issued}</span>
+              <span className="font-semibold tabular-nums text-slate-900">{data.renewal_cards_issued.toLocaleString()}</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-indigo-500 transition-all"
-                style={{ width: `${getWidth(data.renewal_cards_issued)}%` }}
+                className="h-full rounded-full bg-indigo-500 transition-all duration-500 ease-out"
+                style={{ width: `${data.cards_issued ? (data.renewal_cards_issued / data.cards_issued) * 100 : 0}%` }}
               />
+            </div>
+            <div className="mt-1 text-[10px] text-slate-500 text-right">
+              {data.cards_issued ? `${Math.round((data.renewal_cards_issued / data.cards_issued) * 100)}% of issued` : "0%"}
             </div>
           </div>
         </div>
       </div>
 
       {/* 3. Queried Applications */}
-      <div>
-        <div className="mb-1 flex items-center justify-between text-slate-700">
-          <span className="font-medium text-amber-800">{t("Queried Applications")}</span>
-          <span className="font-semibold tabular-nums text-amber-900">{data.queried}</span>
+      <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 transition-colors">
+        <div className="flex items-center justify-between text-slate-700 mb-1.5">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{t("Queried Applications")}</span>
+          </div>
+          <span className="font-bold tabular-nums text-amber-900 text-sm sm:text-base">{data.queried.toLocaleString()}</span>
         </div>
-        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${getWidth(data.queried)}%` }} />
+        <div className="h-2.5 w-full rounded-full bg-amber-100/70 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-amber-500 transition-all duration-500 ease-out"
+            style={{ width: `${getWidth(data.queried)}%` }}
+          />
         </div>
-      </div>
-
-      {/* 4. Rejected Applications */}
-      <div>
-        <div className="mb-1 flex items-center justify-between text-slate-700">
-          <span className="font-medium text-rose-800">{t("Rejected Applications")}</span>
-          <span className="font-semibold tabular-nums text-rose-900">{data.rejected}</span>
-        </div>
-        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${getWidth(data.rejected)}%` }} />
+        <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+          <span>{t("Pending applicant clarification / document re-upload")}</span>
+          <span className="font-medium text-amber-800">{max > 0 ? `${Math.round((data.queried / max) * 100)}%` : "0%"}</span>
         </div>
       </div>
     </div>

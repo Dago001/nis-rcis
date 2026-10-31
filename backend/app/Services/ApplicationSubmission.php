@@ -111,7 +111,7 @@ class ApplicationSubmission
                 throw ValidationException::withMessages(['payment_reference' => 'The amount paid does not cover the required application and administrative fees.']);
             }
 
-            $application = $this->create($data, 'ONLINE', $applicant, null, $renewalCard, 'PAID');
+            $application = $this->create($data, 'ONLINE', $applicant, null, $renewalCard, 'PAID', $payment);
 
             $payment->update(['application_id' => $application->id]);
 
@@ -324,10 +324,10 @@ class ApplicationSubmission
         }
     }
 
-    private function create(array $data, string $channel, ?Applicant $applicant, ?User $officer, ?ResidenceCard $renewalCard, string $paymentStatus): Application
+    private function create(array $data, string $channel, ?Applicant $applicant, ?User $officer, ?ResidenceCard $renewalCard, string $paymentStatus, ?Payment $payment = null): Application
     {
         $center = EnrollmentCenter::findOrFail($data['enrollment_center_id']);
-        $this->scheduler->assertBookable($center, $data['appointment_date'], $data['appointment_time']);
+        $this->scheduler->assertBookable($center, $data['appointment_date'], $data['appointment_time'], $payment);
 
         $hasCod = ! empty($data['has_cod']);
         $codFeeKobo = $hasCod ? ((int) config('nis.cod_fee_naira', 15000) * 100) : 0;

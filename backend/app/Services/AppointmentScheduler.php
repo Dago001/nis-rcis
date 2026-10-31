@@ -40,9 +40,23 @@ class AppointmentScheduler
     /**
      * Must be called inside the transaction that creates the application.
      */
-    public function assertBookable(EnrollmentCenter $center, string $date, string $time): void
+    public function assertBookable(EnrollmentCenter $center, string $date, string $time, mixed $paymentDate = null): void
     {
-        $day = CarbonImmutable::parse($date);
+        $day = CarbonImmutable::parse($date)->setTimezone('Africa/Lagos')->startOfDay();
+
+        if ($paymentDate !== null) {
+            $paidAt = $paymentDate instanceof \App\Models\Payment
+                ? ($paymentDate->paid_at ?: $paymentDate->created_at ?: now())
+                : $paymentDate;
+            $paymentDayInLagos = CarbonImmutable::parse($paidAt)->setTimezone('Africa/Lagos')->startOfDay();
+            $earliestEligible = $paymentDayInLagos->addDays(4);
+
+            if ($day->lt($earliestEligible)) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => "Appointment booking is only permitted from the fourth calendar day after payment ({$earliestEligible->format('d/m/Y')}) onward. Dates prior to this are not selectable.",
+                ]);
+            }
+        }
 
         if ($day->isWeekend()) {
             throw ValidationException::withMessages(['appointment_date' => 'Enrollment centers do not capture biometrics at weekends.']);

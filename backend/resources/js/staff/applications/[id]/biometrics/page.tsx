@@ -52,7 +52,7 @@ export default function BiometricsDesk() {
           fingerprints: fingerprints.length ? fingerprints.map((f) => ({ finger: f.finger, template: f.template, format: f.format, quality: f.quality, nfiq: f.nfiq, device: f.device })) : undefined,
         },
       });
-      router.push(r.data.card ? `/staff/cards/${r.data.card.id}` : `/staff/applications/${id}`);
+      router.push(`/staff/applications/${id}`);
     } catch (e) {
       setError(e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message : String(e));
       setBusy(false);
@@ -60,22 +60,23 @@ export default function BiometricsDesk() {
   }
 
   if (!app) return <Spinner />;
-  if (app.status !== "APPROVED_FOR_BIOMETRICS") {
+  if (!["VETTED", "APPROVED_FOR_BIOMETRICS"].includes(app.status)) {
     return (
       <div className="space-y-4 max-w-xl">
         <Alert tone="warning">
           <div className="space-y-2">
-            <div className="font-semibold text-base">Application Not Authorized for Biometrics</div>
+            <div className="font-semibold text-base">Application Not Eligible for Biometrics Capture</div>
             <p className="text-sm">
-              This application has not received final approval from an Approving Officer (current status: {app.approval_status_label ?? app.status_label}).
-              Biometrics capture requires final approval at Stage 2.
+              {app.status === "BIOMETRICS_CAPTURED" || ["APPROVED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status)
+                ? "Biometrics enrollment has already been captured and recorded for this application."
+                : `This application has not yet been vetted by a Vetting Officer (current status: ${app.vetting_status_label ?? app.status_label}). Biometrics enrollment requires vetting completion.`}
             </p>
             <div className="pt-2">
               <Link
-                href="/staff/approvals"
+                href="/staff/applications"
                 className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
-                ← Return to Approvers Queue
+                ← Return to Applications Queue
               </Link>
             </div>
           </div>

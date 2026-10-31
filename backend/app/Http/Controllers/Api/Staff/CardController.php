@@ -51,11 +51,22 @@ class CardController
         $query->where(function ($q) {
             $q->whereHas('application', function ($aq) {
                 $aq->whereIn('status', [
+                    \App\Enums\ApplicationStatus::Approved,
+                    \App\Enums\ApplicationStatus::ApprovedForBiometrics,
                     \App\Enums\ApplicationStatus::BiometricsCaptured,
                     \App\Enums\ApplicationStatus::ReadyForCollection,
                     \App\Enums\ApplicationStatus::Issued,
                 ])
-                ->whereNotNull('biometrics_captured_at');
+                ->whereNotNull('biometrics_captured_at')
+                ->where(function ($dec) {
+                    $dec->whereNotNull('decided_at')
+                        ->orWhereIn('status', [
+                            \App\Enums\ApplicationStatus::Approved,
+                            \App\Enums\ApplicationStatus::ApprovedForBiometrics,
+                            \App\Enums\ApplicationStatus::ReadyForCollection,
+                            \App\Enums\ApplicationStatus::Issued,
+                        ]);
+                });
             })
             ->orWhere(function ($sq) {
                 // Standalone or legacy registered cards that were approved and issued

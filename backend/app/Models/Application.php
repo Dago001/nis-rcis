@@ -116,6 +116,11 @@ class Application extends Model
         return $this->belongsTo(User::class, 'vetted_by');
     }
 
+    public function biometricsCapturedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'biometrics_captured_by');
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(ApplicationDocument::class)->where('is_current', true);
@@ -176,8 +181,9 @@ class Application extends Model
     {
         if ($this->vetted_at !== null || in_array($this->status, [
             ApplicationStatus::Vetted,
-            ApplicationStatus::ApprovedForBiometrics,
             ApplicationStatus::BiometricsCaptured,
+            ApplicationStatus::Approved,
+            ApplicationStatus::ApprovedForBiometrics,
             ApplicationStatus::ReadyForCollection,
             ApplicationStatus::Issued,
         ], true)) {
@@ -205,27 +211,59 @@ class Application extends Model
         };
     }
 
+    public function getBiometricsStatusAttribute(): string
+    {
+        if ($this->biometrics_captured_at !== null || in_array($this->status, [
+            ApplicationStatus::BiometricsCaptured,
+            ApplicationStatus::Approved,
+            ApplicationStatus::ApprovedForBiometrics,
+            ApplicationStatus::ReadyForCollection,
+            ApplicationStatus::Issued,
+        ], true)) {
+            return 'COMPLETED';
+        }
+
+        if ($this->vetted_at !== null || $this->status === ApplicationStatus::Vetted) {
+            return 'ELIGIBLE';
+        }
+
+        return 'PENDING_VETTING';
+    }
+
+    public function getBiometricsStatusLabelAttribute(): string
+    {
+        return match ($this->biometrics_status) {
+            'COMPLETED' => 'Completed',
+            'ELIGIBLE' => 'Eligible — Awaiting Attendance',
+            default => 'Pending Vetting',
+        };
+    }
+
     public function getApprovalStatusAttribute(): ?string
     {
         if (in_array($this->status, [
+            ApplicationStatus::Approved,
             ApplicationStatus::ApprovedForBiometrics,
-            ApplicationStatus::BiometricsCaptured,
             ApplicationStatus::ReadyForCollection,
             ApplicationStatus::Issued,
         ], true) || ($this->decided_at !== null && ! in_array($this->status, [ApplicationStatus::Queried, ApplicationStatus::Rejected], true))) {
             return 'APPROVED';
         }
 
-        if ($this->status === ApplicationStatus::Queried && $this->vetted_at !== null) {
+        if ($this->status === ApplicationStatus::Queried && $this->biometrics_captured_at !== null) {
             return 'QUERIED';
         }
 
-        if ($this->status === ApplicationStatus::Rejected && $this->vetted_at !== null) {
+        if ($this->status === ApplicationStatus::Rejected && $this->decided_at !== null) {
             return 'REJECTED';
         }
 
-        if ($this->status === ApplicationStatus::Vetted || $this->vetted_at !== null) {
+        if ($this->status === ApplicationStatus::BiometricsCaptured || ($this->biometrics_captured_at !== null && $this->decided_at === null)) {
             return 'AWAITING_APPROVAL';
+        }
+
+        if ($this->status === ApplicationStatus::Vetted || $this->vetted_at !== null) {
+            return 'AWAITING_BIOMETRICS';
         }
 
         return null;
@@ -236,6 +274,7 @@ class Application extends Model
         return match ($this->approval_status) {
             'APPROVED' => 'Approved',
             'AWAITING_APPROVAL' => 'Awaiting Approval',
+            'AWAITING_BIOMETRICS' => 'Awaiting Biometrics',
             'QUERIED' => 'Queried',
             'REJECTED' => 'Rejected',
             default => null,

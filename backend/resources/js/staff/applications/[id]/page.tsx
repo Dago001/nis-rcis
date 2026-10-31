@@ -50,8 +50,7 @@ export default function StaffApplicationPage() {
   const isApprovingStaff = hasRole(user, "ApprovingOfficer", "SuperAdmin", "Admin");
 
   const canVet = isVettingStaff && a.status === "PENDING_APPROVAL";
-  const canApprove = isApprovingStaff && a.status === "VETTED";
-  const canCapture = hasRole(user, "EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "APPROVED_FOR_BIOMETRICS";
+  const canCapture = hasRole(user, "EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && ["VETTED", "APPROVED_FOR_BIOMETRICS"].includes(a.status);
   const canCollect = hasRole(user, "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "READY_FOR_COLLECTION";
 
   const lastQuery = [...(a.history ?? [])].reverse().find((h) => h.to === "QUERIED");
@@ -74,7 +73,7 @@ export default function StaffApplicationPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/portal/applications/${a.id}/slip`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Application slip</Link>
-            {["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+            {["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "APPROVED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
               <Link
                 href={`/portal/applications/${a.id}/slip?kind=appointment&from=staff&return_to=${encodeURIComponent(`/staff/applications/${a.id}`)}`}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-800"
@@ -82,7 +81,15 @@ export default function StaffApplicationPage() {
                 Appointment slip
               </Link>
             )}
-            {["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+            {a.status === "VETTED" && (
+              <Link
+                href={`/staff/applications/${a.id}/biometrics`}
+                className="rounded-lg bg-nis-green px-3 py-2 text-sm font-semibold text-white hover:bg-[#005028]"
+              >
+                Open biometrics desk
+              </Link>
+            )}
+            {["BIOMETRICS_CAPTURED", "APPROVED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
               <Link href={`/portal/applications/${a.id}/slip?kind=temporary`} target="_blank" className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Temporary slip</Link>
             )}
             {a.card && <Link href={`/staff/cards/${a.card.id}`} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold">Card {a.card.card_number}</Link>}
@@ -312,13 +319,13 @@ export default function StaffApplicationPage() {
             >
               <div className="space-y-4">
                 <Field
-                  label="Notes / Reason for Query or Rejection"
-                  hint="Required when querying or rejecting. Optional recommendation notes for vetting."
+                  label="Notes / Query Instructions"
+                  hint="Required when querying. Optional recommendation notes for vetting."
                 >
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Enter query instructions (e.g. Please upload a clear copy of your passport data page), rejection grounds, or vetting remarks..."
+                    placeholder="Enter query instructions (e.g. Please upload a clear copy of your passport data page) or vetting remarks..."
                     rows={3}
                   />
                 </Field>
@@ -327,7 +334,7 @@ export default function StaffApplicationPage() {
                   <Button
                     disabled={busy}
                     onClick={() =>
-                      confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. The application will be forwarded to the Approvers queue.") &&
+                      confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. Biometric enrollment will be enabled for the applicant.") &&
                       act("decision", {
                         decision: "VET",
                         notes: notes.trim() || "Application particulars and documents verified by Vetting Officer.",
@@ -343,16 +350,6 @@ export default function StaffApplicationPage() {
                   >
                     Query
                   </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busy || !notes.trim()}
-                    onClick={() =>
-                      confirm("Reject this application permanently? This cannot be undone.") &&
-                      act("decision", { decision: "REJECT", notes: notes.trim() })
-                    }
-                  >
-                    Reject
-                  </Button>
                 </div>
               </div>
             </Panel>
@@ -361,7 +358,7 @@ export default function StaffApplicationPage() {
               <div className="space-y-1">
                 <div className="font-semibold text-sm">Awaiting Vetting</div>
                 <p className="text-xs text-slate-800">
-                  This application has not yet been vetted by a Vetting Officer. All applications must be examined and vetted before an Approving Officer can grant final approval.
+                  This application has not yet been vetted by a Vetting Officer. All applications must be examined and vetted before an applicant can proceed to biometric enrollment.
                 </p>
               </div>
             </Alert>
@@ -369,7 +366,7 @@ export default function StaffApplicationPage() {
         </>
       )}
 
-      {/* Stage 2: Approver Review and Controls */}
+      {/* Vetted: Biometrics Enrollment Stage */}
       {a.status === "VETTED" && (
         <div className="space-y-5">
           <div
@@ -380,12 +377,18 @@ export default function StaffApplicationPage() {
               className="flex flex-wrap items-center justify-between gap-2 pb-2"
               style={{ borderBottom: "1px solid #D4E8DA" }}
             >
-              <span
-                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
+                  Application Vetted — Eligible for Biometrics Enrollment
+                </span>
+              </div>
+              <Link
+                href={`/staff/applications/${a.id}/biometrics`}
+                className="rounded-lg bg-nis-green px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#005028] shadow-sm transition-colors"
               >
-                Vetted – Awaiting Final Approval
-              </span>
+                Open Biometrics Desk →
+              </Link>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-700">
               {a.vetted_by && (
@@ -409,14 +412,14 @@ export default function StaffApplicationPage() {
               </div>
             )}
             <p className="text-xs text-slate-600">
-              This application has passed internal vetting and is currently in the Approvers queue. Final approval must be performed by an Approving Officer under the Approvers section. Biometrics attendance is not yet authorized.
+              This application has been successfully vetted and is eligible for biometric capture at the designated Enrollment Centre. Once biometrics are captured, the application will automatically advance to the Approvers queue for final authorization.
             </p>
           </div>
         </div>
       )}
 
-      {/* Stage 3: Approved Status Audit Box */}
-      {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+      {/* Biometrics Captured: Awaiting Approver Decision */}
+      {a.status === "BIOMETRICS_CAPTURED" && (
         <div
           className="rounded-2xl p-5 space-y-3 shadow-xs"
           style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
@@ -428,7 +431,51 @@ export default function StaffApplicationPage() {
             <div className="flex items-center gap-2">
               <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
-                Application Approved — Authorized for Biometrics Attendance
+                Biometrics Captured — Awaiting Approver Authorization
+              </span>
+            </div>
+            {a.biometrics_captured_at && (
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
+              >
+                Captured: {dateTime(a.biometrics_captured_at)}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-800 space-y-1.5">
+            {a.vetted_by && (
+              <div>
+                <span className="font-semibold text-slate-900">Vetted by:</span> {a.vetted_by.fullname} ({a.vetted_by.service_number})
+                {a.vetted_at && <span className="text-slate-600"> on {dateTime(a.vetted_at)}</span>}
+              </div>
+            )}
+            {a.biometrics_captured_by && (
+              <div>
+                <span className="font-semibold text-slate-900">Biometrics captured by:</span> {a.biometrics_captured_by.fullname} ({a.biometrics_captured_by.service_number})
+              </div>
+            )}
+            <p className="text-xs text-slate-600 pt-1">
+              Biometrics enrollment has been completed. The file is currently in the Approvers queue awaiting final approval from an Approving Officer before proceeding to card production.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Stage 3: Approved Status Audit Box */}
+      {["APPROVED", "APPROVED_FOR_BIOMETRICS", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+        <div
+          className="rounded-2xl p-5 space-y-3 shadow-xs"
+          style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
+        >
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 pb-2"
+            style={{ borderBottom: "1px solid #D4E8DA" }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
+                Application Approved — Authorized for Card Production
               </span>
             </div>
             {a.decided_at && (

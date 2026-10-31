@@ -127,8 +127,9 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
 
   const a = detail.data;
   const isApprovingStaff = hasRole(user, "ApprovingOfficer", "SuperAdmin", "Admin");
-  const isVetted = a.status === "VETTED";
-  const canApprove = isApprovingStaff && isVetted;
+  const hasBiometrics = Boolean(a.biometrics_captured_at || a.status === "BIOMETRICS_CAPTURED");
+  const isApproved = ["APPROVED", "APPROVED_FOR_BIOMETRICS", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) || Boolean(a.decided_at);
+  const canApprove = isApprovingStaff && hasBiometrics && !isApproved && a.status !== "QUERIED" && a.status !== "REJECTED";
 
   const lastQuery = [...(a.history ?? [])].reverse().find((h) => h.to === "QUERIED");
   const lastApplicantResponse = [...(a.history ?? [])].reverse().find((h) => h.notes?.startsWith("Applicant response:"));
@@ -181,8 +182,61 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
 
       {error && <Alert tone="danger">{error}</Alert>}
 
+      {/* Biometric Verification Banner */}
+      {hasBiometrics ? (
+        <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 p-5 space-y-3 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-600" />
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                Biometric Enrollment Verification (Completed)
+              </span>
+            </div>
+            {a.biometrics_captured_at && (
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                Captured: {dateTime(a.biometrics_captured_at)}
+              </span>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 text-xs text-slate-800">
+            <div>
+              <span className="font-semibold text-slate-900">Captured By:</span>{" "}
+              {a.biometrics_captured_by ? `${a.biometrics_captured_by.fullname} (${a.biometrics_captured_by.service_number})` : "Enrollment Officer"}
+            </div>
+            <div>
+              <span className="font-semibold text-slate-900">Enrollment Centre:</span>{" "}
+              {a.enrollment_center?.name || a.enrollment_center?.command_name || a.enrollment_state || "Designated NIS Command"}
+            </div>
+            <div>
+              <span className="font-semibold text-slate-900">Scheduled Date:</span> {nisDate(a.appointment_date)} ({a.appointment_time || "Morning"})
+            </div>
+            <div>
+              <span className="font-semibold text-slate-900">Enrollment Status:</span>{" "}
+              <span className="font-semibold text-emerald-700">Verified & Authenticated</span>
+            </div>
+          </div>
+        </div>
+      ) : a.status === "VETTED" ? (
+        <Alert tone="warning">
+          <div className="space-y-1">
+            <div className="font-semibold text-sm">Biometrics Enrollment Required (Biometrics Not Yet Captured)</div>
+            <p className="text-xs text-slate-800">
+              Under NIS regulations, final approval can only be granted after biometric enrollment has been completed at the designated Enrollment Centre. Biometrics capture has not yet been performed for this application.
+            </p>
+            <div className="pt-2">
+              <Link
+                href={`/staff/applications/${a.id}/biometrics`}
+                className="inline-flex items-center rounded-md bg-nis-green px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#005028]"
+              >
+                Open Biometrics Desk →
+              </Link>
+            </div>
+          </div>
+        </Alert>
+      ) : null}
+
       {/* Stage 1 Vetting Outcome Banner */}
-      {a.status === "VETTED" && (
+      {(a.status === "VETTED" || a.vetted_at) && (
         <div
           className="rounded-2xl p-5 space-y-3 shadow-xs"
           style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
@@ -195,7 +249,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
               className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
               style={{ backgroundColor: "#E1EFE6", color: "#246B45", border: "1px solid #D4E8DA" }}
             >
-              Vetted – Awaiting Final Approval
+              Stage 1 Vetting: Passed
             </span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-800">
@@ -461,7 +515,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
       </Panel>
 
       {/* 6. Approving Officer Final Decision Controls */}
-      {isVetted && (
+      {!isApproved && a.status !== "QUERIED" && (
         <Panel
           title="Approving Officer Decision"
         >
@@ -469,12 +523,12 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             <div className="space-y-4">
               <Field
                 label="Decision Remarks / Instructions"
-                hint="Required when querying or rejecting. Optional for final approval notes."
+                hint="Required when querying. Optional for final approval endorsement."
               >
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Enter approval remarks (or query instructions/rejection grounds)..."
+                  placeholder="Enter approval endorsement remarks or query instructions..."
                   rows={3}
                 />
               </Field>
@@ -483,10 +537,10 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
                 <Button
                   disabled={busy}
                   onClick={() =>
-                    confirm("Grant final approval for this application? This will authorize the applicant for biometrics attendance and send the official approval notification.") &&
+                    confirm("Grant final approval for this application? This will authorize card production and issue the temporary residence permit slip.") &&
                     act("decision", {
                       decision: "APPROVE",
-                      notes: notes.trim() || "Final approval granted for biometrics attendance.",
+                      notes: notes.trim() || "Final approval granted. Card authorized for production.",
                     })
                   }
                 >
@@ -499,18 +553,12 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
                 >
                   Query
                 </Button>
-                <Button
-                  variant="danger"
-                  disabled={busy || !notes.trim()}
-                  onClick={() =>
-                    confirm("Reject this application permanently? This cannot be undone.") &&
-                    act("decision", { decision: "REJECT", notes: notes.trim() })
-                  }
-                >
-                  Reject
-                </Button>
               </div>
             </div>
+          ) : !hasBiometrics ? (
+            <Alert tone="warning">
+              Biometrics enrollment must be completed before an Approving Officer can grant final approval.
+            </Alert>
           ) : (
             <Alert tone="info">
               Only an authorized Approving Officer or Administrator can take final approval decisions.
@@ -520,7 +568,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
       )}
 
       {/* Approved Status Audit Box */}
-      {["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) && (
+      {isApproved && (
         <div
           className="rounded-2xl p-5 space-y-3 shadow-xs"
           style={{ backgroundColor: "#F0F7F2", border: "1px solid #D4E8DA" }}
@@ -532,7 +580,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             <div className="flex items-center gap-2">
               <span className="flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#246B45" }} />
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#246B45" }}>
-                Application Approved — Authorized for Biometrics Attendance
+                Application Approved — Authorized for Card Production
               </span>
             </div>
             {a.decided_at && (

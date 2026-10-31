@@ -80,17 +80,8 @@ class ApplicationController
             } elseif ($status === ApplicationStatus::Queried->value) {
                 $query->where('status', ApplicationStatus::Queried)->whereNull('vetted_at');
             } elseif ($status === ApplicationStatus::Vetted->value) {
-                // Include records awaiting final approval and those subsequently processed, where they remain part of the Vetting history
-                $query->where(function ($q) {
-                    $q->where('status', ApplicationStatus::Vetted)
-                      ->orWhereNotNull('vetted_at')
-                      ->orWhereIn('status', [
-                          ApplicationStatus::ApprovedForBiometrics,
-                          ApplicationStatus::BiometricsCaptured,
-                          ApplicationStatus::ReadyForCollection,
-                          ApplicationStatus::Issued,
-                      ]);
-                });
+                // Vetted applications eligible for biometric enrollment
+                $query->where('status', ApplicationStatus::Vetted);
             } elseif ($status === ApplicationStatus::Rejected->value) {
                 $query->where('status', ApplicationStatus::Rejected)->whereNull('vetted_at');
             } else {
@@ -103,47 +94,56 @@ class ApplicationController
                         ApplicationStatus::Rejected,
                         ApplicationStatus::ApprovedForBiometrics,
                         ApplicationStatus::BiometricsCaptured,
+                        ApplicationStatus::Approved,
                         ApplicationStatus::ReadyForCollection,
                         ApplicationStatus::Issued,
                     ])->orWhereNotNull('vetted_at');
                 });
             }
         } elseif ($queue === 'approvals') {
-            if ($status === ApplicationStatus::Vetted->value || $status === 'AWAITING_APPROVAL') {
-                // Awaiting Final Approval
-                $query->where('status', ApplicationStatus::Vetted)->whereNull('decided_at');
-            } elseif ($status === ApplicationStatus::ApprovedForBiometrics->value || $status === 'APPROVED') {
-                // Approved records (including subsequent historical processing)
+            if ($status === ApplicationStatus::BiometricsCaptured->value || $status === 'AWAITING_APPROVAL' || $status === 'BIOMETRICS_COMPLETED' || $status === 'VETTED') {
+                // Awaiting Final Approval: strictly requires completed biometric enrollment
                 $query->where(function ($q) {
-                    $q->where('status', ApplicationStatus::ApprovedForBiometrics)
-                      ->orWhereIn('status', [
-                          ApplicationStatus::BiometricsCaptured,
-                          ApplicationStatus::ReadyForCollection,
-                          ApplicationStatus::Issued,
-                      ])
+                    $q->where('status', ApplicationStatus::BiometricsCaptured)
                       ->orWhere(function ($sub) {
-                          $sub->whereNotNull('decided_at')
+                          $sub->whereNotNull('biometrics_captured_at')
+                              ->whereNull('decided_at')
                               ->whereNotIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected]);
                       });
                 });
-            } elseif ($status === ApplicationStatus::Queried->value) {
-                $query->where('status', ApplicationStatus::Queried)->whereNotNull('vetted_at');
-            } elseif ($status === ApplicationStatus::Rejected->value) {
-                $query->where('status', ApplicationStatus::Rejected)->whereNotNull('vetted_at');
-            } else {
-                // All: all applications that have successfully completed Vetting and entered the Approval workflow
+            } elseif ($status === ApplicationStatus::Approved->value || $status === ApplicationStatus::ApprovedForBiometrics->value || $status === 'APPROVED') {
+                // Approved records (including subsequent historical processing)
                 $query->where(function ($q) {
-                    $q->where('status', ApplicationStatus::Vetted)
-                      ->orWhere('status', ApplicationStatus::ApprovedForBiometrics)
-                      ->orWhereIn('status', [
-                          ApplicationStatus::BiometricsCaptured,
-                          ApplicationStatus::ReadyForCollection,
-                          ApplicationStatus::Issued,
-                      ])
-                      ->orWhere(function ($sub) {
-                          $sub->whereIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected])
-                              ->whereNotNull('vetted_at');
-                      });
+                    $q->whereIn('status', [
+                        ApplicationStatus::Approved,
+                        ApplicationStatus::ApprovedForBiometrics,
+                        ApplicationStatus::ReadyForCollection,
+                        ApplicationStatus::Issued,
+                    ])
+                    ->orWhere(function ($sub) {
+                        $sub->whereNotNull('decided_at')
+                            ->whereNotIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected]);
+                    });
+                });
+            } elseif ($status === ApplicationStatus::Queried->value) {
+                $query->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at');
+            } elseif ($status === ApplicationStatus::Rejected->value) {
+                $query->where('status', ApplicationStatus::Rejected)->whereNotNull('decided_at');
+            } else {
+                // All: all applications that have entered or passed the Approval workflow
+                $query->where(function ($q) {
+                    $q->whereIn('status', [
+                        ApplicationStatus::BiometricsCaptured,
+                        ApplicationStatus::Approved,
+                        ApplicationStatus::ApprovedForBiometrics,
+                        ApplicationStatus::ReadyForCollection,
+                        ApplicationStatus::Issued,
+                    ])
+                    ->orWhereNotNull('biometrics_captured_at')
+                    ->orWhere(function ($sub) {
+                        $sub->whereIn('status', [ApplicationStatus::Queried, ApplicationStatus::Rejected])
+                            ->whereNotNull('decided_at');
+                    });
                 });
             }
         } elseif (! empty($status)) {
@@ -267,6 +267,7 @@ class ApplicationController
             'enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants',
             'documents', 'statusHistory', 'payments', 'assignee:id,fullname,service_number',
             'vettedBy:id,fullname,service_number', 'decidedBy:id,fullname,service_number',
+            'biometricsCapturedBy:id,fullname,service_number',
         ])->findOrFail($id);
 
         return response()->json([
@@ -363,47 +364,57 @@ class ApplicationController
             abort_if(
                 $application->status === ApplicationStatus::PendingApproval,
                 422,
-                "Application {$application->application_number} has not been vetted. Vetting must be completed before final approval can be granted."
+                "Application {$application->application_number} has not been vetted. Vetting and biometric enrollment must be completed before final approval can be granted."
             );
             abort_if(
                 $application->status === ApplicationStatus::Queried,
                 422,
                 "Application {$application->application_number} is currently queried and cannot be approved."
             );
-            abort_unless(
-                $application->status === ApplicationStatus::Vetted,
+            abort_if(
+                $application->status === ApplicationStatus::Vetted && $application->biometrics_captured_at === null,
                 422,
-                "Application {$application->application_number} must be in Vetted status to receive final approval."
+                "Application {$application->application_number} has not completed biometric enrollment. Biometrics must be enrolled and confirmed before final approval can be granted."
+            );
+            abort_unless(
+                $application->biometrics_captured_at !== null || in_array($application->status, [ApplicationStatus::BiometricsCaptured, ApplicationStatus::ApprovedForBiometrics], true),
+                422,
+                "Application {$application->application_number} must have completed required biometrics to receive final approval."
             );
 
-            $notes = ! empty($data['notes']) ? $data['notes'] : 'Approved for physical biometrics capture at the enrollment center.';
+            $notes = ! empty($data['notes']) ? $data['notes'] : 'Final approval granted. Card queued for physical production.';
 
-            $application = $workflow->transition($application, ApplicationStatus::ApprovedForBiometrics, $officer, $notes, function (Application $a) use ($officer, $notes) {
+            $application = $workflow->transition($application, ApplicationStatus::Approved, $officer, $notes, function (Application $a) use ($officer, $notes) {
                 $a->decided_by = $officer->id;
                 $a->decided_at = now();
                 $a->decision_notes = $notes;
 
+                if ($a->card) {
+                    $a->card->status = \App\Enums\CardStatus::Approved;
+                    $a->card->save();
+                }
+
                 if ($a->has_cod && ! empty($a->cod_changes)) {
                     $changes = is_array($a->cod_changes) ? $a->cod_changes : json_decode($a->cod_changes, true);
-                        foreach ($changes as $key => $change) {
-                            $field = $change['field'] ?? (is_string($key) ? $key : null);
-                            $newVal = $change['requested_value'] ?? $change['requested'] ?? null;
-                            if ($field === 'name') {
-                                if (! empty($change['requested_surname'])) {
-                                    $a->surname = $change['requested_surname'];
-                                }
-                                if (! empty($change['requested_forenames'])) {
-                                    $a->forenames = $change['requested_forenames'];
-                                }
-                            } elseif ($newVal !== null && in_array($field, Application::PARTICULARS, true)) {
-                                $a->{$field} = $newVal;
+                    foreach ($changes as $key => $change) {
+                        $field = $change['field'] ?? (is_string($key) ? $key : null);
+                        $newVal = $change['requested_value'] ?? $change['requested'] ?? null;
+                        if ($field === 'name') {
+                            if (! empty($change['requested_surname'])) {
+                                $a->surname = $change['requested_surname'];
                             }
+                            if (! empty($change['requested_forenames'])) {
+                                $a->forenames = $change['requested_forenames'];
+                            }
+                        } elseif ($newVal !== null && in_array($field, Application::PARTICULARS, true)) {
+                            $a->{$field} = $newVal;
                         }
+                    }
                     $a->cod_status = 'APPROVED';
                 }
             });
 
-            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy']));
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy', 'biometricsCapturedBy', 'card']));
         }
 
         if ($data['decision'] === 'QUERY') {
@@ -420,27 +431,11 @@ class ApplicationController
                 $a->decision_notes = $notes;
             });
 
-            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy']));
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'biometricsCapturedBy']));
         }
 
         if ($data['decision'] === 'REJECT') {
-            abort_unless(
-                $officer->hasRole(StaffRole::VettingOfficer, StaffRole::ApprovingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
-                403,
-                'You do not have permission to reject this application.'
-            );
-            $notes = $data['notes'];
-
-            $application = $workflow->transition($application, ApplicationStatus::Rejected, $officer, $notes, function (Application $a) use ($officer, $notes) {
-                $a->decided_by = $officer->id;
-                $a->decided_at = now();
-                $a->decision_notes = $notes;
-                if ($a->has_cod) {
-                    $a->cod_status = 'REJECTED';
-                }
-            });
-
-            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy']));
+            abort(422, 'The Reject action has been removed from Vetting and Approval workflows. Please use Query if additional documentation or clarification is needed.');
         }
 
         abort(422, 'Invalid decision.');
@@ -469,13 +464,20 @@ class ApplicationController
         $data['simulation'] = $isSimulation;
 
         $target = Application::with('enrollmentCenter')->findOrFail($id);
-        if ($target->status !== ApplicationStatus::ApprovedForBiometrics) {
-            abort(403, "Application {$target->application_number} has not received final approval and is not eligible for biometrics capture.");
-        }
+        abort_unless(
+            in_array($target->status, [ApplicationStatus::Vetted, ApplicationStatus::ApprovedForBiometrics], true),
+            403,
+            "Application {$target->application_number} must be in Vetted status to proceed with biometric enrollment."
+        );
+        abort_unless(
+            $target->payment_status === 'PAID' || $target->payments()->where('status', 'SUCCESS')->exists(),
+            422,
+            "Application {$target->application_number} requires verified payment before biometrics capture."
+        );
 
         $application = $issuance->captureBiometrics($target, $this->officer($request), $data);
 
-        return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'documents', 'statusHistory']));
+        return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'documents', 'statusHistory', 'vettedBy', 'decidedBy', 'biometricsCapturedBy']));
     }
 
     /** Latest answers from Interpol SLTD and the Ministry of Interior quota register. */

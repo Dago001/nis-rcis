@@ -79,7 +79,7 @@ function ApplicationDetail() {
   if (!app) return <Spinner />;
 
   const { t } = useI18n();
-  const appointmentReady = ["APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
+  const appointmentReady = ["VETTED", "APPROVED_FOR_BIOMETRICS", "BIOMETRICS_CAPTURED", "APPROVED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
   const temporaryCardReady = Boolean(app.biometrics_captured_at) || ["BIOMETRICS_CAPTURED", "READY_FOR_COLLECTION", "ISSUED"].includes(app.status);
   const queryEntry = [...(app.history ?? [])].reverse().find((h) => h.to === "QUERIED");
 

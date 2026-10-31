@@ -711,9 +711,12 @@ function Wizard() {
 
         const reference = params.get("reference") || params.get("trxref") || restored.payment_reference;
         if (reference) {
-          const payment = await api<{ paid: boolean; used: boolean }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
+          const payment = await api<{ paid: boolean; used: boolean; paid_at?: string }>("applicant", `payments/${encodeURIComponent(reference)}/verify`, { method: "POST" }).catch(() => null);
           if (payment?.paid && !payment.used) {
             restored.payment_reference = reference;
+            if (payment.paid_at) {
+              restored.paid_at = payment.paid_at;
+            }
             setPaid(true);
             setStep(7);
             await api("applicant", "draft", {
@@ -721,7 +724,7 @@ function Wizard() {
               json: {
                 type,
                 current_step: 7,
-                data: { ...restored, type, category: (restored.category || "WORK").toUpperCase(), payment_reference: reference },
+                data: { ...restored, type, category: (restored.category || "WORK").toUpperCase(), payment_reference: reference, paid_at: restored.paid_at },
               },
             }).catch(() => null);
             setNotice({
@@ -1369,12 +1372,13 @@ function Wizard() {
         payment_acknowledged_at: new Date().toISOString(),
       });
       if (payment.fake) {
-        const verified = await api<{ paid: boolean }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
-        setData((d) => ({ ...d, payment_reference: payment.reference, category: resolvedCategory }));
+        const verified = await api<{ paid: boolean; paid_at?: string }>("applicant", `payments/${payment.reference}/verify`, { method: "POST" });
+        const paidAt = verified.paid_at || new Date().toISOString();
+        setData((d) => ({ ...d, payment_reference: payment.reference, paid_at: paidAt, category: resolvedCategory }));
         setPaid(verified.paid);
         setStepError({});
         if (verified.paid) {
-          await saveDraft(7, { type, category: resolvedCategory, payment_reference: payment.reference });
+          await saveDraft(7, { type, category: resolvedCategory, payment_reference: payment.reference, paid_at: paidAt });
           setStep(7);
           setNotice({
             tone: "success",

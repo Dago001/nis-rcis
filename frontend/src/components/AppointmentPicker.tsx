@@ -5,6 +5,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { api } from "@/lib/api-client";
 import type { EnrollmentCenter, NisZone } from "@/lib/types";
 import { Field, Input, Select } from "./ui";
+import { getEarliestAppointmentDate } from "@/lib/validation";
 
 type Slot = { time: string; remaining: number };
 
@@ -131,7 +132,19 @@ export function AppointmentPicker({
     };
   }, [data.enrollment_center_id, data.appointment_date]);
 
-  const [tomorrow] = useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
+  const earliestDate = useMemo(() => getEarliestAppointmentDate(data.paid_at), [data.paid_at]);
+  const maxDate = useMemo(() => {
+    const [y, m, d] = earliestDate.split("-").map(Number);
+    const maxUtc = new Date(Date.UTC(y, m - 1, d + 60));
+    return `${maxUtc.getUTCFullYear()}-${String(maxUtc.getUTCMonth() + 1).padStart(2, "0")}-${String(maxUtc.getUTCDate()).padStart(2, "0")}`;
+  }, [earliestDate]);
+
+  useEffect(() => {
+    if (data.appointment_date && data.appointment_date < earliestDate) {
+      set("appointment_date", "");
+      set("appointment_time", "");
+    }
+  }, [data.appointment_date, earliestDate, set]);
 
   // Commands filtered strictly by the selected Zone
   const availableCommands = useMemo(() => {
@@ -260,23 +273,38 @@ export function AppointmentPicker({
         </Select>
       </Field>
 
+      {/* Notice on 4-Calendar-Day Rule */}
+      <div className="sm:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950 flex items-start gap-2.5">
+        <svg className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+          <span className="font-semibold text-emerald-900">NIS 4-Calendar-Day Scheduling Rule:</span> In accordance with official regulations, biometric enrollment appointments are available starting from the 4th calendar day following successful payment (<strong className="font-semibold text-emerald-950">{earliestDate}</strong>) onward. Dates prior to this are locked.
+        </div>
+      </div>
+
       {/* Field 3: Appointment Date */}
       <Field
         label={t("Appointment date")}
         required
         error={errors.appointment_date}
-        hint={t("Weekdays only, within the next 60 days")}
+        hint={t(`Appointments can only be scheduled from ${earliestDate} onward (minimum 4 calendar days after payment). Weekdays only.`)}
       >
         <Input
           type="date"
           name="appointment_date"
-          min={tomorrow}
+          min={earliestDate}
+          max={maxDate}
           value={data.appointment_date ?? ""}
           aria-invalid={Boolean(errors.appointment_date)}
           className={errors.appointment_date ? "!border-red-500" : ""}
           onFocus={() => focus?.("appointment_date")}
           onChange={(e) => {
-            set("appointment_date", e.target.value);
+            const val = e.target.value;
+            if (val && val < earliestDate) {
+              return;
+            }
+            set("appointment_date", val);
             set("appointment_time", "");
           }}
           onBlur={() => {

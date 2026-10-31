@@ -117,6 +117,7 @@ class PaymentController
             'reference' => $payment->reference,
             'status' => $payment->status,
             'paid' => $payment->isSuccessful(),
+            'paid_at' => $payment->paid_at?->toIso8601String() ?? ($payment->isSuccessful() ? ($payment->created_at?->toIso8601String() ?? now()->toIso8601String()) : null),
             'used' => $payment->application_id !== null,
             'rrr' => $payment->gateway_response['RRR'] ?? $payment->gateway_response['rrr'] ?? null,
             'gateway' => strtolower($payment->provider ?: 'remita'),

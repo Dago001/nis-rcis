@@ -90,7 +90,7 @@ class CardProduction
             // so it appears in Card Issuance under 'Awaiting Issuance' without being marked as ISSUED
             if ($outcome === CardPrintJob::PRINTED && $lockedCard->application) {
                 $app = $lockedCard->application()->lockForUpdate()->first();
-                if ($app && in_array($app->status, [\App\Enums\ApplicationStatus::BiometricsCaptured, \App\Enums\ApplicationStatus::Approved], true)) {
+                if ($app && in_array($app->status, [\App\Enums\ApplicationStatus::Approved, \App\Enums\ApplicationStatus::ApprovedForBiometrics, \App\Enums\ApplicationStatus::BiometricsCaptured], true)) {
                     $app->status = \App\Enums\ApplicationStatus::ReadyForCollection;
                     $app->ready_at = now();
                     $app->saveQuietly();
