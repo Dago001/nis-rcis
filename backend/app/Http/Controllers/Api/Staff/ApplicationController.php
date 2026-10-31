@@ -268,6 +268,8 @@ class ApplicationController
             'documents', 'statusHistory', 'payments', 'assignee:id,fullname,service_number',
             'vettedBy:id,fullname,service_number', 'decidedBy:id,fullname,service_number',
             'biometricsCapturedBy:id,fullname,service_number',
+            'documentQueries.queriedBy:id,fullname,service_number',
+            'documentQueries.resolvedBy:id,fullname,service_number',
         ])->findOrFail($id);
 
         return response()->json([
@@ -275,6 +277,104 @@ class ApplicationController
             'photo_url' => $storage->temporaryUrlForPath($application->photo_path),
             'integration_checks' => $this->presentChecks($application),
             'payments' => $application->payments->map->only(['reference', 'status', 'amount_kobo', 'channel', 'paid_at', 'verified_at']),
+        ]);
+    }
+
+    /**
+     * Issue a document-specific query for an uploaded supporting document.
+     */
+    public function queryDocument(Request $request, int $id, int $documentId, ApplicationWorkflow $workflow): JsonResponse
+    {
+        $officer = $this->officer($request);
+        abort_unless(
+            $officer->hasRole(StaffRole::VettingOfficer, StaffRole::ApprovingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
+            403,
+            'You do not have permission to query supporting documents.'
+        );
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:2000'],
+            'stage' => ['nullable', 'string', 'in:VETTING,APPROVAL'],
+        ], [
+            'reason.required' => 'Please enter the specific reason this supporting document requires correction.',
+            'reason.min' => 'The query reason must be at least 3 characters.',
+        ]);
+
+        $application = Application::findOrFail($id);
+        $document = ApplicationDocument::where('application_id', $application->id)->findOrFail($documentId);
+
+        // Determine query stage
+        $stage = ! empty($data['stage'])
+            ? strtoupper($data['stage'])
+            : ($application->status === ApplicationStatus::PendingApproval ? 'VETTING' : 'APPROVAL');
+
+        // Create document query record
+        $docQuery = \App\Models\ApplicationDocumentQuery::create([
+            'application_id' => $application->id,
+            'document_id' => $document->id,
+            'document_type' => $document->type->value,
+            'stage' => $stage,
+            'query_reason' => $data['reason'],
+            'status' => \App\Models\ApplicationDocumentQuery::STATUS_QUERY_RAISED,
+            'queried_by' => $officer->id,
+            'queried_at' => now(),
+        ]);
+
+        $queryNote = "Document queried ({$document->type->label()}): {$data['reason']}";
+
+        // Transition application to QUERIED if not already QUERIED
+        if ($application->status !== ApplicationStatus::Queried) {
+            $application = $workflow->transition($application, ApplicationStatus::Queried, $officer, $queryNote, function (Application $a) use ($queryNote) {
+                $a->decided_by = null;
+                $a->decided_at = null;
+                $a->decision_notes = $queryNote;
+            });
+        } else {
+            $application->decision_notes = $queryNote;
+            $application->saveQuietly();
+
+            \App\Models\ApplicationStatusHistory::create([
+                'application_id' => $application->id,
+                'from_status' => ApplicationStatus::Queried->value,
+                'to_status' => ApplicationStatus::Queried->value,
+                'actor_type' => get_class($officer),
+                'actor_id' => $officer->id,
+                'notes' => $queryNote,
+                'created_at' => now(),
+            ]);
+        }
+
+        Audit::log('DOCUMENT_QUERIED', "Document {$document->type->label()} queried on {$application->application_number} ({$stage} stage) by {$officer->fullname}: {$data['reason']}", $application);
+
+        // Dispatch notification to applicant
+        try {
+            $application->applicant?->notify(new \App\Notifications\DocumentQueriedNotification($application, $docQuery));
+        } catch (\Throwable $e) {
+            Log::warning("Failed to send DocumentQueriedNotification: " . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => "Query for '{$document->type->label()}' has been submitted successfully.",
+            'query' => [
+                'id' => $docQuery->id,
+                'document_id' => $docQuery->document_id,
+                'query_reason' => $docQuery->query_reason,
+                'stage' => $docQuery->stage,
+                'status' => $docQuery->status,
+                'status_label' => $docQuery->status_label,
+                'queried_at' => $docQuery->queried_at?->toIso8601String(),
+                'queried_by' => [
+                    'fullname' => $officer->fullname,
+                    'service_number' => $officer->service_number,
+                ],
+            ],
+            'application' => new ApplicationResource($application->fresh([
+                'enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants',
+                'documents', 'statusHistory', 'payments', 'assignee:id,fullname,service_number',
+                'vettedBy:id,fullname,service_number', 'decidedBy:id,fullname,service_number',
+                'biometricsCapturedBy:id,fullname,service_number',
+                'documentQueries.queriedBy:id,fullname,service_number',
+            ])),
         ]);
     }
 
@@ -338,6 +438,12 @@ class ApplicationController
                 403,
                 'Only a Vetting Officer or Administrator can vet applications.'
             );
+            $unresolved = $application->unresolvedDocumentQueries()->count();
+            abort_if(
+                $unresolved > 0,
+                422,
+                "Cannot proceed with vetting: application {$application->application_number} has {$unresolved} unresolved document query/queries. All queried documents must be corrected and resolved before vetting can be completed."
+            );
             abort_unless(
                 $application->status === ApplicationStatus::PendingApproval,
                 422,
@@ -352,7 +458,18 @@ class ApplicationController
                 $a->vetting_notes = $notes;
             });
 
-            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy']));
+            // Mark active vetting document queries as resolved
+            $application->documentQueries()
+                ->where('stage', 'VETTING')
+                ->where('status', '!=', \App\Models\ApplicationDocumentQuery::STATUS_RESOLVED)
+                ->update([
+                    'status' => \App\Models\ApplicationDocumentQuery::STATUS_RESOLVED,
+                    'resolved_by' => $officer->id,
+                    'resolved_at' => now(),
+                    'resolution_notes' => 'Document verified and resolved upon vetting approval.',
+                ]);
+
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'documentQueries.queriedBy']));
         }
 
         if ($data['decision'] === 'APPROVE') {
@@ -360,6 +477,12 @@ class ApplicationController
                 $officer->hasRole(StaffRole::ApprovingOfficer, StaffRole::SuperAdmin, StaffRole::Admin),
                 403,
                 'Only an Approving Officer or Administrator can grant final approval.'
+            );
+            $unresolved = $application->unresolvedDocumentQueries()->count();
+            abort_if(
+                $unresolved > 0,
+                422,
+                "Cannot proceed with final approval: application {$application->application_number} has {$unresolved} unresolved document query/queries. All queried documents must be corrected and resolved before approval can be granted."
             );
             abort_if(
                 $application->status === ApplicationStatus::PendingApproval,
@@ -414,7 +537,18 @@ class ApplicationController
                 }
             });
 
-            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy', 'biometricsCapturedBy', 'card']));
+            // Mark active approval document queries as resolved
+            $application->documentQueries()
+                ->where('stage', 'APPROVAL')
+                ->where('status', '!=', \App\Models\ApplicationDocumentQuery::STATUS_RESOLVED)
+                ->update([
+                    'status' => \App\Models\ApplicationDocumentQuery::STATUS_RESOLVED,
+                    'resolved_by' => $officer->id,
+                    'resolved_at' => now(),
+                    'resolution_notes' => 'Document verified and resolved upon final approval.',
+                ]);
+
+            return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'vettedBy', 'decidedBy', 'biometricsCapturedBy', 'card', 'documentQueries.queriedBy']));
         }
 
         if ($data['decision'] === 'QUERY') {

@@ -96,15 +96,74 @@ class ApplicationResource extends JsonResource
                 'forenames' => $d->forenames, 'relationship' => $d->dependant_relationship, 'status' => $d->status->value,
             ])->values()),
             'renewal_of_card_number' => $this->whenLoaded('renewalOfCard', fn () => $this->renewalOfCard?->card_number),
-            'documents' => $this->whenLoaded('documents', fn () => $this->documents->map(fn ($d) => [
-                'id' => $d->id,
-                'type' => $d->type->value,
-                'label' => $d->type->label(),
-                'mime_type' => $d->mime_type,
-                'size_bytes' => $d->size_bytes,
-                'version' => $d->version,
-                'uploaded_at' => $d->created_at,
+            'documents' => $this->whenLoaded('documents', function () {
+                $queries = $this->relationLoaded('documentQueries')
+                    ? $this->documentQueries
+                    : $this->documentQueries()->with(['queriedBy:id,fullname,service_number', 'resolvedBy:id,fullname,service_number'])->get();
+                $queriesByDoc = $queries->groupBy('document_id');
+
+                return $this->documents->map(function ($d) use ($queriesByDoc) {
+                    $docQueries = $queriesByDoc->get($d->id, collect());
+                    $activeQuery = $docQueries->firstWhere('status', '!=', \App\Models\ApplicationDocumentQuery::STATUS_RESOLVED);
+
+                    return [
+                        'id' => $d->id,
+                        'type' => $d->type->value,
+                        'label' => $d->type->label(),
+                        'mime_type' => $d->mime_type,
+                        'size_bytes' => $d->size_bytes,
+                        'version' => $d->version,
+                        'uploaded_at' => $d->created_at,
+                        'active_query' => $activeQuery ? [
+                            'id' => $activeQuery->id,
+                            'query_reason' => $activeQuery->query_reason,
+                            'stage' => $activeQuery->stage,
+                            'status' => $activeQuery->status,
+                            'status_label' => $activeQuery->status_label,
+                            'queried_at' => $activeQuery->queried_at?->toIso8601String(),
+                            'queried_by' => $activeQuery->queriedBy ? [
+                                'fullname' => $activeQuery->queriedBy->fullname,
+                                'service_number' => $activeQuery->queriedBy->service_number,
+                            ] : null,
+                            'applicant_response' => $activeQuery->applicant_response,
+                            'responded_at' => $activeQuery->responded_at?->toIso8601String(),
+                        ] : null,
+                        'queries' => $docQueries->map(fn ($q) => [
+                            'id' => $q->id,
+                            'query_reason' => $q->query_reason,
+                            'stage' => $q->stage,
+                            'status' => $q->status,
+                            'status_label' => $q->status_label,
+                            'queried_at' => $q->queried_at?->toIso8601String(),
+                            'applicant_response' => $q->applicant_response,
+                            'responded_at' => $q->responded_at?->toIso8601String(),
+                            'resolved_at' => $q->resolved_at?->toIso8601String(),
+                        ])->values(),
+                    ];
+                })->values();
+            }),
+            'document_queries' => $this->whenLoaded('documentQueries', fn () => $this->documentQueries->map(fn ($q) => [
+                'id' => $q->id,
+                'document_id' => $q->document_id,
+                'document_type' => $q->document_type,
+                'document_label' => $q->document?->type?->label() ?? $q->document_type,
+                'stage' => $q->stage,
+                'query_reason' => $q->query_reason,
+                'status' => $q->status,
+                'status_label' => $q->status_label,
+                'queried_at' => $q->queried_at?->toIso8601String(),
+                'queried_by' => $q->queriedBy ? [
+                    'fullname' => $q->queriedBy->fullname,
+                    'service_number' => $q->queriedBy->service_number,
+                ] : null,
+                'applicant_response' => $q->applicant_response,
+                'responded_at' => $q->responded_at?->toIso8601String(),
+                'resolved_at' => $q->resolved_at?->toIso8601String(),
+                'resolution_notes' => $q->resolution_notes,
             ])->values()),
+            'unresolved_document_queries_count' => $this->relationLoaded('documentQueries')
+                ? $this->documentQueries->where('status', '!=', \App\Models\ApplicationDocumentQuery::STATUS_RESOLVED)->count()
+                : $this->unresolvedDocumentQueries()->count(),
             'history' => $this->whenLoaded('statusHistory', fn () => $this->statusHistory->map(fn ($h) => [
                 'from' => $h->from_status?->value,
                 'to' => $h->to_status->value,

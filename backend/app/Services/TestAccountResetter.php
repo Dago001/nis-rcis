@@ -71,12 +71,159 @@ class TestAccountResetter
     }
 
     /**
-     * Delete all test application data, drafts, cards, and associated records
-     * for the two specified test accounts without creating backups.
+     * Inspect all test application data, drafts, cards, and associated records
+     * without modifying or deleting anything.
      */
-    public static function reset(): array
+    public static function inspect(array $emails = ['ezeab.nis@gmail.com']): array
     {
-        $targetEmails = array_map('strtolower', self::TARGET_EMAILS);
+        $targetEmails = array_map('strtolower', $emails);
+
+        $applicants = Applicant::whereIn(DB::raw('LOWER(email)'), $targetEmails)->get();
+        $applicantIds = $applicants->pluck('id')->filter()->unique()->all();
+
+        $appQuery = Application::query()->where(function ($q) use ($applicantIds, $targetEmails) {
+            if (! empty($applicantIds)) {
+                $q->whereIn('applicant_id', $applicantIds);
+            }
+            $q->orWhereIn(DB::raw('LOWER(email)'), $targetEmails);
+        });
+
+        $allApps = $appQuery->get();
+        $appIds = $allApps->pluck('id')->filter()->unique()->all();
+
+        $foundMore = true;
+        while ($foundMore && ! empty($appIds)) {
+            $dependents = Application::whereIn('principal_application_id', $appIds)
+                ->whereNotIn('id', $appIds)
+                ->get();
+
+            if ($dependents->isEmpty()) {
+                $foundMore = false;
+            } else {
+                foreach ($dependents as $dep) {
+                    $allApps->push($dep);
+                    $appIds[] = $dep->id;
+                }
+            }
+        }
+        $appIds = array_values(array_unique($appIds));
+        $appNumbers = $allApps->pluck('application_number')->filter()->unique()->all();
+        $passports = $allApps->pluck('passport_number')->filter()->unique()->all();
+
+        $cardQuery = ResidenceCard::query();
+        $hasCardConditions = false;
+
+        if (! empty($applicantIds)) {
+            $cardQuery->whereIn('applicant_id', $applicantIds);
+            $hasCardConditions = true;
+        }
+        if (! empty($appNumbers)) {
+            $cardQuery->orWhereIn('decision_reference', $appNumbers);
+            $hasCardConditions = true;
+        }
+        if (! empty($passports)) {
+            $cardQuery->orWhereIn('passport_number', $passports);
+            $hasCardConditions = true;
+        }
+        if (! empty($appIds)) {
+            $linkedCardIds = $allApps->pluck('card_id')->filter()
+                ->merge($allApps->pluck('renewal_of_card_id')->filter())
+                ->unique()->all();
+            if (! empty($linkedCardIds)) {
+                $cardQuery->orWhereIn('id', $linkedCardIds);
+                $hasCardConditions = true;
+            }
+        }
+
+        $cards = $hasCardConditions ? $cardQuery->get() : collect();
+        $cardIds = $cards->pluck('id')->filter()->unique()->all();
+
+        $draftQuery = ApplicationDraft::query();
+        if (! empty($applicantIds)) {
+            $draftQuery->whereIn('applicant_id', $applicantIds);
+        }
+        $drafts = $draftQuery->get();
+        $draftIds = $drafts->pluck('id')->all();
+
+        $docsCount = ! empty($appIds) ? ApplicationDocument::whereIn('application_id', $appIds)->count() : 0;
+        if (! empty($draftIds)) {
+            $docsCount += ApplicationDocument::whereIn('draft_id', $draftIds)->count();
+        }
+
+        $documentQueriesCount = 0;
+        if (! empty($appIds) && Schema::hasTable('application_document_queries')) {
+            $documentQueriesCount = DB::table('application_document_queries')->whereIn('application_id', $appIds)->count();
+        }
+
+        $statusHistoriesCount = ! empty($appIds) ? ApplicationStatusHistory::whereIn('application_id', $appIds)->count() : 0;
+        $notesCount = ! empty($appIds) ? ApplicationNote::whereIn('application_id', $appIds)->count() : 0;
+        $integrationChecksCount = ! empty($appIds) ? IntegrationCheck::whereIn('application_id', $appIds)->count() : 0;
+        $queueTicketsCount = ! empty($appIds) ? QueueTicket::whereIn('application_id', $appIds)->count() : 0;
+        $refundsCount = ! empty($appIds) ? Refund::whereIn('application_id', $appIds)->count() : 0;
+        $paymentsCount = ! empty($appIds) ? Payment::whereIn('application_id', $appIds)->count() : 0;
+        if (! empty($applicantIds)) {
+            $paymentsCount += Payment::whereIn('applicant_id', $applicantIds)->whereNotIn('application_id', $appIds)->count();
+        }
+
+        $cardPrintJobsCount = ! empty($cardIds) ? CardPrintJob::whereIn('card_id', $cardIds)->count() : 0;
+        $cardRenewalsCount = ! empty($cardIds) ? CardRenewal::whereIn('card_id', $cardIds)->count() : 0;
+
+        $notificationsCount = 0;
+        if (! empty($applicantIds)) {
+            $notificationsCount = DB::table('notifications')
+                ->where('notifiable_type', 'App\Models\Applicant')
+                ->whereIn('notifiable_id', $applicantIds)
+                ->count();
+        }
+
+        return [
+            'target_emails' => $targetEmails,
+            'environment' => config('app.env'),
+            'applicants' => $applicants->map(fn ($a) => [
+                'id' => $a->id,
+                'email' => $a->email,
+                'surname' => $a->surname,
+                'forenames' => $a->forenames,
+                'status' => 'LOGIN PRESERVED (WILL NOT BE DELETED)',
+            ])->all(),
+            'counts' => [
+                'applications' => count($appIds),
+                'drafts' => count($draftIds),
+                'documents' => $docsCount,
+                'document_queries' => $documentQueriesCount,
+                'status_histories' => $statusHistoriesCount,
+                'notes' => $notesCount,
+                'integration_checks' => $integrationChecksCount,
+                'queue_tickets' => $queueTicketsCount,
+                'payments' => $paymentsCount,
+                'residence_cards' => count($cardIds),
+                'card_print_jobs' => $cardPrintJobsCount,
+                'card_renewals' => $cardRenewalsCount,
+                'notifications' => $notificationsCount,
+            ],
+            'applications' => $allApps->map(fn ($app) => [
+                'id' => $app->id,
+                'application_number' => $app->application_number,
+                'type' => $app->type,
+                'status' => is_string($app->status) ? $app->status : ($app->status->value ?? (string) $app->status),
+                'category' => $app->category,
+                'submitted_at' => $app->submitted_at?->toIso8601String(),
+            ])->all(),
+            'cards' => $cards->map(fn ($c) => [
+                'id' => $c->id,
+                'card_number' => $c->card_number,
+                'status' => is_string($c->status) ? $c->status : ($c->status->value ?? (string) $c->status),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Delete all test application data, drafts, cards, and associated records
+     * for the specified test accounts without creating backups.
+     */
+    public static function reset(?array $emails = null): array
+    {
+        $targetEmails = array_map('strtolower', $emails ?? self::TARGET_EMAILS);
 
         $summary = [
             'target_emails' => $targetEmails,
@@ -84,6 +231,7 @@ class TestAccountResetter
             'applications_deleted' => 0,
             'drafts_deleted' => 0,
             'documents_deleted' => 0,
+            'document_queries_deleted' => 0,
             'status_histories_deleted' => 0,
             'notes_deleted' => 0,
             'integration_checks_deleted' => 0,
@@ -240,6 +388,9 @@ class TestAccountResetter
 
         // 7. Delete application child records
         if (! empty($appIds)) {
+            if (Schema::hasTable('application_document_queries')) {
+                $summary['document_queries_deleted'] = DB::table('application_document_queries')->whereIn('application_id', $appIds)->delete();
+            }
             $summary['status_histories_deleted'] = ApplicationStatusHistory::whereIn('application_id', $appIds)->delete();
             $summary['notes_deleted'] = ApplicationNote::whereIn('application_id', $appIds)->delete();
             $summary['integration_checks_deleted'] = IntegrationCheck::whereIn('application_id', $appIds)->delete();

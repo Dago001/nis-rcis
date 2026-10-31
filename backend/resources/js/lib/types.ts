@@ -125,6 +125,25 @@ export type EnrollmentCenter = {
   time_slots?: string[];
 };
 
+export type ApplicationDocumentQuery = {
+  id: number;
+  application_id: number;
+  document_id: number;
+  document_type: DocumentType;
+  stage: "VETTING" | "APPROVAL";
+  query_reason: string;
+  status: "QUERY_RAISED" | "AWAITING_RESPONSE" | "RESPONSE_SUBMITTED" | "RESOLVED";
+  status_label?: string;
+  queried_by?: { id: number; fullname: string; service_number: string } | null;
+  queried_at: string;
+  applicant_response?: string | null;
+  responded_at?: string | null;
+  resolved_by?: { id: number; fullname: string; service_number: string } | null;
+  resolved_at?: string | null;
+  resolution_notes?: string | null;
+  replacement_document_id?: number | null;
+};
+
 export type ApplicationDocument = {
   id: number;
   type: DocumentType;
@@ -135,6 +154,8 @@ export type ApplicationDocument = {
   uploaded_at: string;
   original_name?: string;
   url?: string | null;
+  active_query?: ApplicationDocumentQuery | null;
+  queries?: ApplicationDocumentQuery[];
 };
 
 export type Application = Particulars & {
@@ -158,6 +179,8 @@ export type Application = Particulars & {
   production_location?: string;
   appointment_date: string;
   appointment_time: string;
+  document_queries?: ApplicationDocumentQuery[];
+  unresolved_document_queries_count?: number;
   fee_amount_naira: number;
   payment_status: string;
   submitted_at: string | null;

@@ -49,6 +49,7 @@ export default function StaffApplicationPage() {
   const isVettingStaff = hasRole(user, "VettingOfficer", "SuperAdmin", "Admin");
   const isApprovingStaff = hasRole(user, "ApprovingOfficer", "SuperAdmin", "Admin");
 
+  const unresolvedQueriesCount = a.unresolved_document_queries_count ?? a.documents?.filter((d) => d.active_query && d.active_query.status !== "RESOLVED").length ?? 0;
   const canVet = isVettingStaff && a.status === "PENDING_APPROVAL";
   const canCapture = hasRole(user, "EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && ["VETTED", "APPROVED_FOR_BIOMETRICS"].includes(a.status);
   const canCollect = hasRole(user, "ApprovingOfficer", "IssuingOfficer", "SuperAdmin") && a.status === "READY_FOR_COLLECTION";
@@ -305,9 +306,21 @@ export default function StaffApplicationPage() {
       </Panel>
 
       {/* C. Supporting Documents */}
-      <Panel title="Supporting Documents" subtitle="Review uploaded supporting documents, identify requirements, and verify validity.">
-        <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} />
+      <Panel title="Supporting Documents" subtitle="Review uploaded supporting documents, identify requirements, and verify validity. Each document can be viewed or queried independently.">
+        <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} stage="VETTING" onQuerySuccess={load} />
       </Panel>
+
+      {/* Queried Notice */}
+      {a.status === "QUERIED" && (
+        <Alert tone="warning">
+          <div className="space-y-1">
+            <div className="font-semibold text-sm">Application Currently Queried</div>
+            <p className="text-xs text-slate-800">
+              One or more supporting documents have been queried. The applicant has been notified and application progression is paused awaiting their response and document resubmission.
+            </p>
+          </div>
+        </Alert>
+      )}
 
       {/* Stage 1: Vetting Review and Controls */}
       {a.status === "PENDING_APPROVAL" && (
@@ -317,41 +330,45 @@ export default function StaffApplicationPage() {
               title="Vetting"
               subtitle="Review all applicant particulars, security checks and supporting documents above before taking action."
             >
-              <div className="space-y-4">
-                <Field
-                  label="Notes / Query Instructions"
-                  hint="Required when querying. Optional recommendation notes for vetting."
-                >
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Enter query instructions (e.g. Please upload a clear copy of your passport data page) or vetting remarks..."
-                    rows={3}
-                  />
-                </Field>
+              {unresolvedQueriesCount > 0 ? (
+                <Alert tone="warning">
+                  <div className="space-y-1">
+                    <div className="font-semibold text-sm">Unresolved Document Queries ({unresolvedQueriesCount})</div>
+                    <p className="text-xs text-slate-800">
+                      This application has {unresolvedQueriesCount} document {unresolvedQueriesCount === 1 ? "query" : "queries"} awaiting applicant correction or officer review. All document queries must be resolved before vetting can proceed.
+                    </p>
+                  </div>
+                </Alert>
+              ) : (
+                <div className="space-y-4">
+                  <Field
+                    label="Vetting Remarks (Optional)"
+                    hint="Optional recommendation notes or verification remarks for the record."
+                  >
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Optional vetting remarks or verification comments..."
+                      rows={2}
+                    />
+                  </Field>
 
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. Biometric enrollment will be enabled for the applicant.") &&
-                      act("decision", {
-                        decision: "VET",
-                        notes: notes.trim() || "Application particulars and documents verified by Vetting Officer.",
-                      })
-                    }
-                  >
-                    Vet
-                  </Button>
-                  <Button
-                    variant="gold"
-                    disabled={busy || !notes.trim()}
-                    onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
-                  >
-                    Query
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. Biometric enrollment will be enabled for the applicant.") &&
+                        act("decision", {
+                          decision: "VET",
+                          notes: notes.trim() || "Application particulars and documents verified by Vetting Officer.",
+                        })
+                      }
+                    >
+                      Vet Application
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </Panel>
           ) : isApprovingStaff ? (
             <Alert tone="info">

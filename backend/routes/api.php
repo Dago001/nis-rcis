@@ -146,6 +146,8 @@ Route::prefix('v1')->group(function () {
         Route::get('applications', [StaffApplications::class, 'index']);
         Route::get('applications/{id}', [StaffApplications::class, 'show'])->whereNumber('id');
         Route::get('applications/{id}/documents/{document}', [StaffApplications::class, 'document'])->whereNumber(['id', 'document']);
+        Route::post('applications/{id}/documents/{document}/query', [StaffApplications::class, 'queryDocument'])
+            ->middleware('role:VettingOfficer,ApprovingOfficer,SuperAdmin,Admin')->whereNumber(['id', 'document']);
         Route::post('applications/{id}/risk-check', [StaffApplications::class, 'riskCheck'])->whereNumber('id');
         Route::get('applications/{id}/integration-checks', [StaffApplications::class, 'integrationChecks'])->whereNumber('id');
         Route::post('applications/{id}/integration-checks', [StaffApplications::class, 'runIntegrationChecks'])

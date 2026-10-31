@@ -33,4 +33,16 @@ class ApplicationDocument extends Model
     {
         return $this->morphTo();
     }
+
+    public function queries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ApplicationDocumentQuery::class, 'document_id');
+    }
+
+    public function activeQuery(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ApplicationDocumentQuery::class, 'document_id')
+            ->where('status', '!=', ApplicationDocumentQuery::STATUS_RESOLVED)
+            ->latestOfMany();
+    }
 }

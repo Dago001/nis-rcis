@@ -36,7 +36,7 @@ class ApplicationController
     public function show(Request $request, int $id): ApplicationResource
     {
         return new ApplicationResource(
-            $this->owned($request, $id)->load(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory'])
+            $this->owned($request, $id)->load(['enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants', 'documents', 'statusHistory', 'documentQueries.queriedBy'])
         );
     }
 
@@ -132,7 +132,22 @@ class ApplicationController
             $application->forceFill(['photo_path' => $document->path])->save();
         }
 
-        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
+        // Link replacement document to any active document query for this application & document_type
+        $activeQuery = \App\Models\ApplicationDocumentQuery::where('application_id', $application->id)
+            ->where('document_type', $data['type'])
+            ->whereIn('status', ['QUERY_RAISED', 'AWAITING_RESPONSE'])
+            ->latest()
+            ->first();
+
+        if ($activeQuery) {
+            $activeQuery->update([
+                'replacement_document_id' => $document->id,
+                'status' => 'RESPONSE_SUBMITTED',
+                'responded_at' => now(),
+            ]);
+        }
+
+        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'documentQueries.queriedBy']));
     }
 
     public function update(Request $request, int $id): ApplicationResource
@@ -161,7 +176,7 @@ class ApplicationController
             $application->forceFill($data)->save();
         }
 
-        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
+        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'documentQueries.queriedBy']));
     }
 
     /**
@@ -176,13 +191,38 @@ class ApplicationController
 
         $applicant = $this->applicant($request);
 
+        // Update any remaining active document queries with applicant's response note & status
+        $activeQueries = \App\Models\ApplicationDocumentQuery::where('application_id', $application->id)
+            ->whereIn('status', ['QUERY_RAISED', 'AWAITING_RESPONSE'])
+            ->get();
+
+        foreach ($activeQueries as $q) {
+            $q->update([
+                'applicant_response' => $data['response'] ?? $q->applicant_response,
+                'status' => 'RESPONSE_SUBMITTED',
+                'responded_at' => now(),
+            ]);
+        }
+
+        // Determine destination stage based on queried stage:
+        // If the query was raised during APPROVAL stage, return to BiometricsCaptured (awaiting re-approval).
+        // Otherwise (Vetting stage), return to PendingApproval (awaiting re-vetting).
+        $hasApprovalQuery = \App\Models\ApplicationDocumentQuery::where('application_id', $application->id)
+            ->where('stage', 'APPROVAL')
+            ->whereIn('status', ['RESPONSE_SUBMITTED', 'RESOLVED'])
+            ->exists();
+
+        $targetStatus = $hasApprovalQuery && $application->biometrics_completed_at !== null
+            ? ApplicationStatus::BiometricsCaptured
+            : ApplicationStatus::PendingApproval;
+
         $note = !empty($data['response'])
             ? 'Applicant response: '.$data['response']
             : 'Applicant submitted requested document(s) in response to query.';
 
         $application = $workflow->transition(
             $application,
-            ApplicationStatus::PendingApproval,
+            $targetStatus,
             $applicant,
             $note,
             function (Application $a) {
@@ -190,6 +230,11 @@ class ApplicationController
                 $a->decided_at = null;
             }
         );
+
+        $statusStr = $targetStatus->value;
+        $statusMsg = $targetStatus === ApplicationStatus::BiometricsCaptured
+            ? 'Your response to application '.$application->application_number.' has been submitted and is awaiting Approving Officer review.'
+            : 'Your response to application '.$application->application_number.' has been submitted and is awaiting officer re-vetting.';
 
         try {
             $applicant->notifications()->create([
@@ -199,9 +244,9 @@ class ApplicationController
                     'application_id' => $application->id,
                     'application_number' => $application->application_number,
                     'reference_number' => $application->reference_number,
-                    'status' => 'PENDING_APPROVAL',
+                    'status' => $statusStr,
                     'title' => 'Query Response Submitted',
-                    'notes' => 'Your response to application '.$application->application_number.' has been submitted and is awaiting officer re-vetting.',
+                    'notes' => $statusMsg,
                     'action_url' => "/portal/applications/{$application->id}",
                     'action_label' => 'View Application',
                 ],
@@ -211,7 +256,7 @@ class ApplicationController
             \Illuminate\Support\Facades\Log::warning('Failed to create query response notification: '.$e->getMessage());
         }
 
-        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory']));
+        return new ApplicationResource($application->load(['enrollmentCenter', 'documents', 'statusHistory', 'documentQueries.queriedBy']));
     }
 
     public function document(Request $request, int $id, int $documentId, DocumentStorage $storage): JsonResponse

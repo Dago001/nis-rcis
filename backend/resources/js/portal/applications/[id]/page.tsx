@@ -44,20 +44,24 @@ function ApplicationDetail() {
     load().catch((e) => setError(e.message));
   }, [load]);
 
-  async function reupload(file: File) {
+  async function uploadReplacement(typeToUpload: string, file: File) {
     setBusy(true);
     setError(null);
     setUploadSuccess(null);
     try {
-      const r = await upload<{ data: Application }>("applicant", `applications/${id}/documents`, { type: docType, file });
+      const r = await upload<{ data: Application }>("applicant", `applications/${id}/documents`, { type: typeToUpload, file });
       setApp(r.data);
-      const docLabel = UPLOADABLE.find(([v]) => v === docType)?.[1] || docType;
-      setUploadSuccess(`Uploaded replacement for "${docLabel}" successfully. You can replace more documents or submit your response below.`);
+      const docLabel = UPLOADABLE.find(([v]) => v === typeToUpload)?.[1] || typeToUpload;
+      setUploadSuccess(`Uploaded replacement for "${docLabel}" successfully.`);
     } catch (e) {
       setError(e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message : String(e));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function reupload(file: File) {
+    await uploadReplacement(docType, file);
   }
 
   async function respond() {
@@ -67,7 +71,7 @@ function ApplicationDetail() {
       const r = await api<{ data: Application }>("applicant", `applications/${id}/respond`, { method: "POST", json: { response } });
       setApp(r.data);
       setResponse("");
-      setRespondSuccess("Your query response has been submitted successfully and returned to the review queue. An immigration officer will re-vet your submission.");
+      setRespondSuccess("Your corrections and response have been submitted successfully and returned to the review queue.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -191,76 +195,193 @@ function ApplicationDetail() {
         </div>
       </Panel>
 
-      {app.status === "QUERIED" && (
-        <div id="query-response">
-          <Panel title="Action Required: Respond to Application Query">
-            <div className="space-y-4">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
-                    Query Instructions from Vetting Officer
-                  </span>
-                  {queryEntry?.at && (
-                    <span className="text-xs text-amber-800">
-                      Issued: {dateTime(queryEntry.at)}
+      {app.status === "QUERIED" && (() => {
+        const activeDocQueries = (app.document_queries ?? []).filter((q) => q.status !== "RESOLVED");
+        const queriedDocTypes = new Set(activeDocQueries.map((q) => q.document_type));
+        const unqueriedDocs = (app.documents ?? []).filter((d) => !queriedDocTypes.has(d.type));
+
+        return (
+          <div id="query-response">
+            <Panel title="Action Required: Resolve Application Query">
+              <div className="space-y-5">
+                {/* Query Overview banner */}
+                <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-amber-600 animate-pulse" />
+                      Official Application Query Notice
                     </span>
+                    {queryEntry?.at && (
+                      <span className="text-xs text-amber-800">
+                        Issued: {dateTime(queryEntry.at)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-slate-800">
+                    {app.decision_notes || "One or more supporting documents require your correction or replacement. Please upload the requested document(s) below and submit your response."}
+                  </p>
+                </div>
+
+                {error && <Alert tone="danger">{error}</Alert>}
+                {uploadSuccess && <Alert tone="success">{uploadSuccess}</Alert>}
+
+                {/* 1. Queried Documents Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                      Queried Supporting Documents ({activeDocQueries.length})
+                    </h3>
+                    <span className="text-xs text-slate-500">Replacement document(s) required</span>
+                  </div>
+
+                  {activeDocQueries.length > 0 ? (
+                    <div className="space-y-3">
+                      {activeDocQueries.map((q) => {
+                        const doc = app.documents?.find((d) => d.id === q.document_id || d.type === q.document_type);
+                        const isSubmitted = q.status === "RESPONSE_SUBMITTED";
+                        const docLabel = doc?.label || UPLOADABLE.find(([v]) => v === q.document_type)?.[1] || q.document_type;
+
+                        return (
+                          <div
+                            key={q.id}
+                            className="rounded-xl border border-amber-300 bg-amber-50/40 p-4 space-y-3 shadow-xs"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-slate-900">{docLabel}</span>
+                                  {doc?.version && doc.version > 1 && (
+                                    <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800">
+                                      Current v{doc.version}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                  Queried during <strong className="text-amber-800">{q.stage === "APPROVAL" ? "Approval Review" : "Vetting Review"}</strong> on {dateTime(q.queried_at)}
+                                </div>
+                              </div>
+
+                              <div>
+                                {isSubmitted ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+                                    ✓ Replacement Uploaded
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                                    Awaiting Replacement
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="rounded-lg border border-amber-200 bg-white p-3 text-xs">
+                              <span className="font-semibold text-amber-900">Query Reason / Instructions:</span>
+                              <p className="mt-1 text-slate-800 leading-relaxed">{q.query_reason}</p>
+                            </div>
+
+                            {/* Upload action for this specific queried document */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                              <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 shadow-xs transition-colors">
+                                <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                <span>{isSubmitted ? "Upload Different Version" : "Choose & Upload Replacement File"}</span>
+                                <input
+                                  type="file"
+                                  className="sr-only"
+                                  accept="image/jpeg,image/png,application/pdf"
+                                  disabled={busy}
+                                  onChange={(e) => e.target.files?.[0] && uploadReplacement(q.document_type, e.target.files[0])}
+                                />
+                              </label>
+
+                              {isSubmitted && (
+                                <span className="text-xs text-emerald-700 font-medium">
+                                  ✓ Ready for resubmission
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Fallback for legacy query without specific document queries */
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Replace or Re-Upload Requested Documents (Optional)
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Select a document type and upload a replacement file. Your unaffected documents remain valid.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                        <Field label="Select document type to replace">
+                          <Select value={docType} onChange={(e) => { setDocType(e.target.value); setUploadSuccess(null); }}>
+                            {UPLOADABLE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </Select>
+                        </Field>
+                        <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold hover:bg-slate-50 shadow-xs">
+                          Choose &amp; Upload File
+                          <input type="file" className="sr-only" accept="image/jpeg,image/png,application/pdf" disabled={busy} onChange={(e) => e.target.files?.[0] && uploadReplacement(docType, e.target.files[0])} />
+                        </label>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <p className="text-sm font-medium text-slate-800">
-                  {app.decision_notes || "Please review and address the requested items below."}
-                </p>
-                <div className="pt-2">
-                  <Link
-                    href={`/portal/apply?query_app=${app.id}&step=4`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition"
+
+                {/* 2. Unaffected Supporting Documents */}
+                {unqueriedDocs.length > 0 && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2">
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Accepted / Unaffected Documents ({unqueriedDocs.length})
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      The following documents were reviewed and do not require any replacement:
+                    </p>
+                    <ul className="divide-y divide-slate-100 text-xs">
+                      {unqueriedDocs.map((doc) => (
+                        <li key={doc.id} className="py-2 flex items-center justify-between">
+                          <span className="text-slate-800 font-medium">{doc.label}</span>
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-[11px]">
+                            ✓ Valid (No action needed)
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 3. Written Explanation & Resubmission */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Applicant Explanation &amp; Resubmission
+                  </div>
+                  <Field
+                    label="Your response to the reviewing officer (Optional)"
+                    hint="Provide any additional explanation or context regarding the corrected documents."
                   >
-                    Open Document Upload Section in Application Form →
-                  </Link>
-                </div>
-              </div>
-
-              {error && <Alert tone="danger">{error}</Alert>}
-              {uploadSuccess && <Alert tone="success">{uploadSuccess}</Alert>}
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Step 1: Replace or Re-Upload Requested Documents (Optional)
-                </div>
-                <p className="text-xs text-slate-500">
-                  If the officer requested a clearer or corrected document, select the document type and upload it here. Your unaffected documents remain valid.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                  <Field label="Select document type to replace">
-                    <Select value={docType} onChange={(e) => { setDocType(e.target.value); setUploadSuccess(null); }}>
-                      {UPLOADABLE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </Select>
+                    <Textarea
+                      value={response}
+                      onChange={(e) => setResponse(e.target.value)}
+                      placeholder="E.g., I have uploaded a clear, valid copy of the requested document as instructed..."
+                      rows={3}
+                    />
                   </Field>
-                  <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold hover:bg-slate-50 shadow-xs">
-                    Choose &amp; Upload File
-                    <input type="file" className="sr-only" accept="image/jpeg,image/png,application/pdf" disabled={busy} onChange={(e) => e.target.files?.[0] && reupload(e.target.files[0])} />
-                  </label>
+                  <div className="pt-1">
+                    <Button
+                      onClick={respond}
+                      disabled={busy}
+                      className="w-full sm:w-auto"
+                    >
+                      {busy ? "Submitting Corrections..." : "Submit Corrections & Resubmit for Review"}
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Step 2: Written Explanation &amp; Resubmission (Compulsory)
-                </div>
-                <Field label="Your response to the officer" required hint="Provide a clear explanation of what was corrected or any additional context for the officer.">
-                  <Textarea
-                    value={response}
-                    onChange={(e) => setResponse(e.target.value)}
-                    placeholder="E.g., I have re-uploaded a clear copy of my passport data page as requested..."
-                  />
-                </Field>
-                <Button onClick={respond} disabled={busy || response.trim().length < 3}>
-                  Submit Response &amp; Resubmit for Approval
-                </Button>
-              </div>
-            </div>
-          </Panel>
-        </div>
-      )}
+            </Panel>
+          </div>
+        );
+      })()}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Particulars">

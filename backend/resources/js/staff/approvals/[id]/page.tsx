@@ -129,6 +129,7 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
   const isApprovingStaff = hasRole(user, "ApprovingOfficer", "SuperAdmin", "Admin");
   const hasBiometrics = Boolean(a.biometrics_captured_at || a.status === "BIOMETRICS_CAPTURED");
   const isApproved = ["APPROVED", "APPROVED_FOR_BIOMETRICS", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) || Boolean(a.decided_at);
+  const unresolvedQueriesCount = a.unresolved_document_queries_count ?? a.documents?.filter((d) => d.active_query && d.active_query.status !== "RESOLVED").length ?? 0;
   const canApprove = isApprovingStaff && hasBiometrics && !isApproved && a.status !== "QUERIED" && a.status !== "REJECTED";
 
   const lastQuery = [...(a.history ?? [])].reverse().find((h) => h.to === "QUERIED");
@@ -510,8 +511,9 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
       {/* 5. Supporting Documents */}
       <Panel
         title="Supporting Documents"
+        subtitle="Review uploaded supporting documents, verify validity, or query specific documents directly."
       >
-        <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} />
+        <DocumentList scope="staff" applicationId={a.id} documents={a.documents ?? []} stage="APPROVAL" onQuerySuccess={load} />
       </Panel>
 
       {/* 6. Approving Officer Final Decision Controls */}
@@ -520,41 +522,45 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
           title="Approving Officer Decision"
         >
           {canApprove ? (
-            <div className="space-y-4">
-              <Field
-                label="Decision Remarks / Instructions"
-                hint="Required when querying. Optional for final approval endorsement."
-              >
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Enter approval endorsement remarks or query instructions..."
-                  rows={3}
-                />
-              </Field>
+            unresolvedQueriesCount > 0 ? (
+              <Alert tone="warning">
+                <div className="space-y-1">
+                  <div className="font-semibold text-sm">Unresolved Document Queries ({unresolvedQueriesCount})</div>
+                  <p className="text-xs text-slate-800">
+                    This application has {unresolvedQueriesCount} document {unresolvedQueriesCount === 1 ? "query" : "queries"} awaiting applicant correction or officer review. All document queries must be resolved before final approval can be granted.
+                  </p>
+                </div>
+              </Alert>
+            ) : (
+              <div className="space-y-4">
+                <Field
+                  label="Approval Remarks (Optional)"
+                  hint="Optional endorsement remarks or comments for the permanent record."
+                >
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Enter approval endorsement remarks or comments..."
+                    rows={2}
+                  />
+                </Field>
 
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    confirm("Grant final approval for this application? This will authorize card production and issue the temporary residence permit slip.") &&
-                    act("decision", {
-                      decision: "APPROVE",
-                      notes: notes.trim() || "Final approval granted. Card authorized for production.",
-                    })
-                  }
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="gold"
-                  disabled={busy || !notes.trim()}
-                  onClick={() => act("decision", { decision: "QUERY", notes: notes.trim() })}
-                >
-                  Query
-                </Button>
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      confirm("Grant final approval for this application? This will authorize card production and issue the temporary residence permit slip.") &&
+                      act("decision", {
+                        decision: "APPROVE",
+                        notes: notes.trim() || "Final approval granted. Card authorized for production.",
+                      })
+                    }
+                  >
+                    Grant Final Approval
+                  </Button>
+                </div>
               </div>
-            </div>
+            )
           ) : !hasBiometrics ? (
             <Alert tone="warning">
               Biometrics enrollment must be completed before an Approving Officer can grant final approval.
@@ -565,6 +571,17 @@ export default function StaffApprovalDetailPage({ id: propId }: { id?: string | 
             </Alert>
           )}
         </Panel>
+      )}
+
+      {a.status === "QUERIED" && (
+        <Alert tone="warning">
+          <div className="space-y-1">
+            <div className="font-semibold text-sm">Application Currently Queried</div>
+            <p className="text-xs text-slate-800">
+              One or more supporting documents have been queried during approval review. The applicant has been notified and application progression is paused awaiting their response and document resubmission.
+            </p>
+          </div>
+        </Alert>
       )}
 
       {/* Approved Status Audit Box */}

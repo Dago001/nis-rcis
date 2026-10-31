@@ -131,6 +131,17 @@ class Application extends Model
         return $this->hasMany(ApplicationDocument::class);
     }
 
+    public function documentQueries(): HasMany
+    {
+        return $this->hasMany(ApplicationDocumentQuery::class);
+    }
+
+    public function unresolvedDocumentQueries(): HasMany
+    {
+        return $this->hasMany(ApplicationDocumentQuery::class)
+            ->where('status', '!=', ApplicationDocumentQuery::STATUS_RESOLVED);
+    }
+
     public function statusHistory(): HasMany
     {
         return $this->hasMany(ApplicationStatusHistory::class)->orderBy('id');
