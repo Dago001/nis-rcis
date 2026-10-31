@@ -86,11 +86,15 @@ export const RULES: Record<string, Check> = {
   national_id_number: pattern(/^[A-Za-z0-9-]{4,30}$/, "Use letters, numbers and hyphens only."),
   tax_id_number: pattern(/^[A-Za-z0-9-]{4,30}$/, "Use letters, numbers and hyphens only."),
 
+  home_country: required("Country"),
+  home_country_state: all(required("State / Province / Region"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_city: all(required("City / Town"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_district: pattern(ADDRESS, "Use letters, numbers and normal address punctuation only."),
   home_country_address: all(
-    required("Address in country of origin"),
-    (v) => (countWords(v) > 10 ? "Address must not exceed 10 words." : undefined),
+    required("Street address and house number"),
     pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")
   ),
+  home_country_postal_code: pattern(/^[A-Za-z0-9 -]{2,20}$/, "Enter a valid postal or ZIP code."),
   domicile_state: required("State"),
   domicile_lga: all(required("Local government area"), (v, d) => (d.domicile_state && !NIGERIA_LGAS[d.domicile_state]?.includes(v) ? "Select a local government area." : undefined)),
   domicile: all(required("Street address"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
@@ -106,7 +110,12 @@ export const RULES: Record<string, Check> = {
   home_country_emergency_contact_name: all(required("Full name"), pattern(NAME, lettersOnly)),
   home_country_emergency_contact_relation: all(required("Relationship"), pattern(NAME, lettersOnly)),
   home_country_emergency_contact_phone: all(required("Phone number"), pattern(PHONE, "Enter a valid phone number (digits only).")),
-  home_country_emergency_contact_address: all(required("Address"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_emergency_contact_country: required("Country"),
+  home_country_emergency_contact_state: all(required("State / Province / Region"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_emergency_contact_city: all(required("City / Town"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_emergency_contact_district: pattern(ADDRESS, "Use letters, numbers and normal address punctuation only."),
+  home_country_emergency_contact_address: all(required("Street address and house number"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_emergency_contact_postal_code: pattern(/^[A-Za-z0-9 -]{2,20}$/, "Enter a valid postal or ZIP code."),
 
   enrollment_center_id: required("Enrollment center"),
   appointment_date: all(required("Appointment date"), (v) => {
@@ -133,12 +142,31 @@ export const PERSONAL_FIELDS = [
 ];
 export const PASSPORT_FIELDS = ["passport_number", "passport_issue_date", "passport_expiry", "national_id_number", "tax_id_number"];
 export const CONTACT_FIELDS = [
+  "home_country",
+  "home_country_state",
+  "home_country_city",
+  "home_country_district",
   "home_country_address",
-  "domicile_state", "domicile_lga", "domicile", "change_of_address",
-  "emergency_contact_name", "emergency_contact_relation", "emergency_contact_phone",
-  "emergency_contact_state", "emergency_contact_lga", "emergency_contact_address",
-  "home_country_emergency_contact_name", "home_country_emergency_contact_relation",
-  "home_country_emergency_contact_phone", "home_country_emergency_contact_address",
+  "home_country_postal_code",
+  "domicile_state",
+  "domicile_lga",
+  "domicile",
+  "change_of_address",
+  "emergency_contact_name",
+  "emergency_contact_relation",
+  "emergency_contact_phone",
+  "emergency_contact_state",
+  "emergency_contact_lga",
+  "emergency_contact_address",
+  "home_country_emergency_contact_name",
+  "home_country_emergency_contact_relation",
+  "home_country_emergency_contact_phone",
+  "home_country_emergency_contact_country",
+  "home_country_emergency_contact_state",
+  "home_country_emergency_contact_city",
+  "home_country_emergency_contact_district",
+  "home_country_emergency_contact_address",
+  "home_country_emergency_contact_postal_code",
 ];
 export const APPOINTMENT_FIELDS = ["enrollment_center_id", "appointment_date", "appointment_time"];
 

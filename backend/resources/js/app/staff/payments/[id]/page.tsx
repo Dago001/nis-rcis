@@ -8,6 +8,7 @@ import { Alert, Dl, Panel, Spinner } from "@/components/ui";
 import { dateTime, naira, nisDate } from "@/lib/format";
 import type { StaffPayment } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
+import { formatRelationship } from "@/lib/validation";
 
 type Detail = StaffPayment & {
   receipt: { date: string | null; gateway: string; mode: string | null; gateway_reference: string | null; pan: string | null } | null;
@@ -71,10 +72,18 @@ export default function PaymentDetailPage() {
                 ["Passport number", d.passport_number],
                 ["Passport expiry", d.passport_expiry ? nisDate(d.passport_expiry) : null],
                 ["Address in Nigeria", [d.domicile, d.domicile_lga, d.domicile_state].filter(Boolean).join(", ")],
+                ...(d.home_country_address ? ([
+                  ["Address in Home Country", [d.home_country_address, (d as any).home_country_district, (d as any).home_country_city, (d as any).home_country_state, (d as any).home_country_postal_code, (d as any).home_country || d.nationality].filter(Boolean).join(", ")],
+                ] as [string, string | null][]) : []),
                 ["Phone", d.phone],
                 ["E-mail", d.email],
-                ["Emergency contact", [d.emergency_contact_name, d.emergency_contact_relation].filter(Boolean).join(" · ")],
-                ["Emergency contact phone", d.emergency_contact_phone],
+                ["Emergency contact (Nigeria)", [d.emergency_contact_name, formatRelationship(d.emergency_contact_relation)].filter(Boolean).join(" · ")],
+                ["Emergency contact phone (Nigeria)", d.emergency_contact_phone],
+                ...(d.home_country_emergency_contact_name ? ([
+                  ["Emergency contact (Home Country)", [d.home_country_emergency_contact_name, formatRelationship(d.home_country_emergency_contact_relation)].filter(Boolean).join(" · ")],
+                  ["Emergency contact phone (Home Country)", d.home_country_emergency_contact_phone],
+                  ["Emergency contact address (Home Country)", [d.home_country_emergency_contact_address, (d as any).home_country_emergency_contact_district, (d as any).home_country_emergency_contact_city, (d as any).home_country_emergency_contact_state, (d as any).home_country_emergency_contact_postal_code, (d as any).home_country_emergency_contact_country || (d as any).home_country || d.nationality].filter(Boolean).join(", ") || d.home_country_emergency_contact_address],
+                ] as [string, string | null][]) : []),
                 ["Appointment", d.appointment_date ? `${nisDate(d.appointment_date)} ${d.appointment_time ?? ""}` : "Not booked yet"],
               ]}
             />

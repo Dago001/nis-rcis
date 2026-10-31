@@ -55,6 +55,12 @@ export type Particulars = {
   distinguished_features?: string | null;
   blood_group?: string | null;
   profession: string;
+  home_country?: string | null;
+  home_country_state?: string | null;
+  home_country_city?: string | null;
+  home_country_district?: string | null;
+  home_country_address?: string | null;
+  home_country_postal_code?: string | null;
   domicile: string;
   domicile_state?: string | null;
   domicile_lga?: string | null;
@@ -74,7 +80,12 @@ export type Particulars = {
   home_country_emergency_contact_name?: string | null;
   home_country_emergency_contact_relation?: string | null;
   home_country_emergency_contact_phone?: string | null;
+  home_country_emergency_contact_country?: string | null;
+  home_country_emergency_contact_state?: string | null;
+  home_country_emergency_contact_city?: string | null;
+  home_country_emergency_contact_district?: string | null;
   home_country_emergency_contact_address?: string | null;
+  home_country_emergency_contact_postal_code?: string | null;
   home_country_emergency_contact_id_type?: string | null;
 };
 

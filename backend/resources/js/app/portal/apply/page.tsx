@@ -514,7 +514,12 @@ function Wizard() {
             distinguished_features: app.distinguished_features || "",
             blood_group: app.blood_group || "",
             profession: app.profession || "",
+            home_country: (app as any).home_country || "",
+            home_country_state: (app as any).home_country_state || "",
+            home_country_city: (app as any).home_country_city || "",
+            home_country_district: (app as any).home_country_district || "",
             home_country_address: (app as any).home_country_address || "",
+            home_country_postal_code: (app as any).home_country_postal_code || "",
             domicile: app.domicile || "",
             domicile_state: app.domicile_state || "",
             domicile_lga: app.domicile_lga || "",
@@ -533,7 +538,12 @@ function Wizard() {
             home_country_emergency_contact_name: (app as any).home_country_emergency_contact_name || "",
             home_country_emergency_contact_relation: (app as any).home_country_emergency_contact_relation || "",
             home_country_emergency_contact_phone: (app as any).home_country_emergency_contact_phone || "",
+            home_country_emergency_contact_country: (app as any).home_country_emergency_contact_country || "",
+            home_country_emergency_contact_state: (app as any).home_country_emergency_contact_state || "",
+            home_country_emergency_contact_city: (app as any).home_country_emergency_contact_city || "",
+            home_country_emergency_contact_district: (app as any).home_country_emergency_contact_district || "",
             home_country_emergency_contact_address: (app as any).home_country_emergency_contact_address || "",
+            home_country_emergency_contact_postal_code: (app as any).home_country_emergency_contact_postal_code || "",
             phone: app.phone || "",
             email: app.email || "",
           };
@@ -2303,13 +2313,32 @@ function Wizard() {
             </ReviewSection>
 
             <ReviewSection title="Residence & contacts" onEdit={() => goTo(3)}>
-              <ReviewGrid
-                items={[
-                  ["Address in Home Country", data.home_country_address],
-                  ["Address in Nigeria", data.domicile], ["Local government area", data.domicile_lga], ["State", data.domicile_state],
-                  ["Change of address", data.change_of_address],
-                ]}
-              />
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-nis-primary-dark mb-2">{t("Residential Address in Home Country")}</h4>
+                  <ReviewGrid
+                    items={[
+                      ["Country", data.home_country || data.nationality],
+                      ["State / Province / Region", data.home_country_state],
+                      ["City / Town", data.home_country_city],
+                      ...(data.home_country_district ? [["District / Municipality / Local Area", data.home_country_district] as [string, string]] : []),
+                      ["Street Address / House Number", data.home_country_address],
+                      ...(data.home_country_postal_code ? [["Postal / ZIP Code", data.home_country_postal_code] as [string, string]] : []),
+                    ]}
+                  />
+                </div>
+                <div className="border-t border-slate-100 pt-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-nis-primary-dark mb-2">{t("Residential address in Nigeria (domicile)")}</h4>
+                  <ReviewGrid
+                    items={[
+                      ["Address in Nigeria", data.domicile],
+                      ["Local government area", data.domicile_lga],
+                      ["State", data.domicile_state],
+                      ...(data.change_of_address ? [["Change of address", data.change_of_address] as [string, string]] : []),
+                    ]}
+                  />
+                </div>
+              </div>
             </ReviewSection>
 
             <ReviewSection title="Emergency contact in Nigeria" onEdit={() => goTo(3)}>
@@ -2324,8 +2353,15 @@ function Wizard() {
             <ReviewSection title="Emergency contact in Home Country" onEdit={() => goTo(3)}>
               <ReviewGrid
                 items={[
-                  ["Full name", data.home_country_emergency_contact_name], ["Relationship", formatRelationship(data.home_country_emergency_contact_relation)], ["Phone number", data.home_country_emergency_contact_phone],
-                  ["Address", data.home_country_emergency_contact_address],
+                  ["Full name", data.home_country_emergency_contact_name],
+                  ["Relationship", formatRelationship(data.home_country_emergency_contact_relation)],
+                  ["Phone number", data.home_country_emergency_contact_phone],
+                  ["Country", data.home_country_emergency_contact_country || data.home_country || data.nationality],
+                  ["State / Province / Region", data.home_country_emergency_contact_state],
+                  ["City / Town", data.home_country_emergency_contact_city],
+                  ...(data.home_country_emergency_contact_district ? [["District / Municipality / Local Area", data.home_country_emergency_contact_district] as [string, string]] : []),
+                  ["Street Address / House Number", data.home_country_emergency_contact_address],
+                  ...(data.home_country_emergency_contact_postal_code ? [["Postal / ZIP Code", data.home_country_emergency_contact_postal_code] as [string, string]] : []),
                 ]}
               />
             </ReviewSection>

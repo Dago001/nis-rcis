@@ -61,18 +61,12 @@ class ApplicationRules
             'distinguished_features' => ['nullable', 'string', 'max:150', 'regex:'.self::TEXT],
             'blood_group' => ['nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN'])],
             'profession' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
-            'home_country_address' => [
-                'required',
-                'string',
-                'max:500',
-                function (string $attribute, mixed $value, \Closure $fail) {
-                    $words = preg_split('/\s+/', trim((string) $value), -1, PREG_SPLIT_NO_EMPTY);
-                    if (count($words) > 10) {
-                        $fail('Address must not exceed 10 words.');
-                    }
-                },
-                'regex:'.self::ADDRESS,
-            ],
+            'home_country' => ['required', 'string', 'max:100'],
+            'home_country_state' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
+            'home_country_city' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
+            'home_country_district' => ['nullable', 'string', 'max:150', 'regex:'.self::TEXT],
+            'home_country_address' => ['required', 'string', 'max:500', 'regex:'.self::ADDRESS],
+            'home_country_postal_code' => ['nullable', 'string', 'max:30'],
             'domicile' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
             'domicile_state' => ['required', 'string', Rule::in(NigeriaLgas::states())],
             'domicile_lga' => ['required', 'string', new NigerianLga('domicile_state')],
@@ -92,7 +86,12 @@ class ApplicationRules
             'home_country_emergency_contact_name' => ['required', 'string', 'max:150', 'regex:'.self::NAME],
             'home_country_emergency_contact_relation' => ['required', 'string', 'max:50', 'regex:'.self::NAME],
             'home_country_emergency_contact_phone' => ['required', 'string', 'regex:'.self::PHONE],
+            'home_country_emergency_contact_country' => ['required', 'string', 'max:100'],
+            'home_country_emergency_contact_state' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
+            'home_country_emergency_contact_city' => ['required', 'string', 'max:150', 'regex:'.self::TEXT],
+            'home_country_emergency_contact_district' => ['nullable', 'string', 'max:150', 'regex:'.self::TEXT],
             'home_country_emergency_contact_address' => ['required', 'string', 'max:300', 'regex:'.self::ADDRESS],
+            'home_country_emergency_contact_postal_code' => ['nullable', 'string', 'max:30'],
             'home_country_emergency_contact_id_type' => ['nullable', 'string', 'max:50'],
         ];
     }
@@ -129,12 +128,14 @@ class ApplicationRules
     public static function normalise(array $data): array
     {
         $upper = ['quota_reference', 'employer_name', 'surname', 'forenames', 'nationality', 'place_of_birth', 'profession', 'passport_number',
+            'home_country', 'home_country_state', 'home_country_city', 'home_country_district',
+            'home_country_emergency_contact_country', 'home_country_emergency_contact_state', 'home_country_emergency_contact_city', 'home_country_emergency_contact_district',
             'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_id_type',
             'home_country_emergency_contact_name', 'home_country_emergency_contact_relation', 'home_country_emergency_contact_id_type',
             'distinguished_features', 'complexion', 'eye_color', 'hair_color'];
 
         // Convert empty strings for optional fields into null so validation passes
-        foreach (['national_id_number', 'tax_id_number', 'change_of_address', 'quota_reference', 'employer_name', 'height', 'complexion', 'eye_color', 'hair_color', 'distinguished_features', 'blood_group'] as $optKey) {
+        foreach (['national_id_number', 'tax_id_number', 'change_of_address', 'quota_reference', 'employer_name', 'height', 'complexion', 'eye_color', 'hair_color', 'distinguished_features', 'blood_group', 'home_country_district', 'home_country_postal_code', 'home_country_emergency_contact_district', 'home_country_emergency_contact_postal_code'] as $optKey) {
             if (array_key_exists($optKey, $data) && (is_null($data[$optKey]) || trim((string) $data[$optKey]) === '')) {
                 $data[$optKey] = null;
             }
@@ -169,10 +170,17 @@ class ApplicationRules
             $data['email'] = strtolower(trim($data['email']));
         }
 
-        foreach (['home_country_address', 'domicile', 'emergency_contact_address', 'home_country_emergency_contact_address', 'change_of_address'] as $addrKey) {
+        foreach (['home_country_address', 'domicile', 'emergency_contact_address', 'home_country_emergency_contact_address', 'change_of_address', 'home_country', 'home_country_state', 'home_country_city', 'home_country_district', 'home_country_postal_code', 'home_country_emergency_contact_country', 'home_country_emergency_contact_state', 'home_country_emergency_contact_city', 'home_country_emergency_contact_district', 'home_country_emergency_contact_postal_code'] as $addrKey) {
             if (isset($data[$addrKey]) && is_string($data[$addrKey])) {
                 $data[$addrKey] = trim($data[$addrKey]);
             }
+        }
+
+        if (empty($data['home_country']) && ! empty($data['nationality'])) {
+            $data['home_country'] = $data['nationality'];
+        }
+        if (empty($data['home_country_emergency_contact_country'])) {
+            $data['home_country_emergency_contact_country'] = $data['home_country'] ?? ($data['nationality'] ?? null);
         }
 
         $data['distinguished_features'] = ($data['distinguished_features'] ?? null) ?: 'NONE';

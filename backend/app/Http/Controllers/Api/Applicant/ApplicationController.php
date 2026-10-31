@@ -141,13 +141,17 @@ class ApplicationController
         $this->assertQueried($application);
 
         $allowed = [
-            'category', 'profession', 'domicile', 'domicile_state', 'domicile_lga',
+            'category', 'profession', 'home_country', 'home_country_state', 'home_country_city', 'home_country_district', 'home_country_address', 'home_country_postal_code',
+            'domicile', 'domicile_state', 'domicile_lga',
             'change_of_address', 'passport_number', 'passport_issue_date', 'passport_expiry',
             'national_id_number', 'tax_id_number', 'emergency_contact_name',
             'emergency_contact_relation', 'emergency_contact_phone', 'emergency_contact_address',
             'emergency_contact_state', 'emergency_contact_lga',
             'home_country_emergency_contact_name', 'home_country_emergency_contact_relation',
-            'home_country_emergency_contact_phone', 'home_country_emergency_contact_address',
+            'home_country_emergency_contact_phone', 'home_country_emergency_contact_country',
+            'home_country_emergency_contact_state', 'home_country_emergency_contact_city',
+            'home_country_emergency_contact_district', 'home_country_emergency_contact_address',
+            'home_country_emergency_contact_postal_code',
             'height', 'complexion',
             'eye_color', 'hair_color', 'distinguished_features', 'blood_group',
         ];

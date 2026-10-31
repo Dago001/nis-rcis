@@ -12,6 +12,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { dateTime, naira, nisDate, applicationType, conciseApplicationType } from "@/lib/format";
 import type { Application } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
+import { formatRelationship } from "@/lib/validation";
 
 type ExternalCheck = { service: "INTERPOL_SLTD" | "MOI_QUOTA"; status: string; summary: string; reference: string | null; details: Record<string, unknown> | null; checked_at: string; checked_by: string };
 type Detail = { data: Application; photo_url: string | null; integration_checks: ExternalCheck[]; payments: { reference: string; status: string; amount_kobo: number; verified_at: string | null }[] };
@@ -175,24 +176,48 @@ export default function StaffApplicationPage() {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <Dl
-              items={[
-                ["Full Name", `${a.surname}, ${a.forenames}`],
-                ["Application Ref.", a.application_number],
-                ["Category / Type", `${a.category || "General"} · ${conciseApplicationType(a.type)}`],
-                ["Nationality", a.nationality],
-                ["Gender", a.sex],
-                ["Date of Birth", nisDate(a.date_of_birth)],
-                ["Place of Birth", a.place_of_birth],
-                ["Passport / Travel Doc", `${a.passport_number} (expires ${nisDate(a.passport_expiry)})`],
-                ["Profession / Employer", `${a.profession || "—"}${a.employer_name ? ` · ${a.employer_name}` : ""}${a.quota_reference ? ` (Quota Ref: ${a.quota_reference})` : ""}`],
-                ["Phone", a.phone],
-                ["E-mail", a.email],
-                ["Residential Address", a.domicile],
-                ["Physical Features", `Height: ${a.height ?? "—"} · Complexion: ${a.complexion ?? "—"} · Eyes: ${a.eye_color ?? "—"} · Hair: ${a.hair_color ?? "—"}`],
-                ["Emergency Contact", `${a.emergency_contact_name || "—"} (${a.emergency_contact_relation || "—"}) ${a.emergency_contact_phone || ""}`],
-              ]}
-            />
+            {(() => {
+              const homeAddress = [
+                a.home_country_address,
+                (a as any).home_country_district,
+                (a as any).home_country_city,
+                (a as any).home_country_state,
+                (a as any).home_country_postal_code,
+                (a as any).home_country || a.nationality,
+              ].filter(Boolean).join(", ");
+
+              const homeContactAddress = [
+                a.home_country_emergency_contact_address,
+                (a as any).home_country_emergency_contact_district,
+                (a as any).home_country_emergency_contact_city,
+                (a as any).home_country_emergency_contact_state,
+                (a as any).home_country_emergency_contact_postal_code,
+                (a as any).home_country_emergency_contact_country || (a as any).home_country || a.nationality,
+              ].filter(Boolean).join(", ");
+
+              return (
+                <Dl
+                  items={[
+                    ["Full Name", `${a.surname}, ${a.forenames}`],
+                    ["Application Ref.", a.application_number],
+                    ["Category / Type", `${a.category || "General"} · ${conciseApplicationType(a.type)}`],
+                    ["Nationality", a.nationality],
+                    ["Gender", a.sex],
+                    ["Date of Birth", nisDate(a.date_of_birth)],
+                    ["Place of Birth", a.place_of_birth],
+                    ["Passport / Travel Doc", `${a.passport_number} (expires ${nisDate(a.passport_expiry)})`],
+                    ["Profession / Employer", `${a.profession || "—"}${a.employer_name ? ` · ${a.employer_name}` : ""}${a.quota_reference ? ` (Quota Ref: ${a.quota_reference})` : ""}`],
+                    ["Phone", a.phone],
+                    ["E-mail", a.email],
+                    ["Residential Address (Nigeria)", [a.domicile, a.domicile_lga, a.domicile_state].filter(Boolean).join(", ") || a.domicile || "—"],
+                    ...(homeAddress ? [["Residential Address (Home Country)", homeAddress] as [string, string]] : []),
+                    ["Physical Features", `Height: ${a.height ?? "—"} · Complexion: ${a.complexion ?? "—"} · Eyes: ${a.eye_color ?? "—"} · Hair: ${a.hair_color ?? "—"}`],
+                    ["Emergency Contact (Nigeria)", `${a.emergency_contact_name || "—"} (${formatRelationship(a.emergency_contact_relation) || "—"}) ${a.emergency_contact_phone || ""}${a.emergency_contact_address ? ` · ${a.emergency_contact_address}` : ""}`],
+                    ...(a.home_country_emergency_contact_name || homeContactAddress ? [["Emergency Contact (Home Country)", `${a.home_country_emergency_contact_name || "—"} (${formatRelationship(a.home_country_emergency_contact_relation) || "—"}) ${a.home_country_emergency_contact_phone || ""}${homeContactAddress ? ` · ${homeContactAddress}` : ""}`] as [string, string]] : []),
+                  ]}
+                />
+              );
+            })()}
           </div>
         </div>
       </Panel>

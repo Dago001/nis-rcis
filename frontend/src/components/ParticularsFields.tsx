@@ -1,5 +1,6 @@
 "use client";
 
+import { COUNTRIES } from "@/lib/countries";
 import { ECOWAS_NATIONALITIES } from "@/lib/nationalities";
 import { NIGERIA_LGAS, NIGERIA_STATES } from "@/lib/nigeria-lgas";
 import { formatRelationship, RELATIONSHIPS } from "@/lib/validation";
@@ -61,6 +62,8 @@ function text(props: Props, name: string, label: string, opts: TextOptions = {})
 
 export type SelectOption = string | { value: string; label: string };
 
+const COUNTRY_OPTIONS: SelectOption[] = COUNTRIES.map((c) => ({ value: c.name.toUpperCase(), label: c.name }));
+
 function select(
   props: Props,
   name: string,
@@ -74,7 +77,13 @@ function select(
     typeof o === "string" ? { value: o, label: o } : o
   );
 
-  const rawValue = (props.data[name] ?? "").trim();
+  let rawValue = (props.data[name] ?? "").trim();
+  if (!rawValue && name === "home_country") {
+    rawValue = (props.data.nationality ?? "").trim();
+  }
+  if (!rawValue && name === "home_country_emergency_contact_country") {
+    rawValue = (props.data.home_country || props.data.nationality || "").trim();
+  }
   const matched = normalizedOptions.find(
     (o) => o.value.toLowerCase() === rawValue.toLowerCase()
   );
@@ -166,7 +175,7 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
               touch?.("nationality");
             }}
           >
-            <option value="">{t("Select country…")}</option>
+            <option value="">{t("Select Country")}</option>
             {ECOWAS_NATIONALITIES.map((n) => (
               <option key={n.value} value={n.value}>
                 {t(n.label)}
@@ -421,7 +430,7 @@ export function PersonalFields(props: Props & { lockContact?: boolean }) {
           { value: "MALE", label: "Male" },
           { value: "FEMALE", label: "Female" },
         ],
-        { required: true, placeholder: "Select gender…" }
+        { required: true, placeholder: "Select Gender" }
       )}
       {text(props, "date_of_birth", "Date of birth", { required: true, type: "date", max: maxBirthDate, min: "1900-01-01" })}
       {text(props, "place_of_birth", "Place of birth", { required: true, upper: true, placeholder: "Enter Place of Birth" })}
@@ -502,34 +511,44 @@ export function ContactFields(props: Props) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {/* Home country residential address - max 10 words */}
-      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential address in Home Country")}</h3>
-      <Field
-        label="Address in country of origin"
-        required
-        error={errors.home_country_address}
-        hint="Permanent residential address in your home country (Maximum 10 words)"
-      >
-        <Input
-          name="home_country_address"
-          value={data.home_country_address ?? ""}
-          maxLength={300}
-          readOnly={readOnly}
-          disabled={readOnly}
-          placeholder={t("Enter permanent residential address in country of origin")}
-          aria-invalid={Boolean(errors.home_country_address)}
-          className={errors.home_country_address ? "!border-red-500" : readOnly ? "!bg-slate-100 !text-slate-700 !cursor-not-allowed font-medium" : ""}
-          onFocus={() => focus?.("home_country_address")}
-          onChange={(e) => {
-            if (readOnly) return;
-            set("home_country_address", e.target.value);
-          }}
-          onBlur={() => {
-            focus?.(null);
-            touch?.("home_country_address");
-          }}
-        />
-      </Field>
+      {/* Residential Address in Home Country */}
+      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential Address in Home Country")}</h3>
+
+      {/* Row 1: Country | State / Province / Region */}
+      {select(props, "home_country", "Country", COUNTRY_OPTIONS, {
+        required: true,
+        placeholder: "Select Country",
+      })}
+      {text(props, "home_country_state", "State / Province / Region", {
+        required: true,
+        upper: true,
+        placeholder: "Enter State, Province or Region",
+      })}
+
+      {/* Row 2: City / Town | District / Municipality / Local Area */}
+      {text(props, "home_country_city", "City / Town", {
+        required: true,
+        upper: true,
+        placeholder: "Enter City or Town",
+      })}
+      {text(props, "home_country_district", "District / Municipality / Local Area", {
+        required: false,
+        upper: true,
+        placeholder: "Enter District, Municipality or Local Area",
+      })}
+
+      {/* Row 3: Street Address / House Number | Postal / ZIP Code */}
+      {text(props, "home_country_address", "Street Address / House Number", {
+        required: true,
+        maxLength: 300,
+        placeholder: "Enter Street Address and House Number",
+      })}
+      {text(props, "home_country_postal_code", "Postal / ZIP Code", {
+        required: false,
+        upper: true,
+        maxLength: 30,
+        placeholder: "Enter Postal or ZIP Code",
+      })}
 
       {/* Residential address in Nigeria:
           Row 1: Street Address & Change of Address side-by-side on same row.
@@ -601,7 +620,7 @@ export function ContactFields(props: Props) {
             touch?.("domicile_state");
           }}
         >
-          <option value="">{t("Select state…")}</option>
+          <option value="">{t("Select State")}</option>
           {NIGERIA_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
       </Field>
@@ -615,7 +634,7 @@ export function ContactFields(props: Props) {
         {
           required: true,
           disabled: !(NIGERIA_LGAS[data.domicile_state ?? ""] ?? []).length,
-          placeholder: (NIGERIA_LGAS[data.domicile_state ?? ""] ?? []).length ? "Select LGA…" : "Select a state first",
+          placeholder: (NIGERIA_LGAS[data.domicile_state ?? ""] ?? []).length ? "Select Local Government Area" : "Select State first",
         }
       )}
 
@@ -642,14 +661,14 @@ export function ContactFields(props: Props) {
             touch?.("emergency_contact_relation");
           }}
         >
-          <option value="">{t("Select relationship…")}</option>
+          <option value="">{t("Select Relationship")}</option>
           {RELATIONSHIPS.map((r) => <option key={r} value={r}>{t(r)}</option>)}
           <option value={OTHER}>{t("OTHER")}</option>
         </Select>
       </Field>
       {otherRelation && (
         <div className="sm:col-span-2">
-          {text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50, placeholder: "Enter the relationship" })}
+          {text(props, "emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50, placeholder: "Enter Relationship" })}
         </div>
       )}
 
@@ -690,7 +709,7 @@ export function ContactFields(props: Props) {
             touch?.("emergency_contact_state");
           }}
         >
-          <option value="">{t("Select state…")}</option>
+          <option value="">{t("Select State")}</option>
           {NIGERIA_STATES.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
@@ -708,8 +727,8 @@ export function ContactFields(props: Props) {
             required: true,
             disabled: !(NIGERIA_LGAS[data.emergency_contact_state ?? ""] ?? []).length,
             placeholder: (NIGERIA_LGAS[data.emergency_contact_state ?? ""] ?? []).length
-              ? "Select LGA…"
-              : "Select a state first",
+              ? "Select Local Government Area"
+              : "Select State first",
           }
         )}
 
@@ -723,7 +742,7 @@ export function ContactFields(props: Props) {
             name="emergency_contact_address"
             value={data.emergency_contact_address ?? ""}
             maxLength={150}
-            placeholder={t("Enter Street Address in Nigeria")}
+            placeholder={t("Enter Street Address")}
             aria-invalid={Boolean(errors.emergency_contact_address)}
             className={errors.emergency_contact_address ? "!border-red-500" : ""}
             onFocus={() => focus?.("emergency_contact_address")}
@@ -759,18 +778,19 @@ export function ContactFields(props: Props) {
             touch?.("home_country_emergency_contact_relation");
           }}
         >
-          <option value="">{t("Select relationship…")}</option>
+          <option value="">{t("Select Relationship")}</option>
           {RELATIONSHIPS.map((r) => <option key={r} value={r}>{t(r)}</option>)}
           <option value={OTHER}>{t("OTHER")}</option>
         </Select>
       </Field>
       {otherHomeRelation && (
         <div className="sm:col-span-2">
-          {text(props, "home_country_emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50, placeholder: "Enter the relationship" })}
+          {text(props, "home_country_emergency_contact_relation", "Enter the relationship", { required: true, upper: true, letters: true, maxLength: 50, placeholder: "Enter Relationship" })}
         </div>
       )}
 
       <div
+        className="sm:col-span-2 sm:grid sm:grid-cols-2"
         data-field="home_country_emergency_contact_phone"
         onFocus={() => focus?.("home_country_emergency_contact_phone")}
         onBlur={() => {
@@ -790,27 +810,41 @@ export function ContactFields(props: Props) {
         </Field>
       </div>
 
-      <Field
-        label="Address"
-        required
-        error={errors.home_country_emergency_contact_address}
-        hint="Full residential address in home country"
-      >
-        <Input
-          name="home_country_emergency_contact_address"
-          value={data.home_country_emergency_contact_address ?? ""}
-          maxLength={300}
-          placeholder={t("Enter residential address in home country")}
-          aria-invalid={Boolean(errors.home_country_emergency_contact_address)}
-          className={errors.home_country_emergency_contact_address ? "!border-red-500" : ""}
-          onFocus={() => focus?.("home_country_emergency_contact_address")}
-          onChange={(e) => set("home_country_emergency_contact_address", e.target.value)}
-          onBlur={() => {
-            focus?.(null);
-            touch?.("home_country_emergency_contact_address");
-          }}
-        />
-      </Field>
+      {/* Row 1: Country | State / Province / Region */}
+      {select(props, "home_country_emergency_contact_country", "Country", COUNTRY_OPTIONS, {
+        required: true,
+        placeholder: "Select Country",
+      })}
+      {text(props, "home_country_emergency_contact_state", "State / Province / Region", {
+        required: true,
+        upper: true,
+        placeholder: "Enter State, Province or Region",
+      })}
+
+      {/* Row 2: City / Town | District / Municipality / Local Area */}
+      {text(props, "home_country_emergency_contact_city", "City / Town", {
+        required: true,
+        upper: true,
+        placeholder: "Enter City or Town",
+      })}
+      {text(props, "home_country_emergency_contact_district", "District / Municipality / Local Area", {
+        required: false,
+        upper: true,
+        placeholder: "Enter District, Municipality or Local Area",
+      })}
+
+      {/* Row 3: Street Address / House Number | Postal / ZIP Code */}
+      {text(props, "home_country_emergency_contact_address", "Street Address / House Number", {
+        required: true,
+        maxLength: 300,
+        placeholder: "Enter Street Address and House Number",
+      })}
+      {text(props, "home_country_emergency_contact_postal_code", "Postal / ZIP Code", {
+        required: false,
+        upper: true,
+        maxLength: 30,
+        placeholder: "Enter Postal or ZIP Code",
+      })}
     </div>
   );
 }

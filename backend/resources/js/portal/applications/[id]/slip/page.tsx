@@ -236,6 +236,19 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
             rows={[
               ["Contact Number", a.phone, "State of Residence", show(a.domicile_state)],
               ["Residential Address in Nigeria", [a.domicile, a.domicile_lga, a.domicile_state].filter(Boolean).join(", "), "Local Government Area", show(a.domicile_lga)],
+              [
+                "Address in Home Country",
+                [
+                  a.home_country_address,
+                  (a as any).home_country_district,
+                  (a as any).home_country_city,
+                  (a as any).home_country_state,
+                  (a as any).home_country_postal_code,
+                  (a as any).home_country || a.nationality,
+                ].filter(Boolean).join(", ") || a.home_country_address || "—",
+                "Country of Residence",
+                show((a as any).home_country || a.nationality),
+              ],
             ]}
           />
         </Box>
@@ -254,7 +267,19 @@ function ApplicationSlip({ slip }: { slip: Slip }) {
             <Pairs
               rows={[
                 ["Name of Contact", a.home_country_emergency_contact_name, "Relationship", title(formatRelationship(a.home_country_emergency_contact_relation))],
-                ["Address", a.home_country_emergency_contact_address, "Contact Number", a.home_country_emergency_contact_phone],
+                [
+                  "Address",
+                  [
+                    a.home_country_emergency_contact_address,
+                    (a as any).home_country_emergency_contact_district,
+                    (a as any).home_country_emergency_contact_city,
+                    (a as any).home_country_emergency_contact_state,
+                    (a as any).home_country_emergency_contact_postal_code,
+                    (a as any).home_country_emergency_contact_country || (a as any).home_country || a.nationality,
+                  ].filter(Boolean).join(", ") || a.home_country_emergency_contact_address,
+                  "Contact Number",
+                  a.home_country_emergency_contact_phone,
+                ],
               ]}
             />
           </Box>
