@@ -112,7 +112,7 @@ export const RULES: Record<string, Check> = {
   tax_id_number: pattern(/^[A-Za-z0-9-]{4,30}$/, "Use letters, numbers and hyphens only."),
 
   home_country: required("Country"),
-  home_country_state: all(required("State / Province / Region"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_state: all(required("Province / Region"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
   home_country_city: all(required("City / Town"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
   home_country_district: pattern(ADDRESS, "Use letters, numbers and normal address punctuation only."),
   home_country_address: all(
@@ -136,7 +136,7 @@ export const RULES: Record<string, Check> = {
   home_country_emergency_contact_relation: all(required("Relationship"), pattern(NAME, lettersOnly)),
   home_country_emergency_contact_phone: all(required("Phone number"), pattern(PHONE, "Enter a valid phone number (digits only).")),
   home_country_emergency_contact_country: required("Country"),
-  home_country_emergency_contact_state: all(required("State / Province / Region"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
+  home_country_emergency_contact_state: all(required("Province / Region"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
   home_country_emergency_contact_city: all(required("City / Town"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
   home_country_emergency_contact_district: pattern(ADDRESS, "Use letters, numbers and normal address punctuation only."),
   home_country_emergency_contact_address: all(required("Street address and house number"), pattern(ADDRESS, "Use letters, numbers and normal address punctuation only.")),
@@ -174,9 +174,7 @@ export const CONTACT_FIELDS = [
   "home_country",
   "home_country_state",
   "home_country_city",
-  "home_country_district",
   "home_country_address",
-  "home_country_postal_code",
   "domicile_state",
   "domicile_lga",
   "domicile",
@@ -193,9 +191,7 @@ export const CONTACT_FIELDS = [
   "home_country_emergency_contact_country",
   "home_country_emergency_contact_state",
   "home_country_emergency_contact_city",
-  "home_country_emergency_contact_district",
   "home_country_emergency_contact_address",
-  "home_country_emergency_contact_postal_code",
 ];
 export const APPOINTMENT_FIELDS = ["enrollment_center_id", "appointment_date", "appointment_time"];
 

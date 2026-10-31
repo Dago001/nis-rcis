@@ -514,46 +514,33 @@ export function ContactFields(props: Props) {
       {/* Residential Address in Home Country */}
       <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential Address in Home Country")}</h3>
 
-      {/* Row 1: Country | State / Province / Region */}
+      {/* Row 1: Country | Province / Region */}
       {select(props, "home_country", "Country", COUNTRY_OPTIONS, {
         required: true,
         placeholder: "Select Country",
       })}
-      {text(props, "home_country_state", "State / Province / Region", {
+      {text(props, "home_country_state", "Province / Region", {
         required: true,
         upper: true,
-        placeholder: "Enter State, Province or Region",
+        placeholder: "Enter Province or Region",
       })}
 
-      {/* Row 2: City / Town | District / Municipality / Local Area */}
+      {/* Row 2: City / Town | Street Address / House Number */}
       {text(props, "home_country_city", "City / Town", {
         required: true,
         upper: true,
         placeholder: "Enter City or Town",
       })}
-      {text(props, "home_country_district", "District / Municipality / Local Area", {
-        required: false,
-        upper: true,
-        placeholder: "Enter District, Municipality or Local Area",
-      })}
-
-      {/* Row 3: Street Address / House Number | Postal / ZIP Code */}
       {text(props, "home_country_address", "Street Address / House Number", {
         required: true,
         maxLength: 300,
         placeholder: "Enter Street Address and House Number",
       })}
-      {text(props, "home_country_postal_code", "Postal / ZIP Code", {
-        required: false,
-        upper: true,
-        maxLength: 30,
-        placeholder: "Enter Postal or ZIP Code",
-      })}
 
       {/* Residential address in Nigeria:
           Row 1: Street Address & Change of Address side-by-side on same row.
           Row 2: State & LGA side-by-side. */}
-      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential address in Nigeria (domicile)")}</h3>
+      <h3 className="text-sm font-semibold text-nis-primary-dark sm:col-span-2">{t("Residential address in Nigeria")}</h3>
 
       {/* Row 1, Column 1: Street Address */}
       <Field label="Street address" required error={errors.domicile} hint="House number, street and area / town">
@@ -810,40 +797,27 @@ export function ContactFields(props: Props) {
         </Field>
       </div>
 
-      {/* Row 1: Country | State / Province / Region */}
+      {/* Row 1: Country | Province / Region */}
       {select(props, "home_country_emergency_contact_country", "Country", COUNTRY_OPTIONS, {
         required: true,
         placeholder: "Select Country",
       })}
-      {text(props, "home_country_emergency_contact_state", "State / Province / Region", {
+      {text(props, "home_country_emergency_contact_state", "Province / Region", {
         required: true,
         upper: true,
-        placeholder: "Enter State, Province or Region",
+        placeholder: "Enter Province or Region",
       })}
 
-      {/* Row 2: City / Town | District / Municipality / Local Area */}
+      {/* Row 2: City / Town | Street Address / House Number */}
       {text(props, "home_country_emergency_contact_city", "City / Town", {
         required: true,
         upper: true,
         placeholder: "Enter City or Town",
       })}
-      {text(props, "home_country_emergency_contact_district", "District / Municipality / Local Area", {
-        required: false,
-        upper: true,
-        placeholder: "Enter District, Municipality or Local Area",
-      })}
-
-      {/* Row 3: Street Address / House Number | Postal / ZIP Code */}
       {text(props, "home_country_emergency_contact_address", "Street Address / House Number", {
         required: true,
         maxLength: 300,
         placeholder: "Enter Street Address and House Number",
-      })}
-      {text(props, "home_country_emergency_contact_postal_code", "Postal / ZIP Code", {
-        required: false,
-        upper: true,
-        maxLength: 30,
-        placeholder: "Enter Postal or ZIP Code",
       })}
     </div>
   );
