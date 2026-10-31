@@ -102,20 +102,11 @@ export default function BiometricsDesk() {
       <Panel title="3. Holder's signature"><SignaturePad onChange={setSignature} /></Panel>
       <Panel title="4. Fingerprints"><FingerprintCapture onChange={setFingerprints} /></Panel>
 
-      <Panel title="5. Issue">
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={save} disabled={busy || !confirmed}>
-              {busy ? "Saving…" : "Save biometrics and create card"}
-            </Button>
-            {!photo && !signature && (
-              <span className="text-xs text-slate-500">
-                (Proceeding without live biometrics will use applicant&apos;s submitted documents)
-              </span>
-            )}
-          </div>
-        </div>
-      </Panel>
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <Button onClick={save} disabled={busy || !confirmed}>
+          {busy ? "Saving…" : "Save biometrics and create card"}
+        </Button>
+      </div>
     </div>
   );
 }
