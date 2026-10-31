@@ -1742,27 +1742,27 @@ function Wizard() {
           onClick={() => setNotice(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-red-200 text-center space-y-4 animate-in zoom-in-95 duration-150"
+            className="w-full max-w-sm rounded-xl bg-white p-4 sm:p-5 shadow-xl border border-red-100 text-center space-y-3 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600 shadow-xs">
-              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <div className="space-y-1.5">
-              <h3 className="text-base font-bold text-slate-900">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">
                 {t("Action Required")}
               </h3>
-              <p className="text-sm font-medium text-slate-700 leading-relaxed">
+              <p className="text-xs sm:text-sm font-medium text-slate-700 leading-normal">
                 {t("Please fill in all required fields before you can proceed.")}
               </p>
             </div>
-            <div className="pt-2">
+            <div className="pt-1">
               <Button
                 type="button"
                 onClick={() => setNotice(null)}
-                className="w-full justify-center !bg-nis-primary hover:!bg-nis-primary-dark text-white font-semibold py-2.5"
+                className="w-full justify-center !min-h-[36px] py-1.5 px-4 text-xs font-semibold !bg-nis-primary hover:!bg-nis-primary-dark text-white rounded-lg"
               >
                 {t("OK")}
               </Button>
