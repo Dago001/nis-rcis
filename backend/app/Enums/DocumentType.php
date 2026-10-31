@@ -12,6 +12,8 @@ enum DocumentType: string
     case DomicileProof = 'domicile_proof';
     case CacCertificate = 'cac_certificate';
     case AdmissionLetter = 'admission_letter';
+    case AcceptanceLetter = 'acceptance_letter';
+    case ProofOfPayment = 'proof_of_payment';
     case AppointmentLetter = 'appointment_letter';
     case ReligiousInvitation = 'religious_invitation';
     case ReligiousAssignment = 'religious_sponsorship';
@@ -30,11 +32,13 @@ enum DocumentType: string
             self::PassportCopy => 'International passport data page / National ID / ECOWAS Travel Certificate',
             self::ResidenceVisa => 'Subject-to-Regularization / residence visa',
             self::QuotaApproval => 'Expatriate quota approval',
-            self::DomicileProof => 'Proof of domicile (Utility bill)',
-            self::CacCertificate => 'CAC Business Registration Certificate / Documents',
+            self::DomicileProof => 'Proof of Residence (Utility Bill / Tenancy Agreement)',
+            self::CacCertificate => 'CAC Registration Document (Optional)',
             self::AdmissionLetter => 'Institution Admission Letter',
-            self::AppointmentLetter => 'Employment Appointment / Offer Letter',
-            self::ReligiousInvitation => 'Letter of Invitation from Host Religious Organization',
+            self::AcceptanceLetter => 'Acceptance Letter',
+            self::ProofOfPayment => 'Proof of Payment',
+            self::AppointmentLetter => 'Appointment Letter / Contract Letter',
+            self::ReligiousInvitation => 'Appointment Letter / Contract Letter',
             self::ReligiousAssignment => 'Letter of Religious Assignment or Sponsorship',
             self::ReligiousActivitiesDetails => 'Details of Intended Religious Activities',
             self::ReligiousRegistration => 'Evidence of Host Organization Registration or Recognition',
@@ -52,8 +56,6 @@ enum DocumentType: string
             self::Photo,
             self::PassportCopy,
             self::DomicileProof,
-            self::EmergencyContactIdNigeria,
-            self::EmergencyContactIdHome,
         ];
     }
 
@@ -68,6 +70,8 @@ enum DocumentType: string
             self::DomicileProof,
             self::CacCertificate,
             self::AdmissionLetter,
+            self::AcceptanceLetter,
+            self::ProofOfPayment,
             self::AppointmentLetter,
             self::ReligiousInvitation,
             self::ReligiousAssignment,

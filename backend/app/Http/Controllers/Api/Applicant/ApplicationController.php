@@ -54,7 +54,7 @@ class ApplicationController
             $draft = $applicant->draft()->with('documents')->first();
             $draftCat = strtoupper($draft?->data['category'] ?? '');
             if (! in_array($draftCat, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
-                if ($draft?->documents->contains('type', DocumentType::AdmissionLetter)) {
+                if ($draft?->documents->contains('type', DocumentType::AdmissionLetter) || $draft?->documents->contains('type', DocumentType::AcceptanceLetter) || $draft?->documents->contains('type', DocumentType::ProofOfPayment)) {
                     $draftCat = 'STUDENT';
                 } elseif ($draft?->documents->contains('type', DocumentType::CacCertificate)) {
                     $draftCat = 'BUSINESS';

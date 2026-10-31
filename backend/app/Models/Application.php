@@ -153,7 +153,7 @@ class Application extends Model
         // Infer from documents if column is empty on older records
         if ($this->relationLoaded('documents')) {
             $docs = $this->documents;
-            if ($docs->contains('type', DocumentType::AdmissionLetter)) {
+            if ($docs->contains('type', DocumentType::AdmissionLetter) || $docs->contains('type', DocumentType::AcceptanceLetter) || $docs->contains('type', DocumentType::ProofOfPayment)) {
                 return 'STUDENT';
             }
             if ($docs->contains('type', DocumentType::CacCertificate)) {

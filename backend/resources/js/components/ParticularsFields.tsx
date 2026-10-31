@@ -197,9 +197,9 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
             }}
           >
             <option value="WORK">{t("Work (Employment)")}</option>
-            <option value="BUSINESS">{t("Business (Trade / Enterprise)")}</option>
-            <option value="STUDENT">{t("Student (Academic)")}</option>
-            <option value="RELIGIOUS">{t("Religious Activities")}</option>
+            <option value="BUSINESS">{t("Business (Trade / Artisans / Enterprise)")}</option>
+            <option value="STUDENT">{t("Student (Intent)")}</option>
+            <option value="RELIGIOUS">{t("Cleric / Missionaries")}</option>
           </Select>
         </Field>
 
@@ -291,34 +291,34 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
         let specificDocs: { title: string; mandatory: boolean }[] = [];
 
         if (cat === "STUDENT") {
-          categoryTitle = "Student";
+          categoryTitle = "Student (Intent)";
           specificDocs = [
             { title: "Institution Admission Letter", mandatory: true },
+            { title: "Acceptance Letter", mandatory: true },
+            { title: "Proof of Payment", mandatory: true },
           ];
         } else if (cat === "BUSINESS") {
-          categoryTitle = "Business";
+          categoryTitle = "Business (Trade / Artisans / Enterprise)";
           specificDocs = [
-            { title: "CAC Business Registration Certificate / Documents", mandatory: true },
+            { title: "CAC Registration Document (Optional)", mandatory: false },
           ];
         } else if (cat === "RELIGIOUS") {
-          categoryTitle = "Religious Activities";
+          categoryTitle = "Cleric / Missionaries";
           specificDocs = [
-            { title: "Letter of Invitation from Host Religious Organization", mandatory: true },
+            { title: "Appointment Letter / Contract Letter", mandatory: true },
             { title: "Evidence of Host Organization Registration or Recognition", mandatory: true },
           ];
         } else {
           categoryTitle = "Work";
           specificDocs = [
-            { title: "Employment Appointment / Offer Letter", mandatory: true },
+            { title: "Appointment Letter / Contract Letter", mandatory: true },
           ];
         }
 
         const allCategoryDocs = [
           { title: "International Passport data page OR ECOWAS Travel Certificate", mandatory: true },
-          { title: "Proof of domicile in Nigeria (Utility bill / Tenancy agreement)", mandatory: true },
+          { title: "Proof of Residence (Utility Bill / Tenancy Agreement)", mandatory: true },
           ...specificDocs,
-          { title: "Identification Document of Emergency Contact in Nigeria", mandatory: true },
-          { title: "Identification Document of Emergency Contact in Home Country", mandatory: true },
           { title: "Recent passport photograph on white background", mandatory: true },
         ];
 
@@ -349,9 +349,9 @@ export function GeneralInfoFields(props: Props & { feeNaira?: number | null }) {
                   <span className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${
                     doc.mandatory
                       ? "bg-emerald-100 text-emerald-800"
-                      : "bg-slate-200/80 text-slate-600"
+                      : "bg-amber-100 text-amber-800"
                   }`}>
-                    {doc.mandatory ? t("Mandatory") : t("Conditional / if applicable")}
+                    {doc.mandatory ? t("Mandatory") : t("Optional")}
                   </span>
                 </li>
               ))}

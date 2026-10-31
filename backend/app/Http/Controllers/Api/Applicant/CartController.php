@@ -28,9 +28,9 @@ class CartController
             $draftData = $draft->data ?? [];
             $cat = strtoupper($draftData['category'] ?? 'WORK');
             $catLabel = match ($cat) {
-                'BUSINESS' => 'Business',
-                'STUDENT' => 'Student',
-                'RELIGIOUS' => 'Religious Activities',
+                'BUSINESS' => 'Business (Trade / Artisans / Enterprise)',
+                'STUDENT' => 'Student (Intent)',
+                'RELIGIOUS' => 'Cleric / Missionaries',
                 default => 'Work (Employment)',
             };
             $ref = $draftData['reference_number'] ?? $draftData['application_number'] ?? ('DRAFT-' . str_pad((string) $draft->id, 5, '0', STR_PAD_LEFT));
@@ -65,9 +65,9 @@ class CartController
 
         foreach ($pendingApps as $app) {
             $catLabel = match (strtoupper($app->category ?? '')) {
-                'BUSINESS' => 'Business',
-                'STUDENT' => 'Student',
-                'RELIGIOUS' => 'Religious Activities',
+                'BUSINESS' => 'Business (Trade / Artisans / Enterprise)',
+                'STUDENT' => 'Student (Intent)',
+                'RELIGIOUS' => 'Cleric / Missionaries',
                 default => 'Work (Employment)',
             };
             $amount = $app->fee_amount_kobo > 0 ? (int) ($app->fee_amount_kobo / 100) : $feeNaira;

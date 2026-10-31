@@ -45,7 +45,7 @@ const PHOTO: DocSpec = {
 function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
   let cat = (category || "").toUpperCase();
   if (!["WORK", "BUSINESS", "STUDENT", "RELIGIOUS"].includes(cat)) {
-    if (docs?.some((d) => d.type === "admission_letter")) cat = "STUDENT";
+    if (docs?.some((d) => d.type === "admission_letter" || d.type === "acceptance_letter" || d.type === "proof_of_payment")) cat = "STUDENT";
     else if (docs?.some((d) => d.type === "cac_certificate")) cat = "BUSINESS";
     else if (docs?.some((d) => d.type === "religious_invitation" || d.type === "religious_registration")) cat = "RELIGIOUS";
     else cat = "WORK";
@@ -54,25 +54,41 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
   const catDocs: DocSpec[] = [];
 
   if (cat === "STUDENT") {
-    catDocs.push({
-      type: "admission_letter",
-      label: "Institution Admission Letter",
-      required: true,
-      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-      kinds: "JPG, JPEG, PNG or PDF",
-    });
+    catDocs.push(
+      {
+        type: "admission_letter",
+        label: "Institution Admission Letter",
+        required: true,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      },
+      {
+        type: "acceptance_letter",
+        label: "Acceptance Letter",
+        required: true,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      },
+      {
+        type: "proof_of_payment",
+        label: "Proof of Payment",
+        required: true,
+        accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+        kinds: "JPG, JPEG, PNG or PDF",
+      }
+    );
   } else if (cat === "BUSINESS") {
     catDocs.push({
       type: "cac_certificate",
-      label: "CAC Business Registration Certificate / Documents",
-      required: true,
+      label: "CAC Registration Document (Optional)",
+      required: false,
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
     });
   } else if (cat === "WORK") {
     catDocs.push({
       type: "appointment_letter",
-      label: "Employment Appointment / Offer Letter",
+      label: "Appointment Letter / Contract Letter",
       required: true,
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
@@ -81,7 +97,7 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
     catDocs.push(
       {
         type: "religious_invitation",
-        label: "Letter of Invitation from Host Religious Organization",
+        label: "Appointment Letter / Contract Letter",
         required: true,
         accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
         kinds: "JPG, JPEG, PNG or PDF",
@@ -106,26 +122,12 @@ function getDocuments(category?: string, docs?: DraftDoc[]): DocSpec[] {
     },
     {
       type: "domicile_proof",
-      label: "Proof of domicile in Nigeria (Utility bill / Tenancy)",
+      label: "Proof of Residence (Utility Bill / Tenancy Agreement)",
       required: true,
       accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
       kinds: "JPG, JPEG, PNG or PDF",
     },
     ...catDocs,
-    {
-      type: "emergency_contact_id_nigeria",
-      label: "Identification Document of Emergency Contact in Nigeria",
-      required: true,
-      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-      kinds: "JPG, JPEG, PNG or PDF",
-    },
-    {
-      type: "emergency_contact_id_home",
-      label: "Identification Document of Emergency Contact in Home Country",
-      required: true,
-      accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
-      kinds: "JPG, JPEG, PNG or PDF",
-    },
     {
       type: "additional",
       label: "Additional supporting document",
@@ -146,8 +148,6 @@ const FIELD_STEP: Record<string, number> = {
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, 3])),
   home_country_address: 3,
   documents: 4,
-  emergency_contact_id_type: 4,
-  home_country_emergency_contact_id_type: 4,
   declaration: 5,
   payment_reference: 6,
   ...Object.fromEntries(APPOINTMENT_FIELDS.map((f) => [f, 7])),
@@ -278,30 +278,10 @@ function Wizard() {
         const requiredDocs = getDocuments(resolvedCategory, documents);
         const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
         if (absent.length === 1) {
-          if (absent[0].type === "emergency_contact_id_nigeria") {
-            e.documents = "Please upload the identification document of your Emergency Contact in Nigeria.";
-          } else if (absent[0].type === "emergency_contact_id_home") {
-            e.documents = "Please upload the identification document of your Emergency Contact in Home Country.";
-          } else {
-            e.documents = `Please upload ${absent[0].label}.`;
-          }
+          e.documents = `Please upload ${absent[0].label}.`;
         } else if (absent.length > 1) {
-          const names = absent.map((d) => {
-            if (d.type === "emergency_contact_id_nigeria") {
-              return "the identification document of your Emergency Contact in Nigeria";
-            }
-            if (d.type === "emergency_contact_id_home") {
-              return "the identification document of your Emergency Contact in Home Country";
-            }
-            return d.label;
-          });
+          const names = absent.map((d) => d.label);
           e.documents = `Please upload: ${names.join(", ")}.`;
-        }
-        if (!data.emergency_contact_id_type) {
-          e.emergency_contact_id_type = "Please select the identification document type for Emergency Contact in Nigeria.";
-        }
-        if (!data.home_country_emergency_contact_id_type) {
-          e.home_country_emergency_contact_id_type = "Please select the identification document type for Emergency Contact in Home Country.";
         }
       }
       if (n === 5 && hasCod) {
@@ -378,8 +358,6 @@ function Wizard() {
     ...stepFields(step),
     "photo",
     "documents",
-    "emergency_contact_id_type",
-    "home_country_emergency_contact_id_type",
     "payment_reference",
     "declaration",
     "cod",
@@ -808,28 +786,15 @@ function Wizard() {
       // Collect all candidate elements for problem fields
       const candidates: { el: HTMLElement; key: string; msg: string }[] = [];
 
-      // Step 4 specific: check document uploads and ID types
+      // Step 4 specific: check document uploads
       if (n === 4) {
-        if (problems.emergency_contact_id_type) {
-          const el = document.querySelector<HTMLElement>('select[name="emergency_contact_id_type"], [data-field="emergency_contact_id_type"]');
-          if (el) candidates.push({ el, key: "emergency_contact_id_type", msg: problems.emergency_contact_id_type });
-        }
-        if (problems.home_country_emergency_contact_id_type) {
-          const el = document.querySelector<HTMLElement>('select[name="home_country_emergency_contact_id_type"], [data-field="home_country_emergency_contact_id_type"]');
-          if (el) candidates.push({ el, key: "home_country_emergency_contact_id_type", msg: problems.home_country_emergency_contact_id_type });
-        }
         if (problems.documents) {
           const requiredDocs = getDocuments(resolvedCategory, documents);
           const absent = requiredDocs.filter((d) => d.required && !documents.some((x) => x.type === d.type));
           for (const d of absent) {
             const el = document.getElementById(`doc-card-${d.type}`) || document.querySelector<HTMLElement>(`[data-doc-type="${d.type}"]`);
             if (el) {
-              const msg = d.type === "emergency_contact_id_nigeria"
-                ? "Please upload the identification document of your Emergency Contact in Nigeria."
-                : d.type === "emergency_contact_id_home"
-                ? "Please upload the identification document of your Emergency Contact in Home Country."
-                : `Please upload ${d.label}.`;
-              candidates.push({ el, key: d.type, msg });
+              candidates.push({ el, key: d.type, msg: `Please upload ${d.label}.` });
             }
           }
         }
@@ -837,7 +802,7 @@ function Wizard() {
 
       // Check all problem keys
       for (const [key, msg] of Object.entries(problems)) {
-        if (n === 4 && (key === "documents" || key === "emergency_contact_id_type" || key === "home_country_emergency_contact_id_type")) {
+        if (n === 4 && key === "documents") {
           continue;
         }
         let el: HTMLElement | null = null;
@@ -2210,38 +2175,6 @@ function Wizard() {
                         {!isUploading && !isUploaded && !isError && (
                           <p className="text-xs text-slate-500">{t("PDF, JPG or PNG up to 2 MB")}</p>
                         )}
-
-                        {(d.type === "emergency_contact_id_nigeria" || d.type === "emergency_contact_id_home") && (
-                          <div className="mt-2.5 pt-2 border-t border-slate-100 max-w-sm">
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">
-                              {t("Document Type")} <span className="text-red-600">*</span>
-                            </label>
-                            <select
-                              name={d.type === "emergency_contact_id_nigeria" ? "emergency_contact_id_type" : "home_country_emergency_contact_id_type"}
-                              data-field={d.type === "emergency_contact_id_nigeria" ? "emergency_contact_id_type" : "home_country_emergency_contact_id_type"}
-                              value={(d.type === "emergency_contact_id_nigeria" ? data.emergency_contact_id_type : data.home_country_emergency_contact_id_type) || ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setData((prev) => ({
-                                  ...prev,
-                                  [d.type === "emergency_contact_id_nigeria" ? "emergency_contact_id_type" : "home_country_emergency_contact_id_type"]: val,
-                                }));
-                              }}
-                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-xs focus:border-nis-primary focus:outline-none focus:ring-1 focus:ring-nis-primary"
-                            >
-                              <option value="">{t("Select identification type")}</option>
-                              <option value="NATIONAL_ID">{t("National Identity Card")}</option>
-                              <option value="PASSPORT">{t("International Passport")}</option>
-                              <option value="ECOWAS_TC">{t("ECOWAS Travel Certificate")}</option>
-                            </select>
-                            {((d.type === "emergency_contact_id_nigeria" && errors.emergency_contact_id_type) ||
-                              (d.type === "emergency_contact_id_home" && errors.home_country_emergency_contact_id_type)) && (
-                              <p className="mt-1 text-xs font-medium text-red-600">
-                                {t(d.type === "emergency_contact_id_nigeria" ? errors.emergency_contact_id_type : errors.home_country_emergency_contact_id_type)}
-                              </p>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -2303,9 +2236,6 @@ function Wizard() {
 
                       {!isUploaded && !isError && (
                         <div className="flex flex-col sm:items-end gap-1">
-                          {(d.type === "emergency_contact_id_nigeria" || d.type === "emergency_contact_id_home") && (
-                            <span className="text-[11px] font-medium text-slate-500">{t("Upload Identification Document")}</span>
-                          )}
                           <UploadButton
                             label={isUploading ? t("Uploading…") : t("Choose file")}
                             accept={d.accept}
@@ -2341,7 +2271,7 @@ function Wizard() {
               <ReviewGrid
                 items={[
                   ["Nationality", data.nationality],
-                  ["Category / Class", (data.category || resolvedCategory) === "STUDENT" ? "Student" : (data.category || resolvedCategory) === "BUSINESS" ? "Business" : (data.category || resolvedCategory) === "RELIGIOUS" ? "Religious Activities" : "Work (Employment)"],
+                  ["Category / Class", (data.category || resolvedCategory) === "STUDENT" ? "Student (Intent)" : (data.category || resolvedCategory) === "BUSINESS" ? "Business (Trade / Artisans / Enterprise)" : (data.category || resolvedCategory) === "RELIGIOUS" ? "Cleric / Missionaries" : "Work (Employment)"],
                   ["Document Type", data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate" : "Passport"],
                   [data.travel_document_type === "ECOWAS_TC" ? "ECOWAS Travel Certificate number" : "Passport number", data.passport_number],
                   ["Document Issue Date", nisDate(data.passport_issue_date)],

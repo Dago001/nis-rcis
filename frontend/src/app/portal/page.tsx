@@ -23,14 +23,14 @@ type DraftInfo = {
 
 const PAGE_SIZE = 10;
 
-/** Format category/class name consistently (e.g. Work, Business, Student, or Not specified). */
+/** Format category/class name consistently (e.g. Work (Employment), Business (Trade / Artisans / Enterprise), Student (Intent), Cleric / Missionaries). */
 function formatCategory(cat?: string | null): string {
   if (!cat || !cat.trim()) return "Not specified";
   const upper = cat.trim().toUpperCase();
-  if (upper === "WORK" || upper.includes("WORK") || upper.includes("EMPLOY")) return "Work";
-  if (upper === "BUSINESS" || upper.includes("BUSI") || upper.includes("INVEST")) return "Business";
-  if (upper === "STUDENT" || upper.includes("STUD")) return "Student";
-  if (upper === "RELIGIOUS" || upper.includes("RELIG")) return "Religious Activities";
+  if (upper === "WORK" || upper.includes("WORK") || upper.includes("EMPLOY")) return "Work (Employment)";
+  if (upper === "BUSINESS" || upper.includes("BUSI") || upper.includes("INVEST") || upper.includes("ARTISAN")) return "Business (Trade / Artisans / Enterprise)";
+  if (upper === "STUDENT" || upper.includes("STUD")) return "Student (Intent)";
+  if (upper === "RELIGIOUS" || upper.includes("RELIG") || upper.includes("CLERIC") || upper.includes("MISSION")) return "Cleric / Missionaries";
   return cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
 }
 

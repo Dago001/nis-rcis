@@ -45,7 +45,7 @@ class ApplicationSubmission
             $draftCategory = strtoupper($draft?->data['category'] ?? '');
             if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
                 $category = $draftCategory;
-            } elseif ($documents->contains('type', DocumentType::AdmissionLetter)) {
+            } elseif ($documents->contains('type', DocumentType::AdmissionLetter) || $documents->contains('type', DocumentType::AcceptanceLetter) || $documents->contains('type', DocumentType::ProofOfPayment)) {
                 $category = 'STUDENT';
             } elseif ($documents->contains('type', DocumentType::CacCertificate)) {
                 $category = 'BUSINESS';
@@ -61,9 +61,11 @@ class ApplicationSubmission
 
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
-            $requiredTypes[] = DocumentType::CacCertificate;
+            // CAC Registration Document is optional
         } elseif ($category === 'STUDENT') {
             $requiredTypes[] = DocumentType::AdmissionLetter;
+            $requiredTypes[] = DocumentType::AcceptanceLetter;
+            $requiredTypes[] = DocumentType::ProofOfPayment;
         } elseif ($category === 'WORK') {
             $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'RELIGIOUS') {
@@ -276,7 +278,7 @@ class ApplicationSubmission
             $draftCategory = strtoupper($draft->data['category'] ?? '');
             if (in_array($draftCategory, ['WORK', 'BUSINESS', 'STUDENT', 'RELIGIOUS'], true)) {
                 $category = $draftCategory;
-            } elseif ($documents->contains('type', DocumentType::AdmissionLetter)) {
+            } elseif ($documents->contains('type', DocumentType::AdmissionLetter) || $documents->contains('type', DocumentType::AcceptanceLetter) || $documents->contains('type', DocumentType::ProofOfPayment)) {
                 $category = 'STUDENT';
             } elseif ($documents->contains('type', DocumentType::CacCertificate)) {
                 $category = 'BUSINESS';
@@ -291,9 +293,11 @@ class ApplicationSubmission
 
         $requiredTypes = DocumentType::requiredForSubmission();
         if ($category === 'BUSINESS') {
-            $requiredTypes[] = DocumentType::CacCertificate;
+            // CAC Registration Document is optional
         } elseif ($category === 'STUDENT') {
             $requiredTypes[] = DocumentType::AdmissionLetter;
+            $requiredTypes[] = DocumentType::AcceptanceLetter;
+            $requiredTypes[] = DocumentType::ProofOfPayment;
         } elseif ($category === 'WORK') {
             $requiredTypes[] = DocumentType::AppointmentLetter;
         } elseif ($category === 'RELIGIOUS') {
