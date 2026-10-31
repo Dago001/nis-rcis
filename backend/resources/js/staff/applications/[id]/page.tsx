@@ -21,7 +21,6 @@ export default function StaffApplicationPage() {
   const { id } = useParams<{ id: string }>();
   const user = useStaff();
   const [detail, setDetail] = useState<Detail | null>(null);
-  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +34,6 @@ export default function StaffApplicationPage() {
     setError(null);
     try {
       await api("staff", `applications/${id}/${path}`, { method: "POST", json: body ?? {} });
-      setNotes("");
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message : String(e));
@@ -340,33 +338,19 @@ export default function StaffApplicationPage() {
                   </div>
                 </Alert>
               ) : (
-                <div className="space-y-4">
-                  <Field
-                    label="Vetting Remarks (Optional)"
-                    hint="Optional recommendation notes or verification remarks for the record."
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. Biometric enrollment will be enabled for the applicant.") &&
+                      act("decision", {
+                        decision: "VET",
+                        notes: "Application particulars and documents verified by Vetting Officer.",
+                      })
+                    }
                   >
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Optional vetting remarks or verification comments..."
-                      rows={2}
-                    />
-                  </Field>
-
-                  <div className="flex flex-wrap items-center gap-3 pt-1">
-                    <Button
-                      disabled={busy}
-                      onClick={() =>
-                        confirm("Vet this application? This confirms that submitted details and supporting documents have been verified. Biometric enrollment will be enabled for the applicant.") &&
-                        act("decision", {
-                          decision: "VET",
-                          notes: notes.trim() || "Application particulars and documents verified by Vetting Officer.",
-                        })
-                      }
-                    >
-                      Vet Application
-                    </Button>
-                  </div>
+                    Vet Application
+                  </Button>
                 </div>
               )}
             </Panel>
