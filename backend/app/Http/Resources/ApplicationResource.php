@@ -29,7 +29,7 @@ class ApplicationResource extends JsonResource
             'biometrics_status_label' => $this->biometrics_status_label,
             'approval_status' => $this->approval_status,
             'approval_status_label' => $this->approval_status_label,
-            'tracker_step' => $this->status->trackerStep(),
+            'tracker_step' => ($this->biometrics_captured_at !== null && $this->status->trackerStep() < 4) ? 4 : $this->status->trackerStep(),
             ...$this->only(Application::PARTICULARS),
             'phone' => $this->phone,
             'email' => $this->email,

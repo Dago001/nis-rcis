@@ -85,7 +85,7 @@ enum ApplicationStatus: string
         return match ($this) {
             self::PendingApproval, self::Queried, self::Rejected => 2,
             self::Vetted => 3,
-            self::BiometricsCaptured => 3,
+            self::BiometricsCaptured => 4,
             self::Approved, self::ApprovedForBiometrics => 4,
             self::ReadyForCollection, self::Issued => 5,
         };

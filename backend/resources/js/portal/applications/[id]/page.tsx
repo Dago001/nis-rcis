@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { DocumentList, History } from "@/components/DocumentList";
 import { PageTitle } from "@/components/PageTitle";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Tracker } from "@/components/Tracker";
-import { Alert, Button, Dl, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, Field, Panel, Select, Spinner, Textarea } from "@/components/ui";
 import { api, ApiError, upload } from "@/lib/api-client";
-import { naira, nisDate, applicationType, dateTime } from "@/lib/format";
+import { nisDate, applicationType, dateTime } from "@/lib/format";
 import { useI18n } from "@/components/I18nProvider";
 import type { Application } from "@/lib/types";
 
@@ -121,63 +120,16 @@ function ApplicationDetail() {
 
       <Panel title={<>{t("Status")} <StatusBadge status={app.status} label={app.status_label} /></>}>
         <div className="space-y-5">
-          <Tracker step={app.tracker_step} status={app.status} />
+          <Tracker
+            step={app.tracker_step}
+            status={app.status}
+            biometricsCompleted={Boolean(app.biometrics_captured_at || app.biometrics_status === "COMPLETED")}
+          />
           {app.status === "APPROVED_FOR_BIOMETRICS" && (
             <Alert tone="success">
               {t("Attend biometrics capture on")} <strong>{nisDate(app.appointment_date)}</strong> {t("at")} <strong>{app.appointment_time}</strong>,{" "}
               {app.enrollment_center?.name}. {t("Bring your original passport and your printed appointment slip.")}
             </Alert>
-          )}
-          {app.status === "BIOMETRICS_CAPTURED" && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs font-bold">✓</span>
-                  <span className="text-sm font-bold text-emerald-900">
-                    {t("Biometrics Successfully Completed")}
-                  </span>
-                </div>
-                <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
-                  {t("Awaiting Card Production")}
-                </span>
-              </div>
-              <p className="text-xs text-slate-700">
-                {t("Your physical biometrics have been captured and verified. While your permanent ECOWAS Residence Card is in production, you can access, download and print your Temporary Residence Card below.")}
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Link
-                  href={`/portal/applications/${app.id}/temporary-card`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  {t("View Temporary Card")}
-                </Link>
-                <a
-                  href={`/portal/applications/${app.id}/temporary-card/pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={`NIS-temporary-card-${app.application_number}.pdf`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-                >
-                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  {t("Download PDF")}
-                </a>
-                <Link
-                  href={`/portal/applications/${app.id}/temporary-card`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-                >
-                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  {t("Print Temporary Card")}
-                </Link>
-              </div>
-            </div>
           )}
           {app.status === "READY_FOR_COLLECTION" && (
             <Alert tone="success">
@@ -382,26 +334,6 @@ function ApplicationDetail() {
           </div>
         );
       })()}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Particulars">
-          <Dl
-            items={[
-              ["Name", `${app.surname}, ${app.forenames}`],
-              ["Nationality", app.nationality],
-              ["Date of birth", nisDate(app.date_of_birth)],
-              ["Passport", app.passport_number],
-              ["Address", app.domicile],
-              ["Fee", `${naira(app.fee_amount_naira)} (${app.payment_status})`],
-            ]}
-          />
-        </Panel>
-        <Panel title="Documents">
-          <DocumentList scope="applicant" applicationId={app.id} documents={app.documents ?? []} />
-        </Panel>
-      </div>
-
-      <Panel title="History">{app.history && <History history={app.history} />}</Panel>
     </div>
   );
 }
