@@ -70,11 +70,12 @@ class CardIssuance
         }
 
         $hasLiveBiometrics = ! empty($input['photo']) || ! empty($input['signature']) || ! empty($input['fingerprints']);
+        $issuedLocation = ! empty($input['issued_at']) ? $input['issued_at'] : 'NIS Headquarters';
         $transitionNote = $isSimulation
-            ? 'Biometrics captured (Development Simulation Mode) at '.($input['issued_at'] ?? $application->enrollmentCenter?->name)
+            ? 'Biometrics captured (Development Simulation Mode) at '.$issuedLocation
             : ($hasLiveBiometrics
-                ? 'Biometrics captured at '.($input['issued_at'] ?? $application->enrollmentCenter?->name)
-                : 'Card created (biometrics deferred/waived) at '.($input['issued_at'] ?? $application->enrollmentCenter?->name));
+                ? 'Biometrics captured at '.$issuedLocation
+                : 'Card created (biometrics deferred/waived) at '.$issuedLocation);
 
         return $this->workflow->transition(
             $application,
@@ -109,7 +110,7 @@ class CardIssuance
                     'issuing_officer_name' => mb_strtoupper($officer->fullname),
                     'issuing_officer_service_no' => $officer->service_number,
                     'issued_on' => $issuedOn->toDateString(),
-                    'issued_at' => mb_strtoupper($input['issued_at'] ?? $actualCommand ?? 'NIS SERVICE HEADQUARTERS'),
+                    'issued_at' => mb_strtoupper(! empty($input['issued_at']) ? $input['issued_at'] : 'NIS HEADQUARTERS'),
                     'enrollment_zone' => $actualZone,
                     'enrollment_command' => $actualCommand,
                     'actual_enrollment_center_id' => $actualCenterId,

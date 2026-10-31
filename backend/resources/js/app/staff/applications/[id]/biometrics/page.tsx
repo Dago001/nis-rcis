@@ -8,7 +8,7 @@ import { FingerprintCapture, type Fingerprint } from "@/components/FingerprintCa
 import { useI18n } from "@/components/I18nProvider";
 import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
-import { Alert, Button, Dl, Field, Input, Panel, Spinner } from "@/components/ui";
+import { Alert, Button, Dl, Panel, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { nisDate } from "@/lib/format";
 import type { Application } from "@/lib/types";
@@ -26,7 +26,6 @@ export default function BiometricsDesk() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [fingerprints, setFingerprints] = useState<Fingerprint[]>([]);
-  const [issuedAt, setIssuedAt] = useState("");
   const [confirmed, setConfirmed] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,9 +33,8 @@ export default function BiometricsDesk() {
   useEffect(() => {
     api<{ data: Application }>("staff", `applications/${id}`).then((r) => {
       setApp(r.data);
-      setIssuedAt(r.data.enrollment_center?.name ?? user.command);
     });
-  }, [id, user.command]);
+  }, [id]);
 
   async function save() {
     setBusy(true);
@@ -47,7 +45,7 @@ export default function BiometricsDesk() {
         json: {
           photo,
           signature,
-          issued_at: issuedAt,
+          issued_at: "NIS Headquarters",
           // Images stay on the desk; only the templates are sent.
           fingerprints: fingerprints.length ? fingerprints.map((f) => ({ finger: f.finger, template: f.template, format: f.format, quality: f.quality, nfiq: f.nfiq, device: f.device })) : undefined,
         },
@@ -105,7 +103,6 @@ export default function BiometricsDesk() {
 
       <Panel title="5. Issue">
         <div className="space-y-4">
-          <Field label="Place of issue"><Input value={issuedAt} placeholder="Enter Place of Issue" onChange={(e) => setIssuedAt(e.target.value)} /></Field>
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={save} disabled={busy || !confirmed}>
               {busy ? "Saving…" : "Save biometrics and create card"}
