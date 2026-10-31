@@ -273,16 +273,6 @@ export function AppointmentPicker({
         </Select>
       </Field>
 
-      {/* Notice on 4-Calendar-Day Rule */}
-      <div className="sm:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950 flex items-start gap-2.5">
-        <svg className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <div>
-          <span className="font-semibold text-emerald-900">NIS 4-Calendar-Day Scheduling Rule:</span> In accordance with official regulations, biometric enrollment appointments are available starting from the 4th calendar day following successful payment (<strong className="font-semibold text-emerald-950">{earliestDate}</strong>) onward. Dates prior to this are locked.
-        </div>
-      </div>
-
       {/* Field 3: Appointment Date */}
       <Field
         label={t("Appointment date")}
