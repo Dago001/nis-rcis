@@ -73,7 +73,7 @@ Sign in with the **service number** (or the username).
 | 10001 | admin | Super Administrator | Everything, including staff accounts, assisted applications, reinstating cards and CSV export |
 | 10002 | approver | Approving Officer | Approve, query or reject applications; approve cards; revoke and watchlist cards |
 | 10003 | issuer | Issuing Officer | Biometrics desk, mark cards ready, record collection, renew cards |
-| 10004 | inspector | Inspector | View only |
+| 10004 | vetting | Vetting Officer | Review applications, verify document checklist, issue queries, vetting queue |
 | 10005 | auditor | Auditor | View, plus the audit trail |
 
 ### Applicant portal: http://localhost:3000/portal
@@ -147,7 +147,7 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **G3.** The Approving Officer has **no** Reinstate button. Sign in as **10001** (admin): **Reinstate card** is available.
 
 ### H. Roles and permissions
-- [ ] **H1.** As **10004** (Inspector), open any pending application: there is **no Decision** panel.
+- [ ] **H1.** As **10004** (vetting), open the Vetting queue and review pending applications.
 - [ ] **H2.** As **10005** (Auditor), open **Audit trail**: every sign-in and decision you made is listed with time and IP address.
 - [ ] **H3.** As **10001** (Admin), open **Staff accounts** and create a new officer. A one-time **temporary password** is shown. Sign in as that officer: you are forced to set a new password first.
 - [ ] **H4.** As **10001**, open **Reports** and click **Export CSV**.

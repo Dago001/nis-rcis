@@ -53,7 +53,7 @@ class SeedDemoData extends Command
             User::where('username', 'demo.admin')->update(['username' => 'admin', 'email' => 'admin@example.com']);
             User::where('username', 'demo.approver')->update(['username' => 'approver', 'email' => 'approver@example.com']);
             User::where('username', 'demo.issuer')->update(['username' => 'issuer', 'email' => 'issuer@example.com']);
-            User::where('username', 'demo.inspector')->update(['username' => 'inspector', 'email' => 'inspector@example.com']);
+            User::whereIn('username', ['demo.inspector', 'inspector'])->update(['username' => 'vetting', 'email' => 'vetting@example.com', 'role' => StaffRole::VettingOfficer]);
             User::where('username', 'demo.auditor')->update(['username' => 'auditor', 'email' => 'auditor@example.com']);
             User::query()->update(['password' => self::PASSWORD, 'must_change_password' => false]);
             Applicant::query()->update(['password' => self::PASSWORD]);
@@ -105,7 +105,7 @@ class SeedDemoData extends Command
             'admin' => ['admin', 'Ibrahim Musa', '10001', StaffRole::SuperAdmin],
             'approver' => ['approver', 'Ngozi Adeleke', '10002', StaffRole::ApprovingOfficer],
             'issuer' => ['issuer', 'Chinedu Okoro', '10003', StaffRole::IssuingOfficer],
-            'inspector' => ['inspector', 'Fatima Bello', '10004', StaffRole::Inspector],
+            'vetting' => ['vetting', 'Fatima Bello', '10004', StaffRole::VettingOfficer],
             'auditor' => ['auditor', 'Emeka Nwosu', '10005', StaffRole::Auditor],
         ];
 
@@ -343,7 +343,7 @@ class SeedDemoData extends Command
             ['admin', '10001', 'SuperAdmin'],
             ['approver', '10002', 'ApprovingOfficer'],
             ['issuer', '10003', 'IssuingOfficer'],
-            ['inspector', '10004', 'Inspector'],
+            ['vetting', '10004', 'VettingOfficer'],
             ['auditor', '10005', 'Auditor'],
         ]);
         $this->table(['Applicant (sign in at /portal)', 'Application is'], [
