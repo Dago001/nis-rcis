@@ -17,11 +17,6 @@
     @else
         <h1>Enter your authenticator code</h1>
         <p class="sub">Open your authenticator app and enter the current 6-digit code for <strong>NIS-RCIS</strong>.</p>
-        <div style="text-align:center; margin: 10px 0 16px;">
-            <a href="{{ route('login.staff.two-factor', ['setup' => 1]) }}" style="display:inline-block; padding:7px 14px; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; font-size:0.85rem; color:#166534; font-weight:600; text-decoration:none;">
-                📱 First time or need to scan barcode? Show QR code
-            </a>
-        </div>
     @endif
 
     @include('auth._errors')
@@ -40,6 +35,6 @@
     </form>
     <div class="notice">
         <span aria-hidden="true">🔒</span>
-        <span>Lost your phone or changed it? Click the barcode link above to scan on your new phone, or ask a Super Administrator to reset your authenticator.</span>
+        <span>Lost your phone or changed it? Contact a Super Administrator to reset your authenticator.</span>
     </div>
 @endsection

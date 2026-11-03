@@ -131,7 +131,6 @@ class StaffLoginController
         if (! $setup) {
             return view('auth.two-factor', [
                 'setup' => false,
-                'canSwitchToSetup' => true,
             ]);
         }
 
