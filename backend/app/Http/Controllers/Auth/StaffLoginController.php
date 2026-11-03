@@ -103,7 +103,7 @@ class StaffLoginController
 
     /**
      * Enter the authenticator code, or set up the authenticator app on the
-     * first sign-in (or after the Super Admin reset it).
+     * first sign-in (or when requested via setup parameter).
      */
     public function showTwoFactor(Request $request): View|RedirectResponse
     {
@@ -112,15 +112,27 @@ class StaffLoginController
             return redirect()->route('login.staff')->withErrors(['identifier' => 'Please sign in again.']);
         }
 
-        if ($user->hasTwoFactor()) {
-            return view('auth.two-factor', ['setup' => false]);
+        // Show setup/barcode if user does not have 2FA confirmed yet, or explicitly requested (?setup=1)
+        $wantsSetup = $request->boolean('setup') || $request->query('setup') === '1';
+        $setup = ! $user->hasTwoFactor() || $wantsSetup;
+
+        if (! $setup) {
+            return view('auth.two-factor', [
+                'setup' => false,
+                'canSwitchToSetup' => true,
+            ]);
         }
 
         $secret = $request->session()->get('staff_2fa_secret') ?? tap(Totp::generateSecret(), fn ($s) => $request->session()->put('staff_2fa_secret', $s));
         $uri = Totp::uri($user->service_number, $secret);
         $qr = (new Writer(new ImageRenderer(new RendererStyle(140, 1), new SvgImageBackEnd)))->writeString($uri);
 
-        return view('auth.two-factor', ['setup' => true, 'qr' => $qr, 'secret' => trim(chunk_split($secret, 4, ' '))]);
+        return view('auth.two-factor', [
+            'setup' => true,
+            'qr' => $qr,
+            'secret' => trim(chunk_split($secret, 4, ' ')),
+            'canSwitchToVerify' => $user->hasTwoFactor(),
+        ]);
     }
 
     public function verifyTwoFactor(Request $request): RedirectResponse
@@ -131,9 +143,31 @@ class StaffLoginController
         }
 
         $data = $request->validate(['code' => ['required', 'string', 'max:10']]);
-        $setup = ! $user->hasTwoFactor();
-        $secret = $setup ? (string) $request->session()->get('staff_2fa_secret') : (string) $user->two_factor_secret;
-        $step = $secret !== '' ? Totp::verify($secret, $data['code'], $user->two_factor_last_step) : null;
+
+        $sessionSecret = (string) $request->session()->get('staff_2fa_secret');
+        $hasSessionSecret = $sessionSecret !== '';
+        $setup = ! $user->hasTwoFactor() || $hasSessionSecret;
+
+        // Try validating against the newly generated QR code secret first if available
+        $step = null;
+        $activeSecret = null;
+
+        if ($hasSessionSecret) {
+            $step = Totp::verify($sessionSecret, $data['code'], $user->two_factor_last_step);
+            if ($step !== null) {
+                $activeSecret = $sessionSecret;
+                $setup = true;
+            }
+        }
+
+        // Fallback to existing registered secret if available and setup didn't match
+        if ($step === null && $user->two_factor_secret) {
+            $step = Totp::verify((string) $user->two_factor_secret, $data['code'], $user->two_factor_last_step);
+            if ($step !== null) {
+                $activeSecret = (string) $user->two_factor_secret;
+                $setup = false;
+            }
+        }
 
         if ($step === null) {
             Audit::log('STAFF_2FA_FAILED', 'Wrong authenticator code', actor: $user);
@@ -143,7 +177,7 @@ class StaffLoginController
 
         $user->forceFill([
             'two_factor_last_step' => $step,
-            ...($setup ? ['two_factor_secret' => $secret, 'two_factor_confirmed_at' => now()] : []),
+            ...($setup ? ['two_factor_secret' => $activeSecret, 'two_factor_confirmed_at' => now()] : []),
         ])->save();
 
         if ($setup) {
