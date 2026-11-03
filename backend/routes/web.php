@@ -170,6 +170,18 @@ Route::middleware('web')->group(function () {
 
         Route::fallback(function () {
             $path = trim(request()->path(), '/');
+            if (preg_match('#^staff/approvals/([0-9]+)#', $path, $m)) {
+                return Inertia::render('Staff/ApprovalDetail', ['id' => (int) $m[1]]);
+            }
+            if (preg_match('#^staff/applications/([0-9]+)/biometrics#', $path, $m)) {
+                return Inertia::render('Staff/Biometrics', ['id' => (int) $m[1]]);
+            }
+            if (preg_match('#^staff/applications/([0-9]+)#', $path, $m)) {
+                return Inertia::render('Staff/ApplicationDetail', ['id' => (int) $m[1]]);
+            }
+            if (preg_match('#^staff/cards/([0-9]+)#', $path, $m)) {
+                return Inertia::render('Staff/CardDetail', ['id' => (int) $m[1]]);
+            }
             $map = [
                 'staff/card-issuance' => 'Staff/CardIssuance',
                 'staff/notifications' => 'Staff/Notifications',
@@ -197,6 +209,18 @@ Route::middleware('web')->group(function () {
     Route::fallback(function () {
         $path = trim(request()->path(), '/');
         if ($path === 'staff' || str_starts_with($path, 'staff/')) {
+            if (preg_match('#^staff/approvals/([0-9]+)#', $path, $m)) {
+                return Inertia::render('Staff/ApprovalDetail', ['id' => (int) $m[1]]);
+            }
+            if (preg_match('#^staff/applications/([0-9]+)/biometrics#', $path, $m)) {
+                return Inertia::render('Staff/Biometrics', ['id' => (int) $m[1]]);
+            }
+            if (preg_match('#^staff/applications/([0-9]+)#', $path, $m)) {
+                return Inertia::render('Staff/ApplicationDetail', ['id' => (int) $m[1]]);
+            }
+            if (preg_match('#^staff/cards/([0-9]+)#', $path, $m)) {
+                return Inertia::render('Staff/CardDetail', ['id' => (int) $m[1]]);
+            }
             $map = [
                 'staff/card-issuance' => 'Staff/CardIssuance',
                 'staff/notifications' => 'Staff/Notifications',

@@ -1045,5 +1045,8 @@ const FR: Record<string, string> = {
   "Enter Street Address in Nigeria": "Entrez l'adresse de la rue au Nigéria",
   "Enter residential address in home country": "Entrez l'adresse résidentielle dans le pays d'origine",
   "Enter Change of Address (if any)": "Entrez le changement d'adresse (le cas échéant)",
+  "Approved by Me": "Approuvé par moi",
+  "No applications approved by you yet.": "Aucune demande approuvée par vous pour l'instant.",
+  "Date Approved": "Date d'approbation",
 };
 

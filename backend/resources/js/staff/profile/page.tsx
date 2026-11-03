@@ -10,7 +10,13 @@ export default function StaffProfilePage() {
   const { t } = useI18n();
 
   const formattedName = me.rank ? `${me.rank} ${me.fullname}` : me.fullname;
-  const roleDisplay = me.role_label || (me.role === "CardIssuanceOfficer" ? "Issuance Officer" : me.role);
+  const roleDisplay =
+    me.role_label ||
+    (me.role === "ApprovingOfficer"
+      ? "Approving Officer"
+      : me.role === "CardIssuanceOfficer"
+      ? "Issuance Officer"
+      : me.role);
 
   return (
     <div className="space-y-6">

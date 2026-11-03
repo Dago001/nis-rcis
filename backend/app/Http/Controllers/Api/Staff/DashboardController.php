@@ -218,9 +218,11 @@ class DashboardController
                 ->whereIn('status', [ApplicationStatus::BiometricsCaptured, ApplicationStatus::Vetted])
                 ->count();
 
-            $approvedByMe = Application::where('decided_by', $user->id)
-                ->whereIn('status', [ApplicationStatus::Approved, ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued])
-                ->count();
+            $approvedByMe = Application::where(function ($q) use ($user) {
+                $q->where('decided_by', $user->id)
+                  ->orWhereHas('statusHistory', fn ($sh) => $sh->where('actor_id', $user->id)->whereIn('to_status', [ApplicationStatus::Approved->value, ApplicationStatus::ApprovedForBiometrics->value]));
+            })->whereIn('status', [ApplicationStatus::Approved, ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued])
+              ->count();
 
             $queriedByMe = ApplicationDocumentQuery::where('queried_by', $user->id)->count();
 

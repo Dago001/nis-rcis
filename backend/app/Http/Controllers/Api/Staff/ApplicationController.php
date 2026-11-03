@@ -70,9 +70,12 @@ class ApplicationController
         }
 
         if (($data['filter'] ?? null) === 'vetted_by_me') {
-            $query->where('vetted_by', $request->user()->id);
+            $query->where('vetted_by', $request->user()->id)->latest('vetted_at');
         } elseif (($data['filter'] ?? null) === 'approved_by_me') {
-            $query->where('decided_by', $request->user()->id);
+            $query->where(function ($q) use ($request) {
+                $q->where('decided_by', $request->user()->id)
+                  ->orWhereHas('statusHistory', fn ($sh) => $sh->where('actor_id', $request->user()->id)->whereIn('to_status', [ApplicationStatus::Approved->value, ApplicationStatus::ApprovedForBiometrics->value]));
+            })->reorder()->orderByDesc('decided_at')->latest('id');
         }
 
         if (($data['view'] ?? null) === 'vetting_records') {

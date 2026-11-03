@@ -65,7 +65,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
     effectiveTitle = "Applications Vetted by Me";
     effectiveSubtitle = "Applications directly examined and verified by you";
   } else if (filter === "approved_by_me") {
-    effectiveTitle = "Applications Approved by Me";
+    effectiveTitle = "Approved by Me";
     effectiveSubtitle = "Applications granted final statutory approval by you";
   } else if (currentStatus === "QUERIED") {
     effectiveTitle = "Queried Applications";
@@ -391,8 +391,12 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
         </div>
       ) : displayResult.data.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center">
-          <p className="text-sm font-medium text-slate-600">{t("No applications found.")}</p>
-          {(currentSearch || currentStatus || assigned || overdue) && (
+          <p className="text-sm font-medium text-slate-600">
+            {filter === "approved_by_me"
+              ? t("No applications approved by you yet.")
+              : t("No applications found.")}
+          </p>
+          {(currentSearch || currentStatus || assigned || overdue || filter || view) && (
             <div className="mt-3">
               <Link
                 href={basePath}
@@ -407,20 +411,93 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
         <div className={`overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="w-12 px-3 py-3 text-center font-semibold">{t("S/N")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Application")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Applicant")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Nationality")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Enrollment Centre")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Appointment")}</th>
-                <th className="px-4 py-3 font-semibold">{t("Status")}</th>
-                <th className="w-24 px-4 py-3 text-center font-semibold">{t("Action")}</th>
-              </tr>
+              {filter === "approved_by_me" ? (
+                <tr>
+                  <th className="w-12 px-3 py-3 text-center font-semibold">{t("S/N")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Application Reference")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Applicant Name")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Application Type")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Date Approved")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Current Status")}</th>
+                  <th className="w-24 px-4 py-3 text-center font-semibold">{t("Action")}</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="w-12 px-3 py-3 text-center font-semibold">{t("S/N")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Application")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Applicant")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Nationality")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Enrollment Centre")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Appointment")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("Status")}</th>
+                  <th className="w-24 px-4 py-3 text-center font-semibold">{t("Action")}</th>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-slate-100">
               {displayResult.data.map((a, index) => {
                 const serialNumber = (currentPage - 1) * perPage + index + 1;
+
+                if (filter === "approved_by_me") {
+                  return (
+                    <tr key={a.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="w-12 px-3 py-3 text-center text-xs font-medium text-slate-500">
+                        {serialNumber}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`${basePath}/${a.id}`}
+                          className="font-semibold text-nis-green hover:underline"
+                        >
+                          {a.application_number}
+                        </Link>
+                        {a.reference_number && a.reference_number !== a.application_number && (
+                          <div className="text-[11px] font-mono text-slate-400">
+                            {a.reference_number}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-900">{a.surname}, {a.forenames}</div>
+                        <div className="text-xs text-slate-500">{a.passport_number || a.nationality}</div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 text-xs">
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          {t(conciseApplicationType(a.type))}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-700">
+                        {a.decided_at ? (
+                          <div>
+                            <div className="font-medium text-slate-800">{nisDate(a.decided_at)}</div>
+                            <div className="text-[11px] text-slate-400">{dateTime(a.decided_at).split(" ")[1] ?? ""}</div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge
+                          status={a.approval_status ?? (["APPROVED", "APPROVED_FOR_BIOMETRICS", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "APPROVED" : a.status)}
+                          label={a.approval_status_label ?? (["APPROVED", "APPROVED_FOR_BIOMETRICS", "READY_FOR_COLLECTION", "ISSUED"].includes(a.status) ? "Approved" : a.status_label)}
+                        />
+                      </td>
+                      <td className="w-24 px-4 py-3 text-center">
+                        <Link
+                          href={`${basePath}/${a.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary hover:text-nis-primary-dark hover:underline transition-colors focus:outline-none"
+                          title={t("View Application")}
+                        >
+                          <svg className="w-3.5 h-3.5 text-nis-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          <span>{t("View")}</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                }
                 return (
                   <tr key={a.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="w-12 px-3 py-3 text-center text-xs font-medium text-slate-500">

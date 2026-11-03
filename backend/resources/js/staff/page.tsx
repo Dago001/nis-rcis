@@ -545,19 +545,21 @@ function renderApprovingOfficerDashboard(s: Summary, user: StaffUser, t: (k: str
             icon={<svg className="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
           />
           <StatCard
-            label={t("Applications Approved by Me")}
+            label={t("Approved by Me")}
             value={stats.approved_by_me ?? 0}
+            href="/staff/approvals?filter=approved_by_me"
             icon={<svg className="w-4 h-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
           />
           <StatCard
             label={t("Applications Queried by Me")}
             value={stats.queried_by_me ?? 0}
+            href="/staff/approvals?status=QUERIED"
             icon={<svg className="w-4 h-4 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>}
           />
           <StatCard
             label={t("Vetted Applications in Jurisdiction")}
             value={stats.vetted_applications ?? 0}
-            href="/staff/applications"
+            href="/staff/applications?view=vetting_records"
             icon={<svg className="w-4 h-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>}
           />
         </div>
