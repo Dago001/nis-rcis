@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  */
 class SeedDemoData extends Command
 {
-    public const PASSWORD = 'NisDemo-2026!';
+    public const PASSWORD = 'Password123';
 
     protected $signature = 'nis:demo';
 
@@ -49,7 +49,9 @@ class SeedDemoData extends Command
         }
 
         if (User::where('username', 'demo.admin')->exists()) {
-            $this->info('Demo data is already loaded.');
+            $this->info('Demo data is already loaded. Updating passwords to '.self::PASSWORD.'...');
+            User::query()->update(['password' => self::PASSWORD, 'must_change_password' => false]);
+            Applicant::query()->update(['password' => self::PASSWORD]);
             $this->printAccounts();
 
             return self::SUCCESS;

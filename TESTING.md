@@ -60,7 +60,7 @@ If the application is running, close the two server windows first, then run `sta
 
 ## 5. Demo accounts
 
-**Every demo account uses the password `NisDemo-2026!`**
+**Every demo account uses the password `Password123`**
 
 ### Staff console: http://localhost:3000/staff
 

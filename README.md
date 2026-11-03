@@ -110,7 +110,7 @@ cp .env.example .env            # set DB_PASSWORD=secret; QUEUE_CONNECTION=sync 
 php artisan key:generate
 php artisan passport:keys
 php artisan migrate --seed      # schema + enrollment centers
-php artisan nis:demo           # optional: demo officers/applicants (password NisDemo-2026!)
+php artisan nis:demo           # optional: demo officers/applicants (password Password123)
 php artisan nis:create-staff --role=SuperAdmin   # prints a one-time temporary password
 php artisan nis:oauth-clients                    # prints client IDs/secrets for the frontend
 php artisan serve               # http://localhost:8000
