@@ -506,7 +506,7 @@ function renderApprovingOfficerDashboard(s: Summary, user: StaffUser, t: (k: str
           <div className="flex items-center gap-2">
             <Link
               href="/staff/approvals"
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-emerald-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-900"
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-nis-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-nis-primary-dark"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"/></svg>
               <span>{t("Open Approvals Queue")}</span>
@@ -1074,7 +1074,7 @@ function renderCardReceivingOfficerDashboard(s: Summary, user: StaffUser, t: (k:
 }
 
 // ==========================================
-// 7. CARD ISSUANCE OFFICER DASHBOARD
+// 7. ISSUANCE OFFICER DASHBOARD
 // ==========================================
 function renderCardIssuanceOfficerDashboard(s: Summary, user: StaffUser, t: (k: string) => string, loading: boolean, refresh: (b: boolean) => void) {
   const stats = s.role_data?.stats || {};
@@ -1083,13 +1083,13 @@ function renderCardIssuanceOfficerDashboard(s: Summary, user: StaffUser, t: (k: 
   return (
     <div className="space-y-6">
       <PageTitle
-        title={t("Card Issuance Officer Dashboard")}
+        title={t("Issuance Officer Dashboard")}
         subtitle={`${user.command} · ${user.rank ? user.rank + " " : ""}${user.fullname}`}
         actions={
           <div className="flex items-center gap-2">
             <Link
               href="/staff/card-issuance"
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-emerald-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-900"
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-nis-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-nis-primary-dark"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span>{t("Issue Cards Console")}</span>
@@ -1138,7 +1138,7 @@ function renderCardIssuanceOfficerDashboard(s: Summary, user: StaffUser, t: (k: 
       <Panel title={t("Cards Available for Issuance within Jurisdiction")}>
         {availableCards.length === 0 ? (
           <div className="py-8 text-center text-sm text-slate-500">
-            {t("No residence cards currently in Ready for Collection status at this location.")}
+            {t("No cards currently available for issuance.")}
           </div>
         ) : (
           <div className="overflow-x-auto -mx-5">
@@ -1172,7 +1172,7 @@ function renderCardIssuanceOfficerDashboard(s: Summary, user: StaffUser, t: (k: 
                     <td className="pr-5 py-3 text-right">
                       <Link
                         href={`/staff/card-issuance?search=${item.card_reference}`}
-                        className="rounded-md bg-emerald-700 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-800 shadow-xs"
+                        className="rounded-md bg-nis-primary px-3 py-1 text-xs font-semibold text-white hover:bg-nis-primary-dark shadow-xs"
                       >
                         {t("Confirm Issuance")}
                       </Link>

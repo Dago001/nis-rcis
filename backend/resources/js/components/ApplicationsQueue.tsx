@@ -48,7 +48,29 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
   const currentSearch = searchParams.get("search") ?? "";
   const currentPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const assigned = searchParams.get("assigned") ?? "";
+  const filter = searchParams.get("filter") ?? "";
+  const view = searchParams.get("view") ?? "";
   const overdue = searchParams.get("overdue") === "1";
+
+  let effectiveTitle = pageTitle;
+  let effectiveSubtitle = pageSubtitle;
+
+  if (view === "vetting_records") {
+    effectiveTitle = "Vetting Records (Read-Only)";
+    effectiveSubtitle = "Vetted and enrolled applications within your authorized jurisdiction";
+  } else if (assigned === "me") {
+    effectiveTitle = "My Assigned Applications";
+    effectiveSubtitle = "Applications currently assigned to you for processing";
+  } else if (filter === "vetted_by_me") {
+    effectiveTitle = "Applications Vetted by Me";
+    effectiveSubtitle = "Applications directly examined and verified by you";
+  } else if (filter === "approved_by_me") {
+    effectiveTitle = "Applications Approved by Me";
+    effectiveSubtitle = "Applications granted final statutory approval by you";
+  } else if (currentStatus === "QUERIED") {
+    effectiveTitle = "Queried Applications";
+    effectiveSubtitle = "Applications pending document corrections or applicant responses";
+  }
 
   const [searchInput, setSearchInput] = useState(currentSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(currentSearch);
@@ -122,6 +144,8 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
     ...(currentStatus ? { status: currentStatus } : {}),
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(assigned ? { assigned } : {}),
+    ...(filter ? { filter } : {}),
+    ...(view ? { view } : {}),
     ...(overdue ? { overdue: "1" } : {}),
   });
 
@@ -134,11 +158,13 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
   const displayResult = result ?? previousResultRef.current;
   const isRefreshing = !result && Boolean(previousResultRef.current);
 
-  function buildUrl(overrides: { status?: string; search?: string; page?: number; assigned?: string; overdue?: boolean }) {
+  function buildUrl(overrides: { status?: string; search?: string; page?: number; assigned?: string; filter?: string; view?: string; overdue?: boolean }) {
     const nextStatus = overrides.status !== undefined ? overrides.status : currentStatus;
     const nextSearch = overrides.search !== undefined ? overrides.search : debouncedSearch;
     const nextPage = overrides.page !== undefined ? overrides.page : 1;
     const nextAssigned = overrides.assigned !== undefined ? overrides.assigned : assigned;
+    const nextFilter = overrides.filter !== undefined ? overrides.filter : filter;
+    const nextView = overrides.view !== undefined ? overrides.view : view;
     const nextOverdue = overrides.overdue !== undefined ? overrides.overdue : overdue;
 
     const p = new URLSearchParams();
@@ -146,6 +172,8 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
     if (nextStatus) p.set("status", nextStatus);
     if (nextSearch) p.set("search", nextSearch);
     if (nextAssigned) p.set("assigned", nextAssigned);
+    if (nextFilter) p.set("filter", nextFilter);
+    if (nextView) p.set("view", nextView);
     if (nextOverdue) p.set("overdue", "1");
 
     const qs = p.toString();
@@ -202,7 +230,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
 
   return (
     <div className="space-y-5">
-      <PageTitle title={t(pageTitle)} subtitle={t(pageSubtitle)} />
+      <PageTitle title={t(effectiveTitle)} subtitle={t(effectiveSubtitle)} />
 
       {/* Unified Search Bar & Dropdown Filters Row */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">

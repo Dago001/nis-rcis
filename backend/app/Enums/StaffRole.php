@@ -41,7 +41,7 @@ enum StaffRole: string
             self::CardProductionOfficer => 'Card Production Officer',
             self::CardDistributionOfficer => 'Card Distribution Officer',
             self::CardReceivingOfficer => 'Card Receiving Officer',
-            self::CardIssuanceOfficer => 'Card Issuance Officer',
+            self::CardIssuanceOfficer => 'Issuance Officer',
             self::ReportingAuditOfficer => 'Reporting / Audit Officer',
 
             // Legacy labels
@@ -50,7 +50,7 @@ enum StaffRole: string
             self::DataEntryOfficer => 'Vetting Officer',
             self::EnrollmentOfficer => 'Biometrics Officer',
             self::ProductionOfficer => 'Card Production Officer',
-            self::IssuingOfficer => 'Card Issuance Officer',
+            self::IssuingOfficer => 'Issuance Officer',
             self::Inspector => 'Inspector',
             self::Auditor => 'Reporting / Audit Officer',
         };

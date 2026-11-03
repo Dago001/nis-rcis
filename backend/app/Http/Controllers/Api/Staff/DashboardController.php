@@ -382,12 +382,34 @@ class DashboardController
             ];
         }
 
+        // Helper query for cards awaiting issuance within officer's jurisdiction
+        $awaitingIssuanceQuery = ResidenceCard::forStaffJurisdiction($user)
+            ->where('status', '!=', CardStatus::Issued)
+            ->whereDoesntHave('application', fn ($aq) => $aq->where('status', ApplicationStatus::Issued))
+            ->where(function ($q) {
+                $q->whereHas('distribution', fn ($dq) => $dq->whereIn('status', [
+                    CardDistribution::STATUS_RECEIVED,
+                    CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+                ]))
+                ->orWhere(function ($sq) {
+                    $sq->where('status', CardStatus::Approved)
+                       ->whereHas('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))
+                       ->where(function ($sub) {
+                           $sub->whereDoesntHave('distribution')
+                               ->orWhereHas('distribution', fn ($dq) => $dq->whereIn('status', [
+                                   CardDistribution::STATUS_RECEIVED,
+                                   CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+                               ]));
+                       });
+                });
+            });
+
         // 6. CARD RECEIVING OFFICER (Commands / Zones)
         if ($role === 'CardReceivingOfficer') {
             $dispatchedToMe = CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_DISPATCHED)->count();
             $awaitingReceipt = $dispatchedToMe;
             $receivedByMe = CardDistribution::where('received_by', $user->id)->count();
-            $availableForIssuance = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::ReadyForCollection)->count();
+            $availableForIssuance = (clone $awaitingIssuanceQuery)->count();
 
             $consignments = CardDistribution::forStaffJurisdiction($user)
                 ->where('status', CardDistribution::STATUS_DISPATCHED)
@@ -418,7 +440,7 @@ class DashboardController
 
         // 7. CARD ISSUANCE OFFICER (Commands / Enrollment Centers)
         if (in_array($role, ['CardIssuanceOfficer', 'IssuingOfficer'], true)) {
-            $awaitingIssuance = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::ReadyForCollection)->count();
+            $awaitingIssuance = (clone $awaitingIssuanceQuery)->count();
 
             $issuedByMe = ResidenceCard::forStaffJurisdiction($user)
                 ->where(fn ($q) => $q->where('issuing_officer_id', $user->id)->orWhere('issuing_officer_service_no', $user->service_number))
@@ -426,9 +448,11 @@ class DashboardController
 
             $totalIssuedAtLocation = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::Issued)->count();
 
-            $availableCards = ResidenceCard::forStaffJurisdiction($user)
-                ->where('status', CardStatus::ReadyForCollection)
-                ->with(['application:id,application_number,reference_number,surname,forenames,type'])
+            $availableCards = (clone $awaitingIssuanceQuery)
+                ->with([
+                    'application' => fn ($q) => $q->select(['id', 'card_id', 'application_number', 'reference_number', 'surname', 'forenames', 'type']),
+                    'distribution.destinationCommand',
+                ])
                 ->select(['id', 'card_number', 'booklet_number', 'forenames', 'surname', 'expires_on', 'status', 'enrollment_command'])
                 ->latest('id')
                 ->limit(25)
@@ -436,7 +460,7 @@ class DashboardController
                 ->map(fn ($c) => [
                     'id' => $c->id,
                     'card_reference' => $c->card_number,
-                    'application_reference' => $c->application?->application_number ?? '—',
+                    'application_reference' => $c->application?->application_number ?? $c->distribution?->application_number ?? '—',
                     'applicant_name' => $c->fullName(),
                     'card_type' => $c->application?->type ?? 'STANDARD',
                     'receiving_command' => $c->enrollment_command ?? ($user->commandRel?->name ?? $user->command),
@@ -497,7 +521,7 @@ class DashboardController
             $totalApps = Application::forStaffJurisdiction($user)->count();
             $awaitingBiometrics = Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::Vetted)->count();
             $cardsReceived = CardDistribution::forStaffJurisdiction($user)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count();
-            $cardsAvailable = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::ReadyForCollection)->count();
+            $cardsAvailable = (clone $awaitingIssuanceQuery)->count();
             $cardsIssued = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::Issued)->count();
 
             $recentApps = Application::forStaffJurisdiction($user)

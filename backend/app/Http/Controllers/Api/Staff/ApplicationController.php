@@ -54,17 +54,38 @@ class ApplicationController
             'assigned' => ['nullable', Rule::in(['me', 'unassigned'])],
             'overdue' => ['nullable', 'boolean'],
             'queue' => ['nullable', 'string', 'max:50'],
+            'filter' => ['nullable', 'string', 'max:50'],
+            'view' => ['nullable', 'string', 'max:50'],
         ]);
 
         $query = Application::query()
             ->forStaffJurisdiction($request->user())
-            ->with(['enrollmentCenter', 'assignee:id,fullname,service_number', 'vettedBy:id,fullname,service_number'])
+            ->with(['enrollmentCenter', 'assignee:id,fullname,service_number', 'vettedBy:id,fullname,service_number', 'decidedBy:id,fullname,service_number'])
             ->latest('id');
 
         if (($data['assigned'] ?? null) === 'me') {
             $query->where('assigned_to', $request->user()->id);
         } elseif (($data['assigned'] ?? null) === 'unassigned') {
             $query->whereNull('assigned_to');
+        }
+
+        if (($data['filter'] ?? null) === 'vetted_by_me') {
+            $query->where('vetted_by', $request->user()->id);
+        } elseif (($data['filter'] ?? null) === 'approved_by_me') {
+            $query->where('decided_by', $request->user()->id);
+        }
+
+        if (($data['view'] ?? null) === 'vetting_records') {
+            $query->where(function ($q) {
+                $q->whereIn('status', [
+                    ApplicationStatus::Vetted,
+                    ApplicationStatus::ApprovedForBiometrics,
+                    ApplicationStatus::BiometricsCaptured,
+                    ApplicationStatus::Approved,
+                    ApplicationStatus::ReadyForCollection,
+                    ApplicationStatus::Issued,
+                ])->orWhereNotNull('vetted_at');
+            });
         }
         if (! empty($data['overdue'])) {
             // Waiting for a decision longer than the service-level target.

@@ -371,7 +371,7 @@ export default function StaffSettingsPage() {
                   </tr>
                   <tr>
                     <td className="px-4 py-3 font-semibold text-slate-900">{t("Distribution & Issuance")}</td>
-                    <td className="px-4 py-3 text-slate-700">{t("Card Distribution Officer, Receiving Officer, Card Issuance Officer")}</td>
+                    <td className="px-4 py-3 text-slate-700">{t("Card Distribution Officer, Receiving Officer, Issuance Officer")}</td>
                     <td className="px-4 py-3 text-slate-500">{t("Batch dispatch, intake verification, handover to applicant")}</td>
                   </tr>
                   <tr>

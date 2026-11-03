@@ -143,6 +143,7 @@ Route::prefix('v1')->group(function () {
         Route::post('oauth/revoke', RevokeTokenController::class);
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read', [NotificationController::class, 'markRead']);
+        Route::get('my-activity', [AuditLogController::class, 'myActivity']);
 
         // Approval queue & application records (all staff can view)
         Route::get('applications', [StaffApplications::class, 'index']);

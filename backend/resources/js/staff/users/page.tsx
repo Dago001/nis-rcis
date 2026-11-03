@@ -19,7 +19,7 @@ const ALL_ROLES: [StaffRole, string][] = [
   ["CardProductionOfficer", "Card Production Officer (HQ Sauka)"],
   ["CardDistributionOfficer", "Card Distribution Officer (HQ Sauka)"],
   ["CardReceivingOfficer", "Card Receiving Officer (Commands)"],
-  ["CardIssuanceOfficer", "Card Issuance Officer (Commands)"],
+  ["CardIssuanceOfficer", "Issuance Officer (Commands)"],
   ["ReportingAuditOfficer", "Reporting / Audit Officer"],
   // Legacy roles maintained for backward compatibility
   ["Admin", "Administrator (Legacy)"],

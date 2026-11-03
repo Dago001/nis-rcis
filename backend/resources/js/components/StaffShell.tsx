@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { createContext, useContext, useEffect, useRef, useState, Suspense, type ReactNode } from "react";
 import { api } from "@/lib/api-client";
 import type { StaffRole, StaffUser } from "@/lib/types";
 import { SiteFooter, SiteHeader } from "./SiteHeader";
@@ -56,102 +56,188 @@ interface NavSection {
   items: NavItem[];
 }
 
-const navSections: NavSection[] = [
-  {
-    title: "Overview",
-    items: [
-      { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
-      {
-        href: "/staff/queue",
-        label: "Biometrics Queue",
-        icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
-      },
-    ],
-  },
-  {
-    title: "Applications",
-    items: [
-      {
-        href: "/staff/applications",
-        label: "Vetting",
-        icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
-      },
-      {
-        href: "/staff/approvals",
-        label: "Approval",
-        icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ApprovingOfficer", "Supervisor"],
-      },
-    ],
-  },
-  {
-    title: "Residence Cards",
-    items: [
-      {
-        href: "/staff/cards",
-        label: "Card Production",
-        icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "CardProductionOfficer", "ProductionOfficer"],
-      },
-      {
-        href: "/staff/card-distribution",
-        label: "Card Distribution",
-        icon: icon("M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2zM3 13h18"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardDistributionOfficer", "CardReceivingOfficer"],
-      },
-      {
-        href: "/staff/card-issuance",
-        label: "Card Issuance",
-        icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardIssuanceOfficer", "IssuingOfficer"],
-      },
-      {
-        href: "/staff/card-stock",
-        label: "Stock & printing",
-        icon: icon("M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "CardProductionOfficer", "ProductionOfficer"],
-      },
-    ],
-  },
-  {
-    title: "Reports & Compliance",
-    items: [
-      {
-        href: "/staff/reports",
-        label: "Reports",
-        icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "ReportingAuditOfficer", "Auditor"],
-      },
-      {
-        href: "/staff/audit-logs",
-        label: "Audit trail",
-        icon: icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ReportingAuditOfficer", "Auditor"],
-      },
-    ],
-  },
-  {
-    title: "Administration",
-    items: [
-      {
-        href: "/staff/users",
-        label: "Staff accounts",
-        icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
-      },
-      {
-        href: "/staff/settings",
-        label: "Settings",
-        icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
-      },
-    ],
-  },
-];
+function getRoleNavSections(user: StaffUser): NavSection[] {
+  const role = user.role;
 
-export function StaffShell({ children }: { children: ReactNode }) {
+  // 1. Dedicated Vetting Officer Sidebar (Prompt Section 1)
+  if (role === "VettingOfficer" || role === "Inspector" || role === "DataEntryOfficer") {
+    return [
+      {
+        title: "Overview",
+        items: [
+          { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
+        ],
+      },
+      {
+        title: "Applications",
+        items: [
+          { href: "/staff/applications", label: "Vetting", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
+          { href: "/staff/applications?assigned=me", label: "My Assigned Applications", icon: icon("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 8v6M23 11h-6") },
+          { href: "/staff/applications?filter=vetted_by_me", label: "Applications Vetted by Me", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z") },
+          { href: "/staff/applications?status=QUERIED", label: "Queried Applications", icon: icon("M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z") },
+        ],
+      },
+      {
+        title: "Workspace",
+        items: [
+          { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
+          { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
+        ],
+      },
+      {
+        title: "Account",
+        items: [
+          { href: "/staff/profile", label: "My Profile", icon: icon("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z") },
+        ],
+      },
+    ];
+  }
+
+  // 2. Dedicated Approving Officer Sidebar (Prompt Section 2)
+  if (role === "ApprovingOfficer") {
+    return [
+      {
+        title: "Overview",
+        items: [
+          { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
+        ],
+      },
+      {
+        title: "Applications",
+        items: [
+          { href: "/staff/applications?view=vetting_records", label: "Vetting Records", icon: icon("M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8") },
+          { href: "/staff/approvals", label: "Approval Queue", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z") },
+          { href: "/staff/approvals?filter=approved_by_me", label: "Applications Approved by Me", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z") },
+          { href: "/staff/approvals?status=QUERIED", label: "Queried Applications", icon: icon("M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z") },
+        ],
+      },
+      {
+        title: "Workspace",
+        items: [
+          { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
+          { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
+        ],
+      },
+      {
+        title: "Account",
+        items: [
+          { href: "/staff/profile", label: "My Profile", icon: icon("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z") },
+        ],
+      },
+    ];
+  }
+
+  // 3. Other Roles (SuperAdmin, Admin, HeadquartersAdmin, ZonalAdmin, CommandAdmin, Biometrics, Production, Distribution, Receiving, Issuance, Audit)
+  return [
+    {
+      title: "Overview",
+      items: [
+        { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
+        {
+          href: "/staff/queue",
+          label: "Biometrics Queue",
+          icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
+        },
+      ],
+    },
+    {
+      title: "Applications",
+      items: [
+        {
+          href: "/staff/applications",
+          label: "Vetting",
+          icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
+        },
+        {
+          href: "/staff/approvals",
+          label: "Approval",
+          icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ApprovingOfficer", "Supervisor"],
+        },
+      ],
+    },
+    {
+      title: "Residence Cards",
+      items: [
+        {
+          href: "/staff/cards",
+          label: "Card Production",
+          icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "CardProductionOfficer", "ProductionOfficer"],
+        },
+        {
+          href: "/staff/card-distribution",
+          label: "Card Distribution",
+          icon: icon("M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2zM3 13h18"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardDistributionOfficer", "CardReceivingOfficer"],
+        },
+        {
+          href: "/staff/card-issuance",
+          label: "Card Issuance",
+          icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardIssuanceOfficer", "IssuingOfficer"],
+        },
+        {
+          href: "/staff/card-stock",
+          label: "Stock & printing",
+          icon: icon("M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "CardProductionOfficer", "ProductionOfficer"],
+        },
+      ],
+    },
+    {
+      title: "Reports & Compliance",
+      items: [
+        {
+          href: "/staff/reports",
+          label: "Reports",
+          icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "ReportingAuditOfficer", "Auditor"],
+        },
+        {
+          href: "/staff/audit-logs",
+          label: "Audit trail",
+          icon: icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ReportingAuditOfficer", "Auditor"],
+        },
+      ],
+    },
+    {
+      title: "Administration",
+      items: [
+        {
+          href: "/staff/users",
+          label: "Staff accounts",
+          icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+        },
+        {
+          href: "/staff/settings",
+          label: "Settings",
+          icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+        },
+      ],
+    },
+    {
+      title: "Workspace",
+      items: [
+        { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
+        { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
+      ],
+    },
+    {
+      title: "Account",
+      items: [
+        { href: "/staff/profile", label: "My Profile", icon: icon("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z") },
+      ],
+    },
+  ];
+}
+
+function StaffShellInner({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [user, setUser] = useState<StaffUser | null>(() => {
     if (typeof window === "undefined") return null;
@@ -165,6 +251,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const area = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const firstPath = useRef(pathname);
@@ -185,7 +272,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
   // Close mobile drawer on route changes
   useEffect(() => {
     setMobileNavOpen(false);
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   // Handle escape key and lock body scroll when mobile drawer is open
   useEffect(() => {
@@ -204,9 +291,6 @@ export function StaffShell({ children }: { children: ReactNode }) {
     };
   }, [mobileNavOpen]);
 
-  // Sidebar links don't reset the window scroll (the menu stays exactly where it
-  // is); if the page was scrolled past the top of the content, bring the new
-  // page's top up to just under the header instead of jumping to the very top.
   useEffect(() => {
     if (pathname === firstPath.current || !area.current || !menu.current) return;
     firstPath.current = pathname;
@@ -216,7 +300,6 @@ export function StaffShell({ children }: { children: ReactNode }) {
     if (window.scrollY > target) window.scrollTo({ top: target });
   }, [pathname]);
 
-  // Keep the current page's menu item in view inside the desktop menu's scroll area.
   useEffect(() => {
     const list = menu.current;
     const item = list?.querySelector<HTMLElement>("[aria-current=page]");
@@ -225,25 +308,60 @@ export function StaffShell({ children }: { children: ReactNode }) {
     if (vertical && (item.offsetTop < list.scrollTop || item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight)) {
       list.scrollTop = item.offsetTop - list.clientHeight / 2 + item.offsetHeight / 2;
     }
-  }, [pathname, user]);
+  }, [pathname, searchParams, user]);
 
   const isItemActive = (itemHref: string) => {
-    if (itemHref === "/staff") return pathname === "/staff";
-    if (itemHref === "/staff/applications") return pathname.startsWith(itemHref) && !pathname.startsWith("/staff/applications/new");
+    if (itemHref === "/staff") {
+      return pathname === "/staff";
+    }
+
+    if (itemHref.includes("?")) {
+      const [itemPath, itemQuery] = itemHref.split("?");
+      if (pathname !== itemPath) return false;
+      const targetParams = new URLSearchParams(itemQuery);
+      for (const [key, val] of targetParams.entries()) {
+        if (searchParams.get(key) !== val) return false;
+      }
+      return true;
+    }
+
+    if (pathname === itemHref) {
+      // If current search has specific sub-filters, don't keep base queue item active
+      if (
+        searchParams.has("assigned") ||
+        searchParams.has("filter") ||
+        searchParams.has("view") ||
+        (searchParams.has("status") && searchParams.get("status") === "QUERIED")
+      ) {
+        return false;
+      }
+      return true;
+    }
+
     return pathname.startsWith(itemHref);
   };
 
+  const activeNavSections = user ? getRoleNavSections(user) : [];
+
   const currentActiveItem = user
-    ? navSections
+    ? activeNavSections
         .flatMap((s) => s.items)
         .find((it) => isItemActive(it.href))
     : null;
 
   const restrictedNav = user
-    ? navSections
+    ? activeNavSections
         .flatMap((s) => s.items)
         .find((it) => it.roles && isItemActive(it.href) && !hasRole(user, ...it.roles))
     : null;
+
+  const roleLabelDisplay = user
+    ? user.role === "SuperAdmin" || user.role_label === "Super Administrator"
+      ? "Super Admin"
+      : user.role === "CardIssuanceOfficer" || user.role === "IssuingOfficer"
+      ? "Issuance Officer"
+      : user.role_label || user.role
+    : undefined;
 
   return (
     <>
@@ -254,7 +372,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
           user
             ? {
                 name: user.rank ? `${user.rank} ${user.fullname}` : user.fullname,
-                role: user.role === "SuperAdmin" || user.role_label === "Super Administrator" ? "Super Admin" : (user.role_label || user.role),
+                role: roleLabelDisplay,
               }
             : undefined
         }
@@ -309,7 +427,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                     </span>
                     <div className="min-w-0">
                       <h2 className="text-xs font-bold tracking-wider uppercase text-[#1b5e20]">{t("Staff Console")}</h2>
-                      <div className="truncate text-xs text-slate-600">{user?.role_label || "Officer"}</div>
+                      <div className="truncate text-xs text-slate-600">{roleLabelDisplay || "Officer"}</div>
                     </div>
                   </div>
                   <button
@@ -322,14 +440,14 @@ export function StaffShell({ children }: { children: ReactNode }) {
                   </button>
                 </div>
 
-                {/* User Info Bar */}
+                {/* User Info Bar: Rank + Full Name (Service Number hidden) */}
                 {user && (
                   <div className="border-b border-[#b2d6c0] bg-white/70 px-4 py-2.5">
                     <div className="text-xs font-bold text-slate-900 truncate">
                       {user.rank ? `${user.rank} ${user.fullname}` : user.fullname}
                     </div>
                     <div className="text-[11px] text-emerald-900 font-medium truncate">
-                      {user.role_label || user.role}
+                      {roleLabelDisplay}
                     </div>
                   </div>
                 )}
@@ -337,7 +455,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                 {/* Drawer Nav Items */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-4">
                   {user &&
-                    navSections.map((sec, idx) => {
+                    activeNavSections.map((sec, idx) => {
                       const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                       if (visible.length === 0) return null;
                       return (
@@ -377,14 +495,14 @@ export function StaffShell({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* Desktop Fixed Sidebar (>= lg) - Exact Original Layout & Behavior */}
-          <nav className="no-print hidden lg:block lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
+          {/* Desktop Fixed Sidebar (>= lg) */}
+          <nav className="no-print hidden lg:block lg:w-56 xl:w-[15rem] lg:shrink-0" aria-label="Staff console">
             <div
               ref={menu}
               className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm"
             >
               {user &&
-                navSections.map((sec, idx) => {
+                activeNavSections.map((sec, idx) => {
                   const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                   if (visible.length === 0) return null;
                   return (
@@ -435,12 +553,12 @@ export function StaffShell({ children }: { children: ReactNode }) {
                 <h2 className="text-lg font-bold text-slate-900">{t("Access Restricted (403 Forbidden)")}</h2>
                 <p className="mt-2 text-sm text-slate-600">
                   {t("Your assigned role ({role}) does not have administrative authorization to access the {module} module.", {
-                    role: user.role_label || user.role,
+                    role: roleLabelDisplay || user.role,
                     module: restrictedNav.label,
                   })}
                 </p>
                 <div className="mt-6">
-                  <Link href="/staff" className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900 transition">
+                  <Link href="/staff" className="inline-flex items-center gap-2 rounded-lg bg-nis-primary hover:bg-nis-primary-dark px-4 py-2 text-sm font-semibold text-white shadow-sm transition">
                     <span>{t("Return to My Dashboard")}</span>
                   </Link>
                 </div>
@@ -453,5 +571,13 @@ export function StaffShell({ children }: { children: ReactNode }) {
       </div>
       <SiteFooter />
     </>
+  );
+}
+
+export function StaffShell({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f4f7f5]" />}>
+      <StaffShellInner>{children}</StaffShellInner>
+    </Suspense>
   );
 }
