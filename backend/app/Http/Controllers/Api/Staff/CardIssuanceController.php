@@ -128,11 +128,19 @@ class CardIssuanceController
             $newIssued += ($totalIssued - ($newIssued + $renewalIssued));
         }
 
+        $cardsIssuedByMe = ResidenceCard::query()
+            ->where(function ($q) use ($user) {
+                $q->where('issuing_officer_id', $user->id)
+                  ->orWhere('issuing_officer_service_no', $user->service_number)
+                  ->orWhereHas('application', fn ($aq) => $aq->where('collected_by', $user->id));
+            })->count();
+
         $stats = [
             'total_cards_issued' => $totalIssued,
+            'cards_issued_by_me' => $cardsIssuedByMe,
+            'awaiting_issuance' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued))->count(),
             'new_cards_issued' => $newIssued,
             'renewal_cards_issued' => $renewalIssued,
-            'awaiting_issuance' => (clone $printedBase)->whereHas('application', fn ($q) => $q->where('status', '!=', ApplicationStatus::Issued))->count(),
             'issued_total' => $totalIssued,
             'total_printed' => (clone $printedBase)->count(),
             // Backwards compatibility keys

@@ -62,6 +62,7 @@ type CardIssuanceItem = {
 type CardIssuanceResponse = {
   data: CardIssuanceItem[];
   stats: {
+    cards_issued_by_me?: number;
     total_cards_issued?: number;
     new_cards_issued?: number;
     renewal_cards_issued?: number;
@@ -312,28 +313,28 @@ function CardIssuanceContent() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
           <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
-            {t("Total Cards Issued")}
+            {t("Cards Awaiting Issuance")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {stats.awaiting_issuance ?? 0}
+          </div>
+        </div>
+
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("Cards Issued by Me")}
+          </div>
+          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
+            {stats.cards_issued_by_me ?? 0}
+          </div>
+        </div>
+
+        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
+          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
+            {t("Total Cards Issued at My Assigned Location")}
           </div>
           <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
             {stats.total_cards_issued ?? stats.issued_total ?? 0}
-          </div>
-        </div>
-
-        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
-          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
-            {t("New Cards Issued")}
-          </div>
-          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
-            {stats.new_cards_issued ?? 0}
-          </div>
-        </div>
-
-        <div className="h-full min-h-[92px] sm:min-h-[96px] rounded-xl border border-slate-200/90 bg-white px-4 py-3 shadow-xs transition hover:border-nis-primary/40 hover:shadow-sm flex flex-col justify-between">
-          <div className="text-[12px] sm:text-[13px] font-medium tracking-wide text-slate-500 uppercase leading-snug whitespace-normal">
-            {t("Renewal Cards Issued")}
-          </div>
-          <div className="text-xl sm:text-2xl font-medium sm:font-semibold text-slate-900 tracking-tight tabular-nums mt-1">
-            {stats.renewal_cards_issued ?? 0}
           </div>
         </div>
       </div>
@@ -481,11 +482,11 @@ function CardIssuanceContent() {
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="w-16 px-4 py-3.5 text-center">S/N</th>
-                  <th className="px-4 py-3.5">{t("Card Number")}</th>
+                  <th className="px-4 py-3.5">{t("Card Reference")}</th>
+                  <th className="px-4 py-3.5">{t("Application Reference")}</th>
                   <th className="px-4 py-3.5">{t("Applicant Name")}</th>
-                  <th className="px-4 py-3.5">{t("Passport Number")}</th>
-                  <th className="px-4 py-3.5">{t("Card Category")}</th>
-                  <th className="px-4 py-3.5">{t("Date Printed")}</th>
+                  <th className="px-4 py-3.5">{t("Application Type")}</th>
+                  <th className="px-4 py-3.5">{t("Receiving Command")}</th>
                   <th className="px-4 py-3.5">{t("Issuance Status")}</th>
                   <th className="px-4 py-3.5 text-right">{t("Action")}</th>
                 </tr>
@@ -494,6 +495,10 @@ function CardIssuanceContent() {
                 {cards.map((card, idx) => {
                   const serialNumber = (currentPage - 1) * perPage + idx + 1;
                   const isIssued = card.issuance_status === "ISSUED" || card.status === "ISSUED";
+                  const receivingCommand =
+                    card.distribution?.destination_command ||
+                    card.application?.enrollment_center?.name ||
+                    t("Assigned Command");
 
                   return (
                     <tr key={card.id} className="hover:bg-slate-50/70 transition-colors">
@@ -502,7 +507,7 @@ function CardIssuanceContent() {
                         {serialNumber}
                       </td>
 
-                      {/* Card Number */}
+                      {/* Card Reference */}
                       <td className="px-4 py-3.5">
                         <Link
                           href={`/staff/cards/${card.id}`}
@@ -513,6 +518,18 @@ function CardIssuanceContent() {
                         {card.booklet_number && (
                           <div className="text-[11px] font-mono text-slate-400">
                             {t("Booklet")}: {card.booklet_number}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Application Reference */}
+                      <td className="px-4 py-3.5">
+                        <span className="font-mono text-xs font-semibold text-slate-800">
+                          {card.application?.application_number ?? card.application?.reference_number ?? "—"}
+                        </span>
+                        {card.passport_number && (
+                          <div className="text-[11px] font-mono text-slate-400">
+                            {t("Passport")}: {card.passport_number}
                           </div>
                         )}
                       </td>
@@ -537,39 +554,28 @@ function CardIssuanceContent() {
                               {card.surname}, {card.forenames}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {t(card.nationality)} · App: {card.application?.application_number ?? "—"}
+                              {t(card.nationality)}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Passport Number */}
-                      <td className="px-4 py-3.5 font-mono text-xs text-slate-700">
-                        {card.passport_number || "—"}
-                      </td>
-
-                      {/* Card Category */}
+                      {/* Application Type */}
                       <td className="px-4 py-3.5 text-xs text-slate-700">
                         <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                          {t(card.card_category || "General")}
+                          {t(card.application?.category || card.card_category || "Standard")}
                         </span>
                       </td>
 
-                      {/* Date Printed */}
-                      <td className="px-4 py-3.5 text-xs text-slate-600">
-                        {card.date_printed ? (
-                          <div>
-                            <div className="font-medium text-slate-800">
-                              {dateTime(card.date_printed)}
-                            </div>
-                            {card.printed_by && (
-                              <div className="text-[11px] text-slate-400">
-                                {t("By")}: {card.printed_by}
-                              </div>
-                            )}
+                      {/* Receiving Command */}
+                      <td className="px-4 py-3.5 text-xs">
+                        <div className="font-medium text-slate-800">
+                          {receivingCommand}
+                        </div>
+                        {card.distribution?.destination_zone && (
+                          <div className="text-[11px] text-slate-400">
+                            {card.distribution.destination_zone}
                           </div>
-                        ) : (
-                          <span className="text-slate-400">—</span>
                         )}
                       </td>
 
@@ -594,19 +600,6 @@ function CardIssuanceContent() {
                       {/* Action */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          {!isIssued && (
-                            <Button
-                              variant="primary"
-                              onClick={() => {
-                                setIssuingCard(card);
-                                setConfirmedIdentity(false);
-                                setIssueNotes("");
-                              }}
-                              className="!px-3 !py-1.5 !text-xs bg-emerald-600 hover:bg-emerald-700 font-medium"
-                            >
-                              {t("Issue Card")}
-                            </Button>
-                          )}
                           <Link
                             href={`/staff/cards/${card.id}`}
                             className="inline-flex items-center gap-1.5 text-xs font-semibold text-nis-primary hover:text-nis-primary-dark hover:underline transition-colors"
@@ -618,6 +611,28 @@ function CardIssuanceContent() {
                             </svg>
                             <span>{t("View")}</span>
                           </Link>
+                          {!isIssued && (
+                            card.is_physically_received === false ? (
+                              <span
+                                className="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 border border-amber-200"
+                                title={t("Consignment in transit; must be physically received at Command prior to issuance")}
+                              >
+                                {t("In Transit")}
+                              </span>
+                            ) : (
+                              <Button
+                                variant="primary"
+                                onClick={() => {
+                                  setIssuingCard(card);
+                                  setConfirmedIdentity(false);
+                                  setIssueNotes("");
+                                }}
+                                className="!px-3 !py-1.5 !text-xs bg-emerald-600 hover:bg-emerald-700 font-medium"
+                              >
+                                {t("Confirm Issuance")}
+                              </Button>
+                            )
+                          )}
                         </div>
                       </td>
                     </tr>

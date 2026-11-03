@@ -140,7 +140,7 @@ export default function StaffNotificationsPage() {
           </div>
         ) : displayed.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">
-            {filter === "unread" ? t("No unread notifications.") : t("No notifications received.")}
+            {filter === "unread" ? t("No unread notifications.") : t("No notifications available.")}
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">

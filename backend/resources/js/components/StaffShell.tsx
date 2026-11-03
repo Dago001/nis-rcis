@@ -30,8 +30,8 @@ export function hasRole(user: StaffUser, ...roles: StaffRole[]): boolean {
   if (roles.includes("EnrollmentOfficer") && user.role === "BiometricsOfficer") return true;
   if (roles.includes("CardProductionOfficer") && user.role === "ProductionOfficer") return true;
   if (roles.includes("ProductionOfficer") && user.role === "CardProductionOfficer") return true;
-  if (roles.includes("CardIssuanceOfficer") && user.role === "IssuingOfficer") return true;
-  if (roles.includes("IssuingOfficer") && (user.role === "CardIssuanceOfficer" || user.role === "CardReceivingOfficer")) return true;
+  if (roles.includes("CardIssuanceOfficer") && (user.role === "IssuingOfficer" || (user.role as string) === "IssuanceOfficer")) return true;
+  if (roles.includes("IssuingOfficer") && (user.role === "CardIssuanceOfficer" || user.role === "CardReceivingOfficer" || (user.role as string) === "IssuanceOfficer")) return true;
   if (roles.includes("ReportingAuditOfficer") && user.role === "Auditor") return true;
   if (roles.includes("Auditor") && user.role === "ReportingAuditOfficer") return true;
 
@@ -127,7 +127,38 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
     ];
   }
 
-  // 3. Other Roles (SuperAdmin, Admin, HeadquartersAdmin, ZonalAdmin, CommandAdmin, Biometrics, Production, Distribution, Receiving, Issuance, Audit)
+  // 3. Dedicated Issuance Officer Sidebar (Prompt Section 5)
+  if (role === "CardIssuanceOfficer" || role === "IssuingOfficer" || (role as string) === "IssuanceOfficer") {
+    return [
+      {
+        title: "Overview",
+        items: [
+          { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
+        ],
+      },
+      {
+        title: "Residence Cards",
+        items: [
+          { href: "/staff/card-issuance", label: "Card Issuance", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z") },
+        ],
+      },
+      {
+        title: "Workspace",
+        items: [
+          { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
+          { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
+        ],
+      },
+      {
+        title: "Account",
+        items: [
+          { href: "/staff/profile", label: "My Profile", icon: icon("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z") },
+        ],
+      },
+    ];
+  }
+
+  // 4. Other Roles (SuperAdmin, Admin, HeadquartersAdmin, ZonalAdmin, CommandAdmin, Biometrics, Production, Distribution, Receiving, Audit)
   return [
     {
       title: "Overview",

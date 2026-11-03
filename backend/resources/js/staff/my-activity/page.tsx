@@ -117,42 +117,58 @@ export default function MyActivityPage() {
           </div>
         ) : !logs || logs.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">
-            {t("No activity records found.")}
+            {t("No activity recorded yet.")}
           </div>
         ) : (
           <div className="overflow-x-auto -mx-5">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="border-y border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
                 <tr>
-                  <th className="pl-5 py-3 w-12">#</th>
-                  <th className="py-3">{t("Timestamp")}</th>
-                  <th className="py-3">{t("Action")}</th>
-                  <th className="py-3">{t("Description")}</th>
-                  <th className="pr-5 py-3 text-right">{t("Client IP")}</th>
+                  <th className="pl-5 py-3 w-14">S/N</th>
+                  <th className="py-3">{t("Date / Time")}</th>
+                  <th className="py-3">{t("Activity")}</th>
+                  <th className="py-3">{t("Reference")}</th>
+                  <th className="pr-5 py-3 text-right">{t("Status")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {logs.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-slate-50/60 transition">
-                    <td className="pl-5 py-3 text-slate-400 font-mono">
-                      {(page - 1) * 25 + idx + 1}
-                    </td>
-                    <td className="py-3 font-mono text-xs text-slate-600 whitespace-nowrap">
-                      {dateTime(item.created_at)}
-                    </td>
-                    <td className="py-3">
-                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-800">
-                        {item.action}
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-800 font-medium">
-                      {item.description}
-                    </td>
-                    <td className="pr-5 py-3 text-right font-mono text-xs text-slate-500">
-                      {item.ip_address || "—"}
-                    </td>
-                  </tr>
-                ))}
+                {logs.map((item, idx) => {
+                  const ref =
+                    item.context?.card_number ??
+                    item.context?.application_number ??
+                    item.context?.batch_reference ??
+                    item.context?.reference ??
+                    (item.context?.card_id ? `Card #${item.context.card_id}` : null) ??
+                    (item.context?.application_id ? `App #${item.context.application_id}` : null) ??
+                    (item.context?.user_id ? `User #${item.context.user_id}` : null) ??
+                    "—";
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/60 transition">
+                      <td className="pl-5 py-3 text-slate-400 font-mono">
+                        {(page - 1) * 25 + idx + 1}
+                      </td>
+                      <td className="py-3 font-mono text-xs text-slate-600 whitespace-nowrap">
+                        {dateTime(item.created_at)}
+                      </td>
+                      <td className="py-3">
+                        <div className="font-medium text-slate-900">{item.description}</div>
+                        <div className="mt-0.5 text-[11px] font-mono text-slate-400">
+                          {item.action}
+                        </div>
+                      </td>
+                      <td className="py-3 font-mono text-xs text-slate-700">
+                        {ref}
+                      </td>
+                      <td className="pr-5 py-3 text-right">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          {t("Completed")}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

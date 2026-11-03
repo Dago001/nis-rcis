@@ -164,5 +164,61 @@ Route::middleware('web')->group(function () {
         Route::get('/users', fn () => Inertia::render('Staff/Users'))->name('users');
         Route::get('/system', fn () => Inertia::render('Staff/System'))->name('system');
         Route::get('/settings', fn () => Inertia::render('Staff/Settings'))->name('settings');
+        Route::get('/notifications', fn () => Inertia::render('Staff/Notifications'))->name('notifications');
+        Route::get('/my-activity', fn () => Inertia::render('Staff/MyActivity'))->name('my-activity');
+        Route::get('/profile', fn () => Inertia::render('Staff/Profile'))->name('profile');
+
+        Route::fallback(function () {
+            $path = trim(request()->path(), '/');
+            $map = [
+                'staff/card-issuance' => 'Staff/CardIssuance',
+                'staff/notifications' => 'Staff/Notifications',
+                'staff/my-activity' => 'Staff/MyActivity',
+                'staff/profile' => 'Staff/Profile',
+                'staff/cards' => 'Staff/Cards',
+                'staff/applications' => 'Staff/Applications',
+                'staff/approvals' => 'Staff/Approvals',
+                'staff/queue' => 'Staff/Queue',
+                'staff/users' => 'Staff/Users',
+                'staff/settings' => 'Staff/Settings',
+                'staff/reports' => 'Staff/Reports',
+                'staff/audit-logs' => 'Staff/AuditLogs',
+                'staff' => 'Staff/Dashboard',
+            ];
+            foreach ($map as $prefix => $page) {
+                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+                    return Inertia::render($page);
+                }
+            }
+            return redirect('/staff');
+        });
+    });
+
+    Route::fallback(function () {
+        $path = trim(request()->path(), '/');
+        if ($path === 'staff' || str_starts_with($path, 'staff/')) {
+            $map = [
+                'staff/card-issuance' => 'Staff/CardIssuance',
+                'staff/notifications' => 'Staff/Notifications',
+                'staff/my-activity' => 'Staff/MyActivity',
+                'staff/profile' => 'Staff/Profile',
+                'staff/cards' => 'Staff/Cards',
+                'staff/applications' => 'Staff/Applications',
+                'staff/approvals' => 'Staff/Approvals',
+                'staff/queue' => 'Staff/Queue',
+                'staff/users' => 'Staff/Users',
+                'staff/settings' => 'Staff/Settings',
+                'staff/reports' => 'Staff/Reports',
+                'staff/audit-logs' => 'Staff/AuditLogs',
+                'staff' => 'Staff/Dashboard',
+            ];
+            foreach ($map as $prefix => $page) {
+                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+                    return Inertia::render($page);
+                }
+            }
+            return redirect('/staff');
+        }
+        abort(404);
     });
 });
