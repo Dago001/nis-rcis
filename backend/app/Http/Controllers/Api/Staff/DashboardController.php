@@ -4,9 +4,16 @@ namespace App\Http\Controllers\Api\Staff;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CardStatus;
+use App\Enums\StaffRole;
 use App\Models\Application;
+use App\Models\ApplicationDocumentQuery;
 use App\Models\ApplicationStatusHistory;
+use App\Models\AuditLog;
 use App\Models\CardDistribution;
+use App\Models\CardPrintJob;
+use App\Models\DataBreach;
+use App\Models\NisCommand;
+use App\Models\NisZone;
 use App\Models\Payment;
 use App\Models\QueueTicket;
 use App\Models\ResidenceCard;
@@ -31,6 +38,7 @@ class DashboardController
             'id' => $user->id,
             'username' => $user->username,
             'fullname' => $user->fullname,
+            'rank' => $user->rank,
             'service_number' => $user->service_number,
             'email' => $user->email,
             'role' => $user->role->value,
@@ -129,10 +137,433 @@ class DashboardController
                     'cards_printed' => \App\Models\CardPrintJob::where('printed_by', $user->id)->where('outcome', 'PRINTED')->count(),
                     'cards_collected' => Application::where('status', ApplicationStatus::Issued)->whereNotNull('collected_at')->count(),
                 ],
+                'role_data' => $this->getRoleSpecificData($user),
+                'user_role' => $user->role->value,
             ];
         });
 
         return response()->json($data);
+    }
+
+    /**
+     * Compute dedicated operational statistics and records for role-specific staff dashboards.
+     * All metrics are strictly grounded in live database records.
+     */
+    private function getRoleSpecificData(User $user): array
+    {
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : (string) $user->role;
+
+        // 1. VETTING OFFICER (also handles legacy DataEntryOfficer / Inspector)
+        if (in_array($role, ['VettingOfficer', 'DataEntryOfficer', 'Inspector'], true)) {
+            $assigned = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::PendingApproval)
+                ->where('assigned_to', $user->id)
+                ->count();
+
+            $awaiting = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::PendingApproval)
+                ->count();
+
+            $vettedByMe = Application::where('vetted_by', $user->id)->count();
+
+            $queriedByMe = ApplicationDocumentQuery::where('queried_by', $user->id)->count();
+
+            $recentVetted = Application::where('vetted_by', $user->id)
+                ->select(['id', 'application_number', 'reference_number', 'surname', 'forenames', 'type', 'vetted_at', 'status'])
+                ->latest('vetted_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'application_number' => $a->application_number,
+                    'reference_number' => $a->reference_number,
+                    'applicant_name' => trim("{$a->forenames} {$a->surname}"),
+                    'type' => $a->type ?? 'NEW',
+                    'vetted_at' => $a->vetted_at?->toIso8601String(),
+                    'status' => $a->status instanceof \BackedEnum ? $a->status->value : (string) $a->status,
+                ]);
+
+            $pendingQueue = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::PendingApproval)
+                ->select(['id', 'application_number', 'reference_number', 'surname', 'forenames', 'type', 'submitted_at', 'status'])
+                ->latest('submitted_at')
+                ->limit(10)
+                ->get()
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'application_number' => $a->application_number,
+                    'reference_number' => $a->reference_number,
+                    'applicant_name' => trim("{$a->forenames} {$a->surname}"),
+                    'type' => $a->type ?? 'NEW',
+                    'submitted_at' => $a->submitted_at?->toIso8601String(),
+                    'status' => $a->status instanceof \BackedEnum ? $a->status->value : (string) $a->status,
+                ]);
+
+            return [
+                'role' => 'VettingOfficer',
+                'stats' => [
+                    'assigned_for_vetting' => $assigned,
+                    'awaiting_vetting' => $awaiting,
+                    'vetted_by_me' => $vettedByMe,
+                    'queried_by_me' => $queriedByMe,
+                ],
+                'vetted_by_me' => $recentVetted,
+                'pending_queue' => $pendingQueue,
+            ];
+        }
+
+        // 2. APPROVING OFFICER
+        if ($role === 'ApprovingOfficer') {
+            $awaitingApproval = Application::forStaffJurisdiction($user)
+                ->whereIn('status', [ApplicationStatus::BiometricsCaptured, ApplicationStatus::Vetted])
+                ->count();
+
+            $approvedByMe = Application::where('decided_by', $user->id)
+                ->whereIn('status', [ApplicationStatus::Approved, ApplicationStatus::ReadyForCollection, ApplicationStatus::Issued])
+                ->count();
+
+            $queriedByMe = ApplicationDocumentQuery::where('queried_by', $user->id)->count();
+
+            $vettedJurisdiction = Application::forStaffJurisdiction($user)
+                ->whereIn('status', [ApplicationStatus::Vetted, ApplicationStatus::BiometricsCaptured])
+                ->count();
+
+            $awaitingList = Application::forStaffJurisdiction($user)
+                ->whereIn('status', [ApplicationStatus::BiometricsCaptured, ApplicationStatus::Vetted])
+                ->with(['vettedBy:id,fullname,service_number,rank'])
+                ->select(['id', 'application_number', 'reference_number', 'surname', 'forenames', 'type', 'vetted_at', 'vetted_by', 'status'])
+                ->latest('vetted_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'application_number' => $a->application_number,
+                    'reference_number' => $a->reference_number,
+                    'applicant_name' => trim("{$a->forenames} {$a->surname}"),
+                    'type' => $a->type ?? 'NEW',
+                    'vetted_by_name' => $a->vettedBy ? ($a->vettedBy->rank ? "{$a->vettedBy->rank} {$a->vettedBy->fullname}" : $a->vettedBy->fullname) : 'Vetting Officer',
+                    'vetted_at' => $a->vetted_at?->toIso8601String(),
+                    'status' => $a->status instanceof \BackedEnum ? $a->status->value : (string) $a->status,
+                ]);
+
+            return [
+                'role' => 'ApprovingOfficer',
+                'stats' => [
+                    'awaiting_approval' => $awaitingApproval,
+                    'approved_by_me' => $approvedByMe,
+                    'queried_by_me' => $queriedByMe,
+                    'vetted_applications' => $vettedJurisdiction,
+                ],
+                'awaiting_approval' => $awaitingList,
+            ];
+        }
+
+        // 3. BIOMETRICS OFFICER (also handles legacy EnrollmentOfficer)
+        if (in_array($role, ['BiometricsOfficer', 'EnrollmentOfficer'], true)) {
+            $awaitingBiometrics = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::Vetted)
+                ->count();
+
+            $todaysAppointments = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::Vetted)
+                ->whereDate('appointment_date', today())
+                ->count();
+
+            $completedByMe = Application::where('biometrics_captured_by', $user->id)->count();
+
+            $pendingEnrollment = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::Vetted)
+                ->whereNull('appointment_date')
+                ->count();
+
+            $appointments = Application::forStaffJurisdiction($user)
+                ->where('status', ApplicationStatus::Vetted)
+                ->select(['id', 'application_number', 'reference_number', 'surname', 'forenames', 'appointment_date', 'appointment_time', 'status'])
+                ->orderBy('appointment_date')
+                ->limit(20)
+                ->get()
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'application_number' => $a->application_number,
+                    'reference_number' => $a->reference_number,
+                    'applicant_name' => trim("{$a->forenames} {$a->surname}"),
+                    'appointment_date' => $a->appointment_date?->format('Y-m-d') ?? now()->format('Y-m-d'),
+                    'appointment_time' => $a->appointment_time ?? '09:00 AM',
+                    'status' => $a->status instanceof \BackedEnum ? $a->status->value : (string) $a->status,
+                ]);
+
+            return [
+                'role' => 'BiometricsOfficer',
+                'stats' => [
+                    'awaiting_biometrics' => $awaitingBiometrics,
+                    'todays_appointments' => $todaysAppointments,
+                    'biometrics_completed_by_me' => $completedByMe,
+                    'pending_enrollment' => $pendingEnrollment,
+                ],
+                'appointments' => $appointments,
+            ];
+        }
+
+        // 4. CARD PRODUCTION OFFICER (centralised at NIS Service HQ Sauka Abuja)
+        if (in_array($role, ['CardProductionOfficer', 'ProductionOfficer'], true)) {
+            $awaitingProduction = ResidenceCard::whereDoesntHave('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'))->count();
+            if ($awaitingProduction === 0) {
+                $awaitingProduction = Application::where('status', ApplicationStatus::Approved)->count();
+            }
+
+            $producedByMe = CardPrintJob::where('printed_by', $user->id)
+                ->where('outcome', 'PRINTED')
+                ->count();
+
+            $totalProduced = CardPrintJob::where('outcome', 'PRINTED')->count();
+            if ($totalProduced === 0) {
+                $totalProduced = ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->count();
+            }
+
+            $spoiled = CardPrintJob::where('outcome', 'SPOILED')->count();
+
+            $queue = ResidenceCard::whereDoesntHave('printJobs', fn ($q) => $q->where('outcome', 'PRINTED'))
+                ->with(['application:id,application_number,reference_number,surname,forenames,type'])
+                ->select(['id', 'card_number', 'booklet_number', 'decision_date', 'status'])
+                ->limit(20)
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'card_number' => $c->card_number,
+                    'application_number' => $c->application?->application_number ?? '—',
+                    'applicant_name' => $c->application ? trim("{$c->application->forenames} {$c->application->surname}") : '—',
+                    'date_approved' => $c->decision_date?->format('Y-m-d') ?? now()->format('Y-m-d'),
+                    'production_center' => 'NIS Service HQ Sauka Abuja',
+                ]);
+
+            return [
+                'role' => 'CardProductionOfficer',
+                'stats' => [
+                    'cards_awaiting_production' => $awaitingProduction,
+                    'cards_produced_by_me' => $producedByMe,
+                    'total_cards_produced' => $totalProduced,
+                    'spoiled_cards_recorded' => $spoiled,
+                ],
+                'production_queue' => $queue,
+            ];
+        }
+
+        // 5. CARD DISTRIBUTION OFFICER (HQ Sauka only)
+        if ($role === 'CardDistributionOfficer') {
+            $awaitingDispatch = CardDistribution::where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count();
+            $dispatchedByMe = CardDistribution::where('dispatched_by', $user->id)->count();
+            $awaitingReceipt = CardDistribution::where('status', CardDistribution::STATUS_DISPATCHED)->count();
+            $completed = CardDistribution::whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE, CardDistribution::STATUS_ISSUED])->count();
+
+            $dispatches = CardDistribution::with(['destinationZone:id,name', 'destinationCommand:id,name'])
+                ->latest('id')
+                ->limit(20)
+                ->get()
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'dispatch_reference' => $d->dispatch_reference ?? "DSP-{$d->id}",
+                    'destination_name' => $d->destinationCommand?->name ?? $d->destinationZone?->name ?? 'State Command',
+                    'card_number' => $d->card_number,
+                    'application_number' => $d->application_number,
+                    'waybill_number' => $d->waybill_number ?? '—',
+                    'dispatched_at' => $d->dispatched_at?->toIso8601String(),
+                    'status' => $d->status,
+                ]);
+
+            return [
+                'role' => 'CardDistributionOfficer',
+                'stats' => [
+                    'cards_awaiting_dispatch' => $awaitingDispatch,
+                    'cards_dispatched_by_me' => $dispatchedByMe,
+                    'cards_awaiting_receipt' => $awaitingReceipt,
+                    'completed_dispatches' => $completed,
+                ],
+                'dispatches' => $dispatches,
+            ];
+        }
+
+        // 6. CARD RECEIVING OFFICER (Commands / Zones)
+        if ($role === 'CardReceivingOfficer') {
+            $dispatchedToMe = CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_DISPATCHED)->count();
+            $awaitingReceipt = $dispatchedToMe;
+            $receivedByMe = CardDistribution::where('received_by', $user->id)->count();
+            $availableForIssuance = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::ReadyForCollection)->count();
+
+            $consignments = CardDistribution::forStaffJurisdiction($user)
+                ->where('status', CardDistribution::STATUS_DISPATCHED)
+                ->latest('dispatched_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'dispatch_reference' => $d->dispatch_reference ?? "DSP-{$d->id}",
+                    'waybill_number' => $d->waybill_number ?? '—',
+                    'card_number' => $d->card_number,
+                    'application_number' => $d->application_number,
+                    'dispatched_at' => $d->dispatched_at?->toIso8601String(),
+                    'status' => $d->status,
+                ]);
+
+            return [
+                'role' => 'CardReceivingOfficer',
+                'stats' => [
+                    'cards_dispatched_to_my_location' => $dispatchedToMe,
+                    'cards_awaiting_receipt' => $awaitingReceipt,
+                    'cards_received_by_me' => $receivedByMe,
+                    'cards_available_for_issuance' => $availableForIssuance,
+                ],
+                'incoming_consignments' => $consignments,
+            ];
+        }
+
+        // 7. CARD ISSUANCE OFFICER (Commands / Enrollment Centers)
+        if (in_array($role, ['CardIssuanceOfficer', 'IssuingOfficer'], true)) {
+            $awaitingIssuance = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::ReadyForCollection)->count();
+
+            $issuedByMe = ResidenceCard::forStaffJurisdiction($user)
+                ->where(fn ($q) => $q->where('issuing_officer_id', $user->id)->orWhere('issuing_officer_service_no', $user->service_number))
+                ->count();
+
+            $totalIssuedAtLocation = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::Issued)->count();
+
+            $availableCards = ResidenceCard::forStaffJurisdiction($user)
+                ->where('status', CardStatus::ReadyForCollection)
+                ->with(['application:id,application_number,reference_number,surname,forenames,type'])
+                ->select(['id', 'card_number', 'booklet_number', 'forenames', 'surname', 'expires_on', 'status', 'enrollment_command'])
+                ->latest('id')
+                ->limit(25)
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'card_reference' => $c->card_number,
+                    'application_reference' => $c->application?->application_number ?? '—',
+                    'applicant_name' => $c->fullName(),
+                    'card_type' => $c->application?->type ?? 'STANDARD',
+                    'receiving_command' => $c->enrollment_command ?? ($user->commandRel?->name ?? $user->command),
+                    'status' => 'READY_FOR_COLLECTION',
+                ]);
+
+            return [
+                'role' => 'CardIssuanceOfficer',
+                'stats' => [
+                    'cards_awaiting_issuance' => $awaitingIssuance,
+                    'cards_issued_by_me' => $issuedByMe,
+                    'total_cards_issued_at_location' => $totalIssuedAtLocation,
+                ],
+                'available_cards' => $availableCards,
+            ];
+        }
+
+        // 8. ZONAL ADMINISTRATOR
+        if ($role === 'ZonalAdmin') {
+            $zoneId = $user->zone_id;
+            $zoneName = $user->zone?->name ?? ($user->command ?: 'Assigned Zone');
+
+            $totalApps = Application::forStaffJurisdiction($user)->count();
+            $awaitingVetting = Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::PendingApproval)->count();
+            $awaitingBiometrics = Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::Vetted)->count();
+            $cardsReceived = CardDistribution::forStaffJurisdiction($user)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count();
+            $cardsIssued = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::Issued)->count();
+
+            // Commands breakdown in this Zone
+            $commands = NisCommand::where('zone_id', $zoneId)->get()->map(function ($cmd) {
+                return [
+                    'id' => $cmd->id,
+                    'name' => $cmd->name,
+                    'state' => $cmd->state,
+                    'applications_count' => Application::whereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $cmd->id))->count(),
+                    'cards_issued' => ResidenceCard::where('enrollment_command', $cmd->name)->where('status', CardStatus::Issued)->count(),
+                ];
+            });
+
+            return [
+                'role' => 'ZonalAdmin',
+                'stats' => [
+                    'zone_name' => $zoneName,
+                    'total_applications' => $totalApps,
+                    'awaiting_vetting' => $awaitingVetting,
+                    'awaiting_biometrics' => $awaitingBiometrics,
+                    'cards_received' => $cardsReceived,
+                    'cards_issued' => $cardsIssued,
+                ],
+                'commands' => $commands,
+            ];
+        }
+
+        // 9. COMMAND ADMINISTRATOR
+        if ($role === 'CommandAdmin') {
+            $cmdName = $user->commandRel?->name ?? ($user->command ?: 'Assigned Command');
+
+            $totalApps = Application::forStaffJurisdiction($user)->count();
+            $awaitingBiometrics = Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::Vetted)->count();
+            $cardsReceived = CardDistribution::forStaffJurisdiction($user)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count();
+            $cardsAvailable = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::ReadyForCollection)->count();
+            $cardsIssued = ResidenceCard::forStaffJurisdiction($user)->where('status', CardStatus::Issued)->count();
+
+            $recentApps = Application::forStaffJurisdiction($user)
+                ->select(['id', 'application_number', 'reference_number', 'surname', 'forenames', 'type', 'status', 'created_at'])
+                ->latest('id')
+                ->limit(15)
+                ->get()
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'application_number' => $a->application_number,
+                    'applicant_name' => trim("{$a->forenames} {$a->surname}"),
+                    'type' => $a->type ?? 'NEW',
+                    'status' => $a->status instanceof \BackedEnum ? $a->status->value : (string) $a->status,
+                    'created_at' => $a->created_at?->format('Y-m-d'),
+                ]);
+
+            return [
+                'role' => 'CommandAdmin',
+                'stats' => [
+                    'command_name' => $cmdName,
+                    'total_applications' => $totalApps,
+                    'awaiting_biometrics' => $awaitingBiometrics,
+                    'cards_received' => $cardsReceived,
+                    'cards_available_for_issuance' => $cardsAvailable,
+                    'cards_issued' => $cardsIssued,
+                ],
+                'recent_applications' => $recentApps,
+            ];
+        }
+
+        // 10. REPORTING / AUDIT OFFICER
+        if (in_array($role, ['ReportingAuditOfficer', 'Auditor'], true)) {
+            $totalAudit = AuditLog::count();
+            $securityLogs = AuditLog::whereIn('action', ['STAFF_LOGIN', '2FA_VERIFIED', 'PASSWORD_RESET', 'GEOFENCE_VIOLATION'])->count();
+            $queriesCount = ApplicationDocumentQuery::count();
+            $breaches = DataBreach::count();
+
+            $recentLogs = AuditLog::with(['user:id,fullname,service_number,rank'])
+                ->latest('id')
+                ->limit(20)
+                ->get()
+                ->map(fn ($l) => [
+                    'id' => $l->id,
+                    'timestamp' => $l->created_at?->toIso8601String(),
+                    'action' => $l->action,
+                    'description' => $l->description,
+                    'ip_address' => $l->ip_address ?? '—',
+                    'user_name' => $l->user ? ($l->user->rank ? "{$l->user->rank} {$l->user->fullname}" : $l->user->fullname) : 'System',
+                ]);
+
+            return [
+                'role' => 'ReportingAuditOfficer',
+                'stats' => [
+                    'total_audit_events' => $totalAudit,
+                    'security_events' => $securityLogs,
+                    'document_queries_count' => $queriesCount,
+                    'geofence_events' => $breaches,
+                ],
+                'recent_events' => $recentLogs,
+            ];
+        }
+
+        // Default: SUPER ADMIN / HQ ADMIN / ADMIN (Preserves General Admin Dashboard)
+        return [
+            'role' => 'Admin',
+        ];
     }
 
     /**

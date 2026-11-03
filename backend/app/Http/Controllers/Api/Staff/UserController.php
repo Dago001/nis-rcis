@@ -20,7 +20,7 @@ use Illuminate\Validation\Rule;
 class UserController
 {
     private const FIELDS = [
-        'id', 'username', 'fullname', 'service_number', 'email', 'role',
+        'id', 'username', 'fullname', 'rank', 'service_number', 'email', 'role',
         'command', 'state', 'lga', 'zone_id', 'command_id', 'headquarters_unit',
         'geofence_exempt', 'is_active', 'must_change_password', 'last_login_at', 'created_at'
     ];
@@ -103,6 +103,7 @@ class UserController
         $data = $request->validate([
             'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users'],
             'fullname' => ['required', 'string', 'max:150'],
+            'rank' => ['nullable', 'string', 'max:50'],
             'service_number' => ['required', 'string', 'regex:/^(NIS-?)?[0-9]{5}$/i', 'unique:users'],
             'email' => ['required', 'email', 'max:255', 'unique:users'],
             'role' => ['required', Rule::in(array_map(fn ($r) => $r->value, $allowedRoles))],
@@ -197,6 +198,7 @@ class UserController
 
         $data = $request->validate([
             'fullname' => ['sometimes', 'string', 'max:150'],
+            'rank' => ['nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'service_number' => ['sometimes', 'string', 'regex:/^(NIS-?)?[0-9]{5}$/i', Rule::unique('users')->ignore($user->id)],
             'role' => ['sometimes', Rule::in(array_map(fn ($r) => $r->value, $allowedRoles))],

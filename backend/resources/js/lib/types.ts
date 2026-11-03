@@ -293,6 +293,7 @@ export type StaffUser = {
   id: number;
   username: string;
   fullname: string;
+  rank?: string | null;
   service_number: string;
   email: string;
   role: StaffRole;

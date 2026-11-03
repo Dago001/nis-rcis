@@ -29,6 +29,28 @@ const ALL_ROLES: [StaffRole, string][] = [
   ["IssuingOfficer", "Issuing Officer (Legacy)"],
 ];
 
+export const NIS_RANKS: [string, string][] = [
+  ["CGI", "Comptroller General of Immigration"],
+  ["DCGI", "Deputy Comptroller General of Immigration"],
+  ["ACGI", "Assistant Comptroller General of Immigration"],
+  ["CIS", "Comptroller of Immigration"],
+  ["DCI", "Deputy Comptroller of Immigration"],
+  ["ACI", "Assistant Comptroller of Immigration"],
+  ["CSI", "Chief Superintendent of Immigration"],
+  ["SI", "Superintendent of Immigration"],
+  ["DSI", "Deputy Superintendent of Immigration"],
+  ["ASI 1", "Assistant Superintendent of Immigration 1"],
+  ["ASI 2", "Assistant Superintendent of Immigration 2"],
+  ["CII", "Chief Inspector of Immigration"],
+  ["DII", "Deputy Chief Inspector of Immigration"],
+  ["SII", "Senior Inspector of Immigration"],
+  ["II", "Inspector of Immigration"],
+  ["AIC", "Assistant Inspector of Immigration"],
+  ["IA 1", "Immigration Assistant 1"],
+  ["IA 2", "Immigration Assistant 2"],
+  ["IA 3", "Immigration Assistant 3"],
+];
+
 interface NisZoneItem {
   id: number;
   code: string;
@@ -104,6 +126,7 @@ export default function UsersPage() {
 
     payload.role = selectedRole;
     payload.geofence_exempt = geofenceExempt;
+    if (!payload.rank) payload.rank = null;
 
     if (allocationLevel === "HEADQUARTERS") {
       payload.headquarters_unit = hqUnit;
@@ -179,6 +202,13 @@ export default function UsersPage() {
     await load();
   }
 
+  async function changeRank(user: StaffUser, rank: string) {
+    if (rank === (user.rank || "")) return;
+    await api("staff", `users/${user.id}`, { method: "PATCH", json: { rank: rank || null } });
+    setNotice(`Updated ${user.fullname}'s rank to ${rank || "Unassigned"}.`);
+    await load();
+  }
+
   const q = query.trim().toLowerCase();
   const shown = (users ?? []).filter(
     (u) =>
@@ -198,9 +228,19 @@ export default function UsersPage() {
       {showForm && (
         <Panel title="Add New NIS Officer Account" actions={<Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setShowForm(false)}>Close</Button>}>
           <form onSubmit={create} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Full name & Rank" error={errors.fullname}>
-                <Input name="fullname" placeholder="e.g. Ibrahim Musa (DSI)" required />
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Field label="Full name" error={errors.fullname}>
+                <Input name="fullname" placeholder="e.g. Ibrahim Musa" required />
+              </Field>
+              <Field label="NIS Rank" error={errors.rank}>
+                <Select name="rank" defaultValue="">
+                  <option value="">No Rank / Civilian</option>
+                  {NIS_RANKS.map(([code, title]) => (
+                    <option key={code} value={code}>
+                      {code} — {title}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field label="Username" error={errors.username}>
                 <Input name="username" placeholder="e.g. ibrahim.musa" required />
@@ -404,6 +444,7 @@ export default function UsersPage() {
                 <tr>
                   <th className="w-12 pl-5 py-3">S/N</th>
                   <th className="py-3">Officer Details</th>
+                  <th className="py-3">Rank</th>
                   <th className="py-3">Official Role</th>
                   <th className="py-3">Jurisdiction / Command</th>
                   <th className="py-3">Physical Geofence</th>
@@ -427,6 +468,21 @@ export default function UsersPage() {
                           </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="py-3.5">
+                      <Select
+                        aria-label={`Rank for ${u.fullname}`}
+                        value={u.rank || ""}
+                        onChange={(e) => changeRank(u, e.target.value)}
+                        className="!py-1 !text-xs !w-auto font-semibold text-slate-800"
+                      >
+                        <option value="">— (None)</option>
+                        {NIS_RANKS.map(([code]) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </Select>
                     </td>
                     <td className="py-3.5">
                       {u.id === me.id ? (

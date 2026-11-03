@@ -17,7 +17,7 @@ class User extends Authenticatable implements OAuthenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'username', 'fullname', 'service_number', 'email', 'password',
+        'username', 'fullname', 'rank', 'service_number', 'email', 'password',
         'role', 'command', 'headquarters_unit', 'state', 'lga', 'zone_id', 'command_id', 'enrollment_center_id',
         'is_active', 'geofence_exempt', 'must_change_password', 'photo_path',
     ];

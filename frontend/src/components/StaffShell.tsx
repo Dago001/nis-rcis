@@ -21,8 +21,7 @@ export function useStaff(): StaffUser {
 /** SuperAdmin holds every role. Admin and Supervisor also have broad operational oversight. */
 export function hasRole(user: StaffUser, ...roles: StaffRole[]): boolean {
   if (user.role === "SuperAdmin") return true;
-  if (user.role === "Admin" && !roles.includes("SuperAdmin")) return true;
-  if (user.role === "HeadquartersAdmin" && !roles.includes("SuperAdmin")) return true;
+  if ((user.role === "Admin" || user.role === "HeadquartersAdmin") && !roles.includes("SuperAdmin")) return true;
   if (roles.includes(user.role)) return true;
 
   // Role aliases & hierarchy
@@ -35,7 +34,6 @@ export function hasRole(user: StaffUser, ...roles: StaffRole[]): boolean {
   if (roles.includes("IssuingOfficer") && (user.role === "CardIssuanceOfficer" || user.role === "CardReceivingOfficer")) return true;
   if (roles.includes("ReportingAuditOfficer") && user.role === "Auditor") return true;
   if (roles.includes("Auditor") && user.role === "ReportingAuditOfficer") return true;
-  if (roles.includes("Admin") && (user.role === "HeadquartersAdmin" || user.role === "ZonalAdmin" || user.role === "CommandAdmin")) return true;
 
   return false;
 }
@@ -63,37 +61,92 @@ const navSections: NavSection[] = [
     title: "Overview",
     items: [
       { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
-      { href: "/staff/queue", label: "Centre queue", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"), roles: ["EnrollmentOfficer", "ApprovingOfficer", "IssuingOfficer", "Supervisor", "Admin"] },
+      {
+        href: "/staff/queue",
+        label: "Biometrics Queue",
+        icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
+      },
     ],
   },
   {
     title: "Applications",
     items: [
-      { href: "/staff/applications", label: "Vetting", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
-      { href: "/staff/approvals", label: "Approvers", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"), roles: ["ApprovingOfficer", "IssuingOfficer", "Supervisor", "Admin"] },
+      {
+        href: "/staff/applications",
+        label: "Vetting",
+        icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
+      },
+      {
+        href: "/staff/approvals",
+        label: "Approval",
+        icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ApprovingOfficer", "Supervisor"],
+      },
     ],
   },
   {
     title: "Residence Cards",
     items: [
-      { href: "/staff/cards", label: "Card Production", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6"), roles: ["ProductionOfficer", "CardProductionOfficer", "HeadquartersAdmin", "Supervisor", "Admin"] },
-      { href: "/staff/card-distribution", label: "Card Distribution", icon: icon("M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2zM3 13h18"), roles: ["CardDistributionOfficer", "CardReceivingOfficer", "CardIssuanceOfficer", "CardProductionOfficer", "ProductionOfficer", "IssuingOfficer", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "Supervisor", "Admin"] },
-      { href: "/staff/card-issuance", label: "Card Issuance", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"), roles: ["IssuingOfficer", "CardIssuanceOfficer", "CardReceivingOfficer", "ApprovingOfficer", "ProductionOfficer", "Supervisor", "Admin"] },
-      { href: "/staff/card-stock", label: "Stock & printing", icon: icon("M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"), roles: ["ProductionOfficer", "CardProductionOfficer", "IssuingOfficer", "ApprovingOfficer", "Supervisor", "Admin"] },
+      {
+        href: "/staff/cards",
+        label: "Card Production",
+        icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 9h6M12 13h6M5 16h6"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "CardProductionOfficer", "ProductionOfficer"],
+      },
+      {
+        href: "/staff/card-distribution",
+        label: "Card Distribution",
+        icon: icon("M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2zM3 13h18"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardDistributionOfficer", "CardReceivingOfficer"],
+      },
+      {
+        href: "/staff/card-issuance",
+        label: "Card Issuance",
+        icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardIssuanceOfficer", "IssuingOfficer"],
+      },
+      {
+        href: "/staff/card-stock",
+        label: "Stock & printing",
+        icon: icon("M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "CardProductionOfficer", "ProductionOfficer"],
+      },
     ],
   },
   {
     title: "Reports & Compliance",
     items: [
-      { href: "/staff/reports", label: "Reports", icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"), roles: ["SuperAdmin", "Admin", "Supervisor", "Auditor", "ApprovingOfficer", "ProductionOfficer", "IssuingOfficer"] },
-      { href: "/staff/audit-logs", label: "Audit trail", icon: icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"), roles: ["Auditor", "Supervisor", "Admin", "SuperAdmin"] },
+      {
+        href: "/staff/reports",
+        label: "Reports",
+        icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "ReportingAuditOfficer", "Auditor"],
+      },
+      {
+        href: "/staff/audit-logs",
+        label: "Audit trail",
+        icon: icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ReportingAuditOfficer", "Auditor"],
+      },
     ],
   },
   {
     title: "Administration",
     items: [
-      { href: "/staff/users", label: "Staff accounts", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"), roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"] },
-      { href: "/staff/settings", label: "Settings", icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"), roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"] },
+      {
+        href: "/staff/users",
+        label: "Staff accounts",
+        icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+      },
+      {
+        href: "/staff/settings",
+        label: "Settings",
+        icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+      },
     ],
   },
 ];
@@ -186,6 +239,12 @@ export function StaffShell({ children }: { children: ReactNode }) {
         .find((it) => isItemActive(it.href))
     : null;
 
+  const restrictedNav = user
+    ? navSections
+        .flatMap((s) => s.items)
+        .find((it) => it.roles && isItemActive(it.href) && !hasRole(user, ...it.roles))
+    : null;
+
   return (
     <>
       <SiteHeader
@@ -194,8 +253,8 @@ export function StaffShell({ children }: { children: ReactNode }) {
         user={
           user
             ? {
-                name: user.fullname,
-                role: `${user.role === "SuperAdmin" || user.role_label === "Super Administrator" ? "Super Admin" : user.role_label} · ${user.service_number}`,
+                name: user.rank ? `${user.rank} ${user.fullname}` : user.fullname,
+                role: user.role === "SuperAdmin" || user.role_label === "Super Administrator" ? "Super Admin" : (user.role_label || user.role),
               }
             : undefined
         }
@@ -266,8 +325,12 @@ export function StaffShell({ children }: { children: ReactNode }) {
                 {/* User Info Bar */}
                 {user && (
                   <div className="border-b border-[#b2d6c0] bg-white/70 px-4 py-2.5">
-                    <div className="text-xs font-bold text-slate-900 truncate">{user.fullname}</div>
-                    <div className="text-[11px] text-emerald-900 font-mono font-medium">{user.service_number}</div>
+                    <div className="text-xs font-bold text-slate-900 truncate">
+                      {user.rank ? `${user.rank} ${user.fullname}` : user.fullname}
+                    </div>
+                    <div className="text-[11px] text-emerald-900 font-medium truncate">
+                      {user.role_label || user.role}
+                    </div>
                   </div>
                 )}
 
@@ -362,10 +425,28 @@ export function StaffShell({ children }: { children: ReactNode }) {
           <main id="main" tabIndex={-1} className="min-w-0 flex-1">
             {error ? (
               <p className="text-sm text-red-700">{error}</p>
-            ) : user ? (
-              <StaffContext.Provider value={user}>{children}</StaffContext.Provider>
-            ) : (
+            ) : !user ? (
               <Spinner />
+            ) : restrictedNav ? (
+              <div className="rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm max-w-xl mx-auto my-8">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600 mb-4">
+                  <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01"/></svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">{t("Access Restricted (403 Forbidden)")}</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  {t("Your assigned role ({role}) does not have administrative authorization to access the {module} module.", {
+                    role: user.role_label || user.role,
+                    module: restrictedNav.label,
+                  })}
+                </p>
+                <div className="mt-6">
+                  <Link href="/staff" className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900 transition">
+                    <span>{t("Return to My Dashboard")}</span>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <StaffContext.Provider value={user}>{children}</StaffContext.Provider>
             )}
           </main>
         </div>
