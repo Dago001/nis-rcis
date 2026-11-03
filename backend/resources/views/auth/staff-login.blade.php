@@ -12,8 +12,8 @@
         @if(request('returnTo'))
             <input type="hidden" name="returnTo" value="{{ request('returnTo') }}">
         @endif
-        <label for="identifier">Service number or username</label>
-        <input id="identifier" name="identifier" value="{{ old('identifier') }}" required autofocus>
+        <label for="identifier">NIS Number</label>
+        <input id="identifier" name="identifier" value="{{ old('identifier') }}" placeholder="e.g. NIS-10001 or 10001" required autofocus>
         <label for="password">Password</label>
         <div class="pw">
             <input id="password" type="password" name="password" required autocomplete="current-password">

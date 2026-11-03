@@ -191,7 +191,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <PageTitle
         title="NIS Staff User Management & Access Control"
-        subtitle="Manage official NIS staff accounts, 5-digit service numbers, jurisdictional roles, and physical geofence boundaries across Headquarters, Zones, and Commands."
+        subtitle="Manage official NIS staff accounts, 5-digit NIS numbers, jurisdictional roles, and physical geofence boundaries across Headquarters, Zones, and Commands."
       />
       {notice && <Alert tone="success">{notice}</Alert>}
 
@@ -205,9 +205,9 @@ export default function UsersPage() {
               <Field label="Username" error={errors.username}>
                 <Input name="username" placeholder="e.g. ibrahim.musa" required />
               </Field>
-              <Field label="5-Digit Service Number" error={errors.service_number}>
+              <Field label="5-Digit NIS Number" error={errors.service_number}>
                 <div className="relative">
-                  <Input name="service_number" placeholder="10492 or NIS-10492" required />
+                  <Input name="service_number" placeholder="NIS-10492 or 10492" required />
                   <span className="absolute right-2.5 top-2.5 text-[11px] font-mono font-medium text-slate-400">5 digits</span>
                 </div>
               </Field>
@@ -372,7 +372,7 @@ export default function UsersPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Input
               type="search"
-              placeholder="Search name, S/N, role, command..."
+              placeholder="Search name, NIS No., role, command..."
               aria-label="Search officers"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

@@ -32,9 +32,10 @@ class StaffTemporaryPassword extends Notification implements ShouldQueue
         if ($this->actionType === 'created') {
             $mail->line("A new staff account has been created for you on the Nigeria Immigration Service Residence Card Information System (RCIS).")
                  ->line("**Role:** {$notifiable->role?->label()}")
-                 ->line("**Service Number:** {$notifiable->service_number}")
+                 ->line("**NIS Number:** {$notifiable->service_number}")
                  ->line("**Username:** {$notifiable->username}")
-                 ->line("**Command:** {$notifiable->command}");
+                 ->line("**Command:** {$notifiable->command}")
+                 ->line("*(Sign in to the staff console strictly using your NIS Number)*");
         } else {
             $mail->line("Your password for the Nigeria Immigration Service Residence Card Information System (RCIS) staff account has been reset.");
         }

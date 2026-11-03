@@ -49,9 +49,21 @@ class StaffLoginController
             'cf-turnstile-response.required' => 'Please complete the security challenge.',
         ]);
 
+        $rawIdentifier = trim($data['identifier']);
+        $cleanNumber = preg_replace('/[^0-9]/', '', $rawIdentifier);
+        $nisFormatted = $cleanNumber !== '' ? 'NIS-' . $cleanNumber : null;
+
+        // Officers must sign in strictly via their official NIS Number (e.g. NIS-10001 or 10001)
         $user = User::query()
-            ->where('service_number', $data['identifier'])
-            ->orWhere('username', $data['identifier'])
+            ->where(function ($query) use ($rawIdentifier, $cleanNumber, $nisFormatted) {
+                $query->where('service_number', $rawIdentifier);
+                if ($cleanNumber !== '') {
+                    $query->orWhere('service_number', $cleanNumber);
+                }
+                if ($nisFormatted) {
+                    $query->orWhere('service_number', $nisFormatted);
+                }
+            })
             ->first();
 
         $passwordValid = false;
@@ -71,7 +83,7 @@ class StaffLoginController
         if (! $user || ! $passwordValid) {
             Audit::log('STAFF_LOGIN_FAILED', 'Failed staff sign-in attempt', context: ['identifier' => $data['identifier']], actorLabel: 'GUEST');
 
-            throw ValidationException::withMessages(['identifier' => 'Invalid service number/username or password.']);
+            throw ValidationException::withMessages(['identifier' => 'Invalid NIS Number or password.']);
         }
 
         if (! $user->is_active) {
@@ -124,7 +136,8 @@ class StaffLoginController
         }
 
         $secret = $request->session()->get('staff_2fa_secret') ?? tap(Totp::generateSecret(), fn ($s) => $request->session()->put('staff_2fa_secret', $s));
-        $uri = Totp::uri($user->service_number, $secret);
+        $accountLabel = str_starts_with($user->service_number, 'NIS-') ? $user->service_number : 'NIS-' . $user->service_number;
+        $uri = Totp::uri($accountLabel, $secret);
         $qr = (new Writer(new ImageRenderer(new RendererStyle(140, 1), new SvgImageBackEnd)))->writeString($uri);
 
         return view('auth.two-factor', [

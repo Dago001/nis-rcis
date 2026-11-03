@@ -36,7 +36,7 @@ class CreateStaffUser extends Command
         $user = User::create([
             'username' => $this->option('username') ?: $this->ask('Username'),
             'fullname' => $this->option('fullname') ?: $this->ask('Full name'),
-            'service_number' => $this->option('service-number') ?: $this->ask('Service number'),
+            'service_number' => $this->option('service-number') ?: $this->ask('NIS Number (e.g. NIS-10492)'),
             'email' => $this->option('email') ?: $this->ask('E-mail'),
             'role' => $role,
             'command' => $this->option('command'),

@@ -135,7 +135,7 @@ export default function UsersPage() {
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Full name" error={errors.fullname}><Input name="fullname" required /></Field>
               <Field label="Username" error={errors.username}><Input name="username" required /></Field>
-              <Field label="Service number" error={errors.service_number}><Input name="service_number" placeholder="e.g. NIS-10492" required /></Field>
+              <Field label="NIS Number" error={errors.service_number}><Input name="service_number" placeholder="e.g. NIS-10492 or 10492" required /></Field>
               <Field label="E-mail" error={errors.email}><Input name="email" type="email" required /></Field>
               <Field label="Role" error={errors.role}>
                 <Select name="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as StaffRole)}>

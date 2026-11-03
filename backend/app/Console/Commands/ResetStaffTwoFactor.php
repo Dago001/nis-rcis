@@ -12,16 +12,23 @@ use Illuminate\Console\Command;
  */
 class ResetStaffTwoFactor extends Command
 {
-    protected $signature = 'nis:staff-reset-2fa {service_number : Service number or username}';
+    protected $signature = 'nis:staff-reset-2fa {service_number : NIS Number or username}';
 
     protected $description = "Reset a staff member's authenticator app so they set it up again at next sign-in";
 
     public function handle(): int
     {
         $id = (string) $this->argument('service_number');
-        $user = User::where('service_number', $id)->orWhere('username', $id)->first();
+        $clean = preg_replace('/[^0-9]/', '', $id);
+        $nis = $clean !== '' ? 'NIS-' . $clean : null;
+
+        $user = User::where('service_number', $id)
+            ->when($clean !== '', fn ($q) => $q->orWhere('service_number', $clean))
+            ->when($nis, fn ($q) => $q->orWhere('service_number', $nis))
+            ->orWhere('username', $id)
+            ->first();
         if (! $user) {
-            $this->error('No staff account with that service number or username.');
+            $this->error('No staff account found with that NIS Number.');
 
             return self::FAILURE;
         }

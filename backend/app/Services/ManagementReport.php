@@ -119,7 +119,7 @@ class ManagementReport
                 ],
                 [
                     'title' => 'Decisions by officer',
-                    'headings' => ['Officer', 'Service no.', 'Decisions'],
+                    'headings' => ['Officer', 'NIS No.', 'Decisions'],
                     'rows' => Application::whereBetween('decided_at', $between)->whereNotNull('decided_by')
                         ->join('users', 'users.id', '=', 'applications.decided_by')
                         ->selectRaw('users.fullname, users.service_number, count(*) as total')

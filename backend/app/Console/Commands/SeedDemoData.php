@@ -339,7 +339,7 @@ class SeedDemoData extends Command
     {
         $this->newLine();
         $this->line('All demo accounts use the password: <comment>'.self::PASSWORD.'</comment>');
-        $this->table(['Staff (sign in at /staff)', 'Service no.', 'Role'], [
+        $this->table(['Staff (sign in with NIS Number)', 'NIS Number', 'Role'], [
             ['admin', '10001', 'SuperAdmin'],
             ['approver', '10002', 'ApprovingOfficer'],
             ['issuer', '10003', 'IssuingOfficer'],

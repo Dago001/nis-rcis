@@ -64,17 +64,17 @@ If the application is running, close the two server windows first, then run `sta
 
 ### Staff console: http://localhost:3000/staff
 
-Sign in with the **service number** (or the username).
+Sign in with the **NIS Number** (e.g. `NIS-10001` or `10001`). Username sign-in is disabled. All passwords are set to `Password123`.
 
 **Two-factor sign-in:** staff accounts need a 6-digit code from an authenticator app. Install **Google Authenticator** or **Microsoft Authenticator** on your phone. The first time each officer signs in, a QR code is shown: scan it, then type the code. After that, every sign-in asks for the current code. If a phone is lost, **10001** (Super Administrator) can click **Reset authenticator** under **Staff accounts**; or on the server run `php artisan nis:staff-reset-2fa 10002`.
 
-| Service no. | Username | Role | Can do |
+| NIS Number | Reference Username | Role | Can do |
 |---|---|---|---|
-| 10001 | admin | Super Administrator | Everything, including staff accounts, assisted applications, reinstating cards and CSV export |
-| 10002 | approver | Approving Officer | Approve, query or reject applications; approve cards; revoke and watchlist cards |
-| 10003 | issuer | Issuing Officer | Biometrics desk, mark cards ready, record collection, renew cards |
-| 10004 | vetting | Vetting Officer | Review applications, verify document checklist, issue queries, vetting queue |
-| 10005 | auditor | Auditor | View, plus the audit trail |
+| NIS-10001 (or 10001) | admin | Super Administrator | Everything, including staff accounts, assisted applications, reinstating cards and CSV export |
+| NIS-10002 (or 10002) | approver | Approving Officer | Approve, query or reject applications; approve cards; revoke and watchlist cards |
+| NIS-10003 (or 10003) | issuer | Issuing Officer | Biometrics desk, mark cards ready, record collection, renew cards |
+| NIS-10004 (or 10004) | vetting | Vetting Officer | Review applications, verify document checklist, issue queries, vetting queue |
+| NIS-10005 (or 10005) | auditor | Auditor | View, plus the audit trail |
 
 ### Applicant portal: http://localhost:3000/portal
 
