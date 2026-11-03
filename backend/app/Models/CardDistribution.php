@@ -47,19 +47,21 @@ class CardDistribution extends Model
         'issuance_longitude',
     ];
 
-    protected function casts(): array
+    protected $casts = [
+        'dispatched_at' => 'datetime',
+        'received_at' => 'datetime',
+        'issued_at' => 'datetime',
+        'geofence_verified_receipt' => 'boolean',
+        'geofence_verified_issuance' => 'boolean',
+        'receipt_latitude' => 'float',
+        'receipt_longitude' => 'float',
+        'issuance_latitude' => 'float',
+        'issuance_longitude' => 'float',
+    ];
+
+    protected static function booted(): void
     {
-        return [
-            'dispatched_at' => 'datetime',
-            'received_at' => 'datetime',
-            'issued_at' => 'datetime',
-            'geofence_verified_receipt' => 'boolean',
-            'geofence_verified_issuance' => 'boolean',
-            'receipt_latitude' => 'float',
-            'receipt_longitude' => 'float',
-            'issuance_latitude' => 'float',
-            'issuance_longitude' => 'float',
-        ];
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
     }
 
     public function card(): BelongsTo

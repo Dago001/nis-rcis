@@ -21,9 +21,18 @@ class QueueController
             ->where('enrollment_center_id', $center->id)->whereDate('service_date', today())
             ->orderBy('checked_in_at')->get();
 
+        $centersQuery = EnrollmentCenter::where('is_active', true)->orderBy('name');
+        if ($request->user() && ! $request->user()->isHeadquarters()) {
+            if ($request->user()->isCommand()) {
+                $centersQuery->where('command_id', $request->user()->command_id);
+            } elseif ($request->user()->isZonal()) {
+                $centersQuery->where('zone_id', $request->user()->zone_id);
+            }
+        }
+
         return response()->json([
             'center' => $center->only(['id', 'code', 'name']),
-            'centers' => EnrollmentCenter::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
+            'centers' => $centersQuery->get(['id', 'code', 'name']),
             'data' => $tickets->map(fn (QueueTicket $t) => $this->present($t)),
             'stats' => [
                 'waiting' => $tickets->where('status', CentreQueue::WAITING)->count(),
@@ -66,16 +75,53 @@ class QueueController
     public function finish(Request $request, int $id, CentreQueue $queue): JsonResponse
     {
         $data = $request->validate(['status' => ['required', Rule::in([CentreQueue::DONE, CentreQueue::NO_SHOW])]]);
+        $ticket = QueueTicket::with('enrollmentCenter')->findOrFail($id);
 
-        return response()->json(['data' => $this->present($queue->finish(QueueTicket::findOrFail($id), $request->user(), $data['status']))]);
+        if ($request->user() && ! $request->user()->isHeadquarters()) {
+            if ($request->user()->isCommand() && (int) $ticket->enrollmentCenter?->command_id !== (int) $request->user()->command_id) {
+                abort(403, 'You do not have jurisdiction over this queue ticket.');
+            }
+            if ($request->user()->isZonal() && (int) $ticket->enrollmentCenter?->zone_id !== (int) $request->user()->zone_id) {
+                abort(403, 'You do not have jurisdiction over this queue ticket.');
+            }
+        }
+
+        return response()->json(['data' => $this->present($queue->finish($ticket, $request->user(), $data['status']))]);
     }
 
     private function center(Request $request): EnrollmentCenter
     {
+        $user = $request->user();
         $id = $request->integer('enrollment_center_id');
 
-        return $id ? EnrollmentCenter::where('is_active', true)->findOrFail($id)
-            : EnrollmentCenter::where('is_active', true)->orderBy('id')->firstOrFail();
+        $query = EnrollmentCenter::where('is_active', true);
+        if ($user && ! $user->isHeadquarters()) {
+            if ($user->isCommand()) {
+                $query->where('command_id', $user->command_id);
+            } elseif ($user->isZonal()) {
+                $query->where('zone_id', $user->zone_id);
+            }
+        }
+
+        if ($id) {
+            $center = EnrollmentCenter::where('is_active', true)->findOrFail($id);
+            if ($user && ! $user->isHeadquarters()) {
+                if ($user->isCommand() && (int) $center->command_id !== (int) $user->command_id) {
+                    abort(403, 'You do not have jurisdiction to operate queues at this enrollment center.');
+                }
+                if ($user->isZonal() && (int) $center->zone_id !== (int) $user->zone_id) {
+                    abort(403, 'You do not have jurisdiction to operate queues at this enrollment center.');
+                }
+            }
+            return $center;
+        }
+
+        $center = $query->orderBy('id')->first();
+        if (! $center) {
+            abort(403, 'No active enrollment center available for your assigned jurisdiction.');
+        }
+
+        return $center;
     }
 
     private function present(QueueTicket $t): array

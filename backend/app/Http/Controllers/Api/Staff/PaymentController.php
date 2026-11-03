@@ -44,6 +44,11 @@ class PaymentController
 
         $query = Payment::query()->with(['applicant.draft', 'application'])->latest('id');
 
+        $user = $request->user();
+        if ($user && ! $user->isHeadquarters()) {
+            $query->whereHas('application', fn ($aq) => $aq->forStaffJurisdiction($user));
+        }
+
         match ($data['filter'] ?? 'awaiting_submission') {
             'awaiting_submission' => $this->paid($query)->whereNull('application_id'),
             'submitted' => $this->paid($query)->whereNotNull('application_id'),
@@ -71,9 +76,16 @@ class PaymentController
      * One payment, with the applicant's in-progress application if it has
      * not been submitted yet.
      */
-    public function show(int $id, DocumentStorage $storage): JsonResponse
+    public function show(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
         $payment = Payment::with(['applicant.draft.documents', 'application'])->findOrFail($id);
+        $user = $request->user();
+        if ($user && ! $user->isHeadquarters()) {
+            if (! $payment->application || ! $user->canAccessApplication($payment->application)) {
+                abort(403, 'You do not have jurisdiction to view this payment record.');
+            }
+        }
+
         $draft = $payment->application_id ? null : $payment->applicant?->draft;
 
         Audit::log('PAYMENT_VIEWED', "Payment {$payment->reference} viewed", $payment);

@@ -354,6 +354,7 @@ class ReportController
         $search = $request->input('search');
 
         $query = ResidenceCard::query()
+            ->forStaffJurisdiction($request->user())
             ->with([
                 'application.enrollmentCenter',
                 'issuingOfficer:id,fullname,service_number',

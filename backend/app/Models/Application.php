@@ -32,6 +32,11 @@ class Application extends Model
 
     protected $hidden = ['fingerprint_template', 'fingerprints', 'risk_flags'];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
+    }
+
     protected function casts(): array
     {
         return [

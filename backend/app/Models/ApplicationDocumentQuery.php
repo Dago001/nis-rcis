@@ -42,6 +42,11 @@ class ApplicationDocumentQuery extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
+    }
+
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);

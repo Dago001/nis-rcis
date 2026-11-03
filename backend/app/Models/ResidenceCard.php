@@ -17,6 +17,11 @@ class ResidenceCard extends Model
 
     protected $hidden = ['verification_token'];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
+    }
+
     protected function casts(): array
     {
         return [

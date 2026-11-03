@@ -106,10 +106,10 @@ class DashboardController
                 'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($applications[$s->value] ?? 0)]),
                 'cards' => collect(CardStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($cards[$s->value] ?? 0)]),
                 'distribution' => $distribution,
-                'cards_expired' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->where('expires_on', '<', today())->count(),
-                'cards_expiring_30_days' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
-                'watchlisted' => ResidenceCard::where('is_watchlisted', true)->count(),
-                'paid_awaiting_submission' => Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count(),
+                'cards_expired' => ResidenceCard::forStaffJurisdiction($user)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->where('expires_on', '<', today())->count(),
+                'cards_expiring_30_days' => ResidenceCard::forStaffJurisdiction($user)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
+                'watchlisted' => ResidenceCard::forStaffJurisdiction($user)->where('is_watchlisted', true)->count(),
+                'paid_awaiting_submission' => $user->isHeadquarters() ? Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count() : 0,
                 'total_cards_produced' => $totalCardsProduced,
                 'new_cards_produced' => $newCardsProduced,
                 'renewal_cards_produced' => $renewalCardsProduced,
@@ -120,14 +120,14 @@ class DashboardController
                 'processing_overview' => $analytics['processing_overview'] ?? [],
                 'sla' => [
                     'target_working_days' => (int) config('nis.sla_working_days', 10),
-                    'overdue' => Application::where('status', ApplicationStatus::PendingApproval)
+                    'overdue' => Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::PendingApproval)
                         ->where('submitted_at', '<', WorkingDays::cutoff(config('nis.sla_working_days', 10)))->count(),
-                    'assigned_to_me' => Application::where('assigned_to', $user->id)
+                    'assigned_to_me' => Application::forStaffJurisdiction($user)->where('assigned_to', $user->id)
                         ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued])->count(),
                 ],
                 'card_stock' => $cardStock,
                 'queue_today' => QueueTicket::whereDate('service_date', today())->selectRaw('status, count(*) as total')->groupByRaw('1')->pluck('total', 'status')->map(fn ($v) => (int) $v),
-                'todays_appointments' => Application::where('status', ApplicationStatus::ApprovedForBiometrics)->whereDate('appointment_date', today())->count(),
+                'todays_appointments' => Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::ApprovedForBiometrics)->whereDate('appointment_date', today())->count(),
                 'analytics' => $analytics,
                 'my_activity' => [
                     'decided' => Application::where('decided_by', $user->id)->count(),

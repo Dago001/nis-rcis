@@ -14,6 +14,11 @@ class Payment extends Model
 
     protected $hidden = ['gateway_response'];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
+    }
+
     protected function casts(): array
     {
         return [

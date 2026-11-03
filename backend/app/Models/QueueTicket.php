@@ -9,6 +9,11 @@ class QueueTicket extends Model
 {
     protected $guarded = ['id'];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
+    }
+
     protected function casts(): array
     {
         return [

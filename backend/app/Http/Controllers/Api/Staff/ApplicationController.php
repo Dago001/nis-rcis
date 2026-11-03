@@ -204,9 +204,14 @@ class ApplicationController
     }
 
     /** Internal notes: visible to staff only, never to the applicant. */
-    public function notes(int $id): JsonResponse
+    public function notes(Request $request, int $id): JsonResponse
     {
-        $notes = ApplicationNote::with('author:id,fullname,service_number')->where('application_id', Application::findOrFail($id)->id)->latest('id')->get();
+        $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to view notes for this application.');
+        }
+
+        $notes = ApplicationNote::with('author:id,fullname,service_number')->where('application_id', $application->id)->latest('id')->get();
 
         return response()->json(['data' => $notes->map(fn (ApplicationNote $n) => [
             'id' => $n->id, 'body' => $n->body, 'at' => $n->created_at?->toIso8601String(),
@@ -218,6 +223,10 @@ class ApplicationController
     {
         $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
         $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to add notes to this application.');
+        }
+
         $note = ApplicationNote::create(['application_id' => $application->id, 'user_id' => $request->user()->id, 'body' => $data['body']]);
         Audit::log('APPLICATION_NOTE_ADDED', "Internal note added to {$application->application_number}", $application);
 
@@ -229,6 +238,10 @@ class ApplicationController
     {
         $data = $request->validate(['user_id' => ['nullable', 'integer']]);
         $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to assign this application.');
+        }
+
         $assignee = null;
         if (! empty($data['user_id'])) {
             $assignee = User::where('is_active', true)->findOrFail($data['user_id']);
@@ -253,9 +266,13 @@ class ApplicationController
     }
 
     /** Re-run the fraud and duplicate checks (e.g. after new documents). */
-    public function riskCheck(int $id, RiskChecker $checker): JsonResponse
+    public function riskCheck(Request $request, int $id, RiskChecker $checker): JsonResponse
     {
         $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to perform risk checks on this application.');
+        }
+
         $flags = $checker->check($application);
         Audit::log('APPLICATION_RISK_CHECK', "Fraud and duplicate checks re-run on {$application->application_number}", $application, ['flags' => count($flags)]);
 
@@ -410,6 +427,11 @@ class ApplicationController
     public function uploadDocument(Request $request, int $id, DocumentStorage $storage): ApplicationResource
     {
         $application = Application::findOrFail($id);
+        $officer = $this->officer($request);
+        if ($officer && ! $officer->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction over this application.');
+        }
+
         abort_unless($application->status->isOpen(), 422, 'This application is closed.');
 
         $data = $request->validate([
@@ -652,15 +674,24 @@ class ApplicationController
     }
 
     /** Latest answers from Interpol SLTD and the Ministry of Interior quota register. */
-    public function integrationChecks(int $id): JsonResponse
+    public function integrationChecks(Request $request, int $id): JsonResponse
     {
-        return response()->json(['data' => $this->presentChecks(Application::findOrFail($id))]);
+        $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to view integration checks for this application.');
+        }
+
+        return response()->json(['data' => $this->presentChecks($application)]);
     }
 
     /** Run the external checks again (for example when a connection was down). */
     public function runIntegrationChecks(Request $request, int $id, IntegrationChecks $checks, RiskChecker $risk): JsonResponse
     {
         $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to run integration checks for this application.');
+        }
+
         $checks->run($application, $this->officer($request));
         $risk->check($application);
 
@@ -689,16 +720,26 @@ class ApplicationController
         return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'statusHistory']));
     }
 
-    public function document(int $id, int $documentId, DocumentStorage $storage): JsonResponse
+    public function document(Request $request, int $id, int|string $document, DocumentStorage $storage): JsonResponse
     {
-        $document = Application::findOrFail($id)->allDocuments()->findOrFail($documentId);
+        $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to view documents for this application.');
+        }
 
-        return response()->json(['url' => $storage->temporaryUrl($document), 'expires_in' => config('nis.document_url_ttl_minutes') * 60]);
+        $docId = (int) $document;
+        $documentModel = $application->allDocuments()->findOrFail($docId);
+
+        return response()->json(['url' => $storage->temporaryUrl($documentModel), 'expires_in' => config('nis.document_url_ttl_minutes') * 60]);
     }
 
     public function slip(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
         $application = Application::with(['enrollmentCenter', 'documents', 'principal', 'card'])->findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to access this application slip.');
+        }
+
         $payment = $application->payments()->where('status', 'SUCCESS')->latest('id')->first();
 
         return response()->json([
@@ -726,6 +767,10 @@ class ApplicationController
     public function temporaryCard(Request $request, int $id, DocumentStorage $storage, TemporaryResidenceCardService $service): JsonResponse
     {
         $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to access this temporary residence card.');
+        }
+
         $service->assertEligible($application);
 
         return response()->json([
@@ -736,6 +781,10 @@ class ApplicationController
     public function temporaryCardPdf(Request $request, int $id, DocumentStorage $storage, TemporaryResidenceCardService $service): Response
     {
         $application = Application::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to access this temporary residence card.');
+        }
+
         $service->assertEligible($application);
         $pdfBytes = $service->renderPdf($application, $storage);
 

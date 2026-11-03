@@ -40,6 +40,7 @@ class CardController
         ]);
 
         $query = ResidenceCard::query()
+            ->forStaffJurisdiction($request->user())
             ->with(['application.enrollmentCenter', 'application.renewalOfCard', 'renewals'])
             ->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])
             ->latest('id');
@@ -202,13 +203,17 @@ class CardController
         ]);
     }
 
-    public function show(int $id, DocumentStorage $storage): JsonResponse
+    public function show(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
         $card = ResidenceCard::with([
             'renewals',
             'application.enrollmentCenter',
             'printJobs' => fn ($q) => $q->with('printer:id,fullname,service_number')->latest('id'),
         ])->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])->findOrFail($id);
+
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to view this residence card.');
+        }
 
         return response()->json([
             'data' => new CardResource($card),
@@ -221,13 +226,30 @@ class CardController
      * Everything needed to view and print the card, booklet and certificate,
      * including the QR verification URL.
      */
-    public function print(int $id, DocumentStorage $storage): JsonResponse
+    public function print(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
         $card = ResidenceCard::with([
             'renewals',
             'application',
             'printJobs' => fn ($q) => $q->with('printer:id,fullname,service_number')->latest('id'),
         ])->withCount(['printJobs as printed_count' => fn ($q) => $q->where('outcome', 'PRINTED')])->findOrFail($id);
+
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to print this residence card.');
+        }
+
+        abort_unless(
+            $request->user()->hasRole(
+                \App\Enums\StaffRole::CardProductionOfficer,
+                \App\Enums\StaffRole::ProductionOfficer,
+                \App\Enums\StaffRole::HeadquartersAdmin,
+                \App\Enums\StaffRole::SuperAdmin,
+                \App\Enums\StaffRole::Admin
+            ),
+            403,
+            'Card printing is restricted to authorized Headquarters Card Production Officers.'
+        );
+
         abort_unless(in_array($card->status, [CardStatus::Approved, CardStatus::Issued, CardStatus::Renewed], true), 422, 'Only an approved card can be viewed and printed.');
 
         return response()->json([
@@ -255,6 +277,11 @@ class CardController
         unset($data['change_reason']);
         abort_if($data === [], 422, 'No changes to request.');
         $card = ResidenceCard::findOrFail($id);
+
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to update this residence card.');
+        }
+
         abort_unless(in_array($card->status, [CardStatus::Approved, CardStatus::Queried], true), 422, 'Only cards that are not yet issued can be corrected.');
 
         return $this->pending($rule->request(ApprovalRequest::UPDATE, $card, $request->user(), $reason, $data));
@@ -268,6 +295,10 @@ class CardController
         ]);
 
         $card = ResidenceCard::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction over this residence card.');
+        }
+
         $card = $data['decision'] === 'APPROVE'
             ? $issuance->approve($card, $request->user())
             : $issuance->query($card, $request->user(), $data['notes']);
@@ -277,7 +308,12 @@ class CardController
 
     public function readyForCollection(Request $request, int $id, CardIssuance $issuance): ApplicationResource
     {
-        $application = $issuance->markReadyForCollection(ResidenceCard::with('application')->findOrFail($id), $request->user());
+        $card = ResidenceCard::with(['application.enrollmentCenter', 'actualEnrollmentCenter', 'distribution'])->findOrFail($id);
+        if ($request->user() && ! $request->user()->canIssueCard($card)) {
+            abort(403, 'You do not have jurisdiction to manage collection for this card.');
+        }
+
+        $application = $issuance->markReadyForCollection($card, $request->user());
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'statusHistory']));
     }
@@ -293,7 +329,12 @@ class CardController
             'remarks' => ['nullable', 'string', 'max:500'],
         ]);
 
-        return new CardResource($issuance->renew(ResidenceCard::findOrFail($id), $request->user(), $data)->load('renewals'));
+        $card = ResidenceCard::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to renew this residence card.');
+        }
+
+        return new CardResource($issuance->renew($card, $request->user(), $data)->load('renewals'));
     }
 
     /** Two-person rule: creates a request a second officer must approve. */
@@ -301,6 +342,10 @@ class CardController
     {
         $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
         $card = ResidenceCard::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to revoke this residence card.');
+        }
+
         abort_if($card->status === CardStatus::Revoked, 422, 'This card is already revoked.');
         $approval = $rule->request(ApprovalRequest::REVOKE, $card, $request->user(), $data['reason']);
 
@@ -312,6 +357,10 @@ class CardController
     {
         $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
         $card = ResidenceCard::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to reinstate this residence card.');
+        }
+
         abort_unless($card->status === CardStatus::Revoked, 422, 'Only a revoked card can be reinstated.');
         $approval = $rule->request(ApprovalRequest::REINSTATE, $card, $request->user(), $data['reason']);
 
@@ -334,14 +383,23 @@ class CardController
             'reason' => ['required_if:watchlisted,true', 'nullable', 'string', 'max:255'],
         ]);
 
-        return new CardResource($issuance->setWatchlist(ResidenceCard::findOrFail($id), $request->user(), (bool) $data['watchlisted'], $data['reason'] ?? null));
+        $card = ResidenceCard::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to watchlist this residence card.');
+        }
+
+        return new CardResource($issuance->setWatchlist($card, $request->user(), (bool) $data['watchlisted'], $data['reason'] ?? null));
     }
 
     /** The holder found the card: withdraw the lost/stolen report. */
     public function clearLostReport(Request $request, int $id, CardIssuance $issuance): CardResource
     {
         $data = $request->validate(['notes' => ['required', 'string', 'max:255']]);
+        $card = ResidenceCard::findOrFail($id);
+        if ($request->user() && ! $request->user()->canAccessCard($card)) {
+            abort(403, 'You do not have jurisdiction to clear lost reports on this residence card.');
+        }
 
-        return new CardResource($issuance->clearLostReport(ResidenceCard::findOrFail($id), $request->user(), $data['notes']));
+        return new CardResource($issuance->clearLostReport($card, $request->user(), $data['notes']));
     }
 }

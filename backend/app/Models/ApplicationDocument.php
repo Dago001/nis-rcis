@@ -16,6 +16,11 @@ class ApplicationDocument extends Model
 
     protected $hidden = ['disk', 'path'];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\RowLevelSecurityScope);
+    }
+
     protected function casts(): array
     {
         return [
