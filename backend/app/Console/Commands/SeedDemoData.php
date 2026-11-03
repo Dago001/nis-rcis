@@ -48,8 +48,13 @@ class SeedDemoData extends Command
             return self::FAILURE;
         }
 
-        if (User::where('username', 'demo.admin')->exists()) {
-            $this->info('Demo data is already loaded. Updating passwords to '.self::PASSWORD.'...');
+        if (User::whereIn('username', ['admin', 'demo.admin'])->exists()) {
+            $this->info('Demo data is already loaded. Updating usernames and passwords...');
+            User::where('username', 'demo.admin')->update(['username' => 'admin', 'email' => 'admin@example.com']);
+            User::where('username', 'demo.approver')->update(['username' => 'approver', 'email' => 'approver@example.com']);
+            User::where('username', 'demo.issuer')->update(['username' => 'issuer', 'email' => 'issuer@example.com']);
+            User::where('username', 'demo.inspector')->update(['username' => 'inspector', 'email' => 'inspector@example.com']);
+            User::where('username', 'demo.auditor')->update(['username' => 'auditor', 'email' => 'auditor@example.com']);
             User::query()->update(['password' => self::PASSWORD, 'must_change_password' => false]);
             Applicant::query()->update(['password' => self::PASSWORD]);
             $this->printAccounts();
@@ -97,11 +102,11 @@ class SeedDemoData extends Command
     private function createStaff(): array
     {
         $rows = [
-            'admin' => ['demo.admin', 'Ibrahim Musa', '10001', StaffRole::SuperAdmin],
-            'approver' => ['demo.approver', 'Ngozi Adeleke', '10002', StaffRole::ApprovingOfficer],
-            'issuer' => ['demo.issuer', 'Chinedu Okoro', '10003', StaffRole::IssuingOfficer],
-            'inspector' => ['demo.inspector', 'Fatima Bello', '10004', StaffRole::Inspector],
-            'auditor' => ['demo.auditor', 'Emeka Nwosu', '10005', StaffRole::Auditor],
+            'admin' => ['admin', 'Ibrahim Musa', '10001', StaffRole::SuperAdmin],
+            'approver' => ['approver', 'Ngozi Adeleke', '10002', StaffRole::ApprovingOfficer],
+            'issuer' => ['issuer', 'Chinedu Okoro', '10003', StaffRole::IssuingOfficer],
+            'inspector' => ['inspector', 'Fatima Bello', '10004', StaffRole::Inspector],
+            'auditor' => ['auditor', 'Emeka Nwosu', '10005', StaffRole::Auditor],
         ];
 
         return collect($rows)->map(fn ($r) => User::create([
@@ -335,11 +340,11 @@ class SeedDemoData extends Command
         $this->newLine();
         $this->line('All demo accounts use the password: <comment>'.self::PASSWORD.'</comment>');
         $this->table(['Staff (sign in at /staff)', 'Service no.', 'Role'], [
-            ['demo.admin', '10001', 'SuperAdmin'],
-            ['demo.approver', '10002', 'ApprovingOfficer'],
-            ['demo.issuer', '10003', 'IssuingOfficer'],
-            ['demo.inspector', '10004', 'Inspector'],
-            ['demo.auditor', '10005', 'Auditor'],
+            ['admin', '10001', 'SuperAdmin'],
+            ['approver', '10002', 'ApprovingOfficer'],
+            ['issuer', '10003', 'IssuingOfficer'],
+            ['inspector', '10004', 'Inspector'],
+            ['auditor', '10005', 'Auditor'],
         ]);
         $this->table(['Applicant (sign in at /portal)', 'Application is'], [
             ['john.smith@example.com', 'ISSUED - card collected (try renewal / verification)'],

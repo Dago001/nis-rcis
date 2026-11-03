@@ -70,11 +70,11 @@ Sign in with the **service number** (or the username).
 
 | Service no. | Username | Role | Can do |
 |---|---|---|---|
-| 10001 | demo.admin | Super Administrator | Everything, including staff accounts, assisted applications, reinstating cards and CSV export |
-| 10002 | demo.approver | Approving Officer | Approve, query or reject applications; approve cards; revoke and watchlist cards |
-| 10003 | demo.issuer | Issuing Officer | Biometrics desk, mark cards ready, record collection, renew cards |
-| 10004 | demo.inspector | Inspector | View only |
-| 10005 | demo.auditor | Auditor | View, plus the audit trail |
+| 10001 | admin | Super Administrator | Everything, including staff accounts, assisted applications, reinstating cards and CSV export |
+| 10002 | approver | Approving Officer | Approve, query or reject applications; approve cards; revoke and watchlist cards |
+| 10003 | issuer | Issuing Officer | Biometrics desk, mark cards ready, record collection, renew cards |
+| 10004 | inspector | Inspector | View only |
+| 10005 | auditor | Auditor | View, plus the audit trail |
 
 ### Applicant portal: http://localhost:3000/portal
 
@@ -95,7 +95,7 @@ Sign in with the **service number** (or the username).
 Tick each item as you go. If something doesn't behave as described, note the test number and take a screenshot (see [Reporting a problem](#8-reporting-a-problem)).
 
 ### A. Approving an application
-- [ ] **A1.** Sign in to the staff console as **10002** (demo.approver). The dashboard shows counts such as *Awaiting approval*.
+- [ ] **A1.** Sign in to the staff console as **10002** (approver). The dashboard shows counts such as *Awaiting approval*.
 - [ ] **A2.** Open **Approval queue** and click **RC-2026-100001** (Kwame Mensah). You see his particulars, photo, documents (click **View**), payment and workflow history.
 - [ ] **A3.** Click **Approve for biometrics**. The status changes to *Approved for biometrics* and the history shows the new step.
 - [ ] **A4.** Try **Query applicant** or **Reject** on another application without writing notes: the buttons stay disabled, because notes are required.
@@ -106,7 +106,7 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 - [ ] **B3.** Back in the staff console, the application is in the *Awaiting approval* tab again, with the applicant's response in the history.
 
 ### C. Biometrics desk
-- [ ] **C1.** Sign in as **10003** (demo.issuer). Open **Approval queue → Biometrics** and click **RC-2026-100003** (Li Wei), then **Open biometrics desk**.
+- [ ] **C1.** Sign in as **10003** (issuer). Open **Approval queue → Biometrics** and click **RC-2026-100003** (Li Wei), then **Open biometrics desk**.
 - [ ] **C2.** Allow the browser to use your **webcam**, tick the passport confirmation, click **Capture photo**, and sign in the signature box with your mouse.
 - [ ] **C3.** Click **Save biometrics and create card**. You are taken to the new card, with status *Awaiting approval* (APPROVED).
 
@@ -144,7 +144,7 @@ Tick each item as you go. If something doesn't behave as described, note the tes
 ### G. Security actions
 - [ ] **G1.** As **10002**, open card 389109, write a reason and click **Watchlist**. Verify the card again at `/verify`: it now says *"Refer the holder to the nearest NIS office"* and does **not** show the reason.
 - [ ] **G2.** Click **Revoke** with a reason. The card becomes *REVOKED*.
-- [ ] **G3.** The Approving Officer has **no** Reinstate button. Sign in as **10001** (demo.admin): **Reinstate card** is available.
+- [ ] **G3.** The Approving Officer has **no** Reinstate button. Sign in as **10001** (admin): **Reinstate card** is available.
 
 ### H. Roles and permissions
 - [ ] **H1.** As **10004** (Inspector), open any pending application: there is **no Decision** panel.
