@@ -19,10 +19,12 @@ use App\Http\Controllers\Api\Staff\ApplicationController as StaffApplications;
 use App\Http\Controllers\Api\Staff\ApprovalController;
 use App\Http\Controllers\Api\Staff\AuditLogController;
 use App\Http\Controllers\Api\Staff\CardController;
+use App\Http\Controllers\Api\Staff\CardDistributionController;
 use App\Http\Controllers\Api\Staff\CardIssuanceController;
 use App\Http\Controllers\Api\Staff\CardStockController;
 use App\Http\Controllers\Api\Staff\DashboardController;
 use App\Http\Controllers\Api\Staff\DataBreachController;
+use App\Http\Controllers\Api\Staff\GeofenceController;
 use App\Http\Controllers\Api\Staff\PaymentController as StaffPayments;
 use App\Http\Controllers\Api\Staff\QueueController;
 use App\Http\Controllers\Api\Staff\RefundController;
@@ -197,10 +199,27 @@ Route::prefix('v1')->group(function () {
         Route::get('cards', [CardController::class, 'index']);
         Route::get('cards/{id}', [CardController::class, 'show'])->whereNumber('id');
 
+        // Physical Geofencing perimeters and location verification
+        Route::prefix('geofence')->group(function () {
+            Route::get('locations', [GeofenceController::class, 'locations']);
+            Route::get('my-office', [GeofenceController::class, 'myOffice']);
+            Route::post('verify', [GeofenceController::class, 'verify']);
+        });
+
+        // Centralized Card Distribution & Logistics (Headquarters -> Zones -> Commands)
+        Route::prefix('card-distributions')->group(function () {
+            Route::get('/', [CardDistributionController::class, 'index']);
+            Route::get('{id}', [CardDistributionController::class, 'show'])->whereNumber('id');
+            Route::post('dispatch', [CardDistributionController::class, 'dispatchBatch'])
+                ->middleware('role:CardDistributionOfficer,HeadquartersAdmin,SuperAdmin,Admin');
+            Route::post('receive', [CardDistributionController::class, 'confirmReceiptBatch'])
+                ->middleware('role:CardReceivingOfficer,CardIssuanceOfficer,CommandAdmin,ZonalAdmin,SuperAdmin,Admin');
+        });
+
         // Card issuance desk (ready for collection and handover)
         Route::prefix('card-issuance')->group(function () {
             Route::get('/', [CardIssuanceController::class, 'index']);
-            Route::middleware('role:IssuingOfficer,ApprovingOfficer,ProductionOfficer,Supervisor,Admin')->group(function () {
+            Route::middleware('role:IssuingOfficer,CardIssuanceOfficer,CardReceivingOfficer,ApprovingOfficer,ProductionOfficer,Supervisor,Admin,CommandAdmin,ZonalAdmin,HeadquartersAdmin')->group(function () {
                 Route::post('{id}/ready', [CardIssuanceController::class, 'markReady'])->whereNumber('id');
                 Route::post('{id}/issue-out', [CardIssuanceController::class, 'issueOut'])->whereNumber('id');
                 Route::post('batch-ready', [CardIssuanceController::class, 'batchReady']);
@@ -273,7 +292,7 @@ Route::prefix('v1')->group(function () {
         Route::post('data-breaches', [DataBreachController::class, 'store'])->middleware('role:SuperAdmin,Admin');
         Route::patch('data-breaches/{id}', [DataBreachController::class, 'update'])->middleware('role:SuperAdmin,Admin')->whereNumber('id');
 
-        Route::middleware('role:SuperAdmin,Admin')->group(function () {
+        Route::middleware('role:SuperAdmin,Admin,HeadquartersAdmin,ZonalAdmin,CommandAdmin')->group(function () {
             Route::get('users', [UserController::class, 'index']);
             Route::post('users', [UserController::class, 'store']);
             Route::patch('users/{id}', [UserController::class, 'update'])->whereNumber('id');

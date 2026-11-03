@@ -12,11 +12,21 @@ export type CardStatus = "APPROVED" | "QUERIED" | "ISSUED" | "RENEWED" | "REVOKE
 
 export type StaffRole =
   | "SuperAdmin"
+  | "HeadquartersAdmin"
+  | "ZonalAdmin"
+  | "CommandAdmin"
+  | "VettingOfficer"
+  | "ApprovingOfficer"
+  | "BiometricsOfficer"
+  | "CardProductionOfficer"
+  | "CardDistributionOfficer"
+  | "CardReceivingOfficer"
+  | "CardIssuanceOfficer"
+  | "ReportingAuditOfficer"
+  // Legacy / backward compatibility
   | "Admin"
   | "Supervisor"
-  | "VettingOfficer"
   | "DataEntryOfficer"
-  | "ApprovingOfficer"
   | "EnrollmentOfficer"
   | "ProductionOfficer"
   | "IssuingOfficer"
@@ -288,6 +298,13 @@ export type StaffUser = {
   role: StaffRole;
   role_label?: string;
   command: string;
+  command_id?: number | null;
+  command_name?: string | null;
+  zone_id?: number | null;
+  zone_name?: string | null;
+  headquarters_unit?: string | null;
+  is_headquarters?: boolean;
+  geofence_exempt?: boolean;
   state?: string | null;
   lga?: string | null;
   is_active?: boolean;
@@ -295,6 +312,53 @@ export type StaffUser = {
   last_login_at?: string | null;
   unread_notifications?: number;
   two_factor_enabled?: boolean;
+};
+
+export type CardDistributionStatus =
+  | "AWAITING_DISPATCH"
+  | "DISPATCHED"
+  | "RECEIVED"
+  | "AVAILABLE_FOR_ISSUANCE"
+  | "ISSUED";
+
+export type CardDistribution = {
+  id: number;
+  card_id: number;
+  application_id: number;
+  batch_reference: string;
+  status: CardDistributionStatus;
+  destination_zone_id?: number | null;
+  destination_zone?: string | null;
+  destination_command_id?: number | null;
+  destination_command?: string | null;
+  dispatched_at?: string | null;
+  dispatched_by?: string | null;
+  received_at?: string | null;
+  received_by?: string | null;
+  issued_at?: string | null;
+  issued_by?: string | null;
+  card_number?: string;
+  applicant_name?: string;
+  applicant_passport?: string;
+  is_physically_received?: boolean;
+};
+
+export type NisOfficeLocation = {
+  id: number;
+  name: string;
+  code: string;
+  office_type: "HEADQUARTERS" | "ZONAL_OFFICE" | "STATE_COMMAND" | "SPECIAL_BORDER_COMMAND" | "ENROLLMENT_CENTER";
+  zone_id?: number | null;
+  zone_name?: string | null;
+  command_id?: number | null;
+  command_name?: string | null;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  address?: string | null;
+  enforce_biometrics: boolean;
+  enforce_card_issuance: boolean;
+  enforce_card_receipt: boolean;
 };
 
 export type Paginated<T> = {

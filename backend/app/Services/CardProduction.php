@@ -39,6 +39,11 @@ class CardProduction
     /** Record the result of printing a card: it used one blank card. */
     public function record(ResidenceCard $card, User $officer, string $outcome, ?string $reason = null): CardPrintJob
     {
+        // Enforce centralized production at NIS Service Headquarters only
+        if (! $officer->isHeadquarters()) {
+            throw ValidationException::withMessages(['production' => 'Card Production is strictly centralized at NIS Service Headquarters. Zonal and Command officers cannot produce residence cards.']);
+        }
+
         $statusValue = $card->status instanceof \App\Enums\CardStatus ? $card->status->value : (string) $card->status;
         if (! in_array($statusValue, ['APPROVED', 'ISSUED', 'RENEWED'], true)) {
             throw ValidationException::withMessages(['card' => "Card {$card->card_number} is {$statusValue} and cannot be printed."]);
@@ -86,15 +91,32 @@ class CardProduction
                 'printed_by' => $officer->id,
             ]);
 
-            // When card printing is confirmed, advance application to READY_FOR_COLLECTION
-            // so it appears in Card Issuance under 'Awaiting Issuance' without being marked as ISSUED
-            if ($outcome === CardPrintJob::PRINTED && $lockedCard->application) {
+            // When card printing is confirmed, create card distribution record for dispatch to destination Zone/Command
+            if ($outcome === CardPrintJob::PRINTED) {
                 $app = $lockedCard->application()->lockForUpdate()->first();
-                if ($app && in_array($app->status, [\App\Enums\ApplicationStatus::Approved, \App\Enums\ApplicationStatus::ApprovedForBiometrics, \App\Enums\ApplicationStatus::BiometricsCaptured], true)) {
-                    $app->status = \App\Enums\ApplicationStatus::ReadyForCollection;
-                    $app->ready_at = now();
-                    $app->saveQuietly();
+                $destZoneId = null;
+                $destCommandId = null;
+                $destCenterId = null;
+
+                if ($app) {
+                    $app->loadMissing('enrollmentCenter');
+                    $destZoneId = $app->enrollmentCenter?->zone_id ?? $lockedCard->actualEnrollmentCenter?->zone_id;
+                    $destCommandId = $app->enrollmentCenter?->command_id ?? $lockedCard->actualEnrollmentCenter?->command_id;
+                    $destCenterId = $app->actual_enrollment_center_id ?? $app->enrollment_center_id;
                 }
+
+                \App\Models\CardDistribution::updateOrCreate(
+                    ['card_id' => $lockedCard->id],
+                    [
+                        'application_id' => $app?->id,
+                        'card_number' => $lockedCard->card_number,
+                        'application_number' => $app?->application_number ?? $lockedCard->decision_reference,
+                        'destination_zone_id' => $destZoneId,
+                        'destination_command_id' => $destCommandId,
+                        'destination_center_id' => $destCenterId,
+                        'status' => \App\Models\CardDistribution::STATUS_AWAITING_DISPATCH,
+                    ]
+                );
             }
 
             Audit::log($outcome === CardPrintJob::PRINTED ? 'CARD_PRINTED' : 'CARD_SPOILED',

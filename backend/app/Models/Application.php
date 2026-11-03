@@ -85,6 +85,51 @@ class Application extends Model
         return $this->belongsTo(ResidenceCard::class, 'card_id');
     }
 
+    public function cardDistribution(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CardDistribution::class, 'application_id');
+    }
+
+    public function scopeForStaffJurisdiction(\Illuminate\Database\Eloquent\Builder $query, ?User $user): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! $user || $user->isHeadquarters()) {
+            return $query;
+        }
+
+        if ($user->isZonal()) {
+            return $query->where(function ($q) use ($user) {
+                $q->whereHas('enrollmentCenter', fn ($cq) => $cq->where('zone_id', $user->zone_id))
+                  ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('zone_id', $user->zone_id))
+                  ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_zone_id', $user->zone_id));
+                if ($user->zone) {
+                    $q->orWhere('actual_enrollment_zone', $user->zone->name)
+                      ->orWhere('actual_enrollment_zone', $user->zone->code);
+                }
+            });
+        }
+
+        if ($user->isCommand()) {
+            return $query->where(function ($q) use ($user) {
+                $q->whereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                  ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                  ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
+                if ($user->nisCommand) {
+                    $q->orWhere('actual_enrollment_command', $user->nisCommand->name)
+                      ->orWhere('actual_enrollment_command', $user->nisCommand->code);
+                }
+            });
+        }
+
+        if ($user->state) {
+            return $query->where(function ($q) use ($user) {
+                $q->whereHas('enrollmentCenter', fn ($cq) => $cq->where('state', $user->state))
+                  ->orWhere('domicile_state', $user->state);
+            });
+        }
+
+        return $query;
+    }
+
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');

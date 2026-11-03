@@ -1,52 +1,99 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { PageTitle } from "@/components/PageTitle";
 import { useStaff } from "@/components/StaffShell";
 import { Alert, Button, Field, Input, Panel, Select, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime } from "@/lib/format";
-import { NIGERIA_LGAS } from "@/lib/nigeria-lgas";
 import type { StaffRole, StaffUser } from "@/lib/types";
 
 const ALL_ROLES: [StaffRole, string][] = [
   ["SuperAdmin", "Super Administrator"],
-  ["Admin", "Admin"],
-  ["Supervisor", "Supervisor"],
+  ["HeadquartersAdmin", "Headquarters Administrator"],
+  ["ZonalAdmin", "Zonal Administrator"],
+  ["CommandAdmin", "Command Administrator"],
   ["VettingOfficer", "Vetting Officer"],
   ["ApprovingOfficer", "Approving Officer"],
-  ["EnrollmentOfficer", "Enrollment Officer"],
-  ["ProductionOfficer", "Production Officer"],
-  ["IssuingOfficer", "Issuing Officer"],
+  ["BiometricsOfficer", "Biometrics Officer"],
+  ["CardProductionOfficer", "Card Production Officer (HQ Sauka)"],
+  ["CardDistributionOfficer", "Card Distribution Officer (HQ Sauka)"],
+  ["CardReceivingOfficer", "Card Receiving Officer (Commands)"],
+  ["CardIssuanceOfficer", "Card Issuance Officer (Commands)"],
+  ["ReportingAuditOfficer", "Reporting / Audit Officer"],
+  // Legacy roles maintained for backward compatibility
+  ["Admin", "Administrator (Legacy)"],
+  ["Supervisor", "Supervisor (Legacy)"],
+  ["EnrollmentOfficer", "Enrollment Officer (Legacy)"],
+  ["ProductionOfficer", "Production Officer (Legacy)"],
+  ["IssuingOfficer", "Issuing Officer (Legacy)"],
 ];
 
-const STATES = Object.keys(NIGERIA_LGAS).sort();
+interface NisZoneItem {
+  id: number;
+  code: string;
+  name: string;
+  commands: { id: number; code: string; name: string; state?: string }[];
+}
 
 export default function UsersPage() {
   const me = useStaff();
   const [users, setUsers] = useState<StaffUser[] | null>(null);
+  const [zones, setZones] = useState<NisZoneItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  // Form State for dynamic Command / State / LGA
+  // Form State for dynamic Geographic Allocation
   const [selectedRole, setSelectedRole] = useState<StaffRole>("VettingOfficer");
-  const [selectedState, setSelectedState] = useState<string>("");
-  const [selectedLga, setSelectedLga] = useState<string>("");
-  const [commandType, setCommandType] = useState<"STATE_LGA" | "HEADQUARTERS">("STATE_LGA");
+  const [allocationLevel, setAllocationLevel] = useState<"HEADQUARTERS" | "ZONE" | "COMMAND">("HEADQUARTERS");
+  const [hqUnit, setHqUnit] = useState<string>("NIS Headquarters Sauka Abuja");
+  const [selectedZoneId, setSelectedZoneId] = useState<number | "">("");
+  const [selectedCommandId, setSelectedCommandId] = useState<number | "">("");
+  const [geofenceExempt, setGeofenceExempt] = useState(false);
 
-  // Filter roles based on logged in user: Admin cannot see or add SuperAdmin
+  // Filter available roles based on logged-in user jurisdiction
   const availableRoles = ALL_ROLES.filter(([role]) => {
-    if (me.role === "Admin" && role === "SuperAdmin") return false;
-    return true;
+    if (me.role === "SuperAdmin") return true;
+    if (me.role === "HeadquartersAdmin" || me.role === "Admin") {
+      return role !== "SuperAdmin";
+    }
+    if (me.role === "ZonalAdmin") {
+      return !["SuperAdmin", "HeadquartersAdmin", "CardProductionOfficer", "CardDistributionOfficer"].includes(role);
+    }
+    if (me.role === "CommandAdmin") {
+      return ["BiometricsOfficer", "CardReceivingOfficer", "CardIssuanceOfficer", "ReportingAuditOfficer", "EnrollmentOfficer", "IssuingOfficer"].includes(role);
+    }
+    return false;
   });
 
   const load = useCallback(() => api<{ data: StaffUser[] }>("staff", "users").then((r) => setUsers(r.data)), []);
+
   useEffect(() => {
     void load();
+    // Load NIS Zones & Commands directory
+    api<{ zones?: NisZoneItem[] }>("public", "enrollment-centers")
+      .then((r) => {
+        if (r.zones) setZones(r.zones);
+      })
+      .catch(() => {});
   }, [load]);
+
+  // Adjust allocation level automatically when role changes
+  useEffect(() => {
+    if (["CardProductionOfficer", "CardDistributionOfficer", "HeadquartersAdmin"].includes(selectedRole)) {
+      setAllocationLevel("HEADQUARTERS");
+    } else if (selectedRole === "ZonalAdmin") {
+      setAllocationLevel("ZONE");
+    } else if (["CardReceivingOfficer", "CardIssuanceOfficer", "CommandAdmin"].includes(selectedRole)) {
+      setAllocationLevel("COMMAND");
+    }
+  }, [selectedRole]);
+
+  const activeZone = zones.find((z) => z.id === selectedZoneId);
+  const activeCommands = activeZone ? activeZone.commands : zones.flatMap((z) => z.commands);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,14 +102,29 @@ export default function UsersPage() {
     const formData = new FormData(form);
     const payload: Record<string, any> = Object.fromEntries(formData);
 
-    if (commandType === "HEADQUARTERS") {
-      payload.command = "National Headquarters, Abuja";
-      payload.state = "";
-      payload.lga = "";
+    payload.role = selectedRole;
+    payload.geofence_exempt = geofenceExempt;
+
+    if (allocationLevel === "HEADQUARTERS") {
+      payload.headquarters_unit = hqUnit;
+      payload.command = `NIS Headquarters (${hqUnit})`;
+      payload.zone_id = null;
+      payload.command_id = null;
+    } else if (allocationLevel === "ZONE") {
+      payload.zone_id = selectedZoneId || null;
+      payload.command_id = null;
+      payload.headquarters_unit = null;
+      const z = zones.find((item) => item.id === selectedZoneId);
+      payload.command = z ? z.name : "NIS Zonal Headquarters";
     } else {
-      payload.state = selectedState;
-      payload.lga = selectedLga;
-      payload.command = selectedLga ? `${selectedLga} LGA, ${selectedState} State Command` : `${selectedState} State Command`;
+      payload.command_id = selectedCommandId || null;
+      payload.headquarters_unit = null;
+      const cmd = activeCommands.find((c) => c.id === selectedCommandId);
+      if (cmd) {
+        payload.command = cmd.name;
+        payload.zone_id = selectedZoneId || null;
+        payload.state = cmd.state || "";
+      }
     }
 
     try {
@@ -70,8 +132,9 @@ export default function UsersPage() {
       setNotice(r.message ?? `Account created. Temporary password and login credentials have been emailed to ${r.data.email}.`);
       form.reset();
       setShowForm(false);
-      setSelectedState("");
-      setSelectedLga("");
+      setSelectedZoneId("");
+      setSelectedCommandId("");
+      setGeofenceExempt(false);
       await load();
     } catch (e) {
       if (e instanceof ApiError) setErrors(e.fieldErrors());
@@ -120,163 +183,328 @@ export default function UsersPage() {
   const shown = (users ?? []).filter(
     (u) =>
       (!roleFilter || u.role === roleFilter) &&
-      (!q || [u.fullname, u.username, u.service_number, u.email, u.command, u.state, u.lga].some((v) => v?.toLowerCase().includes(q))),
+      (!q || [u.fullname, u.username, u.service_number, u.email, u.command, u.zone_name, u.command_name, u.headquarters_unit].some((v) => v?.toLowerCase().includes(q))),
   );
   const activeCount = (users ?? []).filter((u) => u.is_active).length;
-  const lgas = selectedState ? NIGERIA_LGAS[selectedState] ?? [] : [];
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Staff accounts & roles" subtitle="Create and assign officers to Headquarters, State Commands, and Local Government Area centres." />
+      <PageTitle
+        title="NIS Staff User Management & Access Control"
+        subtitle="Manage official NIS staff accounts, 5-digit service numbers, jurisdictional roles, and physical geofence boundaries across Headquarters, Zones, and Commands."
+      />
       {notice && <Alert tone="success">{notice}</Alert>}
+
       {showForm && (
-        <Panel title="Add new officer" actions={<Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setShowForm(false)}>Close</Button>}>
+        <Panel title="Add New NIS Officer Account" actions={<Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setShowForm(false)}>Close</Button>}>
           <form onSubmit={create} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Full name" error={errors.fullname}><Input name="fullname" required /></Field>
-              <Field label="Username" error={errors.username}><Input name="username" required /></Field>
-              <Field label="Service number" error={errors.service_number}><Input name="service_number" placeholder="e.g. NIS-10492" required /></Field>
-              <Field label="E-mail" error={errors.email}><Input name="email" type="email" required /></Field>
-              <Field label="Role" error={errors.role}>
-                <Select name="role" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as StaffRole)}>
-                  {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </Select>
+              <Field label="Full name & Rank" error={errors.fullname}>
+                <Input name="fullname" placeholder="e.g. Ibrahim Musa (DSI)" required />
               </Field>
-              <Field label="Assignment level">
-                <Select value={commandType} onChange={(e) => setCommandType(e.target.value as any)}>
-                  <option value="STATE_LGA">State & LGA Command</option>
-                  <option value="HEADQUARTERS">National Headquarters (Abuja)</option>
+              <Field label="Username" error={errors.username}>
+                <Input name="username" placeholder="e.g. ibrahim.musa" required />
+              </Field>
+              <Field label="5-Digit Service Number" error={errors.service_number}>
+                <div className="relative">
+                  <Input name="service_number" placeholder="10492 or NIS-10492" required />
+                  <span className="absolute right-2.5 top-2.5 text-[11px] font-mono font-medium text-slate-400">5 digits</span>
+                </div>
+              </Field>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Official E-mail Address" error={errors.email}>
+                <Input name="email" type="email" placeholder="officer@immigration.gov.ng" required />
+              </Field>
+              <Field label="Official Staff Role" error={errors.role}>
+                <Select
+                  name="role"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value as StaffRole)}
+                  required
+                >
+                  {availableRoles.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
                 </Select>
               </Field>
             </div>
 
-            {commandType === "STATE_LGA" && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/75 p-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600">Command Location & LGA Allocation</div>
+            {/* Geographical Jurisdiction Selection */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                NIS Organisational Jurisdiction & Deployment
+              </div>
+              <div className="mb-3 flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="allocation_type"
+                    checked={allocationLevel === "HEADQUARTERS"}
+                    onChange={() => setAllocationLevel("HEADQUARTERS")}
+                    className="text-emerald-700 focus:ring-emerald-600"
+                  />
+                  <span className="font-medium text-slate-800">NIS Service Headquarters (Sauka Abuja)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="allocation_type"
+                    checked={allocationLevel === "ZONE"}
+                    onChange={() => setAllocationLevel("ZONE")}
+                    className="text-emerald-700 focus:ring-emerald-600"
+                  />
+                  <span className="font-medium text-slate-800">NIS Zonal Office (Zone A - H)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="allocation_type"
+                    checked={allocationLevel === "COMMAND"}
+                    onChange={() => setAllocationLevel("COMMAND")}
+                    className="text-emerald-700 focus:ring-emerald-600"
+                  />
+                  <span className="font-medium text-slate-800">NIS State / Border Command</span>
+                </label>
+              </div>
+
+              {allocationLevel === "HEADQUARTERS" && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="State" error={errors.state}>
-                    <Select
-                      name="state"
-                      value={selectedState}
-                      onChange={(e) => {
-                        setSelectedState(e.target.value);
-                        setSelectedLga("");
-                      }}
-                      required
-                    >
-                      <option value="">Select State…</option>
-                      {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  <Field label="Headquarters Directorate / Unit" error={errors.headquarters_unit}>
+                    <Select value={hqUnit} onChange={(e) => setHqUnit(e.target.value)}>
+                      <option value="Central Card Production Centre">Central Card Production Centre</option>
+                      <option value="Logistics & Card Distribution Directorate">Logistics & Card Distribution Directorate</option>
+                      <option value="National Vetting & Investigation Directorate">National Vetting & Investigation Directorate</option>
+                      <option value="ICT & Border Management Systems">ICT & Border Management Systems</option>
+                      <option value="Comptroller General Office (CGO)">Comptroller General Office (CGO)</option>
+                      <option value="General Service Headquarters">General Service Headquarters</option>
                     </Select>
                   </Field>
-
-                  {selectedRole !== "ApprovingOfficer" && (
-                    <Field label="Local Government Area (LGA)" error={errors.lga}>
-                      <Select
-                        name="lga"
-                        value={selectedLga}
-                        disabled={!selectedState}
-                        onChange={(e) => setSelectedLga(e.target.value)}
-                        required
-                      >
-                        <option value="">{selectedState ? "Select LGA…" : "Select a State first"}</option>
-                        {lgas.map((l) => <option key={l} value={l}>{l}</option>)}
-                      </Select>
-                    </Field>
-                  )}
+                  <div className="flex items-center rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    ℹ️ Headquarters officers hold national purview for Vetting and Centralized Card Production.
+                  </div>
                 </div>
+              )}
 
-                <div className="mt-3 text-xs text-slate-500">
-                  {selectedRole === "ApprovingOfficer" ? (
-                    <span>• <strong>State Approving Officer:</strong> Maximum 1 active Approving Officer per State.</span>
-                  ) : (
-                    <span>• <strong>LGA Capacity Rule:</strong> Maximum 10 officers per LGA (5 Data Entry Officers and 5 Enrollment Officers).</span>
-                  )}
+              {allocationLevel === "ZONE" && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Select NIS Zone" error={errors.zone_id}>
+                    <Select
+                      value={selectedZoneId}
+                      onChange={(e) => setSelectedZoneId(e.target.value ? Number(e.target.value) : "")}
+                      required
+                    >
+                      <option value="">-- Choose NIS Zone --</option>
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.id}>{z.code} — {z.name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <div className="flex items-center rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    ℹ️ Zonal Administrators have oversight strictly over State Commands within their assigned Zone.
+                  </div>
                 </div>
+              )}
+
+              {allocationLevel === "COMMAND" && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Filter by Zone (Optional)">
+                    <Select
+                      value={selectedZoneId}
+                      onChange={(e) => {
+                        setSelectedZoneId(e.target.value ? Number(e.target.value) : "");
+                        setSelectedCommandId("");
+                      }}
+                    >
+                      <option value="">All Zones</option>
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.id}>{z.code} — {z.name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Select Official NIS Command" error={errors.command_id}>
+                    <Select
+                      value={selectedCommandId}
+                      onChange={(e) => setSelectedCommandId(e.target.value ? Number(e.target.value) : "")}
+                      required
+                    >
+                      <option value="">-- Choose NIS Command --</option>
+                      {activeCommands.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name} {c.state ? `(${c.state})` : ""}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              )}
+            </div>
+
+            {/* Geofence Configuration */}
+            {(me.role === "SuperAdmin" || me.role === "HeadquartersAdmin" || me.role === "Admin") && (
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                <input
+                  type="checkbox"
+                  id="geofence_exempt"
+                  checked={geofenceExempt}
+                  onChange={(e) => setGeofenceExempt(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                />
+                <label htmlFor="geofence_exempt" className="cursor-pointer text-slate-700">
+                  <span className="font-semibold text-slate-900">Exempt from Physical Office Geofence:</span> Check only for roving supervisors or emergency audit personnel who may operate outside authorized perimeter boundaries.
+                </label>
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
-              <Button type="submit">Create account</Button>
-              <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button type="submit">Create Official Account & Send Credentials</Button>
             </div>
           </form>
         </Panel>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-5 py-4">
-          <div className="mr-auto">
-            <h2 className="text-[15px] font-semibold text-slate-900">Officers & Commands</h2>
-            {users && <p className="text-xs text-slate-500">{users.length} accounts · {activeCount} active</p>}
+      <Panel>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold text-slate-900">NIS Staff Directory & Jurisdictions</h2>
+            {users && <p className="text-xs text-slate-500">{users.length} accounts • {activeCount} active</p>}
           </div>
-          <Input type="search" placeholder="Search name, role, LGA, command…" aria-label="Search officers" value={query} onChange={(e) => setQuery(e.target.value)} className="!w-full !py-2 sm:!w-72" />
-          <Select aria-label="Filter by role" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="!w-auto !py-2">
-            <option value="">All roles</option>
-            {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </Select>
-          {!showForm && <Button className="!py-2" onClick={() => setShowForm(true)}>+ Add officer</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="search"
+              placeholder="Search name, S/N, role, command..."
+              aria-label="Search officers"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="!w-full !py-2 sm:!w-64"
+            />
+            <Select
+              aria-label="Filter by role"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="!w-auto !py-2"
+            >
+              <option value="">All roles</option>
+              {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </Select>
+            {!showForm && (
+              <Button className="!py-2" onClick={() => setShowForm(true)}>+ Add Officer</Button>
+            )}
+          </div>
         </header>
 
-        {!users ? <div className="px-5"><Spinner /></div> : shown.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-slate-500">No officers match your search.</p>
+        {!users ? (
+          <div className="px-5 py-8 text-center"><Spinner /></div>
+        ) : shown.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-500">No NIS staff accounts match your filter criteria.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[840px] text-sm">
-              <thead className="text-left">
-                <tr className="[&>th]:whitespace-nowrap [&>th]:px-4 [&>th]:py-3 [&>th:first-child]:pl-5 [&>th:last-child]:pr-5">
-                  <th className="w-12 text-slate-500">S/N</th><th>Officer</th><th>Role</th><th>Command / Jurisdiction</th><th>Access</th><th className="text-right"><span className="sr-only">Actions</span></th>
+          <div className="-mx-5 mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-y border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+                <tr>
+                  <th className="w-12 pl-5 py-3">S/N</th>
+                  <th className="py-3">Officer Details</th>
+                  <th className="py-3">Official Role</th>
+                  <th className="py-3">Jurisdiction / Command</th>
+                  <th className="py-3">Physical Geofence</th>
+                  <th className="py-3">Status</th>
+                  <th className="pr-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {users && shown.map((u, idx) => (
-                  <tr key={u.id} className="align-middle [&>td]:px-4 [&>td]:py-3.5 [&>td:first-child]:pl-5 [&>td:last-child]:pr-5">
-                    <td className="font-mono text-xs text-slate-500">{idx + 1}</td>
-                    <td>
+              <tbody className="divide-y divide-slate-100">
+                {shown.map((u, idx) => (
+                  <tr key={u.id} className="align-middle hover:bg-slate-50/60">
+                    <td className="pl-5 py-3.5 text-xs text-slate-400 font-mono">{idx + 1}</td>
+                    <td className="py-3.5">
                       <div className="flex items-center gap-3">
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${u.is_active ? "bg-nis-mint text-nis-primary-dark" : "bg-slate-100 text-slate-400"}`}>{initials(u.fullname)}</span>
-                        <div className="min-w-0">
-                          <div className={`flex items-center gap-2 font-medium ${u.is_active ? "text-slate-900" : "text-slate-400"}`}>
-                            <span className="truncate">{u.fullname}</span>
-                            {u.id === me.id && <Badge tone="slate">You</Badge>}
-                            {!u.is_active && <Badge tone="red">Deactivated</Badge>}
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-800">
+                          {initials(u.fullname)}
+                        </span>
+                        <div>
+                          <div className="font-semibold text-slate-900">{u.fullname}</div>
+                          <div className="text-xs text-slate-500 font-mono">
+                            <span className="font-semibold text-emerald-700">{u.service_number}</span> • {u.email}
                           </div>
-                          <div className="truncate text-xs text-slate-500">{u.service_number} · {u.username}</div>
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td className="py-3.5">
                       {u.id === me.id ? (
-                        <span className="font-medium text-slate-800">{roleLabel(u.role)}</span>
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                          {roleLabel(u.role)} (You)
+                        </span>
                       ) : (
-                        <Select aria-label={`Role of ${u.fullname}`} value={u.role} disabled={!u.is_active} onChange={(e) => void changeRole(u, e.target.value)} className="!w-48 !py-1.5">
+                        <Select
+                          aria-label={`Role for ${u.fullname}`}
+                          value={u.role}
+                          onChange={(e) => changeRole(u, e.target.value)}
+                          className="!py-1 !text-xs !w-auto"
+                        >
                           {availableRoles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </Select>
                       )}
                     </td>
-                    <td>
-                      <div className="font-medium text-slate-800">{u.command}</div>
-                      {(u.state || u.lga) && (
+                    <td className="py-3.5">
+                      <div className="font-medium text-slate-800">
+                        {u.headquarters_unit ? `HQ: ${u.headquarters_unit}` : u.command_name || u.command}
+                      </div>
+                      {u.zone_name && (
                         <div className="text-xs text-slate-500">
-                          {u.lga ? `${u.lga} LGA · ` : ""}{u.state ? `${u.state} State` : ""}
+                          Zone: {u.zone_name} {u.state ? `• State: ${u.state}` : ""}
                         </div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap">
-                      {u.two_factor_enabled ? <Badge tone="green">Authenticator set up</Badge> : <Badge tone="amber">No authenticator</Badge>}
-                      <div className="mt-1 text-xs text-slate-500">{u.last_login_at ? `Last sign-in ${dateTime(u.last_login_at)}` : "Never signed in"}</div>
-                    </td>
-                    <td className="text-right">
-                      {u.id !== me.id && (
-                        <RowMenu
-                          label={`Actions for ${u.fullname}`}
-                          items={[
-                            { label: "Reset password", onSelect: () => void reset(u) },
-                            ...(u.two_factor_enabled ? [{ label: "Reset authenticator", onSelect: () => void resetTwoFactor(u) }] : []),
-                            { label: "Sign out everywhere", onSelect: () => void signOut(u) },
-                            { label: u.is_active ? "Deactivate account" : "Activate account", onSelect: () => void toggle(u), danger: u.is_active },
-                          ]}
-                        />
+                    <td className="py-3.5">
+                      {u.geofence_exempt ? (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">
+                          Exempt
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                          Enforced
+                        </span>
                       )}
+                    </td>
+                    <td className="py-3.5">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        u.is_active ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20" : "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20"
+                      }`}>
+                        {u.is_active ? "Active" : "Suspended"}
+                      </span>
+                    </td>
+                    <td className="pr-5 py-3.5 text-right space-x-1 whitespace-nowrap">
+                      {u.id !== me.id && (
+                        <Button
+                          variant="ghost"
+                          className="!px-2 !py-1 !text-xs"
+                          onClick={() => toggle(u)}
+                        >
+                          {u.is_active ? "Suspend" : "Activate"}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        className="!px-2 !py-1 !text-xs"
+                        onClick={() => reset(u)}
+                      >
+                        Reset PW
+                      </Button>
+                      {u.two_factor_enabled && (
+                        <Button
+                          variant="ghost"
+                          className="!px-2 !py-1 !text-xs"
+                          onClick={() => resetTwoFactor(u)}
+                        >
+                          Reset 2FA
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        className="!px-2 !py-1 !text-xs text-rose-600 hover:text-rose-700"
+                        onClick={() => signOut(u)}
+                      >
+                        Sign out
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -284,104 +512,15 @@ export default function UsersPage() {
             </table>
           </div>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }
 
-function roleLabel(role: string) {
+function roleLabel(role: string): string {
   return ALL_ROLES.find(([v]) => v === role)?.[1] ?? role;
 }
 
-function initials(name: string) {
+function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("");
-}
-
-function Badge({ tone, children }: { tone: "green" | "amber" | "red" | "slate"; children: ReactNode }) {
-  const tones = {
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    amber: "bg-amber-50 text-amber-800 ring-amber-600/20",
-    red: "bg-red-50 text-red-700 ring-red-600/20",
-    slate: "bg-slate-100 text-slate-600 ring-slate-500/20",
-  };
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${tones[tone]}`}>{children}</span>;
-}
-
-type MenuItem = { label: string; onSelect: () => void; danger?: boolean };
-
-/** "Manage" button with a dropdown; fixed-positioned so the table's horizontal scroll container doesn't clip it. */
-function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
-  const button = useRef<HTMLButtonElement>(null);
-  const menu = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!pos) return;
-    const close = () => setPos(null);
-    const onPointer = (e: PointerEvent) => {
-      if (!menu.current?.contains(e.target as Node) && !button.current?.contains(e.target as Node)) close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        close();
-        button.current?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointer);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    menu.current?.querySelector("button")?.focus({ preventScroll: true });
-    return () => {
-      document.removeEventListener("pointerdown", onPointer);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
-  }, [pos]);
-
-  function open() {
-    if (pos) return setPos(null);
-    const r = button.current!.getBoundingClientRect();
-    const height = items.length * 38 + 12;
-    const top = r.bottom + 6 + height > window.innerHeight ? r.top - 6 - height : r.bottom + 6;
-    setPos({ top, right: window.innerWidth - r.right });
-  }
-
-  return (
-    <>
-      <button
-        ref={button}
-        type="button"
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={!!pos}
-        onClick={open}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-slate-600 hover:text-nis-primary transition-colors focus:outline-none rounded hover:bg-slate-50"
-      >
-        <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4 text-slate-400 group-hover:text-nis-primary" fill="currentColor">
-          <path d="M10 6a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM10 12a2 2 0 1 1 0-4 2 2 0 0 1 0 4ZM10 18a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" />
-        </svg>
-        <span>Manage</span>
-      </button>
-      {pos && (
-        <div ref={menu} role="menu" style={{ top: pos.top, right: pos.right }} className="fixed z-50 w-56 rounded-lg border border-slate-200 bg-white py-1.5 text-left shadow-lg">
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setPos(null);
-                item.onSelect();
-              }}
-              className={`block w-full px-4 py-2 text-left text-sm focus:outline-none ${item.danger ? "text-red-700 hover:bg-red-50 focus:bg-red-50" : "text-slate-700 hover:bg-slate-50 focus:bg-slate-50"}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
 }

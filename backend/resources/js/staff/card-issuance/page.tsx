@@ -30,6 +30,17 @@ type CardIssuanceItem = {
   date_printed: string | null;
   printed_by: string | null;
   photo_url: string | null;
+  is_physically_received?: boolean;
+  distribution?: {
+    id: number;
+    status: string;
+    batch_reference: string;
+    destination_zone?: string;
+    destination_command?: string;
+    dispatched_at?: string;
+    received_at?: string;
+    is_physically_received?: boolean;
+  } | null;
   application: {
     id: number;
     application_number: string;
@@ -99,6 +110,32 @@ function CardIssuanceContent() {
   const [issuingCard, setIssuingCard] = useState<CardIssuanceItem | null>(null);
   const [confirmedIdentity, setConfirmedIdentity] = useState(false);
   const [issueNotes, setIssueNotes] = useState("");
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [showOverride, setShowOverride] = useState(false);
+
+  const captureGps = () => {
+    if (!navigator.geolocation) {
+      setShowOverride(true);
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+        setGpsLoading(false);
+      },
+      () => {
+        setGpsLoading(false);
+        setShowOverride(true);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   // Sync search input if URL changes
   useEffect(() => {
@@ -242,12 +279,20 @@ function CardIssuanceContent() {
     try {
       const res = await api<{ message: string }>("staff", `card-issuance/${issuingCard.id}/issue-out`, {
         method: "POST",
-        json: { notes: issueNotes.trim() },
+        json: {
+          notes: issueNotes.trim(),
+          latitude: coords?.latitude,
+          longitude: coords?.longitude,
+          override_reason: overrideReason || undefined,
+        },
       });
       setNotice(res.message);
       setIssuingCard(null);
       setConfirmedIdentity(false);
       setIssueNotes("");
+      setCoords(null);
+      setOverrideReason("");
+      setShowOverride(false);
       reload();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -685,6 +730,51 @@ function CardIssuanceContent() {
                     {issuingCard.date_printed ? dateTime(issuingCard.date_printed) : t("Confirmed Printed")}
                   </span>
                 </div>
+                {issuingCard.distribution && (
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                    <span className="text-xs text-slate-500">Consignment Status:</span>
+                    <span className={`text-xs font-semibold ${issuingCard.is_physically_received ? "text-emerald-700" : "text-amber-700"}`}>
+                      {issuingCard.distribution.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {issuingCard.is_physically_received === false && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  ⚠️ <strong>Card Not Yet Received:</strong> This card is currently in transit from NIS Service Headquarters and has not been confirmed physically received at this Command. You must confirm physical receipt under Card Distribution before issuing it to the holder.
+                </div>
+              )}
+
+              {/* Physical Geofence Verification */}
+              <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800">Office Perimeter Geofence:</span>
+                  {coords ? (
+                    <span className="font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ✓ GPS Verified ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})
+                    </span>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="!px-2 !py-0.5 !text-xs border border-slate-300"
+                      onClick={captureGps}
+                      disabled={gpsLoading}
+                    >
+                      {gpsLoading ? "Acquiring..." : "📍 Verify Office Location"}
+                    </Button>
+                  )}
+                </div>
+                {showOverride && (
+                  <Field label="Supervisor Geofence Override Reason">
+                    <Input
+                      placeholder="e.g. Offline terminal / Shielded vault issuance..."
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                    />
+                  </Field>
+                )}
               </div>
 
               {/* Handover Identity Verification Checkbox */}
@@ -728,7 +818,7 @@ function CardIssuanceContent() {
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={busy || !confirmedIdentity}
+                  disabled={busy || !confirmedIdentity || issuingCard.is_physically_received === false}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {busy ? t("Processing...") : t("Confirm & Issue Card")}

@@ -6,6 +6,7 @@ use App\Enums\ApplicationStatus;
 use App\Enums\CardStatus;
 use App\Models\Application;
 use App\Models\ApplicationStatusHistory;
+use App\Models\CardDistribution;
 use App\Models\Payment;
 use App\Models\QueueTicket;
 use App\Models\ResidenceCard;
@@ -34,7 +35,14 @@ class DashboardController
             'email' => $user->email,
             'role' => $user->role->value,
             'role_label' => $user->role->label(),
-            'command' => $user->command,
+            'command' => $user->commandRel?->name ?? $user->command,
+            'is_headquarters' => $user->isHeadquarters(),
+            'zone_id' => $user->zone_id,
+            'zone_name' => $user->zone?->name,
+            'command_id' => $user->command_id,
+            'command_name' => $user->commandRel?->name ?? $user->command,
+            'headquarters_unit' => $user->headquarters_unit,
+            'geofence_exempt' => (bool) $user->geofence_exempt,
             'state' => $user->getAttributes()['state'] ?? null,
             'lga' => $user->getAttributes()['lga'] ?? null,
             'unread_notifications' => $user->unreadNotifications()->count(),
@@ -52,14 +60,23 @@ class DashboardController
 
         $data = Cache::remember("staff_summary_{$user->id}", 5, function () use ($user) {
             $applications = Application::query()
+                ->forStaffJurisdiction($user)
                 ->selectRaw('status, count(*) as total')
                 ->groupByRaw('1')
                 ->pluck('total', 'status');
 
             $cards = ResidenceCard::query()
+                ->forStaffJurisdiction($user)
                 ->selectRaw('status, count(*) as total')
                 ->groupByRaw('1')
                 ->pluck('total', 'status');
+
+            $distribution = [
+                'awaiting_dispatch' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count(),
+                'in_transit' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_DISPATCHED)->count(),
+                'received' => CardDistribution::forStaffJurisdiction($user)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count(),
+                'issued' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_ISSUED)->count(),
+            ];
 
             $analytics = $this->analytics();
 
@@ -80,6 +97,7 @@ class DashboardController
             return [
                 'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($applications[$s->value] ?? 0)]),
                 'cards' => collect(CardStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($cards[$s->value] ?? 0)]),
+                'distribution' => $distribution,
                 'cards_expired' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->where('expires_on', '<', today())->count(),
                 'cards_expiring_30_days' => ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
                 'watchlisted' => ResidenceCard::where('is_watchlisted', true)->count(),

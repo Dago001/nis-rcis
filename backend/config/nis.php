@@ -22,6 +22,12 @@ return [
     'card_validity_years' => (int) env('CARD_VALIDITY_YEARS', 2),
     'temporary_card_validity_days' => (int) env('TEMPORARY_CARD_VALIDITY_DAYS', 30),
 
+    /*
+    | Physical Geofencing for sensitive staff operations (biometrics, card receipt, issuance).
+    */
+    'geofencing_enabled' => (bool) env('NIS_GEOFENCING_ENABLED', true),
+    'geofencing_strict' => (bool) env('NIS_GEOFENCING_STRICT', false),
+
     // Service-level target: decide an application within this many working
     // days of submission. Public holidays (YYYY-MM-DD) are not working days.
     'sla_working_days' => (int) env('SLA_WORKING_DAYS', 10),

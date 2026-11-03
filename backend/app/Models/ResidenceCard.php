@@ -76,6 +76,42 @@ class ResidenceCard extends Model
         return $this->hasOne(Application::class, 'card_id');
     }
 
+    public function distribution(): HasOne
+    {
+        return $this->hasOne(CardDistribution::class, 'card_id');
+    }
+
+    public function scopeForStaffJurisdiction(\Illuminate\Database\Eloquent\Builder $query, ?User $user): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! $user || $user->isHeadquarters()) {
+            return $query;
+        }
+
+        if ($user->isZonal()) {
+            return $query->where(function ($q) use ($user) {
+                $q->whereHas('application.enrollmentCenter', fn ($cq) => $cq->where('zone_id', $user->zone_id))
+                  ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('zone_id', $user->zone_id))
+                  ->orWhereHas('distribution', fn ($dq) => $dq->where('destination_zone_id', $user->zone_id));
+                if ($user->zone) {
+                    $q->orWhere('enrollment_zone', $user->zone->name);
+                }
+            });
+        }
+
+        if ($user->isCommand()) {
+            return $query->where(function ($q) use ($user) {
+                $q->whereHas('application.enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                  ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                  ->orWhereHas('distribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
+                if ($user->nisCommand) {
+                    $q->orWhere('enrollment_command', $user->nisCommand->name);
+                }
+            });
+        }
+
+        return $query;
+    }
+
     public function actualEnrollmentCenter(): BelongsTo
     {
         return $this->belongsTo(EnrollmentCenter::class, 'actual_enrollment_center_id');

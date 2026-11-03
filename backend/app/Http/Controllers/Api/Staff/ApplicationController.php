@@ -57,6 +57,7 @@ class ApplicationController
         ]);
 
         $query = Application::query()
+            ->forStaffJurisdiction($request->user())
             ->with(['enrollmentCenter', 'assignee:id,fullname,service_number', 'vettedBy:id,fullname,service_number'])
             ->latest('id');
 
@@ -261,7 +262,7 @@ class ApplicationController
         return response()->json(['risk_flags' => $flags, 'checked_at' => $application->risk_checked_at]);
     }
 
-    public function show(int $id, DocumentStorage $storage): JsonResponse
+    public function show(Request $request, int $id, DocumentStorage $storage): JsonResponse
     {
         $application = Application::with([
             'enrollmentCenter', 'card', 'renewalOfCard', 'principal', 'dependants',
@@ -271,6 +272,11 @@ class ApplicationController
             'documentQueries.queriedBy:id,fullname,service_number',
             'documentQueries.resolvedBy:id,fullname,service_number',
         ])->findOrFail($id);
+
+        $user = $request->user();
+        if ($user && ! $user->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to view this application.');
+        }
 
         return response()->json([
             'data' => new ApplicationResource($application),
@@ -430,7 +436,11 @@ class ApplicationController
         ]);
 
         $officer = $this->officer($request);
-        $application = Application::findOrFail($id);
+        $application = Application::with('enrollmentCenter')->findOrFail($id);
+
+        if ($officer && ! $officer->canAccessApplication($application)) {
+            abort(403, 'You do not have jurisdiction to process this application.');
+        }
 
         if ($data['decision'] === 'VET') {
             abort_unless(
@@ -584,6 +594,9 @@ class ApplicationController
             'signature' => ['nullable', 'string', 'max:2000000'],
             'simulation' => ['nullable', 'boolean'],
             'issued_at' => ['nullable', 'string', 'max:150'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'override_reason' => ['nullable', 'string', 'max:500'],
             'fingerprint_template' => ['nullable', 'string', 'max:200000'],
             'fingerprints' => ['nullable', 'array', 'min:0', 'max:10'],
             'fingerprints.*.finger' => ['required', 'distinct', Rule::in(self::FINGERS)],
@@ -598,6 +611,12 @@ class ApplicationController
         $data['simulation'] = $isSimulation;
 
         $target = Application::with('enrollmentCenter')->findOrFail($id);
+        $officer = $this->officer($request);
+
+        if ($officer && ! $officer->canAccessApplication($target)) {
+            abort(403, "You do not have jurisdiction to capture biometrics for application {$target->application_number}.");
+        }
+
         abort_unless(
             in_array($target->status, [ApplicationStatus::Vetted, ApplicationStatus::ApprovedForBiometrics], true),
             403,
@@ -609,7 +628,25 @@ class ApplicationController
             "Application {$target->application_number} requires verified payment before biometrics capture."
         );
 
-        $application = $issuance->captureBiometrics($target, $this->officer($request), $data);
+        // Physical geofence verification at biometric enrollment desk
+        $lat = isset($data['latitude']) ? (float) $data['latitude'] : null;
+        $lng = isset($data['longitude']) ? (float) $data['longitude'] : null;
+        $overrideReason = $data['override_reason'] ?? null;
+
+        app(\App\Services\GeofenceService::class)->assertStaffLocation(
+            officer: $officer,
+            latitude: $lat,
+            longitude: $lng,
+            action: 'BIOMETRICS',
+            overrideReason: $overrideReason,
+            metadata: [
+                'application_id' => $target->id,
+                'application_number' => $target->application_number,
+                'center_id' => $target->enrollment_center_id,
+            ]
+        );
+
+        $application = $issuance->captureBiometrics($target, $officer, $data);
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'documents', 'statusHistory', 'vettedBy', 'decidedBy', 'biometricsCapturedBy']));
     }
@@ -640,7 +677,14 @@ class ApplicationController
 
     public function collect(Request $request, int $id, CardIssuance $issuance): ApplicationResource
     {
-        $application = $issuance->markCollected(Application::findOrFail($id), $this->officer($request));
+        $officer = $this->officer($request);
+        $target = Application::with('enrollmentCenter')->findOrFail($id);
+
+        if ($officer && ! $officer->canAccessApplication($target)) {
+            abort(403, "You do not have jurisdiction over application {$target->application_number}.");
+        }
+
+        $application = $issuance->markCollected($target, $officer);
 
         return new ApplicationResource($application->load(['enrollmentCenter', 'card', 'statusHistory']));
     }
