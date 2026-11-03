@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Staff;
 
+use App\Enums\StaffRole;
 use App\Models\Applicant;
 use App\Models\PushSubscription;
 use App\Models\SystemSetting;
@@ -14,8 +15,9 @@ use Illuminate\Support\Facades\Notification;
 
 class SettingController
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $broadcast = SystemSetting::get('broadcast', [
             'is_active' => false,
             'title' => '',
@@ -46,11 +48,39 @@ class SettingController
             'broadcast' => $broadcast,
             'countdown' => $countdown,
             'stats' => $stats,
+            'general' => [
+                'portal_name' => config('app.name', 'Nigeria Immigration Service - ECOWAS Residence Card Portal'),
+                'organization' => config('nis.organization', 'Nigeria Immigration Service'),
+                'directorate' => config('nis.directorate', 'Directorate of Visa and Residency'),
+                'authority' => config('nis.approving_authority', 'COMPTROLLER GENERAL OF IMMIGRATION'),
+                'timezone' => config('app.timezone', 'Africa/Lagos'),
+                'environment' => config('nis.environment_label', 'STAGING'),
+            ],
+            'workflow' => [
+                'card_validity_years' => config('nis.card_validity_years', 2),
+                'temporary_card_validity_days' => config('nis.temporary_card_validity_days', 30),
+                'sla_working_days' => config('nis.sla_working_days', 10),
+                'fee_naira' => config('nis.fee_naira', 35000),
+                'cod_fee_naira' => config('nis.cod_fee_naira', 15000),
+            ],
+            'security' => [
+                'two_factor_required' => true,
+                'geofencing_enabled' => config('nis.geofencing_enabled', true),
+                'geofencing_strict' => config('nis.geofencing_strict', false),
+            ],
+            'notifications' => [
+                'alert_emails' => config('nis.alerts.emails', []),
+            ],
+            'user_can_edit' => $user && in_array($user->role?->value, ['SuperAdmin', 'Admin', 'HeadquartersAdmin'], true),
         ]);
     }
 
     public function update(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role?->value, ['SuperAdmin', 'Admin', 'HeadquartersAdmin'], true)) {
+            return response()->json(['message' => 'Unauthorized. Only Super Administrators and Headquarters Administrators may modify settings.'], 403);
+        }
         $data = $request->validate([
             'broadcast' => ['nullable', 'array'],
             'broadcast.is_active' => ['nullable', 'boolean'],
@@ -89,11 +119,16 @@ class SettingController
 
         Audit::log('SETTINGS_UPDATED', 'Updated broadcast notifications and countdown settings', actor: $request->user());
 
-        return $this->index();
+        return $this->index($request);
     }
 
     public function pushBroadcast(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role?->value, ['SuperAdmin', 'Admin', 'HeadquartersAdmin'], true)) {
+            return response()->json(['message' => 'Unauthorized. Only Super Administrators and Headquarters Administrators may push notifications.'], 403);
+        }
+
         $data = $request->validate([
             'title' => ['required', 'string', 'max:150'],
             'message' => ['required', 'string', 'max:1000'],

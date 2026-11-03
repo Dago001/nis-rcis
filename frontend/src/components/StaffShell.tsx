@@ -83,25 +83,17 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Financials",
-    items: [
-      { href: "/staff/payments", label: "Fee payments", icon: icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM2 10h20M6 15h4") },
-    ],
-  },
-  {
     title: "Reports & Compliance",
     items: [
       { href: "/staff/reports", label: "Reports", icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"), roles: ["SuperAdmin", "Admin", "Supervisor", "Auditor", "ApprovingOfficer", "ProductionOfficer", "IssuingOfficer"] },
       { href: "/staff/audit-logs", label: "Audit trail", icon: icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"), roles: ["Auditor", "Supervisor", "Admin", "SuperAdmin"] },
-      { href: "/staff/data-breaches", label: "Data breach register", icon: icon("M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"), roles: ["Auditor", "Supervisor", "Admin", "SuperAdmin"] },
     ],
   },
   {
     title: "Administration",
     items: [
       { href: "/staff/users", label: "Staff accounts", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"), roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"] },
-      { href: "/staff/system", label: "System health", icon: icon("M22 12h-4l-3 9L9 3l-3 9H2"), roles: ["SuperAdmin", "Admin"] },
-      { href: "/staff/settings", label: "Settings", icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"), roles: ["SuperAdmin", "Admin"] },
+      { href: "/staff/settings", label: "Settings", icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"), roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"] },
     ],
   },
 ];
@@ -213,13 +205,13 @@ export function StaffShell({ children }: { children: ReactNode }) {
         <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-4 sm:gap-6 px-3 py-4 sm:px-6 sm:py-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
           
           {/* Mobile & Tablet Collapsible Navigation Bar (< lg) */}
-          <div className="no-print flex items-center justify-between rounded-xl border border-[#cde5d5] bg-[#EAF5EE] p-2.5 shadow-sm lg:hidden">
+          <div className="no-print flex items-center justify-between rounded-xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm lg:hidden">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-nis-primary/10 text-nis-primary">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1b5e20]/15 text-[#1b5e20]">
                 {currentActiveItem?.icon || icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z")}
               </span>
               <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t("Staff Console")}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">{t("Staff Console")}</div>
                 <div className="truncate text-xs sm:text-sm font-semibold text-slate-900">{currentActiveItem ? t(currentActiveItem.label) : t("Dashboard")}</div>
               </div>
             </div>
@@ -229,9 +221,9 @@ export function StaffShell({ children }: { children: ReactNode }) {
               aria-expanded={mobileNavOpen}
               aria-controls="staff-mobile-drawer"
               aria-label={t("Open staff navigation menu")}
-              className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#cde5d5] bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-95"
+              className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#b2d6c0] bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-95"
             >
-              <svg className="h-4 w-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <svg className="h-4 w-4 text-[#1b5e20]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M4 6h16M4 12h16M4 18h16" />
               </svg>
               <span>{t("Menu")}</span>
@@ -249,16 +241,16 @@ export function StaffShell({ children }: { children: ReactNode }) {
               />
 
               {/* Drawer Content */}
-              <div className="relative ml-0 flex w-full max-w-xs sm:max-w-sm flex-col bg-[#EAF5EE] shadow-2xl border-r border-[#cde5d5]">
+              <div className="relative ml-0 flex w-full max-w-xs sm:max-w-sm flex-col bg-[#d2e8db] shadow-2xl border-r border-[#b2d6c0]">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-[#cde5d5] bg-white px-4 py-3.5">
+                <div className="flex items-center justify-between border-b border-[#b2d6c0] bg-white/90 px-4 py-3.5">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-nis-primary text-white">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1b5e20] text-white">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     </span>
                     <div className="min-w-0">
-                      <h2 className="text-xs font-bold tracking-wider uppercase text-nis-primary">{t("Staff Console")}</h2>
-                      <div className="truncate text-xs text-slate-500">{user?.role_label || "Officer"}</div>
+                      <h2 className="text-xs font-bold tracking-wider uppercase text-[#1b5e20]">{t("Staff Console")}</h2>
+                      <div className="truncate text-xs text-slate-600">{user?.role_label || "Officer"}</div>
                     </div>
                   </div>
                   <button
@@ -273,9 +265,9 @@ export function StaffShell({ children }: { children: ReactNode }) {
 
                 {/* User Info Bar */}
                 {user && (
-                  <div className="border-b border-[#cde5d5] bg-white/60 px-4 py-2.5">
+                  <div className="border-b border-[#b2d6c0] bg-white/70 px-4 py-2.5">
                     <div className="text-xs font-bold text-slate-900 truncate">{user.fullname}</div>
-                    <div className="text-[11px] text-slate-600 font-mono">{user.service_number}</div>
+                    <div className="text-[11px] text-emerald-900 font-mono font-medium">{user.service_number}</div>
                   </div>
                 )}
 
@@ -286,8 +278,8 @@ export function StaffShell({ children }: { children: ReactNode }) {
                       const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                       if (visible.length === 0) return null;
                       return (
-                        <div key={sec.title} className={idx > 0 ? "border-t border-[#d7ece0] pt-3" : ""}>
-                          <div className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <div key={sec.title} className={idx > 0 ? "border-t border-[#bfdec9] pt-3" : ""}>
+                          <div className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
                             {t(sec.title)}
                           </div>
                           <ul className="space-y-1">
@@ -303,11 +295,11 @@ export function StaffShell({ children }: { children: ReactNode }) {
                                     aria-current={active ? "page" : undefined}
                                     className={`flex min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
                                       active
-                                        ? "bg-nis-primary font-medium text-white shadow-sm"
-                                        : "text-slate-800 hover:bg-white/70 hover:text-nis-primary"
+                                        ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
+                                        : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
                                     }`}
                                   >
-                                    {item.icon}
+                                    <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
                                     <span className="truncate">{t(item.label)}</span>
                                   </Link>
                                 </li>
@@ -326,15 +318,15 @@ export function StaffShell({ children }: { children: ReactNode }) {
           <nav className="no-print hidden lg:block lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
             <div
               ref={menu}
-              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#cde5d5] bg-[#EAF5EE] p-2.5 shadow-sm"
+              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm"
             >
               {user &&
                 navSections.map((sec, idx) => {
                   const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                   if (visible.length === 0) return null;
                   return (
-                    <div key={sec.title} className={idx > 0 ? "border-t border-[#d7ece0] pt-3" : ""}>
-                      <div className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <div key={sec.title} className={idx > 0 ? "border-t border-[#bfdec9] pt-3" : ""}>
+                      <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
                         {t(sec.title)}
                       </div>
                       <ul className="flex flex-col gap-1">
@@ -349,11 +341,11 @@ export function StaffShell({ children }: { children: ReactNode }) {
                                 aria-current={active ? "page" : undefined}
                                 className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
                                   active
-                                    ? "bg-nis-primary font-medium text-white shadow-sm"
-                                    : "text-slate-800 hover:bg-white/70 hover:text-nis-primary"
+                                    ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
+                                    : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
                                 }`}
                               >
-                                {item.icon}
+                                <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
                                 <span>{t(item.label)}</span>
                               </Link>
                             </li>
