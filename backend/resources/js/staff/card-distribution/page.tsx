@@ -160,7 +160,7 @@ export default function CardDistributionPage() {
     <div className="space-y-6">
       <PageTitle
         title="Card Distribution & Logistics"
-        subtitle="Manage secure transfer of produced cards from NIS Service Headquarters Sauka Abuja to NIS Zonal Offices and State Commands, with physical receipt geofencing."
+        subtitle="Manage secure transfer of produced cards from Headquarters to State Commands."
       />
 
       {notice && <Alert tone="success">{notice}</Alert>}
