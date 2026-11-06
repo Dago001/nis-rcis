@@ -144,6 +144,7 @@ Route::middleware('web')->group(function () {
         Route::get('/', fn () => Inertia::render('Staff/Dashboard'))->name('dashboard');
         Route::get('/national-operations', fn () => Inertia::render('Staff/NationalOperations'))->name('national-operations');
         Route::get('/commands', fn () => Inertia::render('Staff/CommandsOverview'))->name('commands');
+        Route::get('/command-applications', fn () => Inertia::render('Staff/CommandApplications'))->name('command-applications');
         Route::get('/queue', fn () => Inertia::render('Staff/Queue'))->name('queue');
         Route::get('/approvals', fn () => Inertia::render('Staff/Approvals'))->name('approvals');
         Route::get('/approvals/{id}', fn ($id) => Inertia::render('Staff/ApprovalDetail', ['id' => $id]))->whereNumber('id')->name('approvals.show');
@@ -193,6 +194,7 @@ Route::middleware('web')->group(function () {
                 'staff/cards/receiving' => 'Staff/CardDistribution',
                 'staff/national-operations' => 'Staff/NationalOperations',
                 'staff/commands' => 'Staff/CommandsOverview',
+                'staff/command-applications' => 'Staff/CommandApplications',
                 'staff/card-distribution' => 'Staff/CardDistribution',
                 'staff/card-issuance' => 'Staff/CardIssuance',
                 'staff/notifications' => 'Staff/Notifications',
@@ -240,6 +242,7 @@ Route::middleware('web')->group(function () {
                 'staff/cards/receiving' => 'Staff/CardDistribution',
                 'staff/national-operations' => 'Staff/NationalOperations',
                 'staff/commands' => 'Staff/CommandsOverview',
+                'staff/command-applications' => 'Staff/CommandApplications',
                 'staff/card-distribution' => 'Staff/CardDistribution',
                 'staff/card-issuance' => 'Staff/CardIssuance',
                 'staff/notifications' => 'Staff/Notifications',

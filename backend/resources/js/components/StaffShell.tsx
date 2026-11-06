@@ -175,14 +175,13 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
     ];
   }
 
-  // 4. Dedicated Command Administrator Sidebar (Section 6)
+  // 4. Dedicated Command Administrator Sidebar (Section 4)
   if (role === "CommandAdmin") {
     return [
       {
         title: "Overview",
         items: [
           { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
-          { href: "/staff/command-operations", label: "Command Operations", icon: icon("M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9") },
         ],
       },
       {
@@ -201,8 +200,9 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
         ],
       },
       {
-        title: "Management",
+        title: "Command Management",
         items: [
+          { href: "/staff/command-applications", label: "Command Applications", icon: icon("M19 11H5m14 0a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m14 0V9a2 2 0 0 0-2-2M5 11V9a2 2 0 0 1 2-2m0 0V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M7 7h10") },
           { href: "/staff/users", label: "Command Staff", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75") },
           { href: "/staff/reports", label: "Command Reports", icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6") },
         ],
@@ -289,7 +289,7 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
       items: [
         {
           href: "/staff/commands",
-          label: "Commands Overview",
+          label: "Command Administration",
           icon: icon("M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"),
           roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ReportingAuditOfficer", "Auditor"],
         },
@@ -680,10 +680,10 @@ function StaffShellInner({ children }: { children: ReactNode }) {
           )}
 
           {/* Desktop Fixed Sidebar (>= lg) */}
-          <nav className="no-print hidden lg:flex lg:flex-col lg:w-56 xl:w-[15rem] lg:shrink-0 self-stretch" aria-label="Staff console">
+          <nav className="no-print hidden lg:flex lg:flex-col lg:w-60 xl:w-64 lg:shrink-0 self-stretch" aria-label="Staff console">
             <div
               ref={menu}
-              className="sticky top-24 flex min-h-[calc(100vh-7.5rem)] max-h-[calc(100vh-7.5rem)] flex-col gap-2.5 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm [scrollbar-width:thin] [scrollbar-color:#a2c9b2_transparent]"
+              className="sticky top-20 flex min-h-[calc(100vh-5.5rem)] max-h-[calc(100vh-5.5rem)] flex-col gap-2 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-3 shadow-sm [scrollbar-width:thin] [scrollbar-color:#a2c9b2_transparent]"
             >
               {user &&
                 activeNavSections.map((sec, idx) => {
@@ -781,6 +781,7 @@ function StaffShellInner({ children }: { children: ReactNode }) {
                     </div>
                   );
                 })}
+              <div className="flex-1" />
             </div>
           </nav>
 

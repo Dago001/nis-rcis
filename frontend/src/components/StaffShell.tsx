@@ -378,10 +378,10 @@ export function StaffShell({ children }: { children: ReactNode }) {
           )}
 
           {/* Desktop Fixed Sidebar (>= lg) - Exact Original Layout & Behavior */}
-          <nav className="no-print hidden lg:block lg:w-56 xl:w-[14.5rem] lg:shrink-0" aria-label="Staff console">
+          <nav className="no-print hidden lg:flex lg:flex-col lg:w-60 xl:w-64 lg:shrink-0 self-stretch" aria-label="Staff console">
             <div
               ref={menu}
-              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm"
+              className="sticky top-20 flex min-h-[calc(100vh-5.5rem)] max-h-[calc(100vh-5.5rem)] flex-col gap-2.5 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-3 shadow-sm [scrollbar-width:thin] [scrollbar-color:#a2c9b2_transparent]"
             >
               {user &&
                 navSections.map((sec, idx) => {
@@ -418,6 +418,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                     </div>
                   );
                 })}
+              <div className="flex-1" />
             </div>
           </nav>
 

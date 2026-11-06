@@ -33,16 +33,22 @@ class UserController
         // Scoping based on jurisdiction
         if ($currentUser) {
             if ($currentUser->role === StaffRole::SuperAdmin || $currentUser->isHeadquarters()) {
-                // National visibility across all zones and commands
+                // National visibility across all zones and commands; optional command_id filter
+                if ($request->filled('command_id')) {
+                    $query->where('command_id', (int) $request->input('command_id'));
+                }
             } elseif ($currentUser->isZonal() && $currentUser->zone_id) {
                 // Zonal Admin sees accounts in their Zone
                 $query->where(function ($q) use ($currentUser) {
                     $q->where('zone_id', $currentUser->zone_id)
                       ->orWhereHas('command', fn ($cq) => $cq->where('zone_id', $currentUser->zone_id));
                 });
-            } elseif ($currentUser->isCommand() && $currentUser->command_id) {
+            } elseif ($currentUser->isCommand()) {
                 // Command Admin sees accounts in their Command
-                $query->where('command_id', $currentUser->command_id);
+                $cmdId = $currentUser->getEffectiveCommandId();
+                if ($cmdId) {
+                    $query->where('command_id', $cmdId);
+                }
             }
         }
 
@@ -90,6 +96,8 @@ class UserController
             } elseif ($currentUser->isCommand()) {
                 // Command Admin can only create Command-level operational officers
                 $allowedRoles = array_filter($allowedRoles, fn ($r) => in_array($r, [
+                    StaffRole::VettingOfficer,
+                    StaffRole::ApprovingOfficer,
                     StaffRole::BiometricsOfficer,
                     StaffRole::CardReceivingOfficer,
                     StaffRole::CardIssuanceOfficer,
@@ -115,6 +123,14 @@ class UserController
             'lga' => ['nullable', 'string', 'max:100'],
             'geofence_exempt' => ['nullable', 'boolean'],
         ]);
+
+        // If current user is Command Admin, strictly force their command_id
+        if ($currentUser && $currentUser->isCommand()) {
+            $cmdId = $currentUser->getEffectiveCommandId();
+            if ($cmdId) {
+                $data['command_id'] = $cmdId;
+            }
+        }
 
         // Normalize service number format to NIS-XXXXX if entered as pure 5-digit number
         $cleanNumber = preg_replace('/[^0-9]/', '', $data['service_number']);

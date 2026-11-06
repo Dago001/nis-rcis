@@ -125,14 +125,19 @@ class Application extends Model
         }
 
         if ($user->isCommand()) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('command_id', $user->command_id)
-                  ->orWhereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
-                  ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
-                  ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
+            $cmdId = $user->getEffectiveCommandId();
+            return $query->where(function ($q) use ($user, $cmdId) {
+                if ($cmdId) {
+                    $q->where('command_id', $cmdId)
+                      ->orWhereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $cmdId))
+                      ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $cmdId))
+                      ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_command_id', $cmdId));
+                }
                 if ($user->nisCommand) {
                     $q->orWhere('actual_enrollment_command', $user->nisCommand->name)
                       ->orWhere('actual_enrollment_command', $user->nisCommand->code);
+                } elseif (! empty($user->command)) {
+                    $q->orWhere('actual_enrollment_command', $user->command);
                 }
             });
         }

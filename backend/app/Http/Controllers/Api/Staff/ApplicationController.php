@@ -820,6 +820,155 @@ class ApplicationController
     }
 
     /**
+     * Dedicated Command Applications endpoint with comprehensive filters.
+     * Enforces strict Command-based isolation.
+     */
+    public function commandApplications(Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $request->user();
+
+        // 1. Identify target Command
+        $commandId = null;
+        if ($currentUser->role === StaffRole::SuperAdmin || $currentUser->isHeadquarters()) {
+            if ($request->filled('command_id')) {
+                $commandId = (int) $request->input('command_id');
+            }
+        } elseif ($currentUser->isCommand()) {
+            $commandId = $currentUser->getEffectiveCommandId();
+        }
+
+        $command = $commandId ? NisCommand::find($commandId) : null;
+
+        // 2. Base Query strictly isolated to Command
+        $query = Application::query()
+            ->with(['enrollmentCenter', 'card', 'assignee:id,fullname,service_number', 'vettedBy:id,fullname,service_number', 'decidedBy:id,fullname,service_number'])
+            ->latest('submitted_at')
+            ->latest('id');
+
+        if ($commandId) {
+            $cmdName = $command?->name;
+            $query->where(function ($q) use ($commandId, $cmdName) {
+                $q->where('command_id', $commandId)
+                  ->orWhereHas('enrollmentCenter', fn ($ec) => $ec->where('command_id', $commandId))
+                  ->orWhereHas('actualEnrollmentCenter', fn ($ec) => $ec->where('command_id', $commandId))
+                  ->orWhereHas('cardDistribution', fn ($cd) => $cd->where('destination_command_id', $commandId));
+                if ($cmdName) {
+                    $q->orWhere('actual_enrollment_command', $cmdName);
+                }
+            });
+        } elseif (! $currentUser->isHeadquarters()) {
+            $query->forStaffJurisdiction($currentUser);
+        }
+
+        // 3. Apply the 7 requested filters
+        // 3.1 Application Reference
+        if ($request->filled('reference')) {
+            $ref = trim((string) $request->input('reference'));
+            $query->where(function ($q) use ($ref) {
+                $q->where('application_number', 'LIKE', "%{$ref}%")
+                  ->orWhere('reference_number', 'LIKE', "%{$ref}%");
+            });
+        }
+
+        // 3.2 Applicant Name
+        if ($request->filled('applicant_name')) {
+            $name = trim((string) $request->input('applicant_name'));
+            $query->where(function ($q) use ($name) {
+                $q->where('surname', 'LIKE', "%{$name}%")
+                  ->orWhere('forenames', 'LIKE', "%{$name}%");
+            });
+        }
+
+        // 3.3 Application Type (NEW, RENEWAL, REPLACEMENT)
+        if ($request->filled('application_type')) {
+            $type = strtoupper(trim((string) $request->input('application_type')));
+            $query->where('application_type', $type);
+        }
+
+        // 3.4 Application Category (GENERAL, REGULAR, STUDENT, etc.)
+        if ($request->filled('category')) {
+            $cat = trim((string) $request->input('category'));
+            $query->where('category', $cat);
+        }
+
+        // 3.5 Processing Status
+        if ($request->filled('status')) {
+            $st = trim((string) $request->input('status'));
+            $query->where('status', $st);
+        }
+
+        // 3.6 Date Range (Submitted At)
+        if ($request->filled('date_from')) {
+            $query->whereDate('submitted_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('submitted_at', '<=', $request->input('date_to'));
+        }
+
+        // 3.7 Enrollment Centre
+        if ($request->filled('enrollment_center_id')) {
+            $query->where('enrollment_center_id', (int) $request->input('enrollment_center_id'));
+        }
+
+        $perPage = min(100, max(5, (int) $request->input('per_page', 15)));
+        $paginator = $query->paginate($perPage);
+
+        // Available enrollment centers for this Command dropdown
+        $centersQuery = EnrollmentCenter::where('is_active', true);
+        if ($commandId) {
+            $centersQuery->where('command_id', $commandId);
+        }
+        $enrollmentCenters = $centersQuery->orderBy('name')->get(['id', 'name', 'code', 'command_id']);
+
+        // Summary counts for this Command
+        $summaryBase = Application::query();
+        if ($commandId) {
+            $cmdName = $command?->name;
+            $summaryBase->where(function ($q) use ($commandId, $cmdName) {
+                $q->where('command_id', $commandId)
+                  ->orWhereHas('enrollmentCenter', fn ($ec) => $ec->where('command_id', $commandId));
+                if ($cmdName) {
+                    $q->orWhere('actual_enrollment_command', $cmdName);
+                }
+            });
+        } elseif (! $currentUser->isHeadquarters()) {
+            $summaryBase->forStaffJurisdiction($currentUser);
+        }
+
+        $totalCount = (clone $summaryBase)->count();
+        $awaitingVetting = (clone $summaryBase)->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])->count();
+        $awaitingBiometrics = (clone $summaryBase)->where('status', ApplicationStatus::ApprovedForBiometrics)->count();
+        $awaitingApproval = (clone $summaryBase)->where('status', ApplicationStatus::BiometricsCaptured)->count();
+        $issuedCount = (clone $summaryBase)->where('status', ApplicationStatus::Issued)->count();
+
+        return response()->json([
+            'status' => 'success',
+            'command' => $command ? [
+                'id' => $command->id,
+                'name' => $command->name,
+                'code' => $command->code,
+                'state' => $command->state,
+            ] : null,
+            'summary' => [
+                'total' => $totalCount,
+                'awaiting_vetting' => $awaitingVetting,
+                'awaiting_biometrics' => $awaitingBiometrics,
+                'awaiting_approval' => $awaitingApproval,
+                'issued' => $issuedCount,
+            ],
+            'enrollment_centers' => $enrollmentCenters,
+            'data' => ApplicationResource::collection($paginator->items()),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
+
+    /**
      * Accepts raw numbers or the QR payload printed on slips
      * ("NIS-RCIS|APP:RC-2026-100001|REF:...").
      */

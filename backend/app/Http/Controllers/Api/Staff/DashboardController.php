@@ -64,6 +64,10 @@ class DashboardController
             /** @var User $user */
             $user = $request->user();
 
+            if (! $user) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
             // 1. Check if Command-scoped (either user is CommandAdmin or Super/HQ Admin is drilling down into a command)
             $targetCommandId = null;
             $isDrilldown = false;
@@ -215,7 +219,7 @@ class DashboardController
                 'cards_collected' => (function () { try { return Application::where('status', ApplicationStatus::Issued)->whereNotNull('collected_at')->count(); } catch (\Throwable) { return 0; } })(),
             ],
             'role_data' => $this->getRoleSpecificData($user),
-            'user_role' => $user->role->value,
+            'user_role' => $user->role instanceof \BackedEnum ? $user->role->value : (string) $user->role,
         ];
     }
 
@@ -324,7 +328,14 @@ class DashboardController
                 'cards_printed' => 0,
                 'cards_collected' => 0,
             ],
-            'role_data' => $user ? $this->getRoleSpecificData($user) : ['role' => 'Admin'],
+            'role_data' => (function () use ($user, $roleStr) {
+                if (! $user) return ['role' => 'Admin'];
+                try {
+                    return $this->getRoleSpecificData($user);
+                } catch (\Throwable) {
+                    return ['role' => $roleStr];
+                }
+            })(),
             'user_role' => $roleStr,
         ];
     }
@@ -2269,6 +2280,18 @@ class DashboardController
                 $cardsIssued = (clone $appBase)->where('status', ApplicationStatus::Issued)->count();
             }
 
+            // Command Administrator assigned to this Command
+            $adminUser = User::where(function ($uq) use ($cmdId, $cmdName) {
+                $uq->where('command_id', $cmdId)
+                   ->orWhere('command', $cmdName);
+            })->where('role', StaffRole::CommandAdmin)->first();
+
+            // Total active staff deployed to this Command
+            $totalStaff = User::where(function ($uq) use ($cmdId, $cmdName) {
+                $uq->where('command_id', $cmdId)
+                   ->orWhere('command', $cmdName);
+            })->where('role', '!=', StaffRole::SuperAdmin)->count();
+
             return [
                 'sn' => $index + 1,
                 'id' => $cmd->id,
@@ -2279,6 +2302,16 @@ class DashboardController
                 'zone_code' => $cmd->zone?->code ?? '—',
                 'zone_name' => $cmd->zone?->name ?? '—',
                 'is_active' => (bool) $cmd->is_active,
+                'administrator' => $adminUser ? [
+                    'id' => $adminUser->id,
+                    'fullname' => $adminUser->fullname,
+                    'rank' => $adminUser->rank,
+                    'service_number' => $adminUser->service_number,
+                    'username' => $adminUser->username,
+                    'email' => $adminUser->email,
+                    'is_active' => (bool) $adminUser->is_active,
+                ] : null,
+                'total_staff' => $totalStaff,
                 'total_applications' => $totalApps,
                 'awaiting_vetting' => $awaitingVetting,
                 'awaiting_approval' => $awaitingApproval,
@@ -2305,6 +2338,162 @@ class DashboardController
             'commands' => $mapped,
             'totals' => $totals,
             'zones' => $zones,
+        ]);
+    }
+
+    /**
+     * Assign or change a Command Administrator for an NIS Command.
+     */
+    public function assignCommandAdmin(Request $request, int $id): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $request->user();
+        if ($currentUser->role !== StaffRole::SuperAdmin && ! $currentUser->isHeadquarters()) {
+            abort(403, 'Only Super Administrator or Headquarters Administrator can assign Command Administrators.');
+        }
+
+        $command = NisCommand::findOrFail($id);
+
+        $data = $request->validate([
+            'existing_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'username' => ['nullable', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
+            'fullname' => ['nullable', 'string', 'max:150'],
+            'rank' => ['nullable', 'string', 'max:50'],
+            'service_number' => ['nullable', 'string', 'regex:/^(NIS-?)?[0-9]{5}$/i', 'unique:users,service_number'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
+        ]);
+
+        if (! empty($data['existing_user_id'])) {
+            $user = User::findOrFail($data['existing_user_id']);
+            if ($user->role === StaffRole::SuperAdmin) {
+                abort(400, 'Super Administrator cannot be reassigned as a Command Administrator.');
+            }
+
+            // Remove CommandAdmin role from other users in this command
+            User::where('command_id', $command->id)
+                ->where('role', StaffRole::CommandAdmin)
+                ->where('id', '!=', $user->id)
+                ->update(['role' => StaffRole::ApprovingOfficer]);
+
+            $user->update([
+                'role' => StaffRole::CommandAdmin,
+                'command_id' => $command->id,
+                'zone_id' => $command->zone_id,
+                'command' => $command->name,
+                'state' => $command->state,
+            ]);
+
+            \App\Support\Audit::log('COMMAND_ADMIN_ASSIGNED', "Assigned {$user->fullname} ({$user->service_number}) as Command Administrator for {$command->name}", $user);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "{$user->fullname} has been appointed Command Administrator for {$command->name}.",
+                'administrator' => [
+                    'id' => $user->id,
+                    'fullname' => $user->fullname,
+                    'rank' => $user->rank,
+                    'service_number' => $user->service_number,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'is_active' => (bool) $user->is_active,
+                ],
+            ]);
+        }
+
+        // Creating a new Command Administrator
+        $request->validate([
+            'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
+            'fullname' => ['required', 'string', 'max:150'],
+            'service_number' => ['required', 'string', 'regex:/^(NIS-?)?[0-9]{5}$/i', 'unique:users,service_number'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+        ]);
+
+        // Demote existing admin if any
+        User::where('command_id', $command->id)
+            ->where('role', StaffRole::CommandAdmin)
+            ->update(['role' => StaffRole::ApprovingOfficer]);
+
+        $cleanNumber = preg_replace('/[^0-9]/', '', $request->input('service_number'));
+        $password = \Illuminate\Support\Str::password(16);
+
+        $user = User::create([
+            'username' => $request->input('username'),
+            'fullname' => $request->input('fullname'),
+            'rank' => $request->input('rank') ?: 'CIS',
+            'service_number' => 'NIS-' . $cleanNumber,
+            'email' => $request->input('email'),
+            'password' => $password,
+            'role' => StaffRole::CommandAdmin,
+            'command' => $command->name,
+            'command_id' => $command->id,
+            'zone_id' => $command->zone_id,
+            'state' => $command->state,
+            'is_active' => true,
+            'must_change_password' => true,
+        ]);
+
+        \App\Support\Audit::log('COMMAND_ADMIN_CREATED', "Created Command Administrator {$user->fullname} ({$user->service_number}) for {$command->name}", $user);
+
+        try {
+            $user->notify(new \App\Notifications\StaffTemporaryPassword($password, 'created'));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to send temporary password email: {$e->getMessage()}");
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Command Administrator account created successfully for {$command->name}. Credentials sent to {$user->email}.",
+            'temporary_password' => $password,
+            'administrator' => [
+                'id' => $user->id,
+                'fullname' => $user->fullname,
+                'rank' => $user->rank,
+                'service_number' => $user->service_number,
+                'username' => $user->username,
+                'email' => $user->email,
+                'is_active' => (bool) $user->is_active,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Retrieve all staff assigned to a specific Command.
+     */
+    public function commandStaff(Request $request, int $id): JsonResponse
+    {
+        $command = NisCommand::with('zone:id,code,name')->findOrFail($id);
+
+        $staff = User::where(function ($q) use ($command) {
+            $q->where('command_id', $command->id)
+              ->orWhere('command', $command->name);
+        })
+        ->where('role', '!=', StaffRole::SuperAdmin)
+        ->orderBy('fullname')
+        ->get(['id', 'fullname', 'rank', 'service_number', 'username', 'email', 'role', 'is_active', 'last_login_at', 'command_id'])
+        ->map(fn (User $u) => [
+            'id' => $u->id,
+            'fullname' => $u->fullname,
+            'rank' => $u->rank,
+            'service_number' => $u->service_number,
+            'username' => $u->username,
+            'email' => $u->email,
+            'role' => $u->role instanceof \BackedEnum ? $u->role->value : (string) $u->role,
+            'role_label' => $u->role instanceof \BackedEnum ? $u->role->label() : (string) $u->role,
+            'is_active' => (bool) $u->is_active,
+            'last_login_at' => $u->last_login_at,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'command' => [
+                'id' => $command->id,
+                'code' => $command->code,
+                'name' => $command->name,
+                'state' => $command->state,
+                'zone_name' => $command->zone?->name,
+            ],
+            'total_staff' => $staff->count(),
+            'staff' => $staff,
         ]);
     }
 }

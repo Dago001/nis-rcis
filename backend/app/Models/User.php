@@ -86,9 +86,36 @@ class User extends Authenticatable implements OAuthenticatable
             return true;
         }
 
+        // Operational/Command roles are NEVER Headquarters
+        if (in_array($this->role, [
+            StaffRole::CommandAdmin,
+            StaffRole::VettingOfficer,
+            StaffRole::ApprovingOfficer,
+            StaffRole::BiometricsOfficer,
+            StaffRole::CardReceivingOfficer,
+            StaffRole::CardIssuanceOfficer,
+            StaffRole::ReportingAuditOfficer,
+            StaffRole::IssuingOfficer,
+            StaffRole::DataEntryOfficer,
+            StaffRole::EnrollmentOfficer,
+            StaffRole::Inspector,
+            StaffRole::Supervisor,
+            StaffRole::Auditor,
+        ], true)) {
+            return false;
+        }
+
+        if ($this->role === StaffRole::ZonalAdmin) {
+            return false;
+        }
+
         // If explicitly assigned without zone or command, or command specifies Headquarters
         if ($this->command_id === null && $this->zone_id === null) {
-            return true;
+            $cmdUpper = strtoupper($this->command ?? '');
+            if ($cmdUpper === '' || str_contains($cmdUpper, 'HEADQUARTERS') || str_contains($cmdUpper, 'NATIONAL') || str_contains($cmdUpper, 'SHQ')) {
+                return true;
+            }
+            return false;
         }
 
         $cmdUpper = strtoupper($this->command ?? '');
@@ -102,7 +129,51 @@ class User extends Authenticatable implements OAuthenticatable
 
     public function isCommand(): bool
     {
-        return ! $this->isHeadquarters() && $this->command_id !== null;
+        if ($this->isHeadquarters()) {
+            return false;
+        }
+        if ($this->command_id !== null) {
+            return true;
+        }
+        // If assigned command string or command role
+        return ! empty($this->command) || in_array($this->role, [
+            StaffRole::CommandAdmin,
+            StaffRole::VettingOfficer,
+            StaffRole::ApprovingOfficer,
+            StaffRole::BiometricsOfficer,
+            StaffRole::CardReceivingOfficer,
+            StaffRole::CardIssuanceOfficer,
+            StaffRole::ReportingAuditOfficer,
+            StaffRole::IssuingOfficer,
+            StaffRole::DataEntryOfficer,
+            StaffRole::EnrollmentOfficer,
+            StaffRole::Inspector,
+            StaffRole::Supervisor,
+            StaffRole::Auditor,
+        ], true);
+    }
+
+    /**
+     * Resolves the primary Command ID from foreign key or command name/location.
+     */
+    public function getEffectiveCommandId(): ?int
+    {
+        if ($this->command_id !== null) {
+            return (int) $this->command_id;
+        }
+
+        if (! empty($this->command)) {
+            $cmd = NisCommand::where('name', $this->command)
+                ->orWhere('location', 'like', "%{$this->command}%")
+                ->orWhere('code', 'LAG-SC')
+                ->first();
+
+            if ($cmd) {
+                return (int) $cmd->id;
+            }
+        }
+
+        return null;
     }
 
     public function canAccessApplication(Application $application): bool
@@ -128,17 +199,26 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         if ($this->isCommand()) {
-            if ($application->command_id && (int) $application->command_id === (int) $this->command_id) {
-                return true;
+            $cmdId = $this->getEffectiveCommandId();
+            if ($cmdId) {
+                if ($application->command_id && (int) $application->command_id === $cmdId) {
+                    return true;
+                }
+                if ($center && (int) $center->command_id === $cmdId) {
+                    return true;
+                }
+                if ($application->cardDistribution && (int) $application->cardDistribution->destination_command_id === $cmdId) {
+                    return true;
+                }
             }
-            if ($center && (int) $center->command_id === (int) $this->command_id) {
-                return true;
-            }
-            if ($application->actual_enrollment_command && $this->nisCommand) {
-                return $application->actual_enrollment_command === $this->nisCommand->name || $application->actual_enrollment_command === $this->nisCommand->code;
-            }
-            if ($application->cardDistribution && $application->cardDistribution->destination_command_id === $this->command_id) {
-                return true;
+
+            if ($application->actual_enrollment_command) {
+                if ($this->nisCommand && ($application->actual_enrollment_command === $this->nisCommand->name || $application->actual_enrollment_command === $this->nisCommand->code)) {
+                    return true;
+                }
+                if ($this->command && str_contains(strtoupper($this->command), strtoupper($application->actual_enrollment_command))) {
+                    return true;
+                }
             }
             return false;
         }
@@ -177,17 +257,20 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         if ($this->isCommand()) {
-            if ($card->application && (int) $card->application->command_id === (int) $this->command_id) {
-                return true;
-            }
-            if ($center && (int) $center->command_id === (int) $this->command_id) {
-                return true;
+            $cmdId = $this->getEffectiveCommandId();
+            if ($cmdId) {
+                if ($card->application && (int) $card->application->command_id === $cmdId) {
+                    return true;
+                }
+                if ($center && (int) $center->command_id === $cmdId) {
+                    return true;
+                }
+                if ($card->distribution && (int) $card->distribution->destination_command_id === $cmdId) {
+                    return true;
+                }
             }
             if ($card->enrollment_command && $this->nisCommand) {
                 return $card->enrollment_command === $this->nisCommand->name;
-            }
-            if ($card->distribution && $card->distribution->destination_command_id === $this->command_id) {
-                return true;
             }
             return false;
         }

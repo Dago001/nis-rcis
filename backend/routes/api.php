@@ -144,6 +144,12 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:SuperAdmin,HeadquartersAdmin,Admin,ZonalAdmin,CommandAdmin,ReportingAuditOfficer');
         Route::get('commands-overview', [DashboardController::class, 'commandsOverview'])
             ->middleware('role:SuperAdmin,HeadquartersAdmin,Admin,ZonalAdmin,CommandAdmin,ReportingAuditOfficer');
+        Route::post('commands/{id}/assign-admin', [DashboardController::class, 'assignCommandAdmin'])
+            ->middleware('role:SuperAdmin,HeadquartersAdmin,Admin')->whereNumber('id');
+        Route::get('commands/{id}/staff', [DashboardController::class, 'commandStaff'])
+            ->middleware('role:SuperAdmin,HeadquartersAdmin,Admin,ZonalAdmin,CommandAdmin')->whereNumber('id');
+        Route::get('command-applications', [StaffApplications::class, 'commandApplications'])
+            ->middleware('role:CommandAdmin,SuperAdmin,HeadquartersAdmin,Admin,ZonalAdmin');
         Route::post('oauth/revoke', RevokeTokenController::class);
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read', [NotificationController::class, 'markRead']);
@@ -168,7 +174,7 @@ Route::prefix('v1')->group(function () {
             ->middleware('role:ApprovingOfficer,IssuingOfficer')->whereNumber('id');
 
         // Enrollment-centre queue desk
-        Route::middleware('role:ApprovingOfficer,EnrollmentOfficer,IssuingOfficer,Supervisor,Admin')->prefix('queue')->group(function () {
+        Route::middleware('role:ApprovingOfficer,EnrollmentOfficer,BiometricsOfficer,IssuingOfficer,Supervisor,Admin,CommandAdmin')->prefix('queue')->group(function () {
             Route::get('/', [QueueController::class, 'index']);
             Route::post('check-in', [QueueController::class, 'checkIn']);
             Route::post('walk-in', [QueueController::class, 'walkIn']);
@@ -176,7 +182,7 @@ Route::prefix('v1')->group(function () {
             Route::post('{id}/finish', [QueueController::class, 'finish'])->whereNumber('id');
         });
 
-        Route::middleware('role:VettingOfficer,DataEntryOfficer,SuperAdmin,Admin')->group(function () {
+        Route::middleware('role:VettingOfficer,DataEntryOfficer,SuperAdmin,Admin,CommandAdmin')->group(function () {
             Route::post('applications', [StaffApplications::class, 'store']);
             Route::post('applications/{id}/documents', [StaffApplications::class, 'uploadDocument'])->whereNumber('id');
         });
@@ -186,13 +192,13 @@ Route::prefix('v1')->group(function () {
         Route::get('applications/{id}/temporary-card/pdf', [StaffApplications::class, 'temporaryCardPdf'])->whereNumber('id');
 
         Route::post('applications/{id}/decision', [StaffApplications::class, 'decide'])
-            ->middleware('role:VettingOfficer,ApprovingOfficer,SuperAdmin,Admin')->whereNumber('id');
+            ->middleware('role:VettingOfficer,ApprovingOfficer,SuperAdmin,Admin,CommandAdmin')->whereNumber('id');
 
-        Route::middleware('role:EnrollmentOfficer,ApprovingOfficer,IssuingOfficer')->group(function () {
+        Route::middleware('role:EnrollmentOfficer,BiometricsOfficer,ApprovingOfficer,IssuingOfficer,CommandAdmin')->group(function () {
             Route::post('applications/{id}/biometrics', [StaffApplications::class, 'captureBiometrics'])->whereNumber('id');
         });
 
-        Route::middleware('role:IssuingOfficer,ApprovingOfficer')->group(function () {
+        Route::middleware('role:IssuingOfficer,CardIssuanceOfficer,ApprovingOfficer,CommandAdmin')->group(function () {
             Route::post('applications/{id}/collect', [StaffApplications::class, 'collect'])->whereNumber('id');
         });
 

@@ -86,7 +86,7 @@ export default function UsersPage() {
       return !["SuperAdmin", "HeadquartersAdmin", "CardProductionOfficer", "CardDistributionOfficer"].includes(role);
     }
     if (me.role === "CommandAdmin") {
-      return ["BiometricsOfficer", "CardReceivingOfficer", "CardIssuanceOfficer", "ReportingAuditOfficer", "EnrollmentOfficer", "IssuingOfficer"].includes(role);
+      return ["VettingOfficer", "ApprovingOfficer", "BiometricsOfficer", "CardReceivingOfficer", "CardIssuanceOfficer", "ReportingAuditOfficer", "EnrollmentOfficer", "IssuingOfficer"].includes(role);
     }
     return false;
   });
@@ -217,11 +217,13 @@ export default function UsersPage() {
   );
   const activeCount = (users ?? []).filter((u) => u.is_active).length;
 
+  const isCommandAdmin = me.role === "CommandAdmin";
+
   return (
     <div className="space-y-6">
       <PageTitle
-        title="NIS Staff User Management & Access Control"
-        subtitle="Manage official NIS staff accounts, 5-digit NIS numbers, jurisdictional roles, and physical geofence boundaries across Headquarters, Zones, and Commands."
+        title={isCommandAdmin ? "Command Staff Management" : "NIS Staff Directory & National Access Control"}
+        subtitle={isCommandAdmin ? `${me.command || "Command"} — Authorized Operational Officers` : "Manage official NIS staff accounts, 5-digit NIS numbers, jurisdictional roles, and physical geofence boundaries across Headquarters, Zones, and Commands."}
       />
       {notice && <Alert tone="success">{notice}</Alert>}
 
@@ -277,26 +279,30 @@ export default function UsersPage() {
                 NIS Organisational Jurisdiction & Deployment
               </div>
               <div className="mb-3 flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="allocation_type"
-                    checked={allocationLevel === "HEADQUARTERS"}
-                    onChange={() => setAllocationLevel("HEADQUARTERS")}
-                    className="text-emerald-700 focus:ring-emerald-600"
-                  />
-                  <span className="font-medium text-slate-800">NIS Service Headquarters (Sauka Abuja)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="allocation_type"
-                    checked={allocationLevel === "ZONE"}
-                    onChange={() => setAllocationLevel("ZONE")}
-                    className="text-emerald-700 focus:ring-emerald-600"
-                  />
-                  <span className="font-medium text-slate-800">NIS Zonal Office (Zone A - H)</span>
-                </label>
+                {!isCommandAdmin && (
+                  <>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="allocation_type"
+                        checked={allocationLevel === "HEADQUARTERS"}
+                        onChange={() => setAllocationLevel("HEADQUARTERS")}
+                        className="text-emerald-700 focus:ring-emerald-600"
+                      />
+                      <span className="font-medium text-slate-800">NIS Service Headquarters (Sauka Abuja)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="allocation_type"
+                        checked={allocationLevel === "ZONE"}
+                        onChange={() => setAllocationLevel("ZONE")}
+                        className="text-emerald-700 focus:ring-emerald-600"
+                      />
+                      <span className="font-medium text-slate-800">NIS Zonal Office (Zone A - H)</span>
+                    </label>
+                  </>
+                )}
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"

@@ -104,11 +104,14 @@ class ResidenceCard extends Model
         }
 
         if ($user->isCommand()) {
-            return $query->where(function ($q) use ($user) {
-                $q->whereHas('application', fn ($aq) => $aq->where('command_id', $user->command_id))
-                  ->orWhereHas('application.enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
-                  ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
-                  ->orWhereHas('distribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
+            $cmdId = $user->getEffectiveCommandId();
+            return $query->where(function ($q) use ($user, $cmdId) {
+                if ($cmdId) {
+                    $q->whereHas('application', fn ($aq) => $aq->where('command_id', $cmdId))
+                      ->orWhereHas('application.enrollmentCenter', fn ($cq) => $cq->where('command_id', $cmdId))
+                      ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $cmdId))
+                      ->orWhereHas('distribution', fn ($dq) => $dq->where('destination_command_id', $cmdId));
+                }
                 if ($user->nisCommand) {
                     $q->orWhere('enrollment_command', $user->nisCommand->name);
                 }
