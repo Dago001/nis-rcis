@@ -44,6 +44,23 @@ const icon = (d: string) => (
   </svg>
 );
 
+const ChevronIcon = ({ isExpanded }: { isExpanded: boolean }) => (
+  <svg
+    className={`h-3.5 w-3.5 shrink-0 text-emerald-900/70 transition-transform duration-200 ease-in-out ${
+      isExpanded ? "rotate-180" : ""
+    }`}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
+
 interface NavItem {
   href: string;
   label: string;
@@ -424,6 +441,30 @@ function StaffShellInner({ children }: { children: ReactNode }) {
 
   const activeNavSections = user ? getRoleNavSections(user) : [];
 
+  // Identify which non-Overview section contains the currently active page (if any)
+  const activeSectionTitle = user
+    ? activeNavSections.find((sec) => sec.title !== "Overview" && sec.items.some((it) => isItemActive(it.href)))?.title ?? null
+    : null;
+
+  // Track the currently expanded collapsible group (accordion: only one open at a time)
+  const [expandedSection, setExpandedSection] = useState<string | null>(activeSectionTitle);
+  const prevActiveSectionRef = useRef<string | null>(activeSectionTitle);
+
+  // Automatically expand the group containing the active page when navigating across sections
+  useEffect(() => {
+    if (activeSectionTitle && activeSectionTitle !== prevActiveSectionRef.current) {
+      setExpandedSection(activeSectionTitle);
+      prevActiveSectionRef.current = activeSectionTitle;
+    } else if (!prevActiveSectionRef.current && activeSectionTitle) {
+      setExpandedSection(activeSectionTitle);
+      prevActiveSectionRef.current = activeSectionTitle;
+    }
+  }, [activeSectionTitle]);
+
+  const toggleSection = (title: string) => {
+    setExpandedSection((prev) => (prev === title ? null : title));
+  };
+
   const currentActiveItem = user
     ? activeNavSections
         .flatMap((s) => s.items)
@@ -534,40 +575,102 @@ function StaffShellInner({ children }: { children: ReactNode }) {
                 )}
 
                 {/* Drawer Nav Items */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
                   {user &&
                     activeNavSections.map((sec, idx) => {
                       const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                       if (visible.length === 0) return null;
+
+                      const isOverview = sec.title === "Overview";
+                      const isExpanded = isOverview || expandedSection === sec.title;
+                      const containsActive = visible.some((it) => isItemActive(it.href));
+
                       return (
-                        <div key={sec.title} className={idx > 0 ? "border-t border-[#bfdec9] pt-3" : ""}>
-                          <div className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
-                            {t(sec.title)}
-                          </div>
-                          <ul className="space-y-1">
-                            {visible.map((item) => {
-                              const active = isItemActive(item.href);
-                              return (
-                                <li key={item.href}>
-                                  <Link
-                                    href={item.href}
-                                    scroll={false}
-                                    prefetch={false}
-                                    onClick={() => setMobileNavOpen(false)}
-                                    aria-current={active ? "page" : undefined}
-                                    className={`flex min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
-                                      active
-                                        ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
-                                        : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
-                                    }`}
-                                  >
-                                    <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
-                                    <span className="truncate">{t(item.label)}</span>
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                        <div key={sec.title} className={idx > 0 ? "border-t border-[#bfdec9] pt-2.5" : ""}>
+                          {isOverview ? (
+                            <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
+                              {t(sec.title)}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => toggleSection(sec.title)}
+                              aria-expanded={isExpanded}
+                              aria-controls={`mobile-nav-sec-${sec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                              className="flex w-full items-center justify-between rounded-lg px-2 py-1 text-left transition-colors hover:bg-white/40 focus:outline-none"
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
+                                  {t(sec.title)}
+                                </span>
+                                {!isExpanded && containsActive && (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1b5e20]" title={t("Active page inside")} />
+                                )}
+                              </div>
+                              <ChevronIcon isExpanded={isExpanded} />
+                            </button>
+                          )}
+
+                          {isOverview ? (
+                            <ul className="space-y-1 pt-1">
+                              {visible.map((item) => {
+                                const active = isItemActive(item.href);
+                                return (
+                                  <li key={item.href}>
+                                    <Link
+                                      href={item.href}
+                                      scroll={false}
+                                      prefetch={false}
+                                      onClick={() => setMobileNavOpen(false)}
+                                      aria-current={active ? "page" : undefined}
+                                      className={`flex min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                                        active
+                                          ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
+                                          : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
+                                      }`}
+                                    >
+                                      <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
+                                      <span className="truncate">{t(item.label)}</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : (
+                            <div
+                              id={`mobile-nav-sec-${sec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                              className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out ${
+                                isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+                              }`}
+                            >
+                              <div className="overflow-hidden">
+                                <ul className="space-y-1 pt-1 pl-1.5">
+                                  {visible.map((item) => {
+                                    const active = isItemActive(item.href);
+                                    return (
+                                      <li key={item.href}>
+                                        <Link
+                                          href={item.href}
+                                          scroll={false}
+                                          prefetch={false}
+                                          onClick={() => setMobileNavOpen(false)}
+                                          aria-current={active ? "page" : undefined}
+                                          className={`flex min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                                            active
+                                              ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
+                                              : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
+                                          }`}
+                                        >
+                                          <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
+                                          <span className="truncate">{t(item.label)}</span>
+                                        </Link>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -580,40 +683,101 @@ function StaffShellInner({ children }: { children: ReactNode }) {
           <nav className="no-print hidden lg:block lg:w-56 xl:w-[15rem] lg:shrink-0" aria-label="Staff console">
             <div
               ref={menu}
-              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm"
+              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm"
             >
               {user &&
                 activeNavSections.map((sec, idx) => {
                   const visible = sec.items.filter((item) => !item.roles || hasRole(user, ...item.roles));
                   if (visible.length === 0) return null;
+
+                  const isOverview = sec.title === "Overview";
+                  const isExpanded = isOverview || expandedSection === sec.title;
+                  const containsActive = visible.some((it) => isItemActive(it.href));
+
                   return (
-                    <div key={sec.title} className={idx > 0 ? "border-t border-[#bfdec9] pt-3" : ""}>
-                      <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
-                        {t(sec.title)}
-                      </div>
-                      <ul className="flex flex-col gap-1">
-                        {visible.map((item) => {
-                          const active = isItemActive(item.href);
-                          return (
-                            <li key={item.href}>
-                              <Link
-                                href={item.href}
-                                scroll={false}
-                                prefetch={false}
-                                aria-current={active ? "page" : undefined}
-                                className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
-                                  active
-                                    ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
-                                    : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
-                                }`}
-                              >
-                                <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
-                                <span>{t(item.label)}</span>
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                    <div key={sec.title} className={idx > 0 ? "border-t border-[#bfdec9] pt-2.5" : ""}>
+                      {isOverview ? (
+                        <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
+                          {t(sec.title)}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => toggleSection(sec.title)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`desktop-nav-sec-${sec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1 text-left transition-colors hover:bg-white/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#1b5e20]"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900/80">
+                              {t(sec.title)}
+                            </span>
+                            {!isExpanded && containsActive && (
+                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1b5e20]" title={t("Active page inside")} />
+                            )}
+                          </div>
+                          <ChevronIcon isExpanded={isExpanded} />
+                        </button>
+                      )}
+
+                      {isOverview ? (
+                        <ul className="flex flex-col gap-1 pt-1">
+                          {visible.map((item) => {
+                            const active = isItemActive(item.href);
+                            return (
+                              <li key={item.href}>
+                                <Link
+                                  href={item.href}
+                                  scroll={false}
+                                  prefetch={false}
+                                  aria-current={active ? "page" : undefined}
+                                  className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
+                                    active
+                                      ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
+                                      : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
+                                  }`}
+                                >
+                                  <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
+                                  <span className="truncate">{t(item.label)}</span>
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <div
+                          id={`desktop-nav-sec-${sec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                          className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out ${
+                            isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+                          }`}
+                        >
+                          <div className="overflow-hidden">
+                            <ul className="flex flex-col gap-1 pt-1 pl-1.5">
+                              {visible.map((item) => {
+                                const active = isItemActive(item.href);
+                                return (
+                                  <li key={item.href}>
+                                    <Link
+                                      href={item.href}
+                                      scroll={false}
+                                      prefetch={false}
+                                      aria-current={active ? "page" : undefined}
+                                      className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
+                                        active
+                                          ? "bg-[#1b5e20] font-semibold text-white shadow-sm ring-1 ring-black/5"
+                                          : "text-slate-900 font-medium hover:bg-white/75 hover:text-emerald-950"
+                                      }`}
+                                    >
+                                      <span className={active ? "text-white" : "text-emerald-900/80"}>{item.icon}</span>
+                                      <span className="truncate">{t(item.label)}</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
