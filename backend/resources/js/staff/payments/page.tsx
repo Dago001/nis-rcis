@@ -99,7 +99,7 @@ function Payments() {
         </div>
       )}
 
-      {result && result.meta.last_page > 1 && (
+      {result && result.meta && result.meta.last_page > 1 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-600">Page {result.meta.current_page} of {result.meta.last_page} · {result.meta.total} payments</span>
           <div className="flex gap-2">

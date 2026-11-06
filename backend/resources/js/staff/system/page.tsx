@@ -25,7 +25,7 @@ export default function SystemPage() {
   }
 
   if (!data) return <Spinner />;
-  const errors = data.errors.filter((e) => showResolved || !e.resolved_at);
+  const errors = (data.errors || []).filter((e) => showResolved || !e.resolved_at);
 
   return (
     <div className="space-y-6">
@@ -41,7 +41,7 @@ export default function SystemPage() {
 
       <Panel title="Checks">
         <ul className="divide-y divide-slate-100 text-sm">
-          {data.checks.map((c) => (
+          {(data.checks || []).map((c) => (
             <li key={c.name} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="w-44 font-medium">{c.name}</span>
               <span className="flex-1 text-slate-600">{c.detail}</span>

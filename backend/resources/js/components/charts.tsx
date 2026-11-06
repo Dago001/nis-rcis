@@ -11,7 +11,20 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
  * Every chart has a hover/focus tooltip and a data table, so nothing depends
  * on colour or hovering alone.
  */
-export const SERIES = ["#2b892b", "#2a78d6"] as const;
+const seriesBase = ["#2b892b", "#2a78d6"] as const;
+export const SERIES = Object.assign([...seriesBase], {
+  0: "#2b892b",
+  1: "#2a78d6",
+  primary: "#2b892b",
+  navy: "#2a78d6",
+  green: "#2b892b",
+  blue: "#2a78d6",
+}) as unknown as readonly [string, string] & {
+  primary: string;
+  navy: string;
+  green: string;
+  blue: string;
+};
 const GRID = "#e5e7eb";
 const AXIS = "#cbd5e1";
 const MUTED = "#64748b";
@@ -27,7 +40,21 @@ function niceTicks(max: number): number[] {
   return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => Math.round(i * step * 100) / 100);
 }
 
-export function ChartCard({ title, subtitle, children, table, legend }: { title: string; subtitle?: string; children: ReactNode; table?: ReactNode; legend?: ReactNode }) {
+export function ChartCard({
+  title,
+  subtitle,
+  children,
+  table,
+  legend,
+  footer,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  table?: ReactNode;
+  legend?: ReactNode;
+  footer?: ReactNode;
+}) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200 bg-nis-mint/60 px-5 py-3.5">
@@ -38,6 +65,7 @@ export function ChartCard({ title, subtitle, children, table, legend }: { title:
         {legend}
       </header>
       <div className="p-5">{children}</div>
+      {footer && <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-3">{footer}</div>}
       {table && (
         <details className="border-t border-slate-100 px-5 py-2.5 text-sm">
           <summary className="cursor-pointer text-xs font-medium text-nis-primary">Show data table</summary>
@@ -308,35 +336,186 @@ export function Meter({ value, label }: { value: number | null; label: string })
 }
 
 /**
- * Vertical two-bar chart for category comparison (e.g. New vs Renewal).
- * Uses portal primary green for first bar and lighter shade for second bar.
+ * Vertical two-bar chart for category comparison (e.g. New vs Renewal) or
+ * monthly historical breakdown (when categories and series are provided).
  */
+export type VerticalTwoBarChartProps = {
+  items?: { label: string; value: number; color?: string }[];
+  categories?: string[];
+  series1?: { label: string; data: number[]; color?: string };
+  series2?: { label: string; data: number[]; color?: string };
+  format?: (n: number) => string;
+};
+
 export function VerticalTwoBarChart({
   items,
+  categories,
+  series1,
+  series2,
   format = String,
-}: {
-  items: [
-    { label: string; value: number; color?: string },
-    { label: string; value: number; color?: string }
-  ];
-  format?: (n: number) => string;
-}) {
+}: VerticalTwoBarChartProps) {
   const [hover, setHover] = useState<number | null>(null);
-  const [ref, W] = useWidth(400);
-  const max = Math.max(1, items[0].value, items[1].value);
+  const [ref, W] = useWidth(640);
+  const id = useId();
+
+  // If categories or series are provided, render grouped multi-month bar chart
+  if (categories && (series1 || series2)) {
+    const s1Data = series1?.data ?? [];
+    const s2Data = series2?.data ?? [];
+    const cats = categories.length > 0 ? categories : ["Current"];
+    const max = Math.max(1, ...s1Data, ...s2Data);
+    const ticks = niceTicks(max);
+    const top = ticks[ticks.length - 1] || 1;
+    const chartHeight = 240;
+    const pad = { top: 20, right: 24, bottom: 36, left: 48 };
+    const iw = Math.max(100, W - pad.left - pad.right);
+    const ih = Math.max(80, chartHeight - pad.top - pad.bottom);
+    const numCats = cats.length;
+    const band = iw / numCats;
+    const groupWidth = Math.min(48, Math.max(12, band * 0.7));
+    const bw = Math.max(4, (groupWidth - 4) / 2);
+    const y = (v: number) => pad.top + ih - (top > 0 ? (v / top) * ih : 0);
+
+    const c1 = series1?.color ?? SERIES.primary;
+    const c2 = series2?.color ?? SERIES.navy;
+
+    return (
+      <div ref={ref} className="relative flex flex-col items-center justify-center">
+        <svg viewBox={`0 0 ${W} ${chartHeight}`} className="h-auto w-full select-none" role="img" aria-label="Applications intake per month">
+          <defs>
+            <clipPath id={`${id}-clip`}>
+              <rect x={0} y={0} width={W} height={pad.top + ih} />
+            </clipPath>
+          </defs>
+
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? AXIS : GRID} strokeWidth={1} />
+              <text x={pad.left - 10} y={y(t) + 4} textAnchor="end" fontSize={11} fill={MUTED} className="tabular-nums">
+                {format(t)}
+              </text>
+            </g>
+          ))}
+
+          {cats.map((cat, i) => {
+            const cx = pad.left + band * i + band / 2;
+            const v1 = s1Data[i] ?? 0;
+            const v2 = s2Data[i] ?? 0;
+            const h1 = top > 0 ? (v1 / top) * ih : 0;
+            const h2 = top > 0 ? (v2 / top) * ih : 0;
+            const isHovered = hover === i;
+
+            return (
+              <g
+                key={cat}
+                onPointerEnter={() => setHover(i)}
+                onPointerLeave={() => setHover(null)}
+                tabIndex={0}
+                className="cursor-pointer outline-none"
+              >
+                <rect x={cx - band / 2} y={pad.top} width={band} height={ih} fill="transparent" />
+
+                {/* Series 1 bar (left) */}
+                {v1 > 0 ? (
+                  <rect
+                    x={cx - groupWidth / 2}
+                    y={y(v1)}
+                    width={bw}
+                    height={h1 + 4}
+                    rx={3}
+                    fill={c1}
+                    opacity={hover === null || isHovered ? 1 : 0.6}
+                    clipPath={`url(#${id}-clip)`}
+                  />
+                ) : (
+                  <rect
+                    x={cx - groupWidth / 2}
+                    y={pad.top + ih - 1}
+                    width={bw}
+                    height={1}
+                    fill={c1}
+                    opacity={0.3}
+                  />
+                )}
+
+                {/* Series 2 bar (right) */}
+                {v2 > 0 ? (
+                  <rect
+                    x={cx - groupWidth / 2 + bw + 2}
+                    y={y(v2)}
+                    width={bw}
+                    height={h2 + 4}
+                    rx={3}
+                    fill={c2}
+                    opacity={hover === null || isHovered ? 1 : 0.6}
+                    clipPath={`url(#${id}-clip)`}
+                  />
+                ) : (
+                  <rect
+                    x={cx - groupWidth / 2 + bw + 2}
+                    y={pad.top + ih - 1}
+                    width={bw}
+                    height={1}
+                    fill={c2}
+                    opacity={0.3}
+                  />
+                )}
+
+                {/* Month label below */}
+                {(band >= 36 || (cats.length - 1 - i) % 2 === 0) && (
+                  <text x={cx} y={chartHeight - 12} textAnchor="middle" fontSize={11} fill={MUTED}>
+                    {cat}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        {hover !== null && (
+          <Tooltip x={pad.left + band * hover + band / 2} y={20} width={W}>
+            <div className="mb-1 font-semibold text-slate-900">{cats[hover]}</div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: c1 }} />
+              <span className="text-slate-600">{series1?.label ?? "Series 1"}:</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{format(s1Data[hover] ?? 0)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: c2 }} />
+              <span className="text-slate-600">{series2?.label ?? "Series 2"}:</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{format(s2Data[hover] ?? 0)}</span>
+            </div>
+          </Tooltip>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback to single 2-bar comparison (New vs Renewal totals)
+  const safeItems: { label: string; value: number; color?: string }[] =
+    Array.isArray(items) && items.length > 0
+      ? [
+          items[0] ?? { label: "New Applications", value: 0 },
+          items[1] ?? { label: "Renewal Applications", value: 0 },
+        ]
+      : [
+          { label: "New Applications", value: 0 },
+          { label: "Renewal Applications", value: 0 },
+        ];
+
+  const max = Math.max(1, safeItems[0].value, safeItems[1].value);
   const ticks = niceTicks(max);
-  const top = ticks[ticks.length - 1];
+  const top = ticks[ticks.length - 1] || 1;
   const chartHeight = 220;
   const pad = { top: 20, right: 24, bottom: 36, left: 48 };
-  const iw = W - pad.left - pad.right;
-  const ih = chartHeight - pad.top - pad.bottom;
+  const iw = Math.max(100, W - pad.left - pad.right);
+  const ih = Math.max(80, chartHeight - pad.top - pad.bottom);
   const bw = Math.min(52, Math.max(36, iw * 0.24));
   const cx0 = pad.left + iw * 0.3;
   const cx1 = pad.left + iw * 0.7;
   const centers = [cx0, cx1];
   const y = (v: number) => pad.top + ih - (top > 0 ? (v / top) * ih : 0);
-  const colors = [items[0].color ?? "#2b892b", items[1].color ?? "#58b258"];
-  const id = useId();
+  const colors = [safeItems[0].color ?? "#2b892b", safeItems[1].color ?? "#58b258"];
 
   return (
     <div ref={ref} className="relative flex flex-col items-center justify-center">
@@ -347,7 +526,6 @@ export function VerticalTwoBarChart({
           </clipPath>
         </defs>
 
-        {/* Numeric Y-Axis Gridlines & Ticks */}
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke={t === 0 ? AXIS : GRID} strokeWidth={1} />
@@ -357,8 +535,7 @@ export function VerticalTwoBarChart({
           </g>
         ))}
 
-        {/* Vertical Bars */}
-        {items.map((item, i) => {
+        {safeItems.map((item, i) => {
           const cx = centers[i];
           const val = item.value;
           const h = top > 0 ? (val / top) * ih : 0;
@@ -374,10 +551,8 @@ export function VerticalTwoBarChart({
               className="cursor-pointer outline-none"
               aria-label={`${item.label}: ${format(val)}`}
             >
-              {/* Invisible touch/hover target */}
               <rect x={cx - bw} y={pad.top} width={bw * 2} height={ih} fill="transparent" />
 
-              {/* Bar rectangle with rounded top */}
               {val > 0 ? (
                 <rect
                   x={cx - bw / 2}
@@ -391,7 +566,6 @@ export function VerticalTwoBarChart({
                   className="transition-opacity duration-150"
                 />
               ) : (
-                /* Subtle baseline indicator for 0 records */
                 <rect
                   x={cx - bw / 2}
                   y={pad.top + ih - 2}
@@ -403,7 +577,6 @@ export function VerticalTwoBarChart({
                 />
               )}
 
-              {/* Exact Value above bar */}
               <text
                 x={cx}
                 y={val > 0 ? Math.max(pad.top + 14, y(val) - 6) : pad.top + ih - 6}
@@ -416,7 +589,6 @@ export function VerticalTwoBarChart({
                 {format(val)}
               </text>
 
-              {/* Label below bar */}
               <text x={cx} y={chartHeight - 12} textAnchor="middle" fontSize={12} fontWeight={500} fill="#475569">
                 {item.label}
               </text>
@@ -426,9 +598,9 @@ export function VerticalTwoBarChart({
       </svg>
 
       {hover !== null && (
-        <Tooltip x={centers[hover]} y={((Math.max(10, y(items[hover].value) - 10)) / chartHeight) * 100} width={W}>
-          <div className="font-semibold text-slate-900">{format(items[hover].value)} applications</div>
-          <div className="text-slate-500">{items[hover].label}</div>
+        <Tooltip x={centers[hover]} y={((Math.max(10, y(safeItems[hover].value) - 10)) / chartHeight) * 100} width={W}>
+          <div className="font-semibold text-slate-900">{format(safeItems[hover].value)} applications</div>
+          <div className="text-slate-500">{safeItems[hover].label}</div>
         </Tooltip>
       )}
     </div>
@@ -440,22 +612,31 @@ export function VerticalTwoBarChart({
  * Segments represent Male and Female, with center text "Sex Distribution" and legend.
  */
 export function DoughnutChart({
-  items,
+  items = [],
   centerTitle = "Gender",
   centerSubtitle = "Distribution",
   format = String,
 }: {
-  items: [
-    { label: string; value: number; color?: string },
-    { label: string; value: number; color?: string }
-  ];
+  items?: { label: string; value: number; color?: string }[];
   centerTitle?: string;
   centerSubtitle?: string;
   format?: (n: number) => string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const total = items.reduce((sum, it) => sum + it.value, 0);
-  const colors = items.map((it, idx) => {
+
+  const safeItems =
+    Array.isArray(items) && items.length > 0
+      ? [
+          items[0] ?? { label: "Male", value: 0 },
+          items[1] ?? { label: "Female", value: 0 },
+        ]
+      : [
+          { label: "Male", value: 0 },
+          { label: "Female", value: 0 },
+        ];
+
+  const total = safeItems.reduce((sum, it) => sum + it.value, 0);
+  const colors = safeItems.map((it, idx) => {
     const l = (it.label || "").toLowerCase();
     if (l.includes("female") || l.includes("féminin") || l.includes("feminin") || l === "f") return "#8E44AD";
     if (l.includes("male") || l.includes("masculin") || l === "m") return "#2E7D32";
@@ -470,8 +651,8 @@ export function DoughnutChart({
   const circumference = 2 * Math.PI * r;
 
   // Compute strokeDasharray and offsets
-  const pct0 = total > 0 ? items[0].value / total : 0;
-  const pct1 = total > 0 ? items[1].value / total : 0;
+  const pct0 = total > 0 ? safeItems[0].value / total : 0;
+  const pct1 = total > 0 ? safeItems[1].value / total : 0;
   const len0 = circumference * pct0;
   const len1 = circumference * pct1;
   const offset0 = 0;
@@ -532,7 +713,7 @@ export function DoughnutChart({
           </span>
           {hover !== null && (
             <span className="mt-1 text-xs font-bold text-slate-900 tabular-nums">
-              {items[hover].label}: {format(items[hover].value)} ({total > 0 ? Math.round((items[hover].value / total) * 100) : 0}%)
+              {safeItems[hover].label}: {format(safeItems[hover].value)} ({total > 0 ? Math.round((safeItems[hover].value / total) * 100) : 0}%)
             </span>
           )}
         </div>
@@ -540,7 +721,7 @@ export function DoughnutChart({
 
       {/* Legend below the doughnut chart */}
       <ul className="mt-4 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-700">
-        {items.map((item, i) => {
+        {safeItems.map((item, i) => {
           const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
           return (
             <li
@@ -566,27 +747,41 @@ export function DoughnutChart({
 /** Horizontal bar chart for Nigerian States with hover tooltips and scrollable capacity. */
 export function StateHorizontalBarChart({
   items,
+  data,
+  height,
+  barColor,
   format = String,
   notAssignedLabel = "Not Yet Assigned",
 }: {
-  items: { state: string; total: number }[];
+  items?: { state: string; total: number }[];
+  data?: { label?: string; state?: string; value?: number; total?: number }[];
+  height?: number;
+  barColor?: string;
   format?: (n: number) => string;
   notAssignedLabel?: string;
 }) {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
-  const max = Math.max(1, ...items.map((i) => i.total));
 
-  if (!items.length) {
+  const rawList = items ?? data ?? [];
+  const list = rawList.map((i: any) => ({
+    state: i.state ?? i.label ?? "Unknown",
+    total: Number(i.total ?? i.value ?? 0),
+  }));
+
+  const max = Math.max(1, ...list.map((i) => i.total));
+
+  if (!list.length) {
     return <p className="py-8 text-center text-sm text-slate-500">No state application records available yet.</p>;
   }
 
   return (
     <div className="space-y-2.5">
-      {items.map((item) => {
+      {list.map((item) => {
         const isNotAssigned = item.state.toLowerCase() === "not yet assigned";
         const label = isNotAssigned ? notAssignedLabel : item.state;
         const widthPct = Math.max(item.total ? 3 : 0, (item.total / max) * 100);
         const isHovered = hoveredState === item.state;
+        const primaryColor = barColor ?? "#2b892b";
 
         return (
           <div
@@ -607,9 +802,9 @@ export function StateHorizontalBarChart({
             <div className="relative h-4 flex-1 rounded bg-slate-100 overflow-hidden">
               <div
                 className={`h-full rounded-r transition-all duration-300 ${
-                  isNotAssigned ? "bg-slate-400" : isHovered ? "bg-nis-primary-dark" : "bg-nis-primary"
+                  isNotAssigned ? "bg-slate-400" : isHovered ? "brightness-90" : ""
                 }`}
-                style={{ width: `${widthPct}%` }}
+                style={{ width: `${widthPct}%`, backgroundColor: isNotAssigned ? undefined : primaryColor }}
               />
             </div>
 
@@ -632,15 +827,25 @@ export function StateHorizontalBarChart({
 /** Top 5 States ranking chart with rank badges (1-5), progress bars, and tooltips. */
 export function Top5StatesChart({
   items,
+  data,
   format = String,
 }: {
-  items: { rank: number; state: string; total: number }[];
+  items?: { rank: number; state: string; total: number }[];
+  data?: { rank?: number; state?: string; total?: number; label?: string; value?: number }[];
   format?: (n: number) => string;
 }) {
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
-  const max = Math.max(1, ...items.map((i) => i.total));
 
-  if (!items.length) {
+  const rawList = items ?? data ?? [];
+  const list = rawList.map((i: any, idx: number) => ({
+    rank: i.rank ?? idx + 1,
+    state: i.state ?? i.label ?? `Rank #${idx + 1}`,
+    total: Number(i.total ?? i.value ?? 0),
+  }));
+
+  const max = Math.max(1, ...list.map((i) => i.total));
+
+  if (!list.length) {
     return <p className="py-8 text-center text-sm text-slate-500">No state ranking data available yet.</p>;
   }
 
@@ -654,14 +859,14 @@ export function Top5StatesChart({
 
   return (
     <div className="space-y-4 py-1">
-      {items.map((item) => {
+      {list.map((item) => {
         const badge = badgeColors[item.rank] || badgeColors[5];
         const widthPct = Math.max(item.total ? 4 : 0, (item.total / max) * 100);
         const isHovered = hoveredRank === item.rank;
 
         return (
           <div
-            key={item.rank}
+            key={`${item.rank}-${item.state}`}
             className="group relative"
             onMouseEnter={() => setHoveredRank(item.rank)}
             onMouseLeave={() => setHoveredRank(null)}
@@ -708,22 +913,24 @@ export function ProcessingOverviewChart({
   data,
   t,
 }: {
-  data: {
-    cards_produced: number;
-    cards_issued: number;
-    new_cards_issued: number;
-    renewal_cards_issued: number;
-    queried: number;
+  data?: {
+    cards_produced?: number;
+    cards_issued?: number;
+    new_cards_issued?: number;
+    renewal_cards_issued?: number;
+    queried?: number;
     rejected?: number;
   };
-  t: (key: string) => string;
+  t?: (key: string) => string;
 }) {
-  const max = Math.max(
-    1,
-    data.cards_produced,
-    data.cards_issued,
-    data.queried
-  );
+  const tr = typeof t === "function" ? t : (k: string) => k;
+  const cardsProduced = data?.cards_produced ?? 0;
+  const cardsIssued = data?.cards_issued ?? 0;
+  const newCardsIssued = data?.new_cards_issued ?? 0;
+  const renewalCardsIssued = data?.renewal_cards_issued ?? 0;
+  const queried = data?.queried ?? 0;
+
+  const max = Math.max(1, cardsProduced, cardsIssued, queried);
 
   const getWidth = (val: number) => Math.max(val ? 4 : 0, Math.min(100, (val / max) * 100));
 
@@ -734,19 +941,19 @@ export function ProcessingOverviewChart({
         <div className="flex items-center justify-between text-slate-700 mb-1.5">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 shrink-0" />
-            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{t("Total Cards Produced")}</span>
+            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{tr("Total Cards Produced")}</span>
           </div>
-          <span className="font-bold tabular-nums text-emerald-900 text-sm sm:text-base">{data.cards_produced.toLocaleString()}</span>
+          <span className="font-bold tabular-nums text-emerald-900 text-sm sm:text-base">{cardsProduced.toLocaleString()}</span>
         </div>
         <div className="h-2.5 w-full rounded-full bg-emerald-100/70 overflow-hidden">
           <div
             className="h-full rounded-full bg-emerald-600 transition-all duration-500 ease-out"
-            style={{ width: `${getWidth(data.cards_produced)}%` }}
+            style={{ width: `${getWidth(cardsProduced)}%` }}
           />
         </div>
         <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
-          <span>{t("Verified biometrics and approved for production")}</span>
-          <span className="font-medium text-slate-600">{max > 0 ? `${Math.round((data.cards_produced / max) * 100)}%` : "0%"}</span>
+          <span>{tr("Verified biometrics and approved for production")}</span>
+          <span className="font-medium text-slate-600">{max > 0 ? `${Math.round((cardsProduced / max) * 100)}%` : "0%"}</span>
         </div>
       </div>
 
@@ -756,14 +963,14 @@ export function ProcessingOverviewChart({
           <div className="flex items-center justify-between text-slate-700 mb-1.5">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-nis-primary shrink-0" />
-              <span className="font-semibold text-slate-900 text-xs sm:text-sm">{t("Total Cards Issued")}</span>
+              <span className="font-semibold text-slate-900 text-xs sm:text-sm">{tr("Total Cards Issued")}</span>
             </div>
-            <span className="font-bold tabular-nums text-nis-primary text-sm sm:text-base">{data.cards_issued.toLocaleString()}</span>
+            <span className="font-bold tabular-nums text-nis-primary text-sm sm:text-base">{cardsIssued.toLocaleString()}</span>
           </div>
           <div className="h-2.5 w-full rounded-full bg-slate-200/80 overflow-hidden">
             <div
               className="h-full rounded-full bg-nis-primary transition-all duration-500 ease-out"
-              style={{ width: `${getWidth(data.cards_issued)}%` }}
+              style={{ width: `${getWidth(cardsIssued)}%` }}
             />
           </div>
         </div>
@@ -774,18 +981,18 @@ export function ProcessingOverviewChart({
             <div className="flex items-center justify-between text-[11px] mb-1">
               <span className="font-medium text-slate-700 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                {t("New Cards Issued")}
+                {tr("New Cards Issued")}
               </span>
-              <span className="font-semibold tabular-nums text-slate-900">{data.new_cards_issued.toLocaleString()}</span>
+              <span className="font-semibold tabular-nums text-slate-900">{newCardsIssued.toLocaleString()}</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-blue-500 transition-all duration-500 ease-out"
-                style={{ width: `${data.cards_issued ? (data.new_cards_issued / data.cards_issued) * 100 : 0}%` }}
+                style={{ width: `${cardsIssued ? (newCardsIssued / cardsIssued) * 100 : 0}%` }}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-500 text-right">
-              {data.cards_issued ? `${Math.round((data.new_cards_issued / data.cards_issued) * 100)}% of issued` : "0%"}
+              {cardsIssued ? `${Math.round((newCardsIssued / cardsIssued) * 100)}% of issued` : "0%"}
             </div>
           </div>
 
@@ -793,18 +1000,18 @@ export function ProcessingOverviewChart({
             <div className="flex items-center justify-between text-[11px] mb-1">
               <span className="font-medium text-slate-700 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                {t("Renewal Cards Issued")}
+                {tr("Renewal Cards Issued")}
               </span>
-              <span className="font-semibold tabular-nums text-slate-900">{data.renewal_cards_issued.toLocaleString()}</span>
+              <span className="font-semibold tabular-nums text-slate-900">{renewalCardsIssued.toLocaleString()}</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full rounded-full bg-indigo-500 transition-all duration-500 ease-out"
-                style={{ width: `${data.cards_issued ? (data.renewal_cards_issued / data.cards_issued) * 100 : 0}%` }}
+                style={{ width: `${cardsIssued ? (renewalCardsIssued / cardsIssued) * 100 : 0}%` }}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-500 text-right">
-              {data.cards_issued ? `${Math.round((data.renewal_cards_issued / data.cards_issued) * 100)}% of issued` : "0%"}
+              {cardsIssued ? `${Math.round((renewalCardsIssued / cardsIssued) * 100)}% of issued` : "0%"}
             </div>
           </div>
         </div>
@@ -815,19 +1022,19 @@ export function ProcessingOverviewChart({
         <div className="flex items-center justify-between text-slate-700 mb-1.5">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
-            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{t("Queried Applications")}</span>
+            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{tr("Queried Applications")}</span>
           </div>
-          <span className="font-bold tabular-nums text-amber-900 text-sm sm:text-base">{data.queried.toLocaleString()}</span>
+          <span className="font-bold tabular-nums text-amber-900 text-sm sm:text-base">{queried.toLocaleString()}</span>
         </div>
         <div className="h-2.5 w-full rounded-full bg-amber-100/70 overflow-hidden">
           <div
             className="h-full rounded-full bg-amber-500 transition-all duration-500 ease-out"
-            style={{ width: `${getWidth(data.queried)}%` }}
+            style={{ width: `${getWidth(queried)}%` }}
           />
         </div>
         <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
-          <span>{t("Pending applicant clarification / document re-upload")}</span>
-          <span className="font-medium text-amber-800">{max > 0 ? `${Math.round((data.queried / max) * 100)}%` : "0%"}</span>
+          <span>{tr("Pending applicant clarification / document re-upload")}</span>
+          <span className="font-medium text-amber-800">{max > 0 ? `${Math.round((queried / max) * 100)}%` : "0%"}</span>
         </div>
       </div>
     </div>

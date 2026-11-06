@@ -307,7 +307,7 @@ export default function StaffDashboard() {
   const role = user.role;
   const isGeneralAdmin = role === "SuperAdmin" || role === "HeadquartersAdmin" || role === "Admin";
   const isVetting = role === "VettingOfficer" || role === "DataEntryOfficer" || role === "Inspector";
-  const isApprover = role === "ApprovingOfficer";
+  const isApprover = role === "ApprovingOfficer" || role === "Supervisor" || role === "Approver";
   const isBiometrics = role === "BiometricsOfficer" || role === "EnrollmentOfficer";
   const isCardProduction = role === "CardProductionOfficer" || role === "ProductionOfficer";
   const isCardDistribution = role === "CardDistributionOfficer";
@@ -1765,7 +1765,7 @@ function renderGeneralAdminDashboard(
           subtitle={t("Summary of cards produced, issued, queried and rejected")}
         >
           <div className="py-2">
-            <ProcessingOverviewChart data={procOverview} />
+            <ProcessingOverviewChart data={procOverview} t={t} />
           </div>
         </ChartCard>
 

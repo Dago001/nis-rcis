@@ -192,7 +192,7 @@ export default function StaffSettingsPage() {
               </svg>
             </div>
             <div>
-              <div className="text-xl font-bold text-slate-900">{settings?.stats.total_applicants ?? 0}</div>
+              <div className="text-xl font-bold text-slate-900">{settings?.stats?.total_applicants ?? 0}</div>
               <div className="text-xs text-slate-500">{t("Registered Applicants")}</div>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function StaffSettingsPage() {
               </svg>
             </div>
             <div>
-              <div className="text-xl font-bold text-slate-900">{settings?.stats.total_staff ?? 0}</div>
+              <div className="text-xl font-bold text-slate-900">{settings?.stats?.total_staff ?? 0}</div>
               <div className="text-xs text-slate-500">{t("Active Officers / Staff")}</div>
             </div>
           </div>

@@ -41,7 +41,7 @@ export default function CardStockPage() {
   }
 
   if (!data) return <Spinner />;
-  const s = data.stock;
+  const s = data.stock ?? { remaining: 0, received: 0, printed: 0, spoiled: 0, threshold: 0, low: false };
 
   return (
     <div className="space-y-6">

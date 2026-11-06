@@ -305,7 +305,7 @@ function ApplicationsQueueContent({ pageTitle, pageSubtitle, basePath, defaultPe
                           <span>|</span>
                           <span>{s.passport_number}</span>
                           <span>|</span>
-                          <span>{s.status_label || s.status.replaceAll("_", " ")}</span>
+                          <span>{s.status_label || (s.status ? s.status.replaceAll("_", " ") : "—")}</span>
                         </div>
                       </div>
                       <div className="shrink-0">

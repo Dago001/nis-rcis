@@ -59,7 +59,7 @@ export default function QueueDeskPage() {
     return () => clearInterval(timer);
   }, [reload]);
 
-  const centerId = data?.center.id;
+  const centerId = data?.center?.id;
   const body = (extra: object) => ({ ...extra, enrollment_center_id: centerId });
 
   async function run(fn: () => Promise<string | { tone: "success" | "warning"; text: string }>) {
@@ -112,18 +112,20 @@ export default function QueueDeskPage() {
     });
 
   if (!data) return <Spinner />;
-  const active = data.data.filter((t) => t.status === "WAITING" || t.status === "CALLED");
-  const closed = data.data.filter((t) => t.status === "DONE" || t.status === "NO_SHOW");
+  const active = (data.data || []).filter((t) => t.status === "WAITING" || t.status === "CALLED");
+  const closed = (data.data || []).filter((t) => t.status === "DONE" || t.status === "NO_SHOW");
 
   return (
     <div className="space-y-6">
       <PageTitle
         title="Centre queue"
-        subtitle={`${data.center.name} · today: ${data.stats.waiting} waiting, ${data.stats.called} being served, ${data.stats.done} served, ${data.stats.no_show} no-shows, ${data.stats.walk_ins} walk-ins`}
+        subtitle={`${data.center?.name || "Enrollment Centre"} · today: ${data.stats?.waiting ?? 0} waiting, ${data.stats?.called ?? 0} being served, ${data.stats?.done ?? 0} served, ${data.stats?.no_show ?? 0} no-shows, ${data.stats?.walk_ins ?? 0} walk-ins`}
         actions={
-          <a href={withBase(`/queue-display/${data.center.id}`)} target="_blank" rel="noopener" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium">
-            Open “now serving” screen ↗
-          </a>
+          data.center?.id ? (
+            <a href={withBase(`/queue-display/${data.center.id}`)} target="_blank" rel="noopener" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium">
+              Open “now serving” screen ↗
+            </a>
+          ) : null
         }
       />
       {message && <Alert tone={message.tone === "warning" ? "warning" : message.tone}>{message.text}</Alert>}

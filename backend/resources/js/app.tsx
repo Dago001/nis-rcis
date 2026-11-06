@@ -3,6 +3,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { I18nProvider } from '@/components/I18nProvider';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function ensureFavicon() {
   if (typeof document === 'undefined') return;
@@ -24,9 +25,11 @@ createInertiaApp({
     ensureFavicon();
     const initialLang = (props.initialPage.props as any)?.locale;
     createRoot(el).render(
-      <I18nProvider lang={initialLang}>
-        <App {...props} />
-      </I18nProvider>
+      <ErrorBoundary name="Root">
+        <I18nProvider lang={initialLang}>
+          <App {...props} />
+        </I18nProvider>
+      </ErrorBoundary>
     );
   },
 });

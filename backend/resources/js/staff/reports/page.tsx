@@ -301,7 +301,7 @@ export default function ReportsPage() {
 
   const meta = currentDataset?.meta ?? { current_page: 1, last_page: 1, per_page: 10, total: 0 };
   const items = currentDataset?.data ?? [];
-  const maxMonth = Math.max(1, ...(summary?.by_month.map((m) => m.total) ?? [1]));
+  const maxMonth = Math.max(1, ...(summary?.by_month?.map((m) => m.total) ?? [1]));
 
   return (
     <div className="space-y-6">

@@ -58,7 +58,7 @@ function compactStatusLabel(status: string, label?: string): string {
   if (s === "QUERIED") return "Queried";
   if (s === "REJECTED") return "Rejected";
   if (s === "RENEWED") return "Renewed";
-  return label || status.replaceAll("_", " ");
+  return label || (status ? status.replaceAll("_", " ") : "Pending");
 }
 
 export default function PortalHome() {

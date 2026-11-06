@@ -41,10 +41,11 @@ const defaultLabels: Record<string, string> = {
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const { t } = useI18n();
-  const rawDisplay = label ?? defaultLabels[status] ?? status.replaceAll("_", " ");
+  const safeStatus = status || "";
+  const rawDisplay = label ?? defaultLabels[safeStatus] ?? safeStatus.replaceAll("_", " ");
   const isApproved =
-    status === "APPROVED" ||
-    status === "APPROVED_FOR_BIOMETRICS" ||
+    safeStatus === "APPROVED" ||
+    safeStatus === "APPROVED_FOR_BIOMETRICS" ||
     rawDisplay === "Approved";
   const display = t(rawDisplay);
 
