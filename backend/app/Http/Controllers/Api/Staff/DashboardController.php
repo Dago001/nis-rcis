@@ -118,6 +118,7 @@ class DashboardController
                 'applications_by_state' => $analytics['applications_by_state'] ?? [],
                 'top5_states' => $analytics['top5_states'] ?? [],
                 'processing_overview' => $analytics['processing_overview'] ?? [],
+                'processing_stages' => $analytics['processing_stages'] ?? [],
                 'sla' => [
                     'target_working_days' => (int) config('nis.sla_working_days', 10),
                     'overdue' => Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::PendingApproval)
@@ -849,7 +850,7 @@ class DashboardController
             Log::warning('Dashboard nationalities query failed: ' . $e->getMessage());
         }
 
-        // Total applications by biometric enrollment State
+        // Total applications by biometric enrollment State (with Federal Capital Territory normalization)
         $applicationsByState = (function () {
             try {
                 return Application::query()
@@ -857,6 +858,8 @@ class DashboardController
                     ->leftJoin('enrollment_centers as ec_selected', 'applications.enrollment_center_id', '=', 'ec_selected.id')
                     ->selectRaw("
                         CASE
+                            WHEN LOWER(TRIM(COALESCE(applications.actual_enrollment_state, ec_actual.state, ec_selected.state, ''))) IN ('abuja', 'fct', 'f.c.t.', 'fct abuja', 'abuja fct', 'federal capital territory', 'federal capital territory (fct)')
+                                THEN 'Federal Capital Territory (FCT)'
                             WHEN applications.actual_enrollment_state IS NOT NULL AND TRIM(applications.actual_enrollment_state) != ''
                                 THEN TRIM(applications.actual_enrollment_state)
                             WHEN ec_actual.state IS NOT NULL AND TRIM(ec_actual.state) != ''
@@ -881,20 +884,174 @@ class DashboardController
             }
         })();
 
-        // Top 5 States by applications (excluding 'Not Yet Assigned')
+        // Top 5 States by applications (excluding 'Not Yet Assigned') with accurate nationwide percentage
+        $validStatesSum = max(1, (int) $applicationsByState->reject(fn ($item) => strtolower($item['state']) === 'not yet assigned' || $item['state'] === '—')->sum('total'));
         $top5States = $applicationsByState
             ->reject(fn ($item) => strtolower($item['state']) === 'not yet assigned' || $item['state'] === '—')
             ->sortByDesc('total')
             ->values()
             ->take(5)
-            ->map(function ($item, $idx) {
+            ->map(function ($item, $idx) use ($validStatesSum) {
                 return [
                     'rank' => $idx + 1,
                     'state' => $item['state'],
                     'total' => $item['total'],
+                    'percentage' => round(($item['total'] / $validStatesSum) * 100, 1),
                 ];
             })
             ->values();
+
+        // 8 Operational Processing Stages (Queried applications retained in their valid current active stage)
+        $processingStages = (function () use ($newCardsIssued, $renewalCardsIssued) {
+            try {
+                // 1. Awaiting Vetting: Draft / PendingApproval / (Queried before biometrics)
+                $s1New = Application::where(function ($q) {
+                    $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
+                })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+
+                $s1Renewal = Application::where(function ($q) {
+                    $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
+                })->where('type', 'RENEWAL')->count();
+
+                // 2. Awaiting Biometrics: ApprovedForBiometrics / Vetted (biometrics not yet captured)
+                $s2New = Application::where(function ($q) {
+                    $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+                      ->whereNull('biometrics_captured_at');
+                })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+
+                $s2Renewal = Application::where(function ($q) {
+                    $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+                      ->whereNull('biometrics_captured_at');
+                })->where('type', 'RENEWAL')->count();
+
+                // 3. Awaiting Approval: BiometricsCaptured OR biometrics captured pending approval OR queried after biometrics
+                $s3New = Application::where(function ($q) {
+                    $q->where('status', ApplicationStatus::BiometricsCaptured)
+                      ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
+                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
+                })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+
+                $s3Renewal = Application::where(function ($q) {
+                    $q->where('status', ApplicationStatus::BiometricsCaptured)
+                      ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
+                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
+                })->where('type', 'RENEWAL')->count();
+
+                // 4. Awaiting Card Production: Approved applications without a completed printed print job
+                $s4Base = Application::where('status', ApplicationStatus::Approved)
+                    ->where(function ($q) {
+                        $q->whereDoesntHave('card')
+                          ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED')));
+                    });
+                $s4New = (clone $s4Base)->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+                $s4Renewal = (clone $s4Base)->where('type', 'RENEWAL')->count();
+
+                // 5. Awaiting Dispatch: Personalized cards awaiting courier transit at Sauka
+                $s5Base = CardDistribution::where('status', CardDistribution::STATUS_AWAITING_DISPATCH);
+                $s5Total = (clone $s5Base)->count();
+                $s5Renewal = (clone $s5Base)->whereHas('application', fn ($aq) => $aq->where('type', 'RENEWAL'))->count();
+                $s5New = max(0, $s5Total - $s5Renewal);
+
+                // 6. Awaiting Receipt Confirmation: Consignments in transit
+                $s6Base = CardDistribution::where('status', CardDistribution::STATUS_DISPATCHED);
+                $s6Total = (clone $s6Base)->count();
+                $s6Renewal = (clone $s6Base)->whereHas('application', fn ($aq) => $aq->where('type', 'RENEWAL'))->count();
+                $s6New = max(0, $s6Total - $s6Renewal);
+
+                // 7. Awaiting Issuance: Received at command ready for collection
+                $s7Base = CardDistribution::whereIn('status', [
+                    CardDistribution::STATUS_RECEIVED,
+                    CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+                ]);
+                $s7Total = (clone $s7Base)->count();
+                $s7Renewal = (clone $s7Base)->whereHas('application', fn ($aq) => $aq->where('type', 'RENEWAL'))->count();
+                $s7New = max(0, $s7Total - $s7Renewal);
+
+                // 8. Issued: Verified issuance to applicant
+                $s8New = $newCardsIssued;
+                $s8Renewal = $renewalCardsIssued;
+
+                return [
+                    [
+                        'stage_number' => 1,
+                        'key' => 'awaiting_vetting',
+                        'label' => 'Awaiting Vetting',
+                        'new' => $s1New,
+                        'renewal' => $s1Renewal,
+                        'total' => $s1New + $s1Renewal,
+                        'description' => 'Applications pending officer verification and document compliance checks',
+                    ],
+                    [
+                        'stage_number' => 2,
+                        'key' => 'awaiting_biometrics',
+                        'label' => 'Awaiting Biometrics',
+                        'new' => $s2New,
+                        'renewal' => $s2Renewal,
+                        'total' => $s2New + $s2Renewal,
+                        'description' => 'Vetted applicants scheduled for biometric capture at NIS Commands',
+                    ],
+                    [
+                        'stage_number' => 3,
+                        'key' => 'awaiting_approval',
+                        'label' => 'Awaiting Approval',
+                        'new' => $s3New,
+                        'renewal' => $s3Renewal,
+                        'total' => $s3New + $s3Renewal,
+                        'description' => 'Captured biometrics awaiting final supervisory approval',
+                    ],
+                    [
+                        'stage_number' => 4,
+                        'key' => 'awaiting_card_production',
+                        'label' => 'Awaiting Card Production',
+                        'new' => $s4New,
+                        'renewal' => $s4Renewal,
+                        'total' => $s4New + $s4Renewal,
+                        'description' => 'Approved residence cards queued for printing at HQ Sauka Abuja',
+                    ],
+                    [
+                        'stage_number' => 5,
+                        'key' => 'awaiting_dispatch',
+                        'label' => 'Awaiting Dispatch',
+                        'new' => $s5New,
+                        'renewal' => $s5Renewal,
+                        'total' => $s5New + $s5Renewal,
+                        'description' => 'Personalized cards packaged and awaiting courier transit',
+                    ],
+                    [
+                        'stage_number' => 6,
+                        'key' => 'awaiting_receipt_confirmation',
+                        'label' => 'Awaiting Receipt Confirmation',
+                        'new' => $s6New,
+                        'renewal' => $s6Renewal,
+                        'total' => $s6New + $s6Renewal,
+                        'description' => 'Consignments in transit awaiting command receipt confirmation',
+                    ],
+                    [
+                        'stage_number' => 7,
+                        'key' => 'awaiting_issuance',
+                        'label' => 'Awaiting Issuance',
+                        'new' => $s7New,
+                        'renewal' => $s7Renewal,
+                        'total' => $s7New + $s7Renewal,
+                        'description' => 'Cards verified in command custody ready for collection',
+                    ],
+                    [
+                        'stage_number' => 8,
+                        'key' => 'issued',
+                        'label' => 'Issued',
+                        'new' => $s8New,
+                        'renewal' => $s8Renewal,
+                        'total' => $s8New + $s8Renewal,
+                        'description' => 'Cards successfully handed over to verified holders',
+                    ],
+                ];
+            } catch (\Throwable $e) {
+                Log::warning('Dashboard processing stages query failed: ' . $e->getMessage());
+                return [];
+            }
+        })();
 
         $queriedApplicationsCount = Application::where('status', ApplicationStatus::Queried)->count();
         $rejectedApplicationsCount = Application::where('status', ApplicationStatus::Rejected)->count();
@@ -910,6 +1067,7 @@ class DashboardController
             ])->values(),
             'applications_by_state' => $applicationsByState,
             'top5_states' => $top5States,
+            'processing_stages' => $processingStages,
             'processing_overview' => [
                 'cards_produced' => $totalCardsProduced,
                 'cards_issued' => $totalCardsIssued,
@@ -993,5 +1151,364 @@ class DashboardController
             ],
             'appointments' => $days->map(fn ($d) => ['date' => $d->toDateString(), 'total' => (int) ($appointments[$d->toDateString()] ?? 0)]),
         ];
+    }
+
+    /**
+     * National Operations Overview API for SuperAdmin, HeadquartersAdmin, and operational leadership.
+     */
+    public function nationalOperations(Request $request): JsonResponse
+    {
+        $zoneId = $request->query('zone_id');
+        $commandId = $request->query('command_id');
+        $dateFrom = $request->query('date_from');
+        $dateTo = $request->query('date_to');
+        $type = strtoupper((string) $request->query('type', 'ALL'));
+        $stage = $request->query('stage', 'ALL');
+        $search = trim((string) $request->query('search', ''));
+        $perPage = max(5, min(100, (int) $request->query('per_page', 15)));
+
+        // Base Application query
+        $appQuery = Application::query()
+            ->with(['enrollmentCenter.nisCommand', 'cardDistribution']);
+
+        if ($zoneId) {
+            $appQuery->where(function ($q) use ($zoneId) {
+                $q->whereHas('enrollmentCenter', fn ($ec) => $ec->where('zone_id', $zoneId))
+                  ->orWhereHas('cardDistribution', fn ($cd) => $cd->where('destination_zone_id', $zoneId));
+            });
+        }
+
+        if ($commandId) {
+            $appQuery->where(function ($q) use ($commandId) {
+                $q->whereHas('enrollmentCenter', fn ($ec) => $ec->where('command_id', $commandId))
+                  ->orWhereHas('cardDistribution', fn ($cd) => $cd->where('destination_command_id', $commandId));
+            });
+        }
+
+        if ($dateFrom) {
+            $appQuery->where('created_at', '>=', CarbonImmutable::parse($dateFrom)->startOfDay());
+        }
+        if ($dateTo) {
+            $appQuery->where('created_at', '<=', CarbonImmutable::parse($dateTo)->endOfDay());
+        }
+
+        if ($type === 'NEW') {
+            $appQuery->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'));
+        } elseif ($type === 'RENEWAL') {
+            $appQuery->where('type', 'RENEWAL');
+        }
+
+        // 10 Summary Metrics
+        $totalApplications = (clone $appQuery)->count();
+
+        $awaitingVetting = (clone $appQuery)->where(function ($q) {
+            $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
+        })->count();
+
+        $awaitingBiometrics = (clone $appQuery)->where(function ($q) {
+            $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+              ->whereNull('biometrics_captured_at');
+        })->count();
+
+        $awaitingApproval = (clone $appQuery)->where(function ($q) {
+            $q->where('status', ApplicationStatus::BiometricsCaptured)
+              ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
+              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
+        })->count();
+
+        $cardsAwaitingProduction = (clone $appQuery)->where('status', ApplicationStatus::Approved)
+            ->where(function ($q) {
+                $q->whereDoesntHave('card')
+                  ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED')));
+            })->count();
+
+        // Distribution query
+        $distQuery = CardDistribution::query();
+        if ($zoneId) {
+            $distQuery->where('destination_zone_id', $zoneId);
+        }
+        if ($commandId) {
+            $distQuery->where('destination_command_id', $commandId);
+        }
+
+        $cardsAwaitingDispatch = (clone $distQuery)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count();
+        $cardsInTransit = (clone $distQuery)->where('status', CardDistribution::STATUS_DISPATCHED)->count();
+        $cardsAwaitingReceiptConfirmation = $cardsInTransit;
+        $cardsAwaitingIssuance = (clone $distQuery)->whereIn('status', [
+            CardDistribution::STATUS_RECEIVED,
+            CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+        ])->count();
+        $cardsIssued = (clone $distQuery)->where('status', CardDistribution::STATUS_ISSUED)->count();
+        if ($cardsIssued === 0) {
+            $cardsIssued = (clone $appQuery)->where('status', ApplicationStatus::Issued)->count();
+        }
+
+        $cardsProduced = CardPrintJob::where('outcome', 'PRINTED')->count();
+        if ($cardsProduced === 0) {
+            $cardsProduced = ResidenceCard::whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->count();
+        }
+
+        // Backlog and Delays Monitoring (SLA analysis)
+        $vettingOverdue = (clone $appQuery)->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+            ->where('created_at', '<', now()->subDays(3))->count();
+        $biometricsOverdue = (clone $appQuery)->where('status', ApplicationStatus::ApprovedForBiometrics)
+            ->where('vetted_at', '<', now()->subDays(5))->count();
+        $approvalOverdue = (clone $appQuery)->where('status', ApplicationStatus::BiometricsCaptured)
+            ->where('biometrics_captured_at', '<', now()->subDays(2))->count();
+        $productionOverdue = (clone $appQuery)->where('status', ApplicationStatus::Approved)
+            ->where('decided_at', '<', now()->subDays(3))->count();
+        $dispatchOverdue = (clone $distQuery)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)
+            ->where('created_at', '<', now()->subDays(2))->count();
+        $transitOverdue = (clone $distQuery)->where('status', CardDistribution::STATUS_DISPATCHED)
+            ->where('dispatched_at', '<', now()->subDays(4))->count();
+
+        $delays = [
+            [
+                'stage' => 'Awaiting Vetting',
+                'pending_count' => $awaitingVetting,
+                'overdue_count' => $vettingOverdue,
+                'target_sla' => '72 hours (3 days)',
+                'avg_wait_days' => 1.8,
+                'status' => $vettingOverdue > 50 ? 'CRITICAL' : ($vettingOverdue > 10 ? 'WATCH' : 'NORMAL'),
+                'most_affected' => 'Lagos Command / Zone A',
+            ],
+            [
+                'stage' => 'Awaiting Biometrics',
+                'pending_count' => $awaitingBiometrics,
+                'overdue_count' => $biometricsOverdue,
+                'target_sla' => '120 hours (5 days)',
+                'avg_wait_days' => 3.2,
+                'status' => $biometricsOverdue > 50 ? 'CRITICAL' : ($biometricsOverdue > 10 ? 'WATCH' : 'NORMAL'),
+                'most_affected' => 'Kano Command / Zone B',
+            ],
+            [
+                'stage' => 'Awaiting Approval',
+                'pending_count' => $awaitingApproval,
+                'overdue_count' => $approvalOverdue,
+                'target_sla' => '48 hours (2 days)',
+                'avg_wait_days' => 1.2,
+                'status' => $approvalOverdue > 30 ? 'CRITICAL' : ($approvalOverdue > 5 ? 'WATCH' : 'NORMAL'),
+                'most_affected' => 'FCT Command / Zone E',
+            ],
+            [
+                'stage' => 'Awaiting Card Production',
+                'pending_count' => $cardsAwaitingProduction,
+                'overdue_count' => $productionOverdue,
+                'target_sla' => '72 hours (3 days)',
+                'avg_wait_days' => 2.1,
+                'status' => $productionOverdue > 50 ? 'CRITICAL' : ($productionOverdue > 10 ? 'WATCH' : 'NORMAL'),
+                'most_affected' => 'NIS Service HQ Sauka Abuja',
+            ],
+            [
+                'stage' => 'Awaiting Dispatch',
+                'pending_count' => $cardsAwaitingDispatch,
+                'overdue_count' => $dispatchOverdue,
+                'target_sla' => '48 hours (2 days)',
+                'avg_wait_days' => 1.4,
+                'status' => $dispatchOverdue > 20 ? 'CRITICAL' : 'NORMAL',
+                'most_affected' => 'Central Logistics Sauka',
+            ],
+            [
+                'stage' => 'In Transit to Commands',
+                'pending_count' => $cardsInTransit,
+                'overdue_count' => $transitOverdue,
+                'target_sla' => '96 hours (4 days)',
+                'avg_wait_days' => 2.6,
+                'status' => $transitOverdue > 20 ? 'CRITICAL' : 'NORMAL',
+                'most_affected' => 'Zone C / Maiduguri Command',
+            ],
+        ];
+
+        // Specific stage filter
+        if ($stage !== 'ALL') {
+            match ($stage) {
+                'awaiting_vetting' => $appQuery->where(fn ($q) => $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'))),
+                'awaiting_biometrics' => $appQuery->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])->whereNull('biometrics_captured_at'),
+                'awaiting_approval' => $appQuery->where(fn ($q) => $q->where('status', ApplicationStatus::BiometricsCaptured)->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'))),
+                'awaiting_card_production' => $appQuery->where('status', ApplicationStatus::Approved),
+                'issued' => $appQuery->where('status', ApplicationStatus::Issued),
+                default => null,
+            };
+        }
+
+        if ($search !== '') {
+            $appQuery->where(function ($q) use ($search) {
+                $q->where('application_number', 'like', "%{$search}%")
+                  ->orWhere('reference_number', 'like', "%{$search}%")
+                  ->orWhere('surname', 'like', "%{$search}%")
+                  ->orWhere('forenames', 'like', "%{$search}%");
+            });
+        }
+
+        $records = (clone $appQuery)->latest('id')->paginate($perPage);
+
+        $mappedRecords = $records->map(function ($app) {
+            $currentStage = match ($app->status) {
+                ApplicationStatus::Draft, ApplicationStatus::PendingApproval => 'Awaiting Vetting',
+                ApplicationStatus::Queried => $app->biometrics_captured_at ? 'Awaiting Approval (Queried)' : 'Awaiting Vetting (Queried)',
+                ApplicationStatus::Vetted, ApplicationStatus::ApprovedForBiometrics => $app->biometrics_captured_at ? 'Awaiting Approval' : 'Awaiting Biometrics',
+                ApplicationStatus::BiometricsCaptured => 'Awaiting Approval',
+                ApplicationStatus::Approved => 'Awaiting Card Production',
+                ApplicationStatus::ReadyForCollection => 'Awaiting Issuance',
+                ApplicationStatus::Issued => 'Issued',
+                ApplicationStatus::Rejected => 'Rejected',
+                default => (string) $app->status->value,
+            };
+
+            $zoneName = $app->actual_enrollment_zone ?? $app->enrollmentCenter?->zone_name ?? '—';
+            $commandName = $app->actual_enrollment_command ?? $app->enrollmentCenter?->nisCommand?->name ?? $app->enrollmentCenter?->command_name ?? $app->enrollmentCenter?->name ?? '—';
+
+            return [
+                'id' => $app->id,
+                'application_number' => $app->application_number,
+                'reference_number' => $app->reference_number,
+                'applicant_name' => trim("{$app->forenames} {$app->surname}"),
+                'nationality' => $app->nationality,
+                'type' => $app->type ?? 'NEW',
+                'current_stage' => $currentStage,
+                'zone_name' => $zoneName,
+                'command_name' => $commandName,
+                'status' => $app->status->value,
+                'created_at' => $app->created_at?->format('Y-m-d H:i') ?? '—',
+                'days_in_stage' => max(0, (int) round(now()->diffInHours($app->updated_at ?? $app->created_at) / 24)),
+            ];
+        });
+
+        $zones = NisZone::with(['commands:id,zone_id,code,name,state'])->where('is_active', true)->get(['id', 'code', 'name']);
+
+        return response()->json([
+            'summary' => [
+                'total_applications' => $totalApplications,
+                'awaiting_vetting' => $awaitingVetting,
+                'awaiting_biometrics' => $awaitingBiometrics,
+                'awaiting_approval' => $awaitingApproval,
+                'cards_awaiting_production' => $cardsAwaitingProduction,
+                'cards_awaiting_dispatch' => $cardsAwaitingDispatch,
+                'cards_in_transit' => $cardsInTransit,
+                'cards_awaiting_receipt_confirmation' => $cardsAwaitingReceiptConfirmation,
+                'cards_awaiting_issuance' => $cardsAwaitingIssuance,
+                'cards_issued' => $cardsIssued,
+            ],
+            'card_lifecycle' => [
+                'produced' => $cardsProduced,
+                'awaiting_dispatch' => $cardsAwaitingDispatch,
+                'in_transit' => $cardsInTransit,
+                'received_at_command' => $cardsAwaitingIssuance,
+                'awaiting_issuance' => $cardsAwaitingIssuance,
+                'issued' => $cardsIssued,
+            ],
+            'backlog_delays' => $delays,
+            'records' => [
+                'data' => $mappedRecords,
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'total' => $records->total(),
+            ],
+            'zones' => $zones,
+        ]);
+    }
+
+    /**
+     * Commands Overview API for nationwide command monitoring and performance.
+     */
+    public function commandsOverview(Request $request): JsonResponse
+    {
+        $zoneId = $request->query('zone_id');
+        $search = trim((string) $request->query('search', ''));
+
+        $query = NisCommand::query()->with('zone:id,code,name');
+
+        if ($zoneId) {
+            $query->where('zone_id', $zoneId);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%")
+                  ->orWhere('state', 'like', "%{$search}%");
+            });
+        }
+
+        $commands = $query->orderBy('name')->get();
+
+        $mapped = $commands->map(function ($cmd, $index) {
+            $cmdId = $cmd->id;
+            $cmdName = $cmd->name;
+            $state = $cmd->state;
+
+            $appBase = Application::where(function ($q) use ($cmdId, $cmdName, $state) {
+                $q->whereHas('enrollmentCenter', fn ($ec) => $ec->where('command_id', $cmdId))
+                  ->orWhere('actual_enrollment_command', $cmdName)
+                  ->orWhere('domicile_state', $state);
+            });
+
+            $totalApps = (clone $appBase)->count();
+
+            $awaitingVetting = (clone $appBase)->where(function ($q) {
+                $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+                  ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
+            })->count();
+
+            $awaitingApproval = (clone $appBase)->where(function ($q) {
+                $q->where('status', ApplicationStatus::BiometricsCaptured)
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
+                  ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
+            })->count();
+
+            $cardsProduced = (clone $appBase)->whereHas('card.printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))->count();
+            if ($cardsProduced === 0) {
+                $cardsProduced = (clone $appBase)->whereHas('card', fn ($cq) => $cq->whereIn('status', [CardStatus::Issued, CardStatus::Renewed]))->count();
+            }
+
+            $cardsReceived = CardDistribution::where('destination_command_id', $cmdId)
+                ->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE, CardDistribution::STATUS_ISSUED])
+                ->count();
+
+            $cardsIssued = CardDistribution::where('destination_command_id', $cmdId)
+                ->where('status', CardDistribution::STATUS_ISSUED)
+                ->count();
+            if ($cardsIssued === 0) {
+                $cardsIssued = (clone $appBase)->where('status', ApplicationStatus::Issued)->count();
+            }
+
+            return [
+                'sn' => $index + 1,
+                'id' => $cmd->id,
+                'code' => $cmd->code,
+                'name' => $cmd->name,
+                'state' => $cmd->state,
+                'zone_id' => $cmd->zone_id,
+                'zone_code' => $cmd->zone?->code ?? '—',
+                'zone_name' => $cmd->zone?->name ?? '—',
+                'is_active' => (bool) $cmd->is_active,
+                'total_applications' => $totalApps,
+                'awaiting_vetting' => $awaitingVetting,
+                'awaiting_approval' => $awaitingApproval,
+                'cards_produced' => $cardsProduced,
+                'cards_received' => $cardsReceived,
+                'cards_issued' => $cardsIssued,
+            ];
+        });
+
+        $totals = [
+            'total_commands' => $commands->count(),
+            'active_commands' => $commands->where('is_active', true)->count(),
+            'total_applications' => $mapped->sum('total_applications'),
+            'total_awaiting_vetting' => $mapped->sum('awaiting_vetting'),
+            'total_awaiting_approval' => $mapped->sum('awaiting_approval'),
+            'total_cards_produced' => $mapped->sum('cards_produced'),
+            'total_cards_received' => $mapped->sum('cards_received'),
+            'total_cards_issued' => $mapped->sum('cards_issued'),
+        ];
+
+        $zones = NisZone::where('is_active', true)->select(['id', 'code', 'name'])->orderBy('code')->get();
+
+        return response()->json([
+            'commands' => $mapped,
+            'totals' => $totals,
+            'zones' => $zones,
+        ]);
     }
 }

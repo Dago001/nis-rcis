@@ -158,22 +158,22 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
     ];
   }
 
-  // 4. Other Roles (SuperAdmin, Admin, HeadquartersAdmin, ZonalAdmin, CommandAdmin, Biometrics, Production, Distribution, Receiving, Audit)
+  // 4. General & Administrative Navigation (SuperAdmin, HeadquartersAdmin, CommandAdmin, ZonalAdmin, etc.)
   return [
     {
       title: "Overview",
       items: [
         { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
         {
-          href: "/staff/queue",
-          label: "Biometrics Queue",
-          icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
+          href: "/staff/national-operations",
+          label: "National Operations",
+          icon: icon("M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
         },
       ],
     },
     {
-      title: "Applications",
+      title: "Application Management",
       items: [
         {
           href: "/staff/applications",
@@ -186,6 +186,12 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           label: "Approval",
           icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"),
           roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ApprovingOfficer", "Supervisor"],
+        },
+        {
+          href: "/staff/queue",
+          label: "Biometrics",
+          icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
         },
       ],
     },
@@ -219,8 +225,14 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
       ],
     },
     {
-      title: "Reports & Compliance",
+      title: "Management",
       items: [
+        {
+          href: "/staff/commands",
+          label: "Commands Overview",
+          icon: icon("M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "ReportingAuditOfficer", "Auditor"],
+        },
         {
           href: "/staff/reports",
           label: "Reports",
@@ -248,20 +260,15 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/settings",
           label: "Settings",
           icon: icon("M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+          roles: ["SuperAdmin", "Admin"],
         },
-      ],
-    },
-    {
-      title: "Workspace",
-      items: [
-        { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
-        { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
       ],
     },
     {
       title: "Account",
       items: [
+        { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
+        { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
         { href: "/staff/profile", label: "My Profile", icon: icon("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z") },
       ],
     },

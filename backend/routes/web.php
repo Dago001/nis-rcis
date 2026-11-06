@@ -142,6 +142,8 @@ Route::middleware('web')->group(function () {
     // ------------------------------------------------- Staff Console (Inertia)
     Route::middleware(['auth:staff', 'staff.active'])->prefix('staff')->name('staff.')->group(function () {
         Route::get('/', fn () => Inertia::render('Staff/Dashboard'))->name('dashboard');
+        Route::get('/national-operations', fn () => Inertia::render('Staff/NationalOperations'))->name('national-operations');
+        Route::get('/commands', fn () => Inertia::render('Staff/CommandsOverview'))->name('commands');
         Route::get('/queue', fn () => Inertia::render('Staff/Queue'))->name('queue');
         Route::get('/approvals', fn () => Inertia::render('Staff/Approvals'))->name('approvals');
         Route::get('/approvals/{id}', fn ($id) => Inertia::render('Staff/ApprovalDetail', ['id' => $id]))->whereNumber('id')->name('approvals.show');
@@ -150,6 +152,7 @@ Route::middleware('web')->group(function () {
         Route::get('/applications/{id}', fn ($id) => Inertia::render('Staff/ApplicationDetail', ['id' => $id]))->whereNumber('id')->name('applications.show');
         Route::get('/applications/{id}/biometrics', fn ($id) => Inertia::render('Staff/Biometrics', ['id' => $id]))->whereNumber('id')->name('applications.biometrics');
         Route::get('/cards', fn () => Inertia::render('Staff/Cards'))->name('cards');
+        Route::get('/card-distribution', fn () => Inertia::render('Staff/CardDistribution'))->name('card-distribution');
         Route::get('/card-issuance', fn () => Inertia::render('Staff/CardIssuance'))->name('card-issuance');
         Route::get('/cards/print-batch', fn () => Inertia::render('Staff/CardPrintBatch'))->name('cards.print-batch');
         Route::get('/cards/{id}', fn ($id) => Inertia::render('Staff/CardDetail', ['id' => $id]))->whereNumber('id')->name('cards.show');
@@ -183,6 +186,9 @@ Route::middleware('web')->group(function () {
                 return Inertia::render('Staff/CardDetail', ['id' => (int) $m[1]]);
             }
             $map = [
+                'staff/national-operations' => 'Staff/NationalOperations',
+                'staff/commands' => 'Staff/CommandsOverview',
+                'staff/card-distribution' => 'Staff/CardDistribution',
                 'staff/card-issuance' => 'Staff/CardIssuance',
                 'staff/notifications' => 'Staff/Notifications',
                 'staff/my-activity' => 'Staff/MyActivity',
@@ -222,6 +228,9 @@ Route::middleware('web')->group(function () {
                 return Inertia::render('Staff/CardDetail', ['id' => (int) $m[1]]);
             }
             $map = [
+                'staff/national-operations' => 'Staff/NationalOperations',
+                'staff/commands' => 'Staff/CommandsOverview',
+                'staff/card-distribution' => 'Staff/CardDistribution',
                 'staff/card-issuance' => 'Staff/CardIssuance',
                 'staff/notifications' => 'Staff/Notifications',
                 'staff/my-activity' => 'Staff/MyActivity',

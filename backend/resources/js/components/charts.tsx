@@ -830,8 +830,8 @@ export function Top5StatesChart({
   data,
   format = String,
 }: {
-  items?: { rank: number; state: string; total: number }[];
-  data?: { rank?: number; state?: string; total?: number; label?: string; value?: number }[];
+  items?: { rank: number; state: string; total: number; percentage?: number }[];
+  data?: { rank?: number; state?: string; total?: number; label?: string; value?: number; percentage?: number }[];
   format?: (n: number) => string;
 }) {
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
@@ -841,6 +841,7 @@ export function Top5StatesChart({
     rank: i.rank ?? idx + 1,
     state: i.state ?? i.label ?? `Rank #${idx + 1}`,
     total: Number(i.total ?? i.value ?? 0),
+    percentage: i.percentage !== undefined ? Number(i.percentage) : null,
   }));
 
   const max = Math.max(1, ...list.map((i) => i.total));
@@ -882,9 +883,16 @@ export function Top5StatesChart({
                   {item.state}
                 </span>
               </div>
-              <span className="shrink-0 font-semibold tabular-nums text-slate-900 text-sm">
-                {format(item.total)}
-              </span>
+              <div className="flex items-baseline gap-1.5 shrink-0">
+                <span className="font-semibold tabular-nums text-slate-900 text-sm">
+                  {format(item.total)}
+                </span>
+                {item.percentage !== null && (
+                  <span className="text-xs text-slate-500 tabular-nums font-normal">
+                    ({item.percentage}%)
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="relative h-3 w-full rounded-full bg-slate-100 overflow-hidden">
@@ -898,7 +906,7 @@ export function Top5StatesChart({
 
             {isHovered && (
               <div className="pointer-events-none absolute -top-7 right-0 z-20 rounded bg-slate-900 px-2 py-0.5 text-xs font-medium text-white shadow-md whitespace-nowrap">
-                Rank #{item.rank}: {item.state} ({format(item.total)} apps)
+                Rank #{item.rank}: {item.state} ({format(item.total)} apps{item.percentage !== null ? ` · ${item.percentage}% of national` : ""})
               </div>
             )}
           </div>
@@ -908,11 +916,23 @@ export function Top5StatesChart({
   );
 }
 
-/** Structured breakdown for Application Processing Overview */
+export type ProcessingStageItem = {
+  stage_number: number;
+  key: string;
+  label: string;
+  new: number;
+  renewal: number;
+  total: number;
+  description?: string;
+};
+
+/** Structured breakdown for Application Processing Overview reflecting all 8 approved operational stages */
 export function ProcessingOverviewChart({
+  stages,
   data,
   t,
 }: {
+  stages?: ProcessingStageItem[];
   data?: {
     cards_produced?: number;
     cards_issued?: number;
@@ -924,19 +944,111 @@ export function ProcessingOverviewChart({
   t?: (key: string) => string;
 }) {
   const tr = typeof t === "function" ? t : (k: string) => k;
+  const [hoveredStage, setHoveredStage] = useState<number | null>(null);
+
+  // If the 8 operational stages are supplied, render the complete nationwide workflow
+  if (stages && stages.length > 0) {
+    const max = Math.max(1, ...stages.map((s) => s.total));
+
+    return (
+      <div className="space-y-3.5 py-1 text-xs">
+        {stages.map((stage) => {
+          const widthPct = Math.max(stage.total ? 4 : 0, Math.min(100, (stage.total / max) * 100));
+          const newPct = stage.total > 0 ? (stage.new / stage.total) * 100 : 0;
+          const renewalPct = stage.total > 0 ? (stage.renewal / stage.total) * 100 : 0;
+          const isHovered = hoveredStage === stage.stage_number;
+
+          return (
+            <div
+              key={stage.key}
+              className={`rounded-xl border p-3 transition-all ${
+                isHovered
+                  ? "border-emerald-300 bg-emerald-50/40 shadow-sm"
+                  : "border-slate-200/80 bg-slate-50/30 hover:bg-slate-50/60"
+              }`}
+              onMouseEnter={() => setHoveredStage(stage.stage_number)}
+              onMouseLeave={() => setHoveredStage(null)}
+            >
+              {/* Header: Stage Number, Label, and Total Count */}
+              <div className="flex items-center justify-between text-slate-700 mb-1.5 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                    {stage.stage_number}
+                  </span>
+                  <span className="font-semibold text-slate-900 text-xs sm:text-sm truncate">
+                    {tr(stage.label)}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2 shrink-0">
+                  <span className="font-bold tabular-nums text-slate-900 text-sm sm:text-base">
+                    {stage.total.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-slate-500 hidden sm:inline">
+                    {tr("apps")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar (Stacked: New in Green, Renewal in Navy) */}
+              <div className="relative h-2.5 w-full rounded-full bg-slate-200/70 overflow-hidden flex">
+                <div
+                  className="h-full bg-[#2b892b] transition-all duration-500 ease-out"
+                  style={{ width: `${(widthPct * newPct) / 100}%` }}
+                  title={`${tr("New")}: ${stage.new.toLocaleString()}`}
+                />
+                <div
+                  className="h-full bg-[#1e40af] transition-all duration-500 ease-out"
+                  style={{ width: `${(widthPct * renewalPct) / 100}%` }}
+                  title={`${tr("Renewal")}: ${stage.renewal.toLocaleString()}`}
+                />
+              </div>
+
+              {/* Breakdown Details & Subtitle */}
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
+                <span className="truncate max-w-[280px] sm:max-w-none text-slate-600">
+                  {stage.description ? tr(stage.description) : ""}
+                </span>
+                <div className="flex items-center gap-3 shrink-0 font-medium">
+                  <span className="text-[#2b892b] flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#2b892b]" />
+                    {stage.new.toLocaleString()} {tr("New")}
+                  </span>
+                  <span className="text-[#1e40af] flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#1e40af]" />
+                    {stage.renewal.toLocaleString()} {tr("Renewal")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Legend */}
+        <div className="flex items-center justify-end gap-4 pt-1 text-[11px] text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#2b892b]" />
+            <span>{tr("New Applications")}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#1e40af]" />
+            <span>{tr("Renewal Applications")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback for legacy data (without separate queried distortion)
   const cardsProduced = data?.cards_produced ?? 0;
   const cardsIssued = data?.cards_issued ?? 0;
   const newCardsIssued = data?.new_cards_issued ?? 0;
   const renewalCardsIssued = data?.renewal_cards_issued ?? 0;
-  const queried = data?.queried ?? 0;
 
-  const max = Math.max(1, cardsProduced, cardsIssued, queried);
-
+  const max = Math.max(1, cardsProduced, cardsIssued);
   const getWidth = (val: number) => Math.max(val ? 4 : 0, Math.min(100, (val / max) * 100));
 
   return (
     <div className="space-y-4 py-1 text-xs">
-      {/* 1. Total Cards Produced */}
       <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 transition-colors">
         <div className="flex items-center justify-between text-slate-700 mb-1.5">
           <div className="flex items-center gap-2">
@@ -957,7 +1069,6 @@ export function ProcessingOverviewChart({
         </div>
       </div>
 
-      {/* 2. Total Cards Issued & Breakdown */}
       <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3 space-y-2.5 transition-colors">
         <div>
           <div className="flex items-center justify-between text-slate-700 mb-1.5">
@@ -975,7 +1086,6 @@ export function ProcessingOverviewChart({
           </div>
         </div>
 
-        {/* Breakdown Sub-bars */}
         <div className="grid sm:grid-cols-2 gap-2.5 pt-1 border-t border-blue-100/70">
           <div className="rounded-lg bg-white/80 p-2 border border-slate-200/60">
             <div className="flex items-center justify-between text-[11px] mb-1">
@@ -1014,27 +1124,6 @@ export function ProcessingOverviewChart({
               {cardsIssued ? `${Math.round((renewalCardsIssued / cardsIssued) * 100)}% of issued` : "0%"}
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* 3. Queried Applications */}
-      <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 transition-colors">
-        <div className="flex items-center justify-between text-slate-700 mb-1.5">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
-            <span className="font-semibold text-slate-900 text-xs sm:text-sm">{tr("Queried Applications")}</span>
-          </div>
-          <span className="font-bold tabular-nums text-amber-900 text-sm sm:text-base">{queried.toLocaleString()}</span>
-        </div>
-        <div className="h-2.5 w-full rounded-full bg-amber-100/70 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-amber-500 transition-all duration-500 ease-out"
-            style={{ width: `${getWidth(queried)}%` }}
-          />
-        </div>
-        <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
-          <span>{tr("Pending applicant clarification / document re-upload")}</span>
-          <span className="font-medium text-amber-800">{max > 0 ? `${Math.round((queried / max) * 100)}%` : "0%"}</span>
         </div>
       </div>
     </div>

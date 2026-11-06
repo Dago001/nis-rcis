@@ -140,6 +140,10 @@ Route::prefix('v1')->group(function () {
     Route::prefix('staff')->middleware(['auth.any:staff', 'scopes:staff', 'staff.active'])->group(function () {
         Route::get('me', [DashboardController::class, 'me']);
         Route::get('dashboard', [DashboardController::class, 'summary']);
+        Route::get('national-operations', [DashboardController::class, 'nationalOperations'])
+            ->middleware('role:SuperAdmin,HeadquartersAdmin,Admin,ZonalAdmin,CommandAdmin,ReportingAuditOfficer');
+        Route::get('commands-overview', [DashboardController::class, 'commandsOverview'])
+            ->middleware('role:SuperAdmin,HeadquartersAdmin,Admin,ZonalAdmin,CommandAdmin,ReportingAuditOfficer');
         Route::post('oauth/revoke', RevokeTokenController::class);
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read', [NotificationController::class, 'markRead']);

@@ -41,6 +41,17 @@ type TopStateItem = {
   rank: number;
   state: string;
   total: number;
+  percentage?: number;
+};
+
+type ProcessingStageItem = {
+  stage_number: number;
+  key: string;
+  label: string;
+  new: number;
+  renewal: number;
+  total: number;
+  description?: string;
 };
 
 type ProcessingOverview = {
@@ -81,6 +92,7 @@ type Analytics = {
   applications_by_state?: StateCountItem[];
   top5_states?: TopStateItem[];
   processing_overview?: ProcessingOverview;
+  processing_stages?: ProcessingStageItem[];
   mix: { type: Record<string, number>; channel: Record<string, number>; sex: Record<string, number> };
   appointments: { date: string; total: number }[];
   recent_activity?: RecentActivityItem[];
@@ -202,6 +214,7 @@ type Summary = {
   applications_by_state?: StateCountItem[];
   top5_states?: TopStateItem[];
   processing_overview?: ProcessingOverview;
+  processing_stages?: ProcessingStageItem[];
   todays_appointments: number;
   sla: { target_working_days: number; overdue: number; assigned_to_me: number };
   card_stock: { remaining: number; low: boolean };
@@ -1728,48 +1741,40 @@ function renderGeneralAdminDashboard(
         </div>
       </ChartCard>
 
-      {/* Row 2: Two charts side-by-side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-        {/* Feature B: Application Distribution by State */}
-        <ChartCard
-          title={t("Application Distribution by State")}
-          subtitle={t("Total applicant domicile distribution across Nigerian states")}
-        >
-          <div className="py-2">
-            <StateHorizontalBarChart
-              data={statesData.map((d) => ({ label: d.state, value: d.total }))}
-              height={320}
-              barColor="#1B5E20"
-            />
-          </div>
-        </ChartCard>
+      {/* Row 2: Application Processing Overview (Approved 8-Stage Operational Workflow Nationwide) */}
+      <ChartCard
+        title={t("Application Processing Overview")}
+        subtitle={t("Approved 8-stage operational workflow across all NIS Commands nationwide (New vs Renewal)")}
+      >
+        <div className="py-2">
+          <ProcessingOverviewChart
+            stages={a.processing_stages ?? s.processing_stages}
+            data={procOverview}
+            t={t}
+          />
+        </div>
+      </ChartCard>
 
-        {/* Feature C: Top 5 States by Application Volume */}
+      {/* Row 3: Top 5 States by Volume + Applicant Gender Breakdown side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+        {/* Top 5 States by Application Volume */}
         <ChartCard
           title={t("Top 5 States by Application Volume")}
-          subtitle={t("Commands with the highest volume of registered ECOWAS residents")}
+          subtitle={t("Five highest volume states based on verified biometric enrollment and processing location")}
         >
           <div className="py-2">
             <Top5StatesChart
-              data={top5Data.map((d) => ({ rank: d.rank, state: d.state, total: d.total }))}
+              data={top5Data.map((d) => ({
+                rank: d.rank,
+                state: d.state,
+                total: d.total,
+                percentage: d.percentage,
+              }))}
             />
           </div>
         </ChartCard>
-      </div>
 
-      {/* Row 3: Two charts side-by-side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-        {/* Feature D: Application Processing Overview */}
-        <ChartCard
-          title={t("Application Processing Overview")}
-          subtitle={t("Summary of cards produced, issued, queried and rejected")}
-        >
-          <div className="py-2">
-            <ProcessingOverviewChart data={procOverview} t={t} />
-          </div>
-        </ChartCard>
-
-        {/* Feature F: Gender Breakdown */}
+        {/* Applicant Gender Breakdown */}
         <ChartCard
           title={t("Applicant Gender Breakdown")}
           subtitle={t("Total male vs female applicants across all commands")}
