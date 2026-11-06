@@ -186,6 +186,11 @@ Route::middleware('web')->group(function () {
                 return Inertia::render('Staff/CardDetail', ['id' => (int) $m[1]]);
             }
             $map = [
+                'staff/command-operations' => 'Staff/NationalOperations',
+                'staff/operations' => 'Staff/NationalOperations',
+                'staff/vetting' => 'Staff/Applications',
+                'staff/biometrics' => 'Staff/Queue',
+                'staff/cards/receiving' => 'Staff/CardDistribution',
                 'staff/national-operations' => 'Staff/NationalOperations',
                 'staff/commands' => 'Staff/CommandsOverview',
                 'staff/card-distribution' => 'Staff/CardDistribution',
@@ -228,6 +233,11 @@ Route::middleware('web')->group(function () {
                 return Inertia::render('Staff/CardDetail', ['id' => (int) $m[1]]);
             }
             $map = [
+                'staff/command-operations' => 'Staff/NationalOperations',
+                'staff/operations' => 'Staff/NationalOperations',
+                'staff/vetting' => 'Staff/Applications',
+                'staff/biometrics' => 'Staff/Queue',
+                'staff/cards/receiving' => 'Staff/CardDistribution',
                 'staff/national-operations' => 'Staff/NationalOperations',
                 'staff/commands' => 'Staff/CommandsOverview',
                 'staff/card-distribution' => 'Staff/CardDistribution',

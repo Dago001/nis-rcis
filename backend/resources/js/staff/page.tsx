@@ -93,6 +93,18 @@ type Analytics = {
   top5_states?: TopStateItem[];
   processing_overview?: ProcessingOverview;
   processing_stages?: ProcessingStageItem[];
+  categories?: { label: string; total: number }[];
+  issuance_overview?: {
+    awaiting_dispatch: number;
+    in_transit: number;
+    received: number;
+    issued: number;
+  };
+  pending_by_stage?: {
+    awaiting_vetting: number;
+    awaiting_biometrics: number;
+    awaiting_approval: number;
+  };
   mix: { type: Record<string, number>; channel: Record<string, number>; sex: Record<string, number> };
   appointments: { date: string; total: number }[];
   recent_activity?: RecentActivityItem[];
@@ -101,6 +113,18 @@ type Analytics = {
 type RoleData = {
   role: string;
   stats?: Record<string, any>;
+  categories?: { label: string; total: number }[];
+  issuance_overview?: {
+    awaiting_dispatch: number;
+    in_transit: number;
+    received: number;
+    issued: number;
+  };
+  pending_by_stage?: {
+    awaiting_vetting: number;
+    awaiting_biometrics: number;
+    awaiting_approval: number;
+  };
   vetted_by_me?: {
     id: number;
     application_number: string;
@@ -200,6 +224,11 @@ type RoleData = {
 };
 
 type Summary = {
+  is_command_scoped?: boolean;
+  is_drilldown?: boolean;
+  command_id?: number;
+  command_name?: string;
+  command_state?: string;
   queue: Record<string, number>;
   cards: Record<string, number>;
   cards_expired: number;
@@ -277,7 +306,15 @@ export default function StaffDashboard() {
   const fetchDashboardData = (isRefresh = false) => {
     setLoading(true);
     setError(null);
-    const endpoint = isRefresh ? "dashboard?refresh=1" : "dashboard";
+    const params = new URLSearchParams();
+    if (isRefresh) params.set("refresh", "1");
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const cmdId = sp.get("command_id");
+      if (cmdId) params.set("command_id", cmdId);
+    }
+    const qs = params.toString();
+    const endpoint = qs ? `dashboard?${qs}` : "dashboard";
     api<Summary>("staff", endpoint)
       .then((data) => {
         setS(data);
@@ -297,11 +334,13 @@ export default function StaffDashboard() {
 
   if (loading && !s) return <Spinner label={t("Loading dashboard statistics…")} />;
   if (!s && error) {
+    const isSuperAdmin = user.role === "SuperAdmin";
+    const isHqAdmin = user.role === "HeadquartersAdmin";
     return (
       <div className="space-y-4">
         <PageTitle
-          title={t("Dashboard")}
-          subtitle={`${user.command} · ${user.rank ? user.rank + " " : ""}${user.fullname}`}
+          title={isSuperAdmin ? t("National Administration Dashboard") : isHqAdmin ? t("Headquarters Operational Dashboard") : t("Dashboard")}
+          subtitle={isSuperAdmin ? t("Nigeria Immigration Service — All Commands Nationwide") : isHqAdmin ? t("Nigeria Immigration Service — National Operational Oversight") : `${user.command} · ${user.rank ? user.rank + " " : ""}${user.fullname}`}
         />
         <Alert tone="danger">{error}</Alert>
         <button
@@ -327,10 +366,11 @@ export default function StaffDashboard() {
   const isCardReceiving = role === "CardReceivingOfficer";
   const isCardIssuance = role === "CardIssuanceOfficer" || role === "IssuingOfficer";
   const isZonalAdmin = role === "ZonalAdmin";
-  const isCommandAdmin = role === "CommandAdmin";
+  const isCommandAdmin = role === "CommandAdmin" || Boolean(s.is_command_scoped);
   const isAuditor = role === "ReportingAuditOfficer" || role === "Auditor";
 
   // Dedicated role-specific view dispatch
+  if (isCommandAdmin) return renderCommandAdminDashboard(s, user, t, loading, fetchDashboardData);
   if (isVetting) return renderVettingOfficerDashboard(s, user, t, loading, fetchDashboardData);
   if (isApprover) return renderApprovingOfficerDashboard(s, user, t, loading, fetchDashboardData);
   if (isBiometrics) return renderBiometricsOfficerDashboard(s, user, t, loading, fetchDashboardData);
@@ -339,7 +379,6 @@ export default function StaffDashboard() {
   if (isCardReceiving) return renderCardReceivingOfficerDashboard(s, user, t, loading, fetchDashboardData);
   if (isCardIssuance) return renderCardIssuanceOfficerDashboard(s, user, t, loading, fetchDashboardData);
   if (isZonalAdmin) return renderZonalAdminDashboard(s, user, t, loading, fetchDashboardData);
-  if (isCommandAdmin) return renderCommandAdminDashboard(s, user, t, loading, fetchDashboardData);
   if (isAuditor) return renderAuditOfficerDashboard(s, user, t, loading, fetchDashboardData);
 
   // Default: General Admin Dashboard (Preserved for Super Administrator, HQ Administrator & Admin)
@@ -1317,12 +1356,79 @@ function renderZonalAdminDashboard(s: Summary, user: StaffUser, t: (k: string) =
 function renderCommandAdminDashboard(s: Summary, user: StaffUser, t: (k: string) => string, loading: boolean, refresh: (b: boolean) => void) {
   const stats = s.role_data?.stats || {};
   const recentApps = s.role_data?.recent_applications || [];
+  const a = s.analytics || ({} as Analytics);
+  const totals = a.totals || {
+    applications: stats.total_applications ?? 0,
+    applications_this_month: stats.applications_this_month ?? 0,
+    cards_produced: stats.cards_produced ?? s.total_cards_produced ?? 0,
+    cards_issued: stats.cards_issued ?? 0,
+    new_cards_issued: stats.new_cards_issued ?? s.new_cards_issued ?? 0,
+    renewal_cards_issued: stats.renewal_cards_issued ?? s.renewal_cards_issued ?? 0,
+  };
+
+  const months = (a.monthly ?? []).map((m) => monthLabel(m.month));
+
+  const procOverview: ProcessingOverview = a.processing_overview ?? s.processing_overview ?? {
+    cards_produced: totals.cards_produced ?? 0,
+    cards_issued: totals.cards_issued ?? 0,
+    new_cards_issued: totals.new_cards_issued ?? 0,
+    renewal_cards_issued: totals.renewal_cards_issued ?? 0,
+    queried: 0,
+    rejected: 0,
+  };
+
+  const categories = a.categories ?? s.role_data?.categories ?? [];
+  const issuanceOverview = a.issuance_overview ?? s.role_data?.issuance_overview ?? {
+    awaiting_dispatch: 0,
+    in_transit: 0,
+    received: 0,
+    issued: totals.cards_issued ?? 0,
+  };
+  const pendingByStage = a.pending_by_stage ?? s.role_data?.pending_by_stage ?? {
+    awaiting_vetting: 0,
+    awaiting_biometrics: stats.awaiting_biometrics ?? 0,
+    awaiting_approval: 0,
+  };
+
+  const commandName = s.command_name || stats.command_name || user.command || "Assigned Command";
+  const isDrilldown = Boolean(s.is_drilldown);
 
   return (
     <div className="space-y-6">
+      {/* Administrative Drilldown Banner */}
+      {isDrilldown && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                {t("Drilldown Mode")}
+              </div>
+              <div className="text-sm font-bold text-slate-900">
+                {t("Viewing {name} in Administrative Drilldown Mode", { name: commandName })}
+              </div>
+            </div>
+          </div>
+          <Link
+            href="/staff"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-nis-primary px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-nis-primary-dark shrink-0"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span>{t("Return to National Dashboard")}</span>
+          </Link>
+        </div>
+      )}
+
       <PageTitle
-        title={t("Command Administrator Dashboard")}
-        subtitle={`${stats.command_name || user.command} · ${user.rank ? user.rank + " " : ""}${user.fullname}`}
+        title={commandName}
+        subtitle={t("Command Administration Dashboard")}
         actions={
           <button
             type="button"
@@ -1336,44 +1442,212 @@ function renderCommandAdminDashboard(s: Summary, user: StaffUser, t: (k: string)
         }
       />
 
+      {/* 6 Summary Statistics for this Command (2 rows x 3 columns) */}
       <div>
         <h2 className="mb-2.5 text-xs font-medium uppercase tracking-[0.16em] text-nis-primary">
-          {t("Command Processing & Issuance")}
+          {t("Command Application & Card Statistics")}
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+          {/* Card 1: Total Applications */}
           <StatCard
-            label={t("Total Applications in Command")}
-            value={stats.total_applications ?? 0}
+            label={t("Total Applications")}
+            value={totals.applications ?? 0}
             href="/staff/applications"
-            icon={<svg className="w-4 h-4 text-emerald-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>}
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+                <path d="M10 9H8" />
+              </svg>
+            }
           />
+
+          {/* Card 2: Applications This Month */}
           <StatCard
-            label={t("Awaiting Biometrics")}
-            value={stats.awaiting_biometrics ?? 0}
-            href="/staff/queue"
-            icon={<svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/></svg>}
+            label={t("Applications This Month")}
+            value={totals.applications_this_month ?? 0}
+            href="/staff/applications"
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            }
           />
+
+          {/* Card 3: Total Cards Produced for Command */}
           <StatCard
-            label={t("Cards Received at Command")}
-            value={stats.cards_received ?? 0}
-            href="/staff/card-distribution"
-            icon={<svg className="w-4 h-4 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/></svg>}
+            label={t("Total Cards Produced for Command")}
+            value={totals.cards_produced ?? 0}
+            href="/staff/cards"
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <circle cx="9" cy="10" r="2" />
+                <line x1="15" y1="8" x2="17" y2="8" />
+                <line x1="15" y1="12" x2="17" y2="12" />
+                <line x1="7" y1="16" x2="17" y2="16" />
+              </svg>
+            }
           />
+
+          {/* Card 4: Total Cards Issued at Command */}
           <StatCard
-            label={t("Available for Issuance")}
-            value={stats.cards_available_for_issuance ?? 0}
+            label={t("Total Cards Issued at Command")}
+            value={totals.cards_issued ?? 0}
             href="/staff/card-issuance"
-            icon={<svg className="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            }
           />
+
+          {/* Card 5: New Cards Issued */}
           <StatCard
-            label={t("Cards Issued to Applicants")}
-            value={stats.cards_issued ?? 0}
+            label={t("New Cards Issued")}
+            value={totals.new_cards_issued ?? 0}
             href="/staff/card-issuance"
-            icon={<svg className="w-4 h-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+            }
+          />
+
+          {/* Card 6: Renewal Cards Issued */}
+          <StatCard
+            label={t("Renewal Cards Issued")}
+            value={totals.renewal_cards_issued ?? 0}
+            href="/staff/card-issuance"
+            icon={
+              <svg className="w-4 h-4 text-nis-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+            }
           />
         </div>
       </div>
 
+      {/* Chart 1: Monthly Trends (New vs Renewal over 12 months for this Command) */}
+      <ChartCard
+        title={t("Applications Submitted Per Month")}
+        subtitle={t("12-month historical intake for this Command (New vs Renewal)")}
+        footer={
+          <Legend
+            items={[
+              { label: t("New Applications"), color: SERIES.primary },
+              { label: t("Renewal Applications"), color: SERIES.navy },
+            ]}
+          />
+        }
+      >
+        <div className="py-2">
+          <VerticalTwoBarChart
+            categories={months}
+            series1={{
+              label: t("New Applications"),
+              data: (a.monthly ?? []).map((m) => m.new_applications ?? 0),
+              color: SERIES.primary,
+            }}
+            series2={{
+              label: t("Renewal Applications"),
+              data: (a.monthly ?? []).map((m) => m.renewal_applications ?? 0),
+              color: SERIES.navy,
+            }}
+          />
+        </div>
+      </ChartCard>
+
+      {/* Chart 2: Application Processing Overview (the 8 stages for this Command) */}
+      <ChartCard
+        title={t("Application Processing Overview")}
+        subtitle={t("Operational processing workflow for this Command across 8 stages (New vs Renewal)")}
+      >
+        <div className="py-2">
+          <ProcessingOverviewChart
+            stages={a.processing_stages ?? s.processing_stages}
+            data={procOverview}
+            t={t}
+          />
+        </div>
+      </ChartCard>
+
+      {/* Charts 3 & 4: Applications by Category & Card Issuance Overview side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+        {/* Chart 3: Applications by Category */}
+        <ChartCard
+          title={t("Applications by Category")}
+          subtitle={t("Intake volume classified by residency authorization category for this Command")}
+        >
+          <div className="py-2">
+            {categories.length === 0 ? (
+              <div className="flex h-48 items-center justify-center text-xs text-slate-400">
+                {t("No categorized application records for this Command yet.")}
+              </div>
+            ) : (
+              <BarList
+                items={categories.map((c) => ({
+                  label: t(c.label),
+                  value: c.total,
+                }))}
+              />
+            )}
+          </div>
+        </ChartCard>
+
+        {/* Chart 4: Card Issuance Overview */}
+        <ChartCard
+          title={t("Card Issuance Overview")}
+          subtitle={t("Logistics lifecycle of residence cards assigned to this Command")}
+          footer={
+            <Legend
+              items={[
+                { label: t("Awaiting Dispatch"), color: "#F59E0B" },
+                { label: t("In Transit"), color: "#3B82F6" },
+                { label: t("Received at Command"), color: "#10B981" },
+                { label: t("Issued to Applicant"), color: "#8E44AD" },
+              ]}
+            />
+          }
+        >
+          <div className="py-2">
+            <DoughnutChart
+              items={[
+                { label: t("Awaiting Dispatch"), value: issuanceOverview.awaiting_dispatch ?? 0, color: "#F59E0B" },
+                { label: t("In Transit"), value: issuanceOverview.in_transit ?? 0, color: "#3B82F6" },
+                { label: t("Received at Command"), value: issuanceOverview.received ?? 0, color: "#10B981" },
+                { label: t("Issued to Applicant"), value: issuanceOverview.issued ?? 0, color: "#8E44AD" },
+              ]}
+              centerTitle={t("Cards")}
+              centerSubtitle={t("Status")}
+            />
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* Chart 5: Pending Applications by Stage */}
+      <ChartCard
+        title={t("Pending Applications by Stage")}
+        subtitle={t("Current operational workload requiring officer action at this Command")}
+      >
+        <div className="py-2">
+          <BarList
+            items={[
+              { label: t("Awaiting Vetting"), value: pendingByStage.awaiting_vetting ?? 0 },
+              { label: t("Awaiting Biometrics"), value: pendingByStage.awaiting_biometrics ?? 0 },
+              { label: t("Awaiting Approval"), value: pendingByStage.awaiting_approval ?? 0 },
+            ]}
+          />
+        </div>
+      </ChartCard>
+
+      {/* Recent Applications Originating from Command */}
       <Panel title={t("Recent Applications Originating from Command")}>
         {recentApps.length === 0 ? (
           <div className="py-8 text-center text-sm text-slate-500">
@@ -1581,26 +1855,55 @@ function renderGeneralAdminDashboard(
   const statesData: StateCountItem[] = a.applications_by_state ?? s.applications_by_state ?? [];
   const top5Data: TopStateItem[] = a.top5_states ?? s.top5_states ?? [];
 
+  const isSuperAdmin = user.role === "SuperAdmin";
+  const isHqAdmin = user.role === "HeadquartersAdmin";
+
+  const dashboardHeading = isSuperAdmin
+    ? t("National Administration Dashboard")
+    : isHqAdmin
+    ? t("Headquarters Operational Dashboard")
+    : t("Dashboard");
+
+  const dashboardSubtitle = isSuperAdmin
+    ? t("Nigeria Immigration Service — All Commands Nationwide")
+    : isHqAdmin
+    ? t("Nigeria Immigration Service — National Operational Oversight")
+    : `${user.command} · ${user.rank ? user.rank + " " : ""}${user.fullname}`;
+
   return (
     <div className="space-y-6">
       <PageTitle
-        title={t("Dashboard")}
-        subtitle={`${user.command} · ${user.rank ? user.rank + " " : ""}${user.fullname}`}
+        title={dashboardHeading}
+        subtitle={dashboardSubtitle}
         actions={
-          <button
-            type="button"
-            onClick={() => fetchDashboardData(true)}
-            disabled={loading}
-            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            <svg className={`h-3.5 w-3.5 text-nis-primary ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-              <path d="M21 21v-5h-5" />
-            </svg>
-            <span>{loading ? t("Refreshing…") : t("Refresh Live Data")}</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex flex-col items-end text-right border-r border-slate-200 pr-3">
+              <span className="text-xs font-bold text-slate-900">
+                {user.rank ? `${user.rank} ${user.fullname}` : user.fullname}
+              </span>
+              <span className="text-[11px] font-semibold text-nis-primary">
+                {isSuperAdmin
+                  ? t("Super Administrator")
+                  : isHqAdmin
+                  ? t("Headquarters Administrator")
+                  : t(user.role_label || user.role)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchDashboardData(true)}
+              disabled={loading}
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              <svg className={`h-3.5 w-3.5 text-nis-primary ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                <path d="M21 21v-5h-5" />
+              </svg>
+              <span>{loading ? t("Refreshing…") : t("Refresh Live Data")}</span>
+            </button>
+          </div>
         }
       />
 

@@ -128,7 +128,10 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         if ($this->isCommand()) {
-            if ($center && $center->command_id === $this->command_id) {
+            if ($application->command_id && (int) $application->command_id === (int) $this->command_id) {
+                return true;
+            }
+            if ($center && (int) $center->command_id === (int) $this->command_id) {
                 return true;
             }
             if ($application->actual_enrollment_command && $this->nisCommand) {
@@ -174,7 +177,10 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         if ($this->isCommand()) {
-            if ($center && $center->command_id === $this->command_id) {
+            if ($card->application && (int) $card->application->command_id === (int) $this->command_id) {
+                return true;
+            }
+            if ($center && (int) $center->command_id === (int) $this->command_id) {
                 return true;
             }
             if ($card->enrollment_command && $this->nisCommand) {

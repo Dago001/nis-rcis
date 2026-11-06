@@ -333,9 +333,18 @@ class ApplicationSubmission
         $codFeeKobo = $hasCod ? ((int) config('nis.cod_fee_naira', 15000) * 100) : 0;
         $totalFeeKobo = $this->feeKobo($data, $hasCod);
 
+        $resolvedCommandId = $center->command_id ?? $center->command?->id;
+        if (! $resolvedCommandId && $center->command_name) {
+            $resolvedCommandId = NisCommand::where('name', $center->command_name)->value('id');
+        }
+
         $application = new Application([
             ...collect($data)->only([...Application::PARTICULARS, 'phone', 'email', 'enrollment_center_id', 'appointment_date', 'appointment_time', 'quota_reference', 'employer_name'])->all(),
             'category' => strtoupper($data['category'] ?? 'WORK'),
+            'command_id' => $resolvedCommandId,
+            'actual_enrollment_command' => $center->command_name ?: ($center->command?->name ?: $center->name),
+            'actual_enrollment_zone' => $center->zone_name ?: ($center->zone?->name ?: $center->zone_code),
+            'actual_enrollment_state' => $center->state ?: $center->command?->state,
             'applicant_id' => $applicant?->id,
             'type' => in_array($data['type'] ?? '', ['RENEWAL', 'REPLACE'], true) ? $data['type'] : 'NEW',
             'renewal_of_card_id' => $renewalCard?->id,

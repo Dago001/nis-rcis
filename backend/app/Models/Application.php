@@ -85,6 +85,16 @@ class Application extends Model
         return $this->belongsTo(EnrollmentCenter::class, 'actual_enrollment_center_id');
     }
 
+    public function command(): BelongsTo
+    {
+        return $this->belongsTo(NisCommand::class, 'command_id');
+    }
+
+    public function getResponsibleCommandAttribute(): ?NisCommand
+    {
+        return $this->command ?? $this->enrollmentCenter?->nisCommand ?? $this->actualEnrollmentCenter?->nisCommand;
+    }
+
     public function card(): BelongsTo
     {
         return $this->belongsTo(ResidenceCard::class, 'card_id');
@@ -105,6 +115,7 @@ class Application extends Model
             return $query->where(function ($q) use ($user) {
                 $q->whereHas('enrollmentCenter', fn ($cq) => $cq->where('zone_id', $user->zone_id))
                   ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('zone_id', $user->zone_id))
+                  ->orWhereHas('command', fn ($cq) => $cq->where('zone_id', $user->zone_id))
                   ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_zone_id', $user->zone_id));
                 if ($user->zone) {
                     $q->orWhere('actual_enrollment_zone', $user->zone->name)
@@ -115,7 +126,8 @@ class Application extends Model
 
         if ($user->isCommand()) {
             return $query->where(function ($q) use ($user) {
-                $q->whereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                $q->where('command_id', $user->command_id)
+                  ->orWhereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
                   ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
                   ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
                 if ($user->nisCommand) {

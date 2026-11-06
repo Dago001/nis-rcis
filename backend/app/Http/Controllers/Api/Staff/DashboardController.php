@@ -62,6 +62,30 @@ class DashboardController
         /** @var User $user */
         $user = $request->user();
 
+        // 1. Check if Command-scoped (either user is CommandAdmin or Super/HQ Admin is drilling down into a command)
+        $targetCommandId = null;
+        $isDrilldown = false;
+
+        if ($request->filled('command_id') && ($user->isHeadquarters() || $user->hasRole(StaffRole::SuperAdmin, StaffRole::HeadquartersAdmin, StaffRole::Admin))) {
+            $targetCommandId = (int) $request->input('command_id');
+            $isDrilldown = true;
+        } elseif ($user->role === StaffRole::CommandAdmin || ($user->isCommand() && $user->command_id)) {
+            $targetCommandId = (int) $user->command_id;
+        } elseif ($user->role === StaffRole::CommandAdmin && $user->command) {
+            $targetCommandId = NisCommand::where('name', $user->command)->value('id');
+        }
+
+        if ($targetCommandId) {
+            $cacheKey = "staff_summary_cmd_{$targetCommandId}_" . ($isDrilldown ? 'dd' : 'ca');
+            if ($request->boolean('refresh') || $request->boolean('nocache')) {
+                Cache::forget($cacheKey);
+            }
+            $data = Cache::remember($cacheKey, 5, function () use ($targetCommandId, $isDrilldown) {
+                return $this->getCommandDashboardData($targetCommandId, $isDrilldown);
+            });
+            return response()->json($data);
+        }
+
         if ($request->boolean('refresh') || $request->boolean('nocache')) {
             Cache::forget("staff_summary_{$user->id}");
         }
@@ -103,6 +127,8 @@ class DashboardController
             }
 
             return [
+                'is_command_scoped' => false,
+                'is_drilldown' => false,
                 'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($applications[$s->value] ?? 0)]),
                 'cards' => collect(CardStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($cards[$s->value] ?? 0)]),
                 'distribution' => $distribution,
@@ -590,6 +616,375 @@ class DashboardController
         // Default: SUPER ADMIN / HQ ADMIN / ADMIN (Preserves General Admin Dashboard)
         return [
             'role' => 'Admin',
+        ];
+    }
+
+    /**
+     * Compute dedicated Command Administration dashboard statistics, 8 operational processing
+     * stages, monthly trends, and charts strictly scoped to a single NIS Command.
+     */
+    private function getCommandDashboardData(int $commandId, bool $isDrilldown = false): array
+    {
+        $command = NisCommand::find($commandId);
+        $cmdName = $command ? $command->name : "Command #{$commandId}";
+        $cmdState = $command ? $command->state : '';
+
+        // Application query builder scoped strictly to this Command
+        $appBase = fn () => Application::where(function ($q) use ($commandId, $command) {
+            $q->where('command_id', $commandId)
+              ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
+              ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
+            if ($command) {
+                $q->orWhere('actual_enrollment_command', $command->name)
+                  ->orWhere('actual_enrollment_command', $command->code);
+            }
+        });
+
+        // 1. Total Applications submitted for this Command
+        $totalApplications = $appBase()->count();
+
+        // 2. Applications This Month for this Command
+        $startOfMonth = CarbonImmutable::now()->startOfMonth();
+        $appsThisMonth = $appBase()->where(function ($q) use ($startOfMonth) {
+            $q->where('submitted_at', '>=', $startOfMonth)
+              ->orWhere(fn ($sq) => $sq->whereNull('submitted_at')->where('created_at', '>=', $startOfMonth));
+        })->count();
+
+        // 3. Total Cards Produced for the Command (produced at Headquarters for applications belonging to this Command)
+        $cardsProduced = ResidenceCard::whereHas('application', function ($q) use ($commandId, $command) {
+            $q->where('command_id', $commandId)
+              ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
+              ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
+            if ($command) {
+                $q->orWhere('actual_enrollment_command', $command->name);
+            }
+        })->whereHas('printJobs', fn ($pj) => $pj->where('outcome', CardPrintJob::PRINTED))->count();
+
+        $newCardsProduced = ResidenceCard::whereHas('application', function ($q) use ($commandId, $command) {
+            $q->where('command_id', $commandId)
+              ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
+              ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
+            if ($command) {
+                $q->orWhere('actual_enrollment_command', $command->name);
+            }
+        })->whereHas('printJobs', fn ($pj) => $pj->where('outcome', CardPrintJob::PRINTED))
+          ->where(function ($q) {
+              $q->whereDoesntHave('renewals')
+                ->where(function ($sq) {
+                    $sq->whereDoesntHave('application')
+                      ->orWhereHas('application', fn ($aq) => $aq->whereNull('renewal_of_card_id')->where('type', '!=', 'REPLACE'));
+                });
+          })->count();
+
+        $renewalCardsProduced = max(0, $cardsProduced - $newCardsProduced);
+
+        // 4. Total Cards Issued at the Command
+        $issuedCardsBase = ResidenceCard::where(function ($q) use ($commandId, $command) {
+            $q->whereHas('application', function ($aq) use ($commandId, $command) {
+                $aq->where('command_id', $commandId)
+                   ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
+            });
+            if ($command) {
+                $q->orWhere('enrollment_command', $command->name);
+            }
+        })->whereIn('status', [CardStatus::Issued, CardStatus::Renewed]);
+
+        $cardsIssued = (clone $issuedCardsBase)->count();
+        $appIssuedCount = $appBase()->where('status', ApplicationStatus::Issued)->whereNotNull('collected_at')->count();
+        if ($cardsIssued === 0 && $appIssuedCount > 0) {
+            $cardsIssued = $appIssuedCount;
+        }
+
+        // 5. New Cards Issued
+        $newCardsIssued = (clone $issuedCardsBase)->where(function ($q) {
+            $q->whereHas('application', fn ($sq) => $sq->where('type', 'NEW')->orWhereNull('type'))
+              ->orWhereDoesntHave('application');
+        })->where('status', CardStatus::Issued)->whereDoesntHave('renewals')->count();
+
+        // 6. Renewal Cards Issued
+        $renewalCardsIssued = (clone $issuedCardsBase)->where(function ($q) {
+            $q->where('status', CardStatus::Renewed)
+              ->orWhereHas('application', fn ($sq) => $sq->where('type', 'RENEWAL'))
+              ->orWhereHas('renewals');
+        })->count();
+
+        if ($newCardsIssued + $renewalCardsIssued < $cardsIssued) {
+            $newCardsIssued += ($cardsIssued - ($newCardsIssued + $renewalCardsIssued));
+        }
+
+        // 12-month trend for this command
+        $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
+        $driver = DB::connection()->getDriverName();
+        $monthFormat = match ($driver) {
+            'mysql' => "DATE_FORMAT({column}, '%Y-%m')",
+            'sqlite' => "strftime('%Y-%m', {column})",
+            default => "to_char({column}, 'YYYY-MM')",
+        };
+
+        $perMonthCmd = function ($query, string $column) use ($monthFormat, $start) {
+            try {
+                $expr = str_replace('{column}', $column, $monthFormat);
+                return $query
+                    ->where($column, '>=', $start)
+                    ->selectRaw("{$expr} as month, count(*) as total")
+                    ->groupByRaw('1')
+                    ->pluck('total', 'month');
+            } catch (\Throwable $e) {
+                return collect();
+            }
+        };
+
+        $newPerMonth = $perMonthCmd($appBase()->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type')), 'submitted_at');
+        if ($newPerMonth->isEmpty()) {
+            $newPerMonth = $perMonthCmd($appBase()->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type')), 'created_at');
+        }
+
+        $renPerMonth = $perMonthCmd($appBase()->where('type', 'RENEWAL'), 'submitted_at');
+        if ($renPerMonth->isEmpty()) {
+            $renPerMonth = $perMonthCmd($appBase()->where('type', 'RENEWAL'), 'created_at');
+        }
+
+        $monthly = collect(range(0, 11))->map(function ($i) use ($start, $newPerMonth, $renPerMonth) {
+            $mKey = $start->addMonths($i)->format('Y-m');
+            $newCount = (int) ($newPerMonth[$mKey] ?? 0);
+            $renCount = (int) ($renPerMonth[$mKey] ?? 0);
+            return [
+                'month' => $mKey,
+                'submitted' => $newCount + $renCount,
+                'new_applications' => $newCount,
+                'renewal_applications' => $renCount,
+                'issued' => 0,
+                'revenue_naira' => 0,
+            ];
+        })->values()->all();
+
+        // 8-stage Application Processing Overview strictly for this Command
+        $s1New = $appBase()->where(function ($q) {
+            $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
+        })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s1Renewal = $appBase()->where(function ($q) {
+            $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
+              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
+        })->where('type', 'RENEWAL')->count();
+
+        $s2New = $appBase()->where(function ($q) {
+            $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+              ->whereNull('biometrics_captured_at');
+        })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s2Renewal = $appBase()->where(function ($q) {
+            $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+              ->whereNull('biometrics_captured_at');
+        })->where('type', 'RENEWAL')->count();
+
+        $s3New = $appBase()->where(function ($q) {
+            $q->where('status', ApplicationStatus::BiometricsCaptured)
+              ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
+              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
+        })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s3Renewal = $appBase()->where(function ($q) {
+            $q->where('status', ApplicationStatus::BiometricsCaptured)
+              ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
+              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
+        })->where('type', 'RENEWAL')->count();
+
+        $s4Base = $appBase()->where('status', ApplicationStatus::Approved)
+            ->where(function ($q) {
+                $q->whereDoesntHave('card')
+                  ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED')));
+            });
+        $s4New = (clone $s4Base)->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s4Renewal = (clone $s4Base)->where('type', 'RENEWAL')->count();
+
+        $distQuery = fn () => CardDistribution::where(function ($q) use ($commandId, $command) {
+            $q->where('destination_command_id', $commandId);
+            if ($command) {
+                $q->orWhereHas('destinationCommand', fn ($dq) => $dq->where('name', $command->name));
+            }
+        });
+
+        $s5Total = $distQuery()->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count();
+        $s5Renewal = $distQuery()->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->whereHas('application', fn ($aq) => $aq->where('type', 'RENEWAL'))->count();
+        $s5New = max(0, $s5Total - $s5Renewal);
+
+        $s6Total = $distQuery()->where('status', CardDistribution::STATUS_DISPATCHED)->count();
+        $s6Renewal = $distQuery()->where('status', CardDistribution::STATUS_DISPATCHED)->whereHas('application', fn ($aq) => $aq->where('type', 'RENEWAL'))->count();
+        $s6New = max(0, $s6Total - $s6Renewal);
+
+        $s7Total = $distQuery()->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count();
+        $s7Renewal = $distQuery()->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->whereHas('application', fn ($aq) => $aq->where('type', 'RENEWAL'))->count();
+        $s7New = max(0, $s7Total - $s7Renewal);
+
+        $s8New = $newCardsIssued;
+        $s8Renewal = $renewalCardsIssued;
+
+        $processingStages = [
+            ['stage_number' => 1, 'key' => 'awaiting_vetting', 'label' => 'Awaiting Vetting', 'new' => $s1New, 'renewal' => $s1Renewal, 'total' => $s1New + $s1Renewal, 'description' => 'Applications pending vetting for this Command'],
+            ['stage_number' => 2, 'key' => 'awaiting_biometrics', 'label' => 'Awaiting Biometrics', 'new' => $s2New, 'renewal' => $s2Renewal, 'total' => $s2New + $s2Renewal, 'description' => 'Scheduled for biometric capture at this Command'],
+            ['stage_number' => 3, 'key' => 'awaiting_approval', 'label' => 'Awaiting Approval', 'new' => $s3New, 'renewal' => $s3Renewal, 'total' => $s3New + $s3Renewal, 'description' => 'Biometrics captured awaiting approval'],
+            ['stage_number' => 4, 'key' => 'awaiting_card_production', 'label' => 'Awaiting Card Production', 'new' => $s4New, 'renewal' => $s4Renewal, 'total' => $s4New + $s4Renewal, 'description' => 'Approved applications queued for printing at HQ Sauka for this Command'],
+            ['stage_number' => 5, 'key' => 'awaiting_dispatch', 'label' => 'Awaiting Dispatch', 'new' => $s5New, 'renewal' => $s5Renewal, 'total' => $s5New + $s5Renewal, 'description' => 'Produced cards at HQ awaiting transit to this Command'],
+            ['stage_number' => 6, 'key' => 'awaiting_receipt_confirmation', 'label' => 'Awaiting Receipt Confirmation', 'new' => $s6New, 'renewal' => $s6Renewal, 'total' => $s6New + $s6Renewal, 'description' => 'Consignments in transit to this Command'],
+            ['stage_number' => 7, 'key' => 'awaiting_issuance', 'label' => 'Awaiting Issuance', 'new' => $s7New, 'renewal' => $s7Renewal, 'total' => $s7New + $s7Renewal, 'description' => 'Cards received in custody at this Command ready for collection'],
+            ['stage_number' => 8, 'key' => 'issued', 'label' => 'Issued', 'new' => $s8New, 'renewal' => $s8Renewal, 'total' => $s8New + $s8Renewal, 'description' => 'Cards successfully handed over to verified applicants at this Command'],
+        ];
+
+        // Applications by Category for this Command
+        $categories = $appBase()
+            ->selectRaw("COALESCE(NULLIF(category, ''), 'Standard ECOWAS') as label, count(*) as total")
+            ->groupByRaw('1')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($r) => ['label' => (string) $r->label, 'total' => (int) $r->total])
+            ->values()
+            ->all();
+
+        // Pending Applications by Stage
+        $pendingByStage = [
+            'awaiting_vetting' => $s1New + $s1Renewal,
+            'awaiting_biometrics' => $s2New + $s2Renewal,
+            'awaiting_approval' => $s3New + $s3Renewal,
+        ];
+
+        // Card Issuance Overview
+        $cardIssuanceOverview = [
+            'awaiting_dispatch' => $s5Total,
+            'in_transit' => $s6Total,
+            'received' => $s7Total,
+            'issued' => $cardsIssued,
+        ];
+
+        // Recent applications originating from this command
+        $recentApps = $appBase()
+            ->select(['id', 'application_number', 'reference_number', 'surname', 'forenames', 'type', 'status', 'created_at'])
+            ->latest('id')
+            ->limit(15)
+            ->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'application_number' => $a->application_number,
+                'applicant_name' => trim("{$a->forenames} {$a->surname}"),
+                'type' => $a->type ?? 'NEW',
+                'status' => $a->status instanceof \BackedEnum ? $a->status->value : (string) $a->status,
+                'created_at' => $a->created_at?->format('Y-m-d'),
+            ]);
+
+        $appQueue = [
+            ApplicationStatus::PendingApproval->value => $s1New + $s1Renewal,
+            ApplicationStatus::ApprovedForBiometrics->value => $s2New + $s2Renewal,
+            ApplicationStatus::BiometricsCaptured->value => $s3New + $s3Renewal,
+            ApplicationStatus::Approved->value => $s4New + $s4Renewal,
+            ApplicationStatus::Issued->value => $cardsIssued,
+        ];
+
+        return [
+            'is_command_scoped' => true,
+            'is_drilldown' => $isDrilldown,
+            'command_id' => $commandId,
+            'command_name' => $cmdName,
+            'command_state' => $cmdState,
+            'queue' => $appQueue,
+            'cards' => [
+                CardStatus::Issued->value => $newCardsIssued,
+                CardStatus::Renewed->value => $renewalCardsIssued,
+            ],
+            'distribution' => [
+                'awaiting_dispatch' => $s5Total,
+                'in_transit' => $s6Total,
+                'received' => $s7Total,
+                'issued' => $cardsIssued,
+            ],
+            'cards_expired' => 0,
+            'cards_expiring_30_days' => 0,
+            'watchlisted' => 0,
+            'paid_awaiting_submission' => 0,
+            'total_cards_produced' => $cardsProduced,
+            'new_cards_produced' => $newCardsProduced,
+            'renewal_cards_produced' => $renewalCardsProduced,
+            'new_cards_issued' => $newCardsIssued,
+            'renewal_cards_issued' => $renewalCardsIssued,
+            'applications_by_state' => [],
+            'top5_states' => [],
+            'processing_overview' => [
+                'cards_produced' => $cardsProduced,
+                'cards_issued' => $cardsIssued,
+                'new_cards_issued' => $newCardsIssued,
+                'renewal_cards_issued' => $renewalCardsIssued,
+                'queried' => 0,
+                'rejected' => 0,
+            ],
+            'processing_stages' => $processingStages,
+            'sla' => [
+                'target_working_days' => (int) config('nis.sla_working_days', 10),
+                'overdue' => 0,
+                'assigned_to_me' => 0,
+            ],
+            'card_stock' => ['remaining' => 0, 'low' => false],
+            'queue_today' => collect(),
+            'todays_appointments' => 0,
+            'analytics' => [
+                'monthly' => $monthly,
+                'totals' => [
+                    'applications' => $totalApplications,
+                    'applications_this_month' => $appsThisMonth,
+                    'applications_last_month' => 0,
+                    'cards_produced' => $cardsProduced,
+                    'new_cards_produced' => $newCardsProduced,
+                    'renewal_cards_produced' => $renewalCardsProduced,
+                    'cards_issued' => $cardsIssued,
+                    'new_cards_issued' => $newCardsIssued,
+                    'renewal_cards_issued' => $renewalCardsIssued,
+                    'revenue_naira' => 0,
+                    'revenue_this_month_naira' => 0,
+                    'payments' => 0,
+                ],
+                'decisions' => ['approved' => 0, 'queried' => 0, 'rejected' => 0, 'approval_rate' => 100],
+                'processing_days' => ['submission_to_decision' => 0, 'decision_to_biometrics' => 0, 'biometrics_to_ready' => 0, 'ready_to_collection' => 0],
+                'nationalities' => [],
+                'mix' => ['type' => [], 'channel' => [], 'sex' => []],
+                'appointments' => [],
+                'recent_activity' => [],
+                'categories' => $categories,
+                'issuance_overview' => $cardIssuanceOverview,
+                'pending_by_stage' => $pendingByStage,
+                'processing_stages' => $processingStages,
+                'processing_overview' => [
+                    'cards_produced' => $cardsProduced,
+                    'cards_issued' => $cardsIssued,
+                    'new_cards_issued' => $newCardsIssued,
+                    'renewal_cards_issued' => $renewalCardsIssued,
+                    'queried' => 0,
+                    'rejected' => 0,
+                ],
+            ],
+            'my_activity' => [
+                'decided' => 0,
+                'captured' => 0,
+                'cards_approved' => 0,
+                'assisted_created' => 0,
+                'cards_printed' => 0,
+                'cards_collected' => 0,
+            ],
+            'role_data' => [
+                'role' => 'CommandAdmin',
+                'stats' => [
+                    'command_name' => $cmdName,
+                    'total_applications' => $totalApplications,
+                    'applications_this_month' => $appsThisMonth,
+                    'cards_produced' => $cardsProduced,
+                    'cards_issued' => $cardsIssued,
+                    'new_cards_issued' => $newCardsIssued,
+                    'renewal_cards_issued' => $renewalCardsIssued,
+                    'awaiting_biometrics' => $s2New + $s2Renewal,
+                    'cards_received' => $s7Total,
+                    'cards_available_for_issuance' => $s7Total,
+                ],
+                'recent_applications' => $recentApps,
+                'categories' => $categories,
+                'issuance_overview' => $cardIssuanceOverview,
+                'pending_by_stage' => $pendingByStage,
+            ],
+            'user_role' => 'CommandAdmin',
         ];
     }
 

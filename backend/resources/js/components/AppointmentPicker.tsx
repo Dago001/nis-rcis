@@ -203,10 +203,17 @@ export function AppointmentPicker({
     const selected = centers.find((c) => String(c.id) === centerId)
       || availableCommands.find((c) => String(c.id) === centerId);
     if (selected) {
-      set("enrollment_command", (selected as any).command_name || selected.name);
+      const cmdName = (selected as any).command_name || selected.name;
+      set("enrollment_command", cmdName);
+      set("actual_enrollment_command", cmdName);
       set("enrollment_state", selected.state);
+      set("actual_enrollment_state", selected.state);
       if (selected.zone_code) {
         set("enrollment_zone", selected.zone_code);
+        set("actual_enrollment_zone", (selected as any).zone_name || selected.zone_code);
+      }
+      if ((selected as any).command_id) {
+        set("command_id", String((selected as any).command_id));
       }
     }
   };
@@ -238,8 +245,8 @@ export function AppointmentPicker({
         </Select>
       </Field>
 
-      {/* Field 2: Select Command / Enrollment Centre */}
-      <Field label={t("Select Command / Enrollment Centre")} required error={errors.enrollment_center_id}>
+      {/* Field 2: Select Command & Enrollment Centre */}
+      <Field label={t("Select Command & Enrollment Centre")} required error={errors.enrollment_center_id}>
         <Select
           name="enrollment_center_id"
           value={data.enrollment_center_id ?? ""}
@@ -263,11 +270,11 @@ export function AppointmentPicker({
               ? t("Select a Zone first")
               : availableCommands.length === 0
               ? t("No enrollment centres currently available for this zone")
-              : t("Select a Command…")}
+              : t("Select a Command & Centre…")}
           </option>
           {availableCommands.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {c.name} {c.state ? `(${c.state})` : ""}
             </option>
           ))}
         </Select>

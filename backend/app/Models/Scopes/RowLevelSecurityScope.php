@@ -247,7 +247,8 @@ class RowLevelSecurityScope implements Scope
     {
         if ($model instanceof Application) {
             $builder->where(function (Builder $q) use ($user) {
-                $q->whereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                $q->where('command_id', $user->command_id)
+                  ->orWhereHas('enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
                   ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
                   ->orWhereHas('cardDistribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
                 if ($user->nisCommand) {
@@ -260,7 +261,8 @@ class RowLevelSecurityScope implements Scope
 
         if ($model instanceof ResidenceCard) {
             $builder->where(function (Builder $q) use ($user) {
-                $q->whereHas('application.enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
+                $q->whereHas('application', fn ($aq) => $aq->where('command_id', $user->command_id))
+                  ->orWhereHas('application.enrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
                   ->orWhereHas('actualEnrollmentCenter', fn ($cq) => $cq->where('command_id', $user->command_id))
                   ->orWhereHas('distribution', fn ($dq) => $dq->where('destination_command_id', $user->command_id));
                 if ($user->nisCommand) {

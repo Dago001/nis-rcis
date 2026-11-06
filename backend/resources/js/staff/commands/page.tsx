@@ -283,7 +283,7 @@ export default function CommandsOverviewPage() {
                     </td>
                     <td className="px-3.5 py-3 text-center">
                       <Link
-                        href={`/staff/national-operations?command_id=${cmd.id}`}
+                        href={`/staff?command_id=${cmd.id}`}
                         className="inline-flex items-center rounded bg-slate-100 hover:bg-nis-primary hover:text-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition"
                       >
                         {t("View Details")}

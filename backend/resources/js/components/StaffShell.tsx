@@ -158,7 +158,50 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
     ];
   }
 
-  // 4. General & Administrative Navigation (SuperAdmin, HeadquartersAdmin, CommandAdmin, ZonalAdmin, etc.)
+  // 4. Dedicated Command Administrator Sidebar (Section 6)
+  if (role === "CommandAdmin") {
+    return [
+      {
+        title: "Overview",
+        items: [
+          { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
+          { href: "/staff/command-operations", label: "Command Operations", icon: icon("M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9") },
+        ],
+      },
+      {
+        title: "Application Management",
+        items: [
+          { href: "/staff/applications", label: "Vetting", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
+          { href: "/staff/approvals", label: "Approval", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z") },
+          { href: "/staff/queue", label: "Biometrics", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75") },
+        ],
+      },
+      {
+        title: "Residence Cards",
+        items: [
+          { href: "/staff/card-distribution", label: "Card Receiving", icon: icon("M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2zM3 13h18") },
+          { href: "/staff/card-issuance", label: "Card Issuance", icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z") },
+        ],
+      },
+      {
+        title: "Management",
+        items: [
+          { href: "/staff/users", label: "Command Staff", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75") },
+          { href: "/staff/reports", label: "Command Reports", icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6") },
+        ],
+      },
+      {
+        title: "Account",
+        items: [
+          { href: "/staff/notifications", label: "Notifications", icon: icon("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0") },
+          { href: "/staff/my-activity", label: "My Activity", icon: icon("M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z") },
+          { href: "/staff/profile", label: "My Profile", icon: icon("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z") },
+        ],
+      },
+    ];
+  }
+
+  // 5. General & Administrative Navigation (SuperAdmin, HeadquartersAdmin, ZonalAdmin, etc.)
   return [
     {
       title: "Overview",
@@ -168,7 +211,7 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/national-operations",
           label: "National Operations",
           icon: icon("M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin"],
         },
       ],
     },
@@ -179,7 +222,7 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/applications",
           label: "Vetting",
           icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
         },
         {
           href: "/staff/approvals",
@@ -191,7 +234,7 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/queue",
           label: "Biometrics",
           icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
         },
       ],
     },
@@ -208,13 +251,13 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/card-distribution",
           label: "Card Distribution",
           icon: icon("M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2zM3 13h18"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardDistributionOfficer", "CardReceivingOfficer"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CardDistributionOfficer", "CardReceivingOfficer"],
         },
         {
           href: "/staff/card-issuance",
           label: "Card Issuance",
           icon: icon("M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "CardIssuanceOfficer", "IssuingOfficer"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CardIssuanceOfficer", "IssuingOfficer"],
         },
         {
           href: "/staff/card-stock",
@@ -231,13 +274,13 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/commands",
           label: "Commands Overview",
           icon: icon("M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "ReportingAuditOfficer", "Auditor"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ReportingAuditOfficer", "Auditor"],
         },
         {
           href: "/staff/reports",
           label: "Reports",
           icon: icon("M3 3v18h18M7 15l4-4 3 3 6-6"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "ReportingAuditOfficer", "Auditor"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ReportingAuditOfficer", "Auditor"],
         },
         {
           href: "/staff/audit-logs",
@@ -254,7 +297,7 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           href: "/staff/users",
           label: "Staff accounts",
           icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin"],
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin"],
         },
         {
           href: "/staff/settings",
