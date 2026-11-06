@@ -68,11 +68,11 @@ enum ApplicationStatus: string
     {
         return match ($this) {
             self::PendingApproval => 'Awaiting Vetting',
-            self::Vetted => $isStaff ? 'Vetted — Eligible for Biometrics' : 'Vetted — Attend Biometrics Appointment',
+            self::Vetted => $isStaff ? 'Awaiting Biometrics (Vetted)' : 'Vetted — Attend Biometrics Appointment',
             self::Queried => 'Queried — action required',
             self::Rejected => 'Rejected',
-            self::BiometricsCaptured => $isStaff ? 'Biometrics Completed — Awaiting Approval' : 'Biometrics Completed — Under Final Review',
-            self::Approved => 'Approved — Card in Production',
+            self::BiometricsCaptured => $isStaff ? 'Awaiting Approval (Biometrics Verified)' : 'Biometrics Completed — Under Final Review',
+            self::Approved => 'Approved — Awaiting Card Production',
             self::ApprovedForBiometrics => 'Approved',
             self::ReadyForCollection => 'Ready for collection',
             self::Issued => 'Card collected',

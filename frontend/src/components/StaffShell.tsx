@@ -61,22 +61,22 @@ const navSections: NavSection[] = [
     title: "Overview",
     items: [
       { href: "/staff", label: "Dashboard", icon: icon("M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z") },
-      {
-        href: "/staff/queue",
-        label: "Biometrics Queue",
-        icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
-        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
-      },
     ],
   },
   {
-    title: "Applications",
+    title: "Application Management",
     items: [
       {
         href: "/staff/applications",
         label: "Vetting",
         icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"),
         roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
+      },
+      {
+        href: "/staff/queue",
+        label: "Biometrics",
+        icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
+        roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "CommandAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
       },
       {
         href: "/staff/approvals",

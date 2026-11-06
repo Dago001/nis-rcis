@@ -39,7 +39,7 @@ class CentreQueue
             ?? throw ValidationException::withMessages(['code' => 'No application matches this barcode. Check the slip, or add the person as a walk-in.']);
 
         $purpose = match ($application->status) {
-            ApplicationStatus::ApprovedForBiometrics => 'Biometrics capture',
+            ApplicationStatus::Vetted, ApplicationStatus::ApprovedForBiometrics => 'Biometrics capture',
             ApplicationStatus::ReadyForCollection => 'Card collection',
             default => throw ValidationException::withMessages([
                 'code' => "Application {$application->application_number} is {$application->status->label()}: it has no biometrics appointment or card to collect.",

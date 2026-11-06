@@ -54,7 +54,6 @@ class CardController
                 $aq->whereIn('status', [
                     \App\Enums\ApplicationStatus::Approved,
                     \App\Enums\ApplicationStatus::ApprovedForBiometrics,
-                    \App\Enums\ApplicationStatus::BiometricsCaptured,
                     \App\Enums\ApplicationStatus::ReadyForCollection,
                     \App\Enums\ApplicationStatus::Issued,
                 ])
@@ -251,6 +250,19 @@ class CardController
         );
 
         abort_unless(in_array($card->status, [CardStatus::Approved, CardStatus::Issued, CardStatus::Renewed], true), 422, 'Only an approved card can be viewed and printed.');
+
+        if ($card->application) {
+            abort_unless(
+                in_array($card->application->status, [
+                    \App\Enums\ApplicationStatus::Approved,
+                    \App\Enums\ApplicationStatus::ApprovedForBiometrics,
+                    \App\Enums\ApplicationStatus::ReadyForCollection,
+                    \App\Enums\ApplicationStatus::Issued,
+                ], true),
+                422,
+                "Application {$card->application->application_number} is {$card->application->status->value}. Only applications with final statutory approval can enter card production."
+            );
+        }
 
         return response()->json([
             'data' => new CardResource($card),

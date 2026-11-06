@@ -49,6 +49,13 @@ class CardProduction
             throw ValidationException::withMessages(['card' => "Card {$card->card_number} is {$statusValue} and cannot be printed."]);
         }
 
+        if ($card->application) {
+            $appStatus = $card->application->status instanceof \App\Enums\ApplicationStatus ? $card->application->status->value : (string) $card->application->status;
+            if (! in_array($appStatus, ['APPROVED', 'APPROVED_FOR_BIOMETRICS', 'READY_FOR_COLLECTION', 'ISSUED'], true)) {
+                throw ValidationException::withMessages(['card' => "Application {$card->application->application_number} is {$appStatus} and has not received final approval. Card production requires completed vetting, verified biometrics, and final statutory approval."]);
+            }
+        }
+
         if (app()->isProduction() && ($card->statutory_protocol === 'DEVELOPMENT_SIMULATION' || str_contains((string) $card->statutory_protocol, 'SIMULATION'))) {
             throw ValidationException::withMessages(['card' => "Card {$card->card_number} was created via Development Biometrics Simulation and cannot be printed in production."]);
         }

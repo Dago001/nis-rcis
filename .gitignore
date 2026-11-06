@@ -17,3 +17,4 @@ dump.rdb
 
 # cPanel upload packages (cpanel-package.bat)
 /dist/
+/dist_package/

@@ -1864,14 +1864,14 @@ class DashboardController
                     'pending_count' => $cntVetting,
                     'oldest_age' => $formatAge($oldestVetting),
                     'command' => $cmdVetting,
-                    'view_url' => '/staff/queue',
+                    'view_url' => '/staff/applications',
                 ],
                 [
                     'stage' => 'Awaiting Biometrics',
                     'pending_count' => $cntBiometrics,
                     'oldest_age' => $formatAge($oldestBiometrics),
                     'command' => $cmdBiometrics,
-                    'view_url' => '/staff/biometrics',
+                    'view_url' => '/staff/queue',
                 ],
                 [
                     'stage' => 'Awaiting Approval',

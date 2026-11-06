@@ -188,8 +188,8 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
         title: "Application Management",
         items: [
           { href: "/staff/applications", label: "Vetting", icon: icon("M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9") },
-          { href: "/staff/approvals", label: "Approval", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z") },
           { href: "/staff/queue", label: "Biometrics", icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75") },
+          { href: "/staff/approvals", label: "Approval", icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z") },
         ],
       },
       {
@@ -242,16 +242,16 @@ function getRoleNavSections(user: StaffUser): NavSection[] {
           roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "VettingOfficer", "ApprovingOfficer", "Inspector", "DataEntryOfficer"],
         },
         {
-          href: "/staff/approvals",
-          label: "Approval",
-          icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"),
-          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ApprovingOfficer", "Supervisor"],
-        },
-        {
           href: "/staff/queue",
           label: "Biometrics",
           icon: icon("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"),
           roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "BiometricsOfficer", "EnrollmentOfficer"],
+        },
+        {
+          href: "/staff/approvals",
+          label: "Approval",
+          icon: icon("M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14l-7-3-7 3V5a2 2 0 0 1 2-2z"),
+          roles: ["SuperAdmin", "Admin", "HeadquartersAdmin", "ZonalAdmin", "ApprovingOfficer", "Supervisor"],
         },
       ],
     },

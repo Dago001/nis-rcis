@@ -224,6 +224,22 @@ class CardIssuance
 
     public function markCollected(Application $application, User $officer, ?string $notes = null): Application
     {
+        if ($application->status !== ApplicationStatus::ReadyForCollection) {
+            throw ValidationException::withMessages([
+                'status' => "Application {$application->application_number} is {$application->status->value}. Only cards that have been produced, dispatched, and confirmed received at the Command (Ready for Collection) can be issued.",
+            ]);
+        }
+
+        if ($application->cardDistribution && ! in_array($application->cardDistribution->status, [
+            \App\Models\CardDistribution::STATUS_RECEIVED,
+            \App\Models\CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+            \App\Models\CardDistribution::STATUS_ISSUED,
+        ], true)) {
+            throw ValidationException::withMessages([
+                'distribution' => "Card for application {$application->application_number} has not been confirmed as received at the Command. Current distribution status: {$application->cardDistribution->status}.",
+            ]);
+        }
+
         return $this->workflow->transition($application, ApplicationStatus::Issued, $officer, $notes ?? 'Card collected by holder',
             function (Application $a) use ($officer) {
                 if (! $a->ready_at) {
@@ -242,6 +258,14 @@ class CardIssuance
                         $card->issuing_officer_service_no = $officer->service_number;
                         $card->saveQuietly();
                     }
+                }
+
+                if ($a->cardDistribution) {
+                    $a->cardDistribution->update([
+                        'status' => \App\Models\CardDistribution::STATUS_ISSUED,
+                        'issued_by' => $officer->id,
+                        'issued_at' => now(),
+                    ]);
                 }
             });
     }

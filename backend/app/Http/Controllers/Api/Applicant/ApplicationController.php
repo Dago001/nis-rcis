@@ -212,7 +212,7 @@ class ApplicationController
             ->whereIn('status', ['RESPONSE_SUBMITTED', 'RESOLVED'])
             ->exists();
 
-        $targetStatus = $hasApprovalQuery && $application->biometrics_completed_at !== null
+        $targetStatus = $hasApprovalQuery && ($application->biometrics_captured_at !== null || $application->biometrics_status === 'COMPLETED')
             ? ApplicationStatus::BiometricsCaptured
             : ApplicationStatus::PendingApproval;
 

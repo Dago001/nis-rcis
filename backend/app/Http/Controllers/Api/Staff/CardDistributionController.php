@@ -155,6 +155,15 @@ class CardDistributionController
             ]);
         }
 
+        foreach ($distributions as $dist) {
+            $card = $dist->card;
+            if (! $card || ! $card->printJobs()->where('outcome', \App\Models\CardPrintJob::PRINTED)->exists()) {
+                throw ValidationException::withMessages([
+                    'distribution' => "Card {$dist->card_number} has not been physically printed. Card distribution requires confirmed card production.",
+                ]);
+            }
+        }
+
         $count = 0;
         DB::transaction(function () use ($distributions, $user, $data, $dispatchRef, &$count) {
             foreach ($distributions as $dist) {
