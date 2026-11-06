@@ -1999,34 +1999,20 @@ function renderGeneralAdminDashboard(
         title={dashboardHeading}
         subtitle={dashboardSubtitle}
         actions={
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col items-end text-right border-r border-slate-200 pr-3">
-              <span className="text-xs font-bold text-slate-900">
-                {user.rank ? `${user.rank} ${user.fullname}` : user.fullname}
-              </span>
-              <span className="text-[11px] font-semibold text-nis-primary">
-                {isSuperAdmin
-                  ? t("Super Administrator")
-                  : isHqAdmin
-                  ? t("Headquarters Administrator")
-                  : t(user.role_label || user.role)}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => fetchDashboardData(true)}
-              disabled={loading}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
-            >
-              <svg className={`h-3.5 w-3.5 text-nis-primary ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                <path d="M21 21v-5h-5" />
-              </svg>
-              <span>{loading ? t("Refreshing…") : t("Refresh Live Data")}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => fetchDashboardData(true)}
+            disabled={loading}
+            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <svg className={`h-3.5 w-3.5 text-nis-primary ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M21 21v-5h-5" />
+            </svg>
+            <span>{loading ? t("Refreshing…") : t("Refresh Live Data")}</span>
+          </button>
         }
       />
 
