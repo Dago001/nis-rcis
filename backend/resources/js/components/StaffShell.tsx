@@ -500,8 +500,8 @@ function StaffShellInner({ children }: { children: ReactNode }) {
         }
       />
       <GlobalAnnouncements />
-      <div className="w-full flex-1 bg-[#f4f7f5]">
-        <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-4 sm:gap-6 px-3 py-4 sm:px-6 sm:py-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6">
+      <div className="w-full flex-1 flex flex-col bg-[#f4f7f5] min-h-[calc(100vh-5rem)]">
+        <div ref={area} className="staff-area mx-auto flex w-full flex-1 flex-col gap-4 sm:gap-6 px-3 py-4 sm:px-6 sm:py-6 lg:flex-row lg:gap-6 lg:px-4 xl:px-6 items-stretch">
           
           {/* Mobile & Tablet Collapsible Navigation Bar (< lg) */}
           <div className="no-print flex items-center justify-between rounded-xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm lg:hidden">
@@ -680,10 +680,10 @@ function StaffShellInner({ children }: { children: ReactNode }) {
           )}
 
           {/* Desktop Fixed Sidebar (>= lg) */}
-          <nav className="no-print hidden lg:block lg:w-56 xl:w-[15rem] lg:shrink-0" aria-label="Staff console">
+          <nav className="no-print hidden lg:flex lg:flex-col lg:w-56 xl:w-[15rem] lg:shrink-0 self-stretch" aria-label="Staff console">
             <div
               ref={menu}
-              className="sticky top-24 max-h-[calc(100vh-7.5rem)] flex flex-col gap-2.5 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm"
+              className="sticky top-24 flex min-h-[calc(100vh-7.5rem)] max-h-[calc(100vh-7.5rem)] flex-col gap-2.5 overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-[#b2d6c0] bg-[#d2e8db] p-2.5 shadow-sm [scrollbar-width:thin] [scrollbar-color:#a2c9b2_transparent]"
             >
               {user &&
                 activeNavSections.map((sec, idx) => {
