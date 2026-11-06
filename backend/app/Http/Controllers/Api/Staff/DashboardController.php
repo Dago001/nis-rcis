@@ -20,6 +20,7 @@ use App\Models\ResidenceCard;
 use App\Models\User;
 use App\Services\CardProduction;
 use App\Support\WorkingDays;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,122 +60,273 @@ class DashboardController
 
     public function summary(Request $request): JsonResponse
     {
-        /** @var User $user */
-        $user = $request->user();
+        try {
+            /** @var User $user */
+            $user = $request->user();
 
-        // 1. Check if Command-scoped (either user is CommandAdmin or Super/HQ Admin is drilling down into a command)
-        $targetCommandId = null;
-        $isDrilldown = false;
+            // 1. Check if Command-scoped (either user is CommandAdmin or Super/HQ Admin is drilling down into a command)
+            $targetCommandId = null;
+            $isDrilldown = false;
 
-        if ($request->filled('command_id') && ($user->isHeadquarters() || $user->hasRole(StaffRole::SuperAdmin, StaffRole::HeadquartersAdmin, StaffRole::Admin))) {
-            $targetCommandId = (int) $request->input('command_id');
-            $isDrilldown = true;
-        } elseif ($user->role === StaffRole::CommandAdmin || ($user->isCommand() && $user->command_id)) {
-            $targetCommandId = (int) $user->command_id;
-        } elseif ($user->role === StaffRole::CommandAdmin && $user->command) {
-            $targetCommandId = NisCommand::where('name', $user->command)->value('id');
-        }
+            if ($request->filled('command_id') && ($user->isHeadquarters() || $user->hasRole(StaffRole::SuperAdmin, StaffRole::HeadquartersAdmin, StaffRole::Admin))) {
+                $targetCommandId = (int) $request->input('command_id');
+                $isDrilldown = true;
+            } elseif ($user->role === StaffRole::CommandAdmin || ($user->isCommand() && $user->command_id)) {
+                $targetCommandId = (int) $user->command_id;
+            } elseif ($user->role === StaffRole::CommandAdmin && $user->command) {
+                $targetCommandId = NisCommand::where('name', $user->command)->value('id');
+            }
 
-        $targetYear = $request->input('year');
+            $targetYear = $request->input('year');
 
-        if ($targetCommandId) {
-            $cacheKey = "staff_summary_cmd_{$targetCommandId}_" . ($isDrilldown ? 'dd' : 'ca') . ($targetYear ? "_{$targetYear}" : '');
+            if ($targetCommandId) {
+                $cacheKey = "staff_summary_cmd_{$targetCommandId}_" . ($isDrilldown ? 'dd' : 'ca') . ($targetYear ? "_{$targetYear}" : '');
+                if ($request->boolean('refresh') || $request->boolean('nocache')) {
+                    Cache::forget($cacheKey);
+                }
+                $data = Cache::remember($cacheKey, 5, function () use ($targetCommandId, $isDrilldown, $targetYear) {
+                    return $this->getCommandDashboardData($targetCommandId, $isDrilldown, $targetYear);
+                });
+                return response()->json($data);
+            }
+
+            $userCacheKey = "staff_summary_{$user->id}" . ($targetYear ? "_{$targetYear}" : '');
             if ($request->boolean('refresh') || $request->boolean('nocache')) {
-                Cache::forget($cacheKey);
+                Cache::forget($userCacheKey);
             }
-            $data = Cache::remember($cacheKey, 5, function () use ($targetCommandId, $isDrilldown, $targetYear) {
-                return $this->getCommandDashboardData($targetCommandId, $isDrilldown, $targetYear);
+
+            $data = Cache::remember($userCacheKey, 5, function () use ($user, $targetYear) {
+                return $this->buildNationalSummaryData($user, $targetYear);
             });
+
             return response()->json($data);
+        } catch (\Throwable $e) {
+            Log::error('Staff dashboard summary failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json($this->getFallbackSummaryData($request->user()));
+        }
+    }
+
+    /**
+     * Build full National Administration Dashboard data for Super Admin & HQ Admin.
+     */
+    private function buildNationalSummaryData(User $user, ?string $targetYear = null): array
+    {
+        $applications = Application::query()
+            ->forStaffJurisdiction($user)
+            ->selectRaw('status, count(*) as total')
+            ->groupByRaw('1')
+            ->pluck('total', 'status');
+
+        $cards = ResidenceCard::query()
+            ->forStaffJurisdiction($user)
+            ->selectRaw('status, count(*) as total')
+            ->groupByRaw('1')
+            ->pluck('total', 'status');
+
+        $distribution = [
+            'awaiting_dispatch' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count(),
+            'in_transit' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_DISPATCHED)->count(),
+            'received' => CardDistribution::forStaffJurisdiction($user)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count(),
+            'issued' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_ISSUED)->count(),
+        ];
+
+        $analytics = $this->analytics($targetYear);
+
+        $totalCardsIssued = (int) ($analytics['totals']['cards_issued'] ?? 0);
+        $newCardsIssued = (int) ($analytics['totals']['new_cards_issued'] ?? 0);
+        $renewalCardsIssued = (int) ($analytics['totals']['renewal_cards_issued'] ?? 0);
+        $totalCardsProduced = (int) ($analytics['totals']['cards_produced'] ?? 0);
+        $newCardsProduced = (int) ($analytics['totals']['new_cards_produced'] ?? 0);
+        $renewalCardsProduced = (int) ($analytics['totals']['renewal_cards_produced'] ?? 0);
+
+        $cardStock = ['remaining' => 0, 'low' => false];
+        try {
+            $cardStock = app(CardProduction::class)->stock();
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard card stock check failed: ' . $e->getMessage());
         }
 
-        $userCacheKey = "staff_summary_{$user->id}" . ($targetYear ? "_{$targetYear}" : '');
-        if ($request->boolean('refresh') || $request->boolean('nocache')) {
-            Cache::forget($userCacheKey);
-        }
+        return [
+            'is_command_scoped' => false,
+            'is_drilldown' => false,
+            'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($applications[$s->value] ?? 0)]),
+            'cards' => collect(CardStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($cards[$s->value] ?? 0)]),
+            'distribution' => $distribution,
+            'cards_expired' => ResidenceCard::forStaffJurisdiction($user)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->where('expires_on', '<', today())->count(),
+            'cards_expiring_30_days' => ResidenceCard::forStaffJurisdiction($user)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
+            'watchlisted' => ResidenceCard::forStaffJurisdiction($user)->where('is_watchlisted', true)->count(),
+            'paid_awaiting_submission' => $user->isHeadquarters() ? Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count() : 0,
+            'total_cards_produced' => $totalCardsProduced,
+            'new_cards_produced' => $newCardsProduced,
+            'renewal_cards_produced' => $renewalCardsProduced,
+            'new_cards_issued' => $newCardsIssued,
+            'renewal_cards_issued' => $renewalCardsIssued,
+            'applications_by_state' => $analytics['applications_by_state'] ?? [],
+            'top5_states' => $analytics['top5_states'] ?? [],
+            'processing_overview' => $analytics['processing_overview'] ?? [],
+            'processing_stages' => $analytics['processing_stages'] ?? [],
+            'backlog_summary' => $this->getBacklogSummary(),
+            'commands_preview' => $this->getCommandsPreview(),
+            'sla' => [
+                'target_working_days' => (int) config('nis.sla_working_days', 10),
+                'overdue' => (function () use ($user) {
+                    try {
+                        return Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::PendingApproval)
+                            ->where('submitted_at', '<', WorkingDays::cutoff(config('nis.sla_working_days', 10)))->count();
+                    } catch (\Throwable) {
+                        return 0;
+                    }
+                })(),
+                'assigned_to_me' => (function () use ($user) {
+                    try {
+                        return Application::forStaffJurisdiction($user)->where('assigned_to', $user->id)
+                            ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued])->count();
+                    } catch (\Throwable) {
+                        return 0;
+                    }
+                })(),
+            ],
+            'card_stock' => $cardStock,
+            'queue_today' => (function () {
+                try {
+                    return QueueTicket::whereDate('service_date', today())->selectRaw('status, count(*) as total')->groupByRaw('1')->pluck('total', 'status')->map(fn ($v) => (int) $v);
+                } catch (\Throwable) {
+                    return collect();
+                }
+            })(),
+            'todays_appointments' => (function () use ($user) {
+                try {
+                    return Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::ApprovedForBiometrics)->whereDate('appointment_date', today())->count();
+                } catch (\Throwable) {
+                    return 0;
+                }
+            })(),
+            'analytics' => $analytics,
+            'my_activity' => [
+                'decided' => (function () use ($user) { try { return Application::where('decided_by', $user->id)->count(); } catch (\Throwable) { return 0; } })(),
+                'captured' => (function () use ($user) { try { return Application::where('biometrics_captured_by', $user->id)->count(); } catch (\Throwable) { return 0; } })(),
+                'cards_approved' => (function () use ($user) { try { return ResidenceCard::where('approved_by', $user->id)->count(); } catch (\Throwable) { return 0; } })(),
+                'assisted_created' => (function () use ($user) { try { return Application::where('created_by', $user->id)->count(); } catch (\Throwable) { return 0; } })(),
+                'cards_printed' => (function () use ($user) { try { return \App\Models\CardPrintJob::where('printed_by', $user->id)->where('outcome', 'PRINTED')->count(); } catch (\Throwable) { return 0; } })(),
+                'cards_collected' => (function () { try { return Application::where('status', ApplicationStatus::Issued)->whereNotNull('collected_at')->count(); } catch (\Throwable) { return 0; } })(),
+            ],
+            'role_data' => $this->getRoleSpecificData($user),
+            'user_role' => $user->role->value,
+        ];
+    }
 
-        $data = Cache::remember($userCacheKey, 5, function () use ($user, $targetYear) {
-            $applications = Application::query()
-                ->forStaffJurisdiction($user)
-                ->selectRaw('status, count(*) as total')
-                ->groupByRaw('1')
-                ->pluck('total', 'status');
+    /**
+     * Resilient fallback summary data to guarantee the dashboard interface never crashes.
+     */
+    private function getFallbackSummaryData(?User $user = null, ?int $commandId = null): array
+    {
+        $roleStr = $user ? ($user->role instanceof \BackedEnum ? $user->role->value : (string) $user->role) : 'SuperAdmin';
+        $emptyDistribution = [
+            'awaiting_dispatch' => 0,
+            'in_transit' => 0,
+            'received' => 0,
+            'issued' => 0,
+        ];
 
-            $cards = ResidenceCard::query()
-                ->forStaffJurisdiction($user)
-                ->selectRaw('status, count(*) as total')
-                ->groupByRaw('1')
-                ->pluck('total', 'status');
-
-            $distribution = [
-                'awaiting_dispatch' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count(),
-                'in_transit' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_DISPATCHED)->count(),
-                'received' => CardDistribution::forStaffJurisdiction($user)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count(),
-                'issued' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_ISSUED)->count(),
-            ];
-
-            $analytics = $this->analytics($targetYear);
-
-            $totalCardsIssued = (int) ($analytics['totals']['cards_issued'] ?? 0);
-            $newCardsIssued = (int) ($analytics['totals']['new_cards_issued'] ?? 0);
-            $renewalCardsIssued = (int) ($analytics['totals']['renewal_cards_issued'] ?? 0);
-            $totalCardsProduced = (int) ($analytics['totals']['cards_produced'] ?? 0);
-            $newCardsProduced = (int) ($analytics['totals']['new_cards_produced'] ?? 0);
-            $renewalCardsProduced = (int) ($analytics['totals']['renewal_cards_produced'] ?? 0);
-
-            $cardStock = ['remaining' => 0, 'low' => false];
-            try {
-                $cardStock = app(CardProduction::class)->stock();
-            } catch (\Throwable $e) {
-                Log::warning('Dashboard card stock check failed: ' . $e->getMessage());
-            }
-
-            return [
-                'is_command_scoped' => false,
-                'is_drilldown' => false,
-                'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($applications[$s->value] ?? 0)]),
-                'cards' => collect(CardStatus::cases())->mapWithKeys(fn ($s) => [$s->value => (int) ($cards[$s->value] ?? 0)]),
-                'distribution' => $distribution,
-                'cards_expired' => ResidenceCard::forStaffJurisdiction($user)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->where('expires_on', '<', today())->count(),
-                'cards_expiring_30_days' => ResidenceCard::forStaffJurisdiction($user)->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereBetween('expires_on', [today(), today()->addDays(30)])->count(),
-                'watchlisted' => ResidenceCard::forStaffJurisdiction($user)->where('is_watchlisted', true)->count(),
-                'paid_awaiting_submission' => $user->isHeadquarters() ? Payment::where('status', 'SUCCESS')->whereNotNull('verified_at')->whereNull('application_id')->count() : 0,
-                'total_cards_produced' => $totalCardsProduced,
-                'new_cards_produced' => $newCardsProduced,
-                'renewal_cards_produced' => $renewalCardsProduced,
-                'new_cards_issued' => $newCardsIssued,
-                'renewal_cards_issued' => $renewalCardsIssued,
-                'applications_by_state' => $analytics['applications_by_state'] ?? [],
-                'top5_states' => $analytics['top5_states'] ?? [],
-                'processing_overview' => $analytics['processing_overview'] ?? [],
-                'processing_stages' => $analytics['processing_stages'] ?? [],
-                'backlog_summary' => $this->getBacklogSummary(),
-                'commands_preview' => $this->getCommandsPreview(),
-                'sla' => [
-                    'target_working_days' => (int) config('nis.sla_working_days', 10),
-                    'overdue' => Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::PendingApproval)
-                        ->where('submitted_at', '<', WorkingDays::cutoff(config('nis.sla_working_days', 10)))->count(),
-                    'assigned_to_me' => Application::forStaffJurisdiction($user)->where('assigned_to', $user->id)
-                        ->whereNotIn('status', [ApplicationStatus::Rejected, ApplicationStatus::Issued])->count(),
+        return [
+            'is_command_scoped' => $commandId !== null,
+            'is_drilldown' => false,
+            'command_id' => $commandId,
+            'command_name' => $commandId ? "Command #{$commandId}" : null,
+            'queue' => collect(ApplicationStatus::cases())->mapWithKeys(fn ($s) => [$s->value => 0]),
+            'cards' => collect(CardStatus::cases())->mapWithKeys(fn ($s) => [$s->value => 0]),
+            'distribution' => $emptyDistribution,
+            'cards_expired' => 0,
+            'cards_expiring_30_days' => 0,
+            'watchlisted' => 0,
+            'paid_awaiting_submission' => 0,
+            'total_cards_produced' => 0,
+            'new_cards_produced' => 0,
+            'renewal_cards_produced' => 0,
+            'new_cards_issued' => 0,
+            'renewal_cards_issued' => 0,
+            'applications_by_state' => [],
+            'top5_states' => [],
+            'processing_overview' => [
+                'cards_produced' => 0,
+                'cards_issued' => 0,
+                'new_cards_issued' => 0,
+                'renewal_cards_issued' => 0,
+                'queried' => 0,
+                'rejected' => 0,
+            ],
+            'processing_stages' => [],
+            'backlog_summary' => [],
+            'commands_preview' => [],
+            'sla' => [
+                'target_working_days' => (int) config('nis.sla_working_days', 10),
+                'overdue' => 0,
+                'assigned_to_me' => 0,
+            ],
+            'card_stock' => ['remaining' => 0, 'low' => false],
+            'queue_today' => collect(),
+            'todays_appointments' => 0,
+            'analytics' => [
+                'monthly' => collect(range(0, 11))->map(fn ($i) => [
+                    'month' => CarbonImmutable::now()->subMonths(11 - $i)->format('Y-m'),
+                    'submitted' => 0,
+                    'new_applications' => 0,
+                    'renewal_applications' => 0,
+                    'issued' => 0,
+                    'revenue_naira' => 0,
+                ])->values(),
+                'applications_by_state' => [],
+                'top5_states' => [],
+                'processing_stages' => [],
+                'processing_overview' => [
+                    'cards_produced' => 0,
+                    'cards_issued' => 0,
+                    'new_cards_issued' => 0,
+                    'renewal_cards_issued' => 0,
+                    'queried' => 0,
+                    'rejected' => 0,
                 ],
-                'card_stock' => $cardStock,
-                'queue_today' => QueueTicket::whereDate('service_date', today())->selectRaw('status, count(*) as total')->groupByRaw('1')->pluck('total', 'status')->map(fn ($v) => (int) $v),
-                'todays_appointments' => Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::ApprovedForBiometrics)->whereDate('appointment_date', today())->count(),
-                'analytics' => $analytics,
-                'my_activity' => [
-                    'decided' => Application::where('decided_by', $user->id)->count(),
-                    'captured' => Application::where('biometrics_captured_by', $user->id)->count(),
-                    'cards_approved' => ResidenceCard::where('approved_by', $user->id)->count(),
-                    'assisted_created' => Application::where('created_by', $user->id)->count(),
-                    'cards_printed' => \App\Models\CardPrintJob::where('printed_by', $user->id)->where('outcome', 'PRINTED')->count(),
-                    'cards_collected' => Application::where('status', ApplicationStatus::Issued)->whereNotNull('collected_at')->count(),
+                'totals' => [
+                    'applications' => 0,
+                    'applications_this_month' => 0,
+                    'applications_last_month' => 0,
+                    'cards_produced' => 0,
+                    'new_cards_produced' => 0,
+                    'renewal_cards_produced' => 0,
+                    'cards_issued' => 0,
+                    'new_cards_issued' => 0,
+                    'renewal_cards_issued' => 0,
+                    'revenue_naira' => 0,
+                    'revenue_this_month_naira' => 0,
+                    'payments' => 0,
                 ],
-                'role_data' => $this->getRoleSpecificData($user),
-                'user_role' => $user->role->value,
-            ];
-        });
-
-        return response()->json($data);
+                'decisions' => ['approved' => 0, 'queried' => 0, 'rejected' => 0, 'approval_rate' => null],
+                'processing_days' => ['submission_to_decision' => 0.0, 'decision_to_biometrics' => 0.0, 'biometrics_to_ready' => 0.0, 'ready_to_collection' => 0.0],
+                'recent_activity' => collect(),
+                'nationalities' => collect(),
+                'biometrics_by_zone' => collect(),
+                'biometrics_by_command' => collect(),
+                'appointments_by_center' => collect(),
+                'mix' => ['type' => collect(), 'channel' => collect(), 'sex' => ['MALE' => 0, 'FEMALE' => 0]],
+                'appointments' => collect(),
+                'available_years' => ['2025', '2026'],
+                'selected_year' => 'latest_12',
+            ],
+            'my_activity' => [
+                'decided' => 0,
+                'captured' => 0,
+                'cards_approved' => 0,
+                'assisted_created' => 0,
+                'cards_printed' => 0,
+                'cards_collected' => 0,
+            ],
+            'role_data' => $user ? $this->getRoleSpecificData($user) : ['role' => 'Admin'],
+            'user_role' => $roleStr,
+        ];
     }
 
     /**
@@ -630,7 +782,8 @@ class DashboardController
      */
     private function getCommandDashboardData(int $commandId, bool $isDrilldown = false, ?string $targetYear = null): array
     {
-        $command = NisCommand::find($commandId);
+        try {
+            $command = NisCommand::find($commandId);
         $cmdName = $command ? $command->name : "Command #{$commandId}";
         $cmdState = $command ? $command->state : '';
 
@@ -831,7 +984,7 @@ class DashboardController
         $categories = $appBase()
             ->selectRaw("COALESCE(NULLIF(category, ''), 'Standard ECOWAS') as label, count(*) as total")
             ->groupByRaw('1')
-            ->orderByDesc('total')
+            ->orderByRaw('count(*) DESC')
             ->get()
             ->map(fn ($r) => ['label' => (string) $r->label, 'total' => (int) $r->total])
             ->values()
@@ -985,6 +1138,10 @@ class DashboardController
             ],
             'user_role' => 'CommandAdmin',
         ];
+        } catch (\Throwable $e) {
+            Log::warning("Command dashboard data failed for command #{$commandId}: " . $e->getMessage());
+            return $this->getFallbackSummaryData(null, $commandId);
+        }
     }
 
     /**
@@ -1003,23 +1160,34 @@ class DashboardController
         }
         $months = collect(range(0, 11))->map(fn ($i) => $start->addMonths($i)->format('Y-m'));
 
-        $availableYears = Application::query()
-            ->whereNotNull('submitted_at')
-            ->selectRaw("DISTINCT SUBSTRING(submitted_at, 1, 4) as y")
-            ->pluck('y')
-            ->filter()
-            ->sort()
-            ->values()
-            ->all();
-        if (empty($availableYears)) {
-            $availableYears = [(string) date('Y')];
+        $driver = DB::connection()->getDriverName();
+
+        $availableYears = ['2025', '2026'];
+        try {
+            $yearDriverExpr = match ($driver) {
+                'mysql' => "DISTINCT YEAR(submitted_at) as y",
+                'sqlite' => "DISTINCT strftime('%Y', submitted_at) as y",
+                default => "DISTINCT to_char(submitted_at, 'YYYY') as y",
+            };
+            $dbYears = Application::query()
+                ->whereNotNull('submitted_at')
+                ->selectRaw($yearDriverExpr)
+                ->pluck('y')
+                ->filter()
+                ->sort()
+                ->values()
+                ->all();
+            if (!empty($dbYears)) {
+                $availableYears = array_values(array_unique(array_merge($availableYears, $dbYears)));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard availableYears query failed: ' . $e->getMessage());
         }
+
         if (!in_array((string) date('Y'), $availableYears, true)) {
             $availableYears[] = (string) date('Y');
             sort($availableYears);
         }
-
-        $driver = DB::connection()->getDriverName();
 
         $monthFormat = match ($driver) {
             'mysql' => "DATE_FORMAT({column}, '%Y-%m')",
@@ -1276,31 +1444,31 @@ class DashboardController
         // Total applications by biometric enrollment State (with Federal Capital Territory normalization)
         $applicationsByState = (function () {
             try {
-                return Application::query()
+                $rawStates = Application::query()
                     ->leftJoin('enrollment_centers as ec_actual', 'applications.actual_enrollment_center_id', '=', 'ec_actual.id')
                     ->leftJoin('enrollment_centers as ec_selected', 'applications.enrollment_center_id', '=', 'ec_selected.id')
                     ->selectRaw("
-                        CASE
-                            WHEN LOWER(TRIM(COALESCE(applications.actual_enrollment_state, ec_actual.state, ec_selected.state, ''))) IN ('abuja', 'fct', 'f.c.t.', 'fct abuja', 'abuja fct', 'federal capital territory', 'federal capital territory (fct)')
-                                THEN 'Federal Capital Territory (FCT)'
-                            WHEN applications.actual_enrollment_state IS NOT NULL AND TRIM(applications.actual_enrollment_state) != ''
-                                THEN TRIM(applications.actual_enrollment_state)
-                            WHEN ec_actual.state IS NOT NULL AND TRIM(ec_actual.state) != ''
-                                THEN TRIM(ec_actual.state)
-                            WHEN ec_selected.state IS NOT NULL AND TRIM(ec_selected.state) != ''
-                                THEN TRIM(ec_selected.state)
-                            ELSE 'Not Yet Assigned'
-                        END as state_name,
+                        COALESCE(NULLIF(TRIM(applications.actual_enrollment_state), ''), NULLIF(TRIM(ec_actual.state), ''), NULLIF(TRIM(ec_selected.state), ''), 'Not Yet Assigned') as raw_state,
                         count(applications.id) as total
                     ")
                     ->groupByRaw('1')
-                    ->orderByDesc('total')
-                    ->get()
-                    ->map(fn ($r) => [
-                        'state' => (string) $r->state_name,
-                        'total' => (int) $r->total,
-                    ])
-                    ->values();
+                    ->orderByRaw('count(applications.id) DESC')
+                    ->get();
+
+                $normalized = [];
+                foreach ($rawStates as $r) {
+                    $s = trim((string) $r->raw_state);
+                    $lower = strtolower($s);
+                    if (in_array($lower, ['abuja', 'fct', 'f.c.t.', 'fct abuja', 'abuja fct', 'federal capital territory', 'federal capital territory (fct)'], true)) {
+                        $s = 'Federal Capital Territory (FCT)';
+                    }
+                    $normalized[$s] = ($normalized[$s] ?? 0) + (int) $r->total;
+                }
+                arsort($normalized);
+                return collect($normalized)->map(fn ($total, $state) => [
+                    'state' => (string) $state,
+                    'total' => (int) $total,
+                ])->values();
             } catch (\Throwable $e) {
                 Log::warning('Dashboard applications by state query failed: ' . $e->getMessage());
                 return collect();
@@ -1534,7 +1702,7 @@ class DashboardController
                         ->join('enrollment_centers', 'applications.enrollment_center_id', '=', 'enrollment_centers.id')
                         ->selectRaw("COALESCE(applications.actual_enrollment_command, enrollment_centers.command_name, enrollment_centers.name) as command, count(*) as total")
                         ->groupByRaw('1')
-                        ->orderByDesc('total')
+                        ->orderByRaw('count(*) DESC')
                         ->limit(10)
                         ->pluck('total', 'command');
                 } catch (\Throwable) {
@@ -1548,7 +1716,7 @@ class DashboardController
                         ->join('enrollment_centers', 'applications.enrollment_center_id', '=', 'enrollment_centers.id')
                         ->selectRaw("enrollment_centers.name as center, count(*) as total")
                         ->groupByRaw('1')
-                        ->orderByDesc('total')
+                        ->orderByRaw('count(*) DESC')
                         ->limit(10)
                         ->pluck('total', 'center');
                 } catch (\Throwable) {
@@ -1571,157 +1739,162 @@ class DashboardController
      */
     private function getBacklogSummary(?int $commandId = null): array
     {
-        $appBase = function () use ($commandId) {
-            $q = Application::query();
-            if ($commandId) {
-                $q->where(function ($sub) use ($commandId) {
-                    $sub->where('command_id', $commandId)
-                        ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
-                        ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
-                });
-            }
-            return $q;
-        };
-
-        $formatAge = function ($timestamp) {
-            if (!$timestamp) return 'None';
-            try {
-                $dt = Carbon::parse($timestamp);
-                $diffDays = (int) $dt->diffInDays(now());
-                if ($diffDays === 0) {
-                    $diffHours = (int) $dt->diffInHours(now());
-                    return $diffHours <= 1 ? '1 hour ago' : "{$diffHours} hours ago";
+        try {
+            $appBase = function () use ($commandId) {
+                $q = Application::query();
+                if ($commandId) {
+                    $q->where(function ($sub) use ($commandId) {
+                        $sub->where('command_id', $commandId)
+                            ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
+                            ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
+                    });
                 }
-                return $diffDays === 1 ? '1 day' : "{$diffDays} days";
-            } catch (\Throwable) {
-                return 'None';
-            }
-        };
+                return $q;
+            };
 
-        $getCommandForQuery = function ($query) use ($commandId) {
-            if ($commandId) {
-                $cmd = NisCommand::find($commandId);
-                return $cmd ? $cmd->name : "Command #{$commandId}";
-            }
-            try {
-                $top = (clone $query)
-                    ->leftJoin('nis_commands', 'applications.command_id', '=', 'nis_commands.id')
-                    ->selectRaw("COALESCE(nis_commands.name, applications.actual_enrollment_command, 'Headquarters') as cmd_name, count(applications.id) as cnt")
-                    ->groupByRaw('1')
-                    ->orderByDesc('cnt')
-                    ->first();
-                return $top && $top->cnt > 0 ? $top->cmd_name : 'Nationwide';
-            } catch (\Throwable $e) {
-                return 'Nationwide';
-            }
-        };
-
-        // 1. Awaiting Vetting
-        $qVetting = $appBase()->where('status', ApplicationStatus::PendingApproval);
-        $cntVetting = (clone $qVetting)->count();
-        $oldestVetting = (clone $qVetting)->min('submitted_at') ?? (clone $qVetting)->min('created_at');
-        $cmdVetting = $cntVetting > 0 ? $getCommandForQuery($qVetting) : 'None';
-
-        // 2. Awaiting Biometrics
-        $qBiometrics = $appBase()->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])->whereNull('biometrics_captured_at');
-        $cntBiometrics = (clone $qBiometrics)->count();
-        $oldestBiometrics = (clone $qBiometrics)->min('decided_at') ?? (clone $qBiometrics)->min('submitted_at');
-        $cmdBiometrics = $cntBiometrics > 0 ? $getCommandForQuery($qBiometrics) : 'None';
-
-        // 3. Awaiting Approval
-        $qApproval = $appBase()->where('status', ApplicationStatus::BiometricsCaptured);
-        $cntApproval = (clone $qApproval)->count();
-        $oldestApproval = (clone $qApproval)->min('biometrics_captured_at') ?? (clone $qApproval)->min('updated_at');
-        $cmdApproval = $cntApproval > 0 ? $getCommandForQuery($qApproval) : 'None';
-
-        // 4. Awaiting Card Production
-        $qProduction = $appBase()->where('status', ApplicationStatus::Approved)
-            ->where(function ($q) {
-                $q->whereDoesntHave('card')
-                  ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))->whereNotIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereNull('issued_on'));
-            });
-        $cntProduction = (clone $qProduction)->count();
-        $oldestProduction = (clone $qProduction)->min('decided_at') ?? (clone $qProduction)->min('updated_at');
-        $cmdProduction = $cntProduction > 0 ? 'Headquarters (Sauka)' : 'None';
-
-        // 5. Awaiting Dispatch
-        $distBase = CardDistribution::query();
-        if ($commandId) {
-            $distBase->where('destination_command_id', $commandId);
-        }
-        $qDispatch = (clone $distBase)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH);
-        $cntDispatch = (clone $qDispatch)->count();
-        $oldestDispatch = (clone $qDispatch)->min('created_at');
-        $cmdDispatch = $cntDispatch > 0 ? 'Headquarters (Sauka)' : 'None';
-
-        // 6. Awaiting Issuance
-        $qIssuance = (clone $distBase)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE]);
-        $cntIssuance = (clone $qIssuance)->count();
-        $oldestIssuance = (clone $qIssuance)->min('received_at') ?? (clone $qIssuance)->min('created_at');
-        $cmdIssuance = 'None';
-        if ($cntIssuance > 0) {
-            if ($commandId) {
-                $cmd = NisCommand::find($commandId);
-                $cmdIssuance = $cmd ? $cmd->name : "Command #{$commandId}";
-            } else {
+            $formatAge = function ($timestamp) {
+                if (!$timestamp) return 'None';
                 try {
-                    $topDist = CardDistribution::whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])
-                        ->leftJoin('nis_commands', 'card_distributions.destination_command_id', '=', 'nis_commands.id')
-                        ->selectRaw("COALESCE(nis_commands.name, 'Command') as cmd_name, count(card_distributions.id) as cnt")
-                        ->groupByRaw('1')
-                        ->orderByDesc('cnt')
-                        ->first();
-                    $cmdIssuance = $topDist ? $topDist->cmd_name : 'Multiple Commands';
+                    $dt = Carbon::parse($timestamp);
+                    $diffDays = (int) $dt->diffInDays(now());
+                    if ($diffDays === 0) {
+                        $diffHours = (int) $dt->diffInHours(now());
+                        return $diffHours <= 1 ? '1 hour ago' : "{$diffHours} hours ago";
+                    }
+                    return $diffDays === 1 ? '1 day' : "{$diffDays} days";
                 } catch (\Throwable) {
-                    $cmdIssuance = 'Multiple Commands';
+                    return 'None';
+                }
+            };
+
+            $getCommandForQuery = function ($query) use ($commandId) {
+                if ($commandId) {
+                    $cmd = NisCommand::find($commandId);
+                    return $cmd ? $cmd->name : "Command #{$commandId}";
+                }
+                try {
+                    $top = (clone $query)
+                        ->leftJoin('nis_commands', 'applications.command_id', '=', 'nis_commands.id')
+                        ->selectRaw("COALESCE(nis_commands.name, applications.actual_enrollment_command, 'Headquarters') as cmd_name, count(applications.id) as cnt")
+                        ->groupByRaw('1')
+                        ->orderByRaw('count(applications.id) DESC')
+                        ->first();
+                    return $top && $top->cnt > 0 ? $top->cmd_name : 'Nationwide';
+                } catch (\Throwable $e) {
+                    return 'Nationwide';
+                }
+            };
+
+            // 1. Awaiting Vetting
+            $qVetting = $appBase()->where('status', ApplicationStatus::PendingApproval);
+            $cntVetting = (clone $qVetting)->count();
+            $oldestVetting = (clone $qVetting)->min('submitted_at') ?? (clone $qVetting)->min('created_at');
+            $cmdVetting = $cntVetting > 0 ? $getCommandForQuery($qVetting) : 'None';
+
+            // 2. Awaiting Biometrics
+            $qBiometrics = $appBase()->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])->whereNull('biometrics_captured_at');
+            $cntBiometrics = (clone $qBiometrics)->count();
+            $oldestBiometrics = (clone $qBiometrics)->min('decided_at') ?? (clone $qBiometrics)->min('submitted_at');
+            $cmdBiometrics = $cntBiometrics > 0 ? $getCommandForQuery($qBiometrics) : 'None';
+
+            // 3. Awaiting Approval
+            $qApproval = $appBase()->where('status', ApplicationStatus::BiometricsCaptured);
+            $cntApproval = (clone $qApproval)->count();
+            $oldestApproval = (clone $qApproval)->min('biometrics_captured_at') ?? (clone $qApproval)->min('updated_at');
+            $cmdApproval = $cntApproval > 0 ? $getCommandForQuery($qApproval) : 'None';
+
+            // 4. Awaiting Card Production
+            $qProduction = $appBase()->where('status', ApplicationStatus::Approved)
+                ->where(function ($q) {
+                    $q->whereDoesntHave('card')
+                      ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))->whereNotIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereNull('issued_on'));
+                });
+            $cntProduction = (clone $qProduction)->count();
+            $oldestProduction = (clone $qProduction)->min('decided_at') ?? (clone $qProduction)->min('updated_at');
+            $cmdProduction = $cntProduction > 0 ? 'Headquarters (Sauka)' : 'None';
+
+            // 5. Awaiting Dispatch
+            $distBase = CardDistribution::query();
+            if ($commandId) {
+                $distBase->where('destination_command_id', $commandId);
+            }
+            $qDispatch = (clone $distBase)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH);
+            $cntDispatch = (clone $qDispatch)->count();
+            $oldestDispatch = (clone $qDispatch)->min('created_at');
+            $cmdDispatch = $cntDispatch > 0 ? 'Headquarters (Sauka)' : 'None';
+
+            // 6. Awaiting Issuance
+            $qIssuance = (clone $distBase)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE]);
+            $cntIssuance = (clone $qIssuance)->count();
+            $oldestIssuance = (clone $qIssuance)->min('received_at') ?? (clone $qIssuance)->min('created_at');
+            $cmdIssuance = 'None';
+            if ($cntIssuance > 0) {
+                if ($commandId) {
+                    $cmd = NisCommand::find($commandId);
+                    $cmdIssuance = $cmd ? $cmd->name : "Command #{$commandId}";
+                } else {
+                    try {
+                        $topDist = CardDistribution::whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])
+                            ->leftJoin('nis_commands', 'card_distributions.destination_command_id', '=', 'nis_commands.id')
+                            ->selectRaw("COALESCE(nis_commands.name, 'Command') as cmd_name, count(card_distributions.id) as cnt")
+                            ->groupByRaw('1')
+                            ->orderByRaw('count(card_distributions.id) DESC')
+                            ->first();
+                        $cmdIssuance = $topDist ? $topDist->cmd_name : 'Multiple Commands';
+                    } catch (\Throwable) {
+                        $cmdIssuance = 'Multiple Commands';
+                    }
                 }
             }
-        }
 
-        return [
-            [
-                'stage' => 'Awaiting Vetting',
-                'pending_count' => $cntVetting,
-                'oldest_age' => $formatAge($oldestVetting),
-                'command' => $cmdVetting,
-                'view_url' => '/staff/queue',
-            ],
-            [
-                'stage' => 'Awaiting Biometrics',
-                'pending_count' => $cntBiometrics,
-                'oldest_age' => $formatAge($oldestBiometrics),
-                'command' => $cmdBiometrics,
-                'view_url' => '/staff/biometrics',
-            ],
-            [
-                'stage' => 'Awaiting Approval',
-                'pending_count' => $cntApproval,
-                'oldest_age' => $formatAge($oldestApproval),
-                'command' => $cmdApproval,
-                'view_url' => '/staff/approvals',
-            ],
-            [
-                'stage' => 'Awaiting Card Production',
-                'pending_count' => $cntProduction,
-                'oldest_age' => $formatAge($oldestProduction),
-                'command' => $cmdProduction,
-                'view_url' => '/staff/card-production',
-            ],
-            [
-                'stage' => 'Awaiting Dispatch',
-                'pending_count' => $cntDispatch,
-                'oldest_age' => $formatAge($oldestDispatch),
-                'command' => $cmdDispatch,
-                'view_url' => '/staff/card-distribution',
-            ],
-            [
-                'stage' => 'Awaiting Issuance',
-                'pending_count' => $cntIssuance,
-                'oldest_age' => $formatAge($oldestIssuance),
-                'command' => $cmdIssuance,
-                'view_url' => '/staff/card-issuance',
-            ],
-        ];
+            return [
+                [
+                    'stage' => 'Awaiting Vetting',
+                    'pending_count' => $cntVetting,
+                    'oldest_age' => $formatAge($oldestVetting),
+                    'command' => $cmdVetting,
+                    'view_url' => '/staff/queue',
+                ],
+                [
+                    'stage' => 'Awaiting Biometrics',
+                    'pending_count' => $cntBiometrics,
+                    'oldest_age' => $formatAge($oldestBiometrics),
+                    'command' => $cmdBiometrics,
+                    'view_url' => '/staff/biometrics',
+                ],
+                [
+                    'stage' => 'Awaiting Approval',
+                    'pending_count' => $cntApproval,
+                    'oldest_age' => $formatAge($oldestApproval),
+                    'command' => $cmdApproval,
+                    'view_url' => '/staff/approvals',
+                ],
+                [
+                    'stage' => 'Awaiting Card Production',
+                    'pending_count' => $cntProduction,
+                    'oldest_age' => $formatAge($oldestProduction),
+                    'command' => $cmdProduction,
+                    'view_url' => '/staff/card-production',
+                ],
+                [
+                    'stage' => 'Awaiting Dispatch',
+                    'pending_count' => $cntDispatch,
+                    'oldest_age' => $formatAge($oldestDispatch),
+                    'command' => $cmdDispatch,
+                    'view_url' => '/staff/card-distribution',
+                ],
+                [
+                    'stage' => 'Awaiting Issuance',
+                    'pending_count' => $cntIssuance,
+                    'oldest_age' => $formatAge($oldestIssuance),
+                    'command' => $cmdIssuance,
+                    'view_url' => '/staff/card-issuance',
+                ],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard backlog summary failed: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
