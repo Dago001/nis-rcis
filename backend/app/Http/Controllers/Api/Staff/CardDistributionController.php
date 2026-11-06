@@ -3,38 +3,64 @@
 namespace App\Http\Controllers\Api\Staff;
 
 use App\Enums\ApplicationStatus;
+use App\Enums\CardStatus;
 use App\Models\CardDistribution;
+use App\Models\CardPrintJob;
 use App\Models\NisCommand;
+use App\Models\NisZone;
 use App\Models\ResidenceCard;
 use App\Models\User;
 use App\Services\GeofenceService;
 use App\Support\Audit;
 use App\Support\Like;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CardDistributionController
 {
+    /**
+     * Display card distribution dashboard metrics, command breakdown, and detailed card register.
+     */
     public function index(Request $request): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
 
         $status = $request->input('status');
-        $zoneId = $request->input('zone_id');
-        $commandId = $request->input('command_id');
+        $zoneId = $request->filled('zone_id') ? (int) $request->input('zone_id') : null;
+        $commandId = $request->filled('command_id') ? (int) $request->input('command_id') : null;
+        $type = $request->input('type'); // NEW | RENEWAL
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
         $search = $request->input('search');
-        $perPage = (int) ($request->input('per_page', 15));
+        $perPage = max(10, min(100, (int) ($request->input('per_page', 15))));
 
+        // Scope restrictions based on role
+        if (! $user->isHeadquarters()) {
+            if ($user->isCommand() && $user->command_id) {
+                $commandId = (int) $user->command_id;
+                $zoneId = $user->zone_id ? (int) $user->zone_id : null;
+            } elseif ($user->isZonal() && $user->zone_id) {
+                $zoneId = (int) $user->zone_id;
+                if ($commandId) {
+                    $validCmd = NisCommand::where('id', $commandId)->where('zone_id', $zoneId)->exists();
+                    if (! $validCmd) {
+                        $commandId = null;
+                    }
+                }
+            }
+        }
+
+        // 1. Detailed Register Query
         $query = CardDistribution::query()
             ->with([
-                'card.applicant',
-                'application.enrollmentCenter',
+                'card.printJobs' => fn ($pq) => $pq->where('outcome', CardPrintJob::PRINTED)->latest('printed_at'),
+                'application',
                 'destinationZone',
-                'destinationCommand',
+                'destinationCommand.zone',
                 'destinationCenter',
                 'dispatcher:id,fullname,service_number',
                 'receiver:id,fullname,service_number',
@@ -43,16 +69,36 @@ class CardDistributionController
             ->forStaffJurisdiction($user)
             ->latest('id');
 
-        if (! empty($status)) {
-            $query->where('status', $status);
+        // Apply filters
+        if (! empty($status) && $status !== 'ALL') {
+            if ($status === 'RECEIVED') {
+                $query->whereIn('status', [
+                    CardDistribution::STATUS_RECEIVED,
+                    CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+                ]);
+            } else {
+                $query->where('status', $status);
+            }
         }
 
-        if (! empty($zoneId) && $user->isHeadquarters()) {
+        if (! empty($zoneId)) {
             $query->where('destination_zone_id', $zoneId);
         }
 
-        if (! empty($commandId) && ($user->isHeadquarters() || ($user->isZonal() && (int) $user->zone_id === (int) $zoneId))) {
+        if (! empty($commandId)) {
             $query->where('destination_command_id', $commandId);
+        }
+
+        if (! empty($type)) {
+            $query->whereHas('application', fn ($aq) => $aq->where('type', strtoupper($type)));
+        }
+
+        if (! empty($dateFrom)) {
+            $query->whereDate('created_at', '>=', Carbon::parse($dateFrom)->startOfDay());
+        }
+
+        if (! empty($dateTo)) {
+            $query->whereDate('created_at', '<=', Carbon::parse($dateTo)->endOfDay());
         }
 
         if (! empty($search)) {
@@ -63,44 +109,215 @@ class CardDistributionController
                   ->orWhere('application_number', 'like', $pattern)
                   ->orWhere('dispatch_reference', 'like', $pattern)
                   ->orWhere('waybill_number', 'like', $pattern)
-                  ->orWhereHas('card', fn ($cq) => $cq->where('surname', 'like', $pattern)->orWhere('forenames', 'like', $pattern));
+                  ->orWhereHas('card', fn ($cq) => $cq->where('surname', 'like', $pattern)->orWhere('forenames', 'like', $pattern)->orWhere('passport_number', 'like', $pattern));
             });
         }
 
         $paginated = $query->paginate($perPage);
 
-        // Summary counts scoped to user's jurisdiction
-        $base = CardDistribution::query()->forStaffJurisdiction($user);
-        $counts = [
-            'awaiting_dispatch' => (clone $base)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count(),
-            'dispatched' => (clone $base)->where('status', CardDistribution::STATUS_DISPATCHED)->count(),
-            'received' => (clone $base)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])->count(),
-            'issued' => (clone $base)->where('status', CardDistribution::STATUS_ISSUED)->count(),
-            'total' => (clone $base)->count(),
+        // Format items for frontend
+        $formattedData = collect($paginated->items())->map(function (CardDistribution $d) {
+            $card = $d->card;
+            $app = $d->application;
+            $printedJob = $card?->printJobs?->first();
+            $productionDate = $printedJob?->printed_at ?? $card?->created_at ?? $d->created_at;
+
+            return [
+                'id' => $d->id,
+                'card_id' => $d->card_id,
+                'application_id' => $d->application_id,
+                'card_number' => $d->card_number,
+                'application_number' => $d->application_number,
+                'applicant_name' => $card ? trim("{$card->surname} {$card->forenames}") : ($app ? trim("{$app->surname} {$app->forenames}") : '—'),
+                'applicant_passport' => $card?->passport_number ?? $app?->passport_number ?? '—',
+                'application_type' => $app?->type ?? 'NEW',
+                'destination_zone_id' => $d->destination_zone_id,
+                'destination_zone' => $d->destinationZone?->name ?? 'Headquarters',
+                'destination_command_id' => $d->destination_command_id,
+                'destination_command' => $d->destinationCommand?->name ?? 'Command',
+                'destination_center' => $d->destinationCenter?->name ?? 'Enrollment Center',
+                'production_date' => $productionDate ? Carbon::parse($productionDate)->toIso8601String() : null,
+                'dispatch_reference' => $d->dispatch_reference,
+                'dispatch_date' => $d->dispatched_at ? Carbon::parse($d->dispatched_at)->toIso8601String() : null,
+                'dispatched_by_name' => $d->dispatcher?->fullname,
+                'received_date' => $d->received_at ? Carbon::parse($d->received_at)->toIso8601String() : null,
+                'received_by_name' => $d->receiver?->fullname,
+                'issued_date' => $d->issued_at ? Carbon::parse($d->issued_at)->toIso8601String() : null,
+                'issuer_by_name' => $d->issuer?->fullname,
+                'status' => $d->status,
+                'courier_service' => $d->courier_service,
+                'waybill_number' => $d->waybill_number,
+                'dispatch_notes' => $d->dispatch_notes,
+                'receipt_notes' => $d->receipt_notes,
+                'geofence_verified_receipt' => (bool) $d->geofence_verified_receipt,
+            ];
+        });
+
+        // 2. Summary Statistics for Selected Scope
+        $statsBase = CardDistribution::query()->forStaffJurisdiction($user);
+        if (! empty($zoneId)) {
+            $statsBase->where('destination_zone_id', $zoneId);
+        }
+        if (! empty($commandId)) {
+            $statsBase->where('destination_command_id', $commandId);
+        }
+        if (! empty($type)) {
+            $statsBase->whereHas('application', fn ($aq) => $aq->where('type', strtoupper($type)));
+        }
+
+        $awaitingDispatch = (clone $statsBase)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->count();
+        $inTransit = (clone $statsBase)->where('status', CardDistribution::STATUS_DISPATCHED)->count();
+        $received = (clone $statsBase)->whereIn('status', [
+            CardDistribution::STATUS_RECEIVED,
+            CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+            CardDistribution::STATUS_ISSUED,
+        ])->count();
+        $issued = (clone $statsBase)->where('status', CardDistribution::STATUS_ISSUED)->count();
+
+        // Total cards produced within selected scope
+        $cardsProducedQuery = ResidenceCard::query()->forStaffJurisdiction($user);
+        if (! empty($commandId)) {
+            $cardsProducedQuery->where(function ($q) use ($commandId) {
+                $q->whereHas('distribution', fn ($dq) => $dq->where('destination_command_id', $commandId))
+                  ->orWhereHas('application', fn ($aq) => $aq->where('command_id', $commandId));
+            });
+        } elseif (! empty($zoneId)) {
+            $cardsProducedQuery->where(function ($q) use ($zoneId) {
+                $q->whereHas('distribution', fn ($dq) => $dq->where('destination_zone_id', $zoneId))
+                  ->orWhereHas('application', fn ($aq) => $aq->where('zone_id', $zoneId));
+            });
+        }
+        if (! empty($type)) {
+            $cardsProducedQuery->whereHas('application', fn ($aq) => $aq->where('type', strtoupper($type)));
+        }
+
+        $totalProduced = $cardsProducedQuery->where(function ($q) {
+            $q->whereHas('printJobs', fn ($pj) => $pj->where('outcome', CardPrintJob::PRINTED))
+              ->orWhereIn('status', [CardStatus::Issued, CardStatus::Renewed])
+              ->orWhereHas('distribution');
+        })->count();
+
+        // Reconcile total produced: Total produced is cumulative; cannot be less than active distribution population
+        $totalProduced = max($totalProduced, $awaitingDispatch + $inTransit + $received);
+
+        $summary = [
+            'total_cards_produced' => $totalProduced,
+            'awaiting_dispatch' => $awaitingDispatch,
+            'in_transit' => $inTransit,
+            'received' => $received,
+            'issued' => $issued,
         ];
 
+        // 3. Command Distribution Summary Table
+        $cmdQuery = NisCommand::query()->with('zone:id,name,code')->where('is_active', true);
+        if ($user->isCommand() && $user->command_id) {
+            $cmdQuery->where('id', $user->command_id);
+        } elseif ($user->isZonal() && $user->zone_id) {
+            $cmdQuery->where('zone_id', $user->zone_id);
+        } elseif (! empty($zoneId)) {
+            $cmdQuery->where('zone_id', $zoneId);
+        }
+        if (! empty($commandId)) {
+            $cmdQuery->where('id', $commandId);
+        }
+
+        $commandsList = $cmdQuery->orderBy('name')->get();
+
+        // Fast aggregate distribution counts by command
+        $distAggregates = CardDistribution::query()
+            ->selectRaw("
+                destination_command_id,
+                status,
+                count(*) as total
+            ")
+            ->whereNotNull('destination_command_id')
+            ->groupBy('destination_command_id', 'status')
+            ->get();
+
+        $commandsSummary = $commandsList->map(function ($cmd, $index) use ($distAggregates) {
+            $cmdRecords = $distAggregates->where('destination_command_id', $cmd->id);
+
+            $awaiting = (int) $cmdRecords->where('status', CardDistribution::STATUS_AWAITING_DISPATCH)->sum('total');
+            $transit = (int) $cmdRecords->where('status', CardDistribution::STATUS_DISPATCHED)->sum('total');
+            $rec = (int) $cmdRecords->whereIn('status', [
+                CardDistribution::STATUS_RECEIVED,
+                CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE,
+                CardDistribution::STATUS_ISSUED,
+            ])->sum('total');
+            $iss = (int) $cmdRecords->where('status', CardDistribution::STATUS_ISSUED)->sum('total');
+            $produced = $awaiting + $transit + $rec;
+
+            return [
+                'sn' => $index + 1,
+                'id' => $cmd->id,
+                'name' => $cmd->name,
+                'code' => $cmd->code,
+                'state' => $cmd->state,
+                'zone_id' => $cmd->zone_id,
+                'zone_name' => $cmd->zone?->name ?? 'Zone',
+                'zone_code' => $cmd->zone?->code ?? '',
+                'total_produced' => $produced,
+                'awaiting_dispatch' => $awaiting,
+                'in_transit' => $transit,
+                'received' => $rec,
+                'issued' => $iss,
+            ];
+        })->values();
+
+        // 4. Reference Lists for Filtering
+        $zonesQuery = NisZone::where('is_active', true)->orderBy('code');
+        if ($user->isZonal() && $user->zone_id) {
+            $zonesQuery->where('id', $user->zone_id);
+        } elseif ($user->isCommand() && $user->zone_id) {
+            $zonesQuery->where('id', $user->zone_id);
+        }
+        $zones = $zonesQuery->get(['id', 'code', 'name']);
+
+        $allCommandsQuery = NisCommand::where('is_active', true)->orderBy('name');
+        if ($user->isCommand() && $user->command_id) {
+            $allCommandsQuery->where('id', $user->command_id);
+        } elseif ($user->isZonal() && $user->zone_id) {
+            $allCommandsQuery->where('zone_id', $user->zone_id);
+        }
+        $commands = $allCommandsQuery->get(['id', 'code', 'name', 'zone_id', 'state']);
+
         return response()->json([
-            'data' => $paginated->items(),
+            'data' => $formattedData,
             'meta' => [
                 'current_page' => $paginated->currentPage(),
                 'last_page' => $paginated->lastPage(),
                 'total' => $paginated->total(),
                 'per_page' => $paginated->perPage(),
             ],
-            'counts' => $counts,
+            'summary' => $summary,
+            'commands_summary' => $commandsSummary,
+            'zones' => $zones,
+            'commands' => $commands,
+            'active_filters' => [
+                'status' => $status ?: 'ALL',
+                'zone_id' => $zoneId,
+                'command_id' => $commandId,
+                'type' => $type ?: 'ALL',
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'search' => $search,
+            ],
         ]);
     }
 
+    /**
+     * Show single card distribution dossier with complete lifecycle tracking.
+     */
     public function show(Request $request, int $id): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
 
         $distribution = CardDistribution::with([
-            'card.applicant',
+            'card.printJobs' => fn ($pq) => $pq->where('outcome', CardPrintJob::PRINTED)->latest('printed_at'),
             'application.enrollmentCenter',
             'destinationZone',
-            'destinationCommand',
+            'destinationCommand.zone',
             'destinationCenter',
             'dispatcher:id,fullname,service_number',
             'receiver:id,fullname,service_number',
@@ -116,7 +333,41 @@ class CardDistributionController
             }
         }
 
-        return response()->json(['data' => $distribution]);
+        $card = $distribution->card;
+        $app = $distribution->application;
+        $printedJob = $card?->printJobs?->first();
+
+        return response()->json([
+            'data' => [
+                'id' => $distribution->id,
+                'card_id' => $distribution->card_id,
+                'application_id' => $distribution->application_id,
+                'card_number' => $distribution->card_number,
+                'application_number' => $distribution->application_number,
+                'applicant_name' => $card ? trim("{$card->surname} {$card->forenames}") : ($app ? trim("{$app->surname} {$app->forenames}") : '—'),
+                'applicant_passport' => $card?->passport_number ?? $app?->passport_number ?? '—',
+                'application_type' => $app?->type ?? 'NEW',
+                'destination_zone' => $distribution->destinationZone?->name ?? 'Headquarters',
+                'destination_command' => $distribution->destinationCommand?->name ?? 'Command',
+                'destination_center' => $distribution->destinationCenter?->name ?? 'Enrollment Center',
+                'status' => $distribution->status,
+                'dispatch_reference' => $distribution->dispatch_reference,
+                'courier_service' => $distribution->courier_service,
+                'waybill_number' => $distribution->waybill_number,
+                'dispatch_notes' => $distribution->dispatch_notes,
+                'dispatched_at' => $distribution->dispatched_at ? Carbon::parse($distribution->dispatched_at)->toIso8601String() : null,
+                'dispatched_by' => $distribution->dispatcher?->fullname,
+                'receipt_notes' => $distribution->receipt_notes,
+                'received_at' => $distribution->received_at ? Carbon::parse($distribution->received_at)->toIso8601String() : null,
+                'received_by' => $distribution->receiver?->fullname,
+                'issued_at' => $distribution->issued_at ? Carbon::parse($distribution->issued_at)->toIso8601String() : null,
+                'issued_by' => $distribution->issuer?->fullname,
+                'production_date' => $printedJob?->printed_at ?? $card?->created_at,
+                'geofence_verified_receipt' => (bool) $distribution->geofence_verified_receipt,
+                'receipt_latitude' => $distribution->receipt_latitude,
+                'receipt_longitude' => $distribution->receipt_longitude,
+            ],
+        ]);
     }
 
     /**
@@ -143,7 +394,7 @@ class CardDistributionController
 
         $dispatchRef = ! empty($data['dispatch_reference'])
             ? trim($data['dispatch_reference'])
-            : 'DSP-'.date('Ymd').'-'.strtoupper(bin2hex(random_bytes(3)));
+            : 'HQ-DSP-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
 
         $distributions = CardDistribution::whereIn('id', $data['distribution_ids'])
             ->whereIn('status', [CardDistribution::STATUS_AWAITING_DISPATCH, CardDistribution::STATUS_DISPATCHED])
@@ -155,9 +406,10 @@ class CardDistributionController
             ]);
         }
 
+        // Validate that cards have been physically printed before dispatch
         foreach ($distributions as $dist) {
             $card = $dist->card;
-            if (! $card || ! $card->printJobs()->where('outcome', \App\Models\CardPrintJob::PRINTED)->exists()) {
+            if (! $card || ! $card->printJobs()->where('outcome', CardPrintJob::PRINTED)->exists()) {
                 throw ValidationException::withMessages([
                     'distribution' => "Card {$dist->card_number} has not been physically printed. Card distribution requires confirmed card production.",
                 ]);
