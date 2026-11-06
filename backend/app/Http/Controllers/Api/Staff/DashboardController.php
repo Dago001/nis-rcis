@@ -75,22 +75,25 @@ class DashboardController
             $targetCommandId = NisCommand::where('name', $user->command)->value('id');
         }
 
+        $targetYear = $request->input('year');
+
         if ($targetCommandId) {
-            $cacheKey = "staff_summary_cmd_{$targetCommandId}_" . ($isDrilldown ? 'dd' : 'ca');
+            $cacheKey = "staff_summary_cmd_{$targetCommandId}_" . ($isDrilldown ? 'dd' : 'ca') . ($targetYear ? "_{$targetYear}" : '');
             if ($request->boolean('refresh') || $request->boolean('nocache')) {
                 Cache::forget($cacheKey);
             }
-            $data = Cache::remember($cacheKey, 5, function () use ($targetCommandId, $isDrilldown) {
-                return $this->getCommandDashboardData($targetCommandId, $isDrilldown);
+            $data = Cache::remember($cacheKey, 5, function () use ($targetCommandId, $isDrilldown, $targetYear) {
+                return $this->getCommandDashboardData($targetCommandId, $isDrilldown, $targetYear);
             });
             return response()->json($data);
         }
 
+        $userCacheKey = "staff_summary_{$user->id}" . ($targetYear ? "_{$targetYear}" : '');
         if ($request->boolean('refresh') || $request->boolean('nocache')) {
-            Cache::forget("staff_summary_{$user->id}");
+            Cache::forget($userCacheKey);
         }
 
-        $data = Cache::remember("staff_summary_{$user->id}", 5, function () use ($user) {
+        $data = Cache::remember($userCacheKey, 5, function () use ($user, $targetYear) {
             $applications = Application::query()
                 ->forStaffJurisdiction($user)
                 ->selectRaw('status, count(*) as total')
@@ -110,7 +113,7 @@ class DashboardController
                 'issued' => CardDistribution::forStaffJurisdiction($user)->where('status', CardDistribution::STATUS_ISSUED)->count(),
             ];
 
-            $analytics = $this->analytics();
+            $analytics = $this->analytics($targetYear);
 
             $totalCardsIssued = (int) ($analytics['totals']['cards_issued'] ?? 0);
             $newCardsIssued = (int) ($analytics['totals']['new_cards_issued'] ?? 0);
@@ -145,6 +148,8 @@ class DashboardController
                 'top5_states' => $analytics['top5_states'] ?? [],
                 'processing_overview' => $analytics['processing_overview'] ?? [],
                 'processing_stages' => $analytics['processing_stages'] ?? [],
+                'backlog_summary' => $this->getBacklogSummary(),
+                'commands_preview' => $this->getCommandsPreview(),
                 'sla' => [
                     'target_working_days' => (int) config('nis.sla_working_days', 10),
                     'overdue' => Application::forStaffJurisdiction($user)->where('status', ApplicationStatus::PendingApproval)
@@ -623,7 +628,7 @@ class DashboardController
      * Compute dedicated Command Administration dashboard statistics, 8 operational processing
      * stages, monthly trends, and charts strictly scoped to a single NIS Command.
      */
-    private function getCommandDashboardData(int $commandId, bool $isDrilldown = false): array
+    private function getCommandDashboardData(int $commandId, bool $isDrilldown = false, ?string $targetYear = null): array
     {
         $command = NisCommand::find($commandId);
         $cmdName = $command ? $command->name : "Command #{$commandId}";
@@ -651,23 +656,22 @@ class DashboardController
         })->count();
 
         // 3. Total Cards Produced for the Command (produced at Headquarters for applications belonging to this Command)
-        $cardsProduced = ResidenceCard::whereHas('application', function ($q) use ($commandId, $command) {
+        $cardsProducedQuery = ResidenceCard::whereHas('application', function ($q) use ($commandId, $command) {
             $q->where('command_id', $commandId)
               ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
               ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
             if ($command) {
                 $q->orWhere('actual_enrollment_command', $command->name);
             }
-        })->whereHas('printJobs', fn ($pj) => $pj->where('outcome', CardPrintJob::PRINTED))->count();
+        })->where(function ($q) {
+            $q->whereHas('printJobs', fn ($pj) => $pj->where('outcome', CardPrintJob::PRINTED))
+              ->orWhereIn('status', [CardStatus::Issued, CardStatus::Renewed])
+              ->orWhereNotNull('issued_on');
+        });
 
-        $newCardsProduced = ResidenceCard::whereHas('application', function ($q) use ($commandId, $command) {
-            $q->where('command_id', $commandId)
-              ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
-              ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
-            if ($command) {
-                $q->orWhere('actual_enrollment_command', $command->name);
-            }
-        })->whereHas('printJobs', fn ($pj) => $pj->where('outcome', CardPrintJob::PRINTED))
+        $cardsProduced = (clone $cardsProducedQuery)->count();
+
+        $newCardsProduced = (clone $cardsProducedQuery)
           ->where(function ($q) {
               $q->whereDoesntHave('renewals')
                 ->where(function ($sq) {
@@ -712,8 +716,16 @@ class DashboardController
             $newCardsIssued += ($cardsIssued - ($newCardsIssued + $renewalCardsIssued));
         }
 
-        // 12-month trend for this command
-        $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
+        // 12-month trend for this command (excluding drafts)
+        if ($targetYear && preg_match('/^\d{4}$/', $targetYear)) {
+            $yearInt = (int) $targetYear;
+            $start = CarbonImmutable::create($yearInt, 1, 1)->startOfMonth();
+            $end = $start->addMonths(11)->endOfMonth();
+        } else {
+            $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
+            $end = CarbonImmutable::now()->endOfMonth();
+        }
+
         $driver = DB::connection()->getDriverName();
         $monthFormat = match ($driver) {
             'mysql' => "DATE_FORMAT({column}, '%Y-%m')",
@@ -721,11 +733,11 @@ class DashboardController
             default => "to_char({column}, 'YYYY-MM')",
         };
 
-        $perMonthCmd = function ($query, string $column) use ($monthFormat, $start) {
+        $perMonthCmd = function ($query, string $column) use ($monthFormat, $start, $end) {
             try {
                 $expr = str_replace('{column}', $column, $monthFormat);
                 return $query
-                    ->where($column, '>=', $start)
+                    ->whereBetween($column, [$start, $end])
                     ->selectRaw("{$expr} as month, count(*) as total")
                     ->groupByRaw('1')
                     ->pluck('total', 'month');
@@ -734,14 +746,16 @@ class DashboardController
             }
         };
 
-        $newPerMonth = $perMonthCmd($appBase()->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type')), 'submitted_at');
+        $validAppBase = fn () => $appBase()->where('status', '!=', ApplicationStatus::Draft);
+
+        $newPerMonth = $perMonthCmd($validAppBase()->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type')), 'submitted_at');
         if ($newPerMonth->isEmpty()) {
-            $newPerMonth = $perMonthCmd($appBase()->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type')), 'created_at');
+            $newPerMonth = $perMonthCmd($validAppBase()->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type')), 'created_at');
         }
 
-        $renPerMonth = $perMonthCmd($appBase()->where('type', 'RENEWAL'), 'submitted_at');
+        $renPerMonth = $perMonthCmd($validAppBase()->where('type', 'RENEWAL'), 'submitted_at');
         if ($renPerMonth->isEmpty()) {
-            $renPerMonth = $perMonthCmd($appBase()->where('type', 'RENEWAL'), 'created_at');
+            $renPerMonth = $perMonthCmd($validAppBase()->where('type', 'RENEWAL'), 'created_at');
         }
 
         $monthly = collect(range(0, 11))->map(function ($i) use ($start, $newPerMonth, $renPerMonth) {
@@ -758,40 +772,24 @@ class DashboardController
             ];
         })->values()->all();
 
-        // 8-stage Application Processing Overview strictly for this Command
-        $s1New = $appBase()->where(function ($q) {
-            $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
-              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
-        })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
-        $s1Renewal = $appBase()->where(function ($q) {
-            $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
-              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
-        })->where('type', 'RENEWAL')->count();
+        // 8-stage Application Processing Overview strictly for this Command (excluding drafts and queried)
+        $s1New = $appBase()->where('status', ApplicationStatus::PendingApproval)->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s1Renewal = $appBase()->where('status', ApplicationStatus::PendingApproval)->where('type', 'RENEWAL')->count();
 
-        $s2New = $appBase()->where(function ($q) {
-            $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
-              ->whereNull('biometrics_captured_at');
-        })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
-        $s2Renewal = $appBase()->where(function ($q) {
-            $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
-              ->whereNull('biometrics_captured_at');
-        })->where('type', 'RENEWAL')->count();
+        $s2New = $appBase()->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+            ->whereNull('biometrics_captured_at')
+            ->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s2Renewal = $appBase()->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+            ->whereNull('biometrics_captured_at')
+            ->where('type', 'RENEWAL')->count();
 
-        $s3New = $appBase()->where(function ($q) {
-            $q->where('status', ApplicationStatus::BiometricsCaptured)
-              ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
-              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
-        })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
-        $s3Renewal = $appBase()->where(function ($q) {
-            $q->where('status', ApplicationStatus::BiometricsCaptured)
-              ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
-              ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
-        })->where('type', 'RENEWAL')->count();
+        $s3New = $appBase()->where('status', ApplicationStatus::BiometricsCaptured)->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+        $s3Renewal = $appBase()->where('status', ApplicationStatus::BiometricsCaptured)->where('type', 'RENEWAL')->count();
 
         $s4Base = $appBase()->where('status', ApplicationStatus::Approved)
             ->where(function ($q) {
                 $q->whereDoesntHave('card')
-                  ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED')));
+                  ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))->whereNotIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereNull('issued_on'));
             });
         $s4New = (clone $s4Base)->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
         $s4Renewal = (clone $s4Base)->where('type', 'RENEWAL')->count();
@@ -914,6 +912,7 @@ class DashboardController
                 'rejected' => 0,
             ],
             'processing_stages' => $processingStages,
+            'backlog_summary' => $this->getBacklogSummary($commandId),
             'sla' => [
                 'target_working_days' => (int) config('nis.sla_working_days', 10),
                 'overdue' => 0,
@@ -992,10 +991,33 @@ class DashboardController
      * Aggregates for the dashboard charts. Counts and sums only: no personal
      * data leaves this method.
      */
-    private function analytics(): array
+    private function analytics(?string $targetYear = null): array
     {
-        $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
+        if ($targetYear && preg_match('/^\d{4}$/', $targetYear)) {
+            $yearInt = (int) $targetYear;
+            $start = CarbonImmutable::create($yearInt, 1, 1)->startOfMonth();
+            $end = $start->addMonths(11)->endOfMonth();
+        } else {
+            $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
+            $end = CarbonImmutable::now()->endOfMonth();
+        }
         $months = collect(range(0, 11))->map(fn ($i) => $start->addMonths($i)->format('Y-m'));
+
+        $availableYears = Application::query()
+            ->whereNotNull('submitted_at')
+            ->selectRaw("DISTINCT SUBSTRING(submitted_at, 1, 4) as y")
+            ->pluck('y')
+            ->filter()
+            ->sort()
+            ->values()
+            ->all();
+        if (empty($availableYears)) {
+            $availableYears = [(string) date('Y')];
+        }
+        if (!in_array((string) date('Y'), $availableYears, true)) {
+            $availableYears[] = (string) date('Y');
+            sort($availableYears);
+        }
 
         $driver = DB::connection()->getDriverName();
 
@@ -1005,11 +1027,11 @@ class DashboardController
             default => "to_char({column}, 'YYYY-MM')",
         };
 
-        $perMonth = function ($query, string $column, string $aggregate = 'count(*)') use ($monthFormat, $start) {
+        $perMonth = function ($query, string $column, string $aggregate = 'count(*)') use ($monthFormat, $start, $end) {
             try {
                 $expr = str_replace('{column}', $column, $monthFormat);
                 return $query
-                    ->where($column, '>=', $start)
+                    ->whereBetween($column, [$start, $end])
                     ->selectRaw("{$expr} as month, {$aggregate} as total")
                     ->groupByRaw('1')
                     ->pluck('total', 'month');
@@ -1019,24 +1041,26 @@ class DashboardController
             }
         };
 
-        // Monthly trends
-        $submitted = $perMonth(Application::query(), 'submitted_at');
+        // Monthly trends: exclude drafts and count by submitted_at (fallback to created_at if missing for submitted apps)
+        $validSubmittedBase = Application::query()->where('status', '!=', ApplicationStatus::Draft);
+
+        $submitted = $perMonth((clone $validSubmittedBase), 'submitted_at');
         if ($submitted->isEmpty()) {
-            $submitted = $perMonth(Application::query(), 'created_at');
+            $submitted = $perMonth((clone $validSubmittedBase), 'created_at');
         }
 
-        $newSubmitted = $perMonth(Application::query()->where(function ($q) {
+        $newSubmitted = $perMonth((clone $validSubmittedBase)->where(function ($q) {
             $q->where('type', 'NEW')->orWhereNull('type');
         }), 'submitted_at');
         if ($newSubmitted->isEmpty()) {
-            $newSubmitted = $perMonth(Application::query()->where(function ($q) {
+            $newSubmitted = $perMonth((clone $validSubmittedBase)->where(function ($q) {
                 $q->where('type', 'NEW')->orWhereNull('type');
             }), 'created_at');
         }
 
-        $renewalSubmitted = $perMonth(Application::query()->where('type', 'RENEWAL'), 'submitted_at');
+        $renewalSubmitted = $perMonth((clone $validSubmittedBase)->where('type', 'RENEWAL'), 'submitted_at');
         if ($renewalSubmitted->isEmpty()) {
-            $renewalSubmitted = $perMonth(Application::query()->where('type', 'RENEWAL'), 'created_at');
+            $renewalSubmitted = $perMonth((clone $validSubmittedBase)->where('type', 'RENEWAL'), 'created_at');
         }
 
         $issued = $perMonth(ResidenceCard::query()->whereIn('status', [CardStatus::Issued, CardStatus::Renewed]), 'issued_on');
@@ -1144,8 +1168,12 @@ class DashboardController
             $newCardsIssued += ($totalCardsIssued - ($newCardsIssued + $renewalCardsIssued));
         }
 
-        // Cards produced calculations (verified confirmed print jobs with outcome PRINTED)
-        $producedCardsBase = ResidenceCard::query()->whereHas('printJobs', fn ($q) => $q->where('outcome', \App\Models\CardPrintJob::PRINTED));
+        // Cards produced calculations (verified confirmed print jobs with outcome PRINTED, plus safely reconciled issued cards)
+        $producedCardsBase = ResidenceCard::query()->where(function ($q) {
+            $q->whereHas('printJobs', fn ($pj) => $pj->where('outcome', \App\Models\CardPrintJob::PRINTED))
+              ->orWhereIn('status', [CardStatus::Issued, CardStatus::Renewed])
+              ->orWhereNotNull('issued_on');
+        });
         $totalCardsProduced = (clone $producedCardsBase)->count();
 
         $newCardsProduced = (clone $producedCardsBase)->where(function ($q) {
@@ -1296,49 +1324,37 @@ class DashboardController
             })
             ->values();
 
-        // 8 Operational Processing Stages (Queried applications retained in their valid current active stage)
+        // 8 Operational Processing Stages (strictly valid operational states: drafts and queried excluded from these bars)
         $processingStages = (function () use ($newCardsIssued, $renewalCardsIssued) {
             try {
-                // 1. Awaiting Vetting: Draft / PendingApproval / (Queried before biometrics)
-                $s1New = Application::where(function ($q) {
-                    $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
-                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
-                })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+                // 1. Awaiting Vetting: PendingApproval only (Draft and Queried excluded)
+                $s1New = Application::where('status', ApplicationStatus::PendingApproval)
+                    ->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
 
-                $s1Renewal = Application::where(function ($q) {
-                    $q->whereIn('status', [ApplicationStatus::PendingApproval, ApplicationStatus::Draft])
-                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNull('biometrics_captured_at'));
-                })->where('type', 'RENEWAL')->count();
+                $s1Renewal = Application::where('status', ApplicationStatus::PendingApproval)
+                    ->where('type', 'RENEWAL')->count();
 
                 // 2. Awaiting Biometrics: ApprovedForBiometrics / Vetted (biometrics not yet captured)
-                $s2New = Application::where(function ($q) {
-                    $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
-                      ->whereNull('biometrics_captured_at');
-                })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+                $s2New = Application::whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+                    ->whereNull('biometrics_captured_at')
+                    ->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
 
-                $s2Renewal = Application::where(function ($q) {
-                    $q->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
-                      ->whereNull('biometrics_captured_at');
-                })->where('type', 'RENEWAL')->count();
+                $s2Renewal = Application::whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])
+                    ->whereNull('biometrics_captured_at')
+                    ->where('type', 'RENEWAL')->count();
 
-                // 3. Awaiting Approval: BiometricsCaptured OR biometrics captured pending approval OR queried after biometrics
-                $s3New = Application::where(function ($q) {
-                    $q->where('status', ApplicationStatus::BiometricsCaptured)
-                      ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
-                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
-                })->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
+                // 3. Awaiting Approval: BiometricsCaptured
+                $s3New = Application::where('status', ApplicationStatus::BiometricsCaptured)
+                    ->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
 
-                $s3Renewal = Application::where(function ($q) {
-                    $q->where('status', ApplicationStatus::BiometricsCaptured)
-                      ->orWhere(fn ($sq) => $sq->whereNotNull('biometrics_captured_at')->whereNotIn('status', [ApplicationStatus::Approved, ApplicationStatus::Issued, ApplicationStatus::Rejected]))
-                      ->orWhere(fn ($sq) => $sq->where('status', ApplicationStatus::Queried)->whereNotNull('biometrics_captured_at'));
-                })->where('type', 'RENEWAL')->count();
+                $s3Renewal = Application::where('status', ApplicationStatus::BiometricsCaptured)
+                    ->where('type', 'RENEWAL')->count();
 
-                // 4. Awaiting Card Production: Approved applications without a completed printed print job
+                // 4. Awaiting Card Production: Approved applications without a produced card
                 $s4Base = Application::where('status', ApplicationStatus::Approved)
                     ->where(function ($q) {
                         $q->whereDoesntHave('card')
-                          ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED')));
+                          ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))->whereNotIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereNull('issued_on'));
                     });
                 $s4New = (clone $s4Base)->where(fn ($q) => $q->where('type', 'NEW')->orWhereNull('type'))->count();
                 $s4Renewal = (clone $s4Base)->where('type', 'RENEWAL')->count();
@@ -1545,7 +1561,219 @@ class DashboardController
                 'sex' => $sexNormalized,
             ],
             'appointments' => $days->map(fn ($d) => ['date' => $d->toDateString(), 'total' => (int) ($appointments[$d->toDateString()] ?? 0)]),
+            'available_years' => $availableYears,
+            'selected_year' => $targetYear ?: 'latest_12',
         ];
+    }
+
+    /**
+     * Compute processing backlog summary across workflow stages with real timestamps and age.
+     */
+    private function getBacklogSummary(?int $commandId = null): array
+    {
+        $appBase = function () use ($commandId) {
+            $q = Application::query();
+            if ($commandId) {
+                $q->where(function ($sub) use ($commandId) {
+                    $sub->where('command_id', $commandId)
+                        ->orWhereHas('enrollmentCenter', fn ($c) => $c->where('command_id', $commandId))
+                        ->orWhereHas('actualEnrollmentCenter', fn ($c) => $c->where('command_id', $commandId));
+                });
+            }
+            return $q;
+        };
+
+        $formatAge = function ($timestamp) {
+            if (!$timestamp) return 'None';
+            try {
+                $dt = Carbon::parse($timestamp);
+                $diffDays = (int) $dt->diffInDays(now());
+                if ($diffDays === 0) {
+                    $diffHours = (int) $dt->diffInHours(now());
+                    return $diffHours <= 1 ? '1 hour ago' : "{$diffHours} hours ago";
+                }
+                return $diffDays === 1 ? '1 day' : "{$diffDays} days";
+            } catch (\Throwable) {
+                return 'None';
+            }
+        };
+
+        $getCommandForQuery = function ($query) use ($commandId) {
+            if ($commandId) {
+                $cmd = NisCommand::find($commandId);
+                return $cmd ? $cmd->name : "Command #{$commandId}";
+            }
+            try {
+                $top = (clone $query)
+                    ->leftJoin('nis_commands', 'applications.command_id', '=', 'nis_commands.id')
+                    ->selectRaw("COALESCE(nis_commands.name, applications.actual_enrollment_command, 'Headquarters') as cmd_name, count(applications.id) as cnt")
+                    ->groupByRaw('1')
+                    ->orderByDesc('cnt')
+                    ->first();
+                return $top && $top->cnt > 0 ? $top->cmd_name : 'Nationwide';
+            } catch (\Throwable $e) {
+                return 'Nationwide';
+            }
+        };
+
+        // 1. Awaiting Vetting
+        $qVetting = $appBase()->where('status', ApplicationStatus::PendingApproval);
+        $cntVetting = (clone $qVetting)->count();
+        $oldestVetting = (clone $qVetting)->min('submitted_at') ?? (clone $qVetting)->min('created_at');
+        $cmdVetting = $cntVetting > 0 ? $getCommandForQuery($qVetting) : 'None';
+
+        // 2. Awaiting Biometrics
+        $qBiometrics = $appBase()->whereIn('status', [ApplicationStatus::ApprovedForBiometrics, ApplicationStatus::Vetted])->whereNull('biometrics_captured_at');
+        $cntBiometrics = (clone $qBiometrics)->count();
+        $oldestBiometrics = (clone $qBiometrics)->min('decided_at') ?? (clone $qBiometrics)->min('submitted_at');
+        $cmdBiometrics = $cntBiometrics > 0 ? $getCommandForQuery($qBiometrics) : 'None';
+
+        // 3. Awaiting Approval
+        $qApproval = $appBase()->where('status', ApplicationStatus::BiometricsCaptured);
+        $cntApproval = (clone $qApproval)->count();
+        $oldestApproval = (clone $qApproval)->min('biometrics_captured_at') ?? (clone $qApproval)->min('updated_at');
+        $cmdApproval = $cntApproval > 0 ? $getCommandForQuery($qApproval) : 'None';
+
+        // 4. Awaiting Card Production
+        $qProduction = $appBase()->where('status', ApplicationStatus::Approved)
+            ->where(function ($q) {
+                $q->whereDoesntHave('card')
+                  ->orWhereHas('card', fn ($cq) => $cq->whereDoesntHave('printJobs', fn ($pj) => $pj->where('outcome', 'PRINTED'))->whereNotIn('status', [CardStatus::Issued, CardStatus::Renewed])->whereNull('issued_on'));
+            });
+        $cntProduction = (clone $qProduction)->count();
+        $oldestProduction = (clone $qProduction)->min('decided_at') ?? (clone $qProduction)->min('updated_at');
+        $cmdProduction = $cntProduction > 0 ? 'Headquarters (Sauka)' : 'None';
+
+        // 5. Awaiting Dispatch
+        $distBase = CardDistribution::query();
+        if ($commandId) {
+            $distBase->where('destination_command_id', $commandId);
+        }
+        $qDispatch = (clone $distBase)->where('status', CardDistribution::STATUS_AWAITING_DISPATCH);
+        $cntDispatch = (clone $qDispatch)->count();
+        $oldestDispatch = (clone $qDispatch)->min('created_at');
+        $cmdDispatch = $cntDispatch > 0 ? 'Headquarters (Sauka)' : 'None';
+
+        // 6. Awaiting Issuance
+        $qIssuance = (clone $distBase)->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE]);
+        $cntIssuance = (clone $qIssuance)->count();
+        $oldestIssuance = (clone $qIssuance)->min('received_at') ?? (clone $qIssuance)->min('created_at');
+        $cmdIssuance = 'None';
+        if ($cntIssuance > 0) {
+            if ($commandId) {
+                $cmd = NisCommand::find($commandId);
+                $cmdIssuance = $cmd ? $cmd->name : "Command #{$commandId}";
+            } else {
+                try {
+                    $topDist = CardDistribution::whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])
+                        ->leftJoin('nis_commands', 'card_distributions.destination_command_id', '=', 'nis_commands.id')
+                        ->selectRaw("COALESCE(nis_commands.name, 'Command') as cmd_name, count(card_distributions.id) as cnt")
+                        ->groupByRaw('1')
+                        ->orderByDesc('cnt')
+                        ->first();
+                    $cmdIssuance = $topDist ? $topDist->cmd_name : 'Multiple Commands';
+                } catch (\Throwable) {
+                    $cmdIssuance = 'Multiple Commands';
+                }
+            }
+        }
+
+        return [
+            [
+                'stage' => 'Awaiting Vetting',
+                'pending_count' => $cntVetting,
+                'oldest_age' => $formatAge($oldestVetting),
+                'command' => $cmdVetting,
+                'view_url' => '/staff/queue',
+            ],
+            [
+                'stage' => 'Awaiting Biometrics',
+                'pending_count' => $cntBiometrics,
+                'oldest_age' => $formatAge($oldestBiometrics),
+                'command' => $cmdBiometrics,
+                'view_url' => '/staff/biometrics',
+            ],
+            [
+                'stage' => 'Awaiting Approval',
+                'pending_count' => $cntApproval,
+                'oldest_age' => $formatAge($oldestApproval),
+                'command' => $cmdApproval,
+                'view_url' => '/staff/approvals',
+            ],
+            [
+                'stage' => 'Awaiting Card Production',
+                'pending_count' => $cntProduction,
+                'oldest_age' => $formatAge($oldestProduction),
+                'command' => $cmdProduction,
+                'view_url' => '/staff/card-production',
+            ],
+            [
+                'stage' => 'Awaiting Dispatch',
+                'pending_count' => $cntDispatch,
+                'oldest_age' => $formatAge($oldestDispatch),
+                'command' => $cmdDispatch,
+                'view_url' => '/staff/card-distribution',
+            ],
+            [
+                'stage' => 'Awaiting Issuance',
+                'pending_count' => $cntIssuance,
+                'oldest_age' => $formatAge($oldestIssuance),
+                'command' => $cmdIssuance,
+                'view_url' => '/staff/card-issuance',
+            ],
+        ];
+    }
+
+    /**
+     * Preview of active Command performance for Super Admin and Headquarters Admin.
+     */
+    private function getCommandsPreview(): array
+    {
+        try {
+            return NisCommand::with('zone:id,name,code')
+                ->orderBy('code')
+                ->limit(8)
+                ->get()
+                ->map(function ($cmd, $index) {
+                    $appBase = Application::where(function ($q) use ($cmd) {
+                        $q->where('command_id', $cmd->id)
+                          ->orWhere('actual_enrollment_command', $cmd->name)
+                          ->orWhere('actual_enrollment_command', $cmd->code);
+                    });
+
+                    $totalApps = (clone $appBase)->where('status', '!=', ApplicationStatus::Draft)->count();
+                    $awaitingVetting = (clone $appBase)->where('status', ApplicationStatus::PendingApproval)->count();
+                    $awaitingApproval = (clone $appBase)->whereIn('status', [ApplicationStatus::BiometricsCaptured, ApplicationStatus::Vetted])->count();
+
+                    $cardsIssued = ResidenceCard::where(function ($q) use ($cmd) {
+                        $q->whereHas('application', fn ($aq) => $aq->where('command_id', $cmd->id))
+                          ->orWhere('enrollment_command', $cmd->name);
+                    })->whereIn('status', [CardStatus::Issued, CardStatus::Renewed])->count();
+
+                    $awaitingIssuance = CardDistribution::where('destination_command_id', $cmd->id)
+                        ->whereIn('status', [CardDistribution::STATUS_RECEIVED, CardDistribution::STATUS_AVAILABLE_FOR_ISSUANCE])
+                        ->count();
+
+                    return [
+                        'sn' => $index + 1,
+                        'id' => $cmd->id,
+                        'name' => $cmd->name,
+                        'state' => $cmd->state,
+                        'zone' => $cmd->zone?->name ?? 'Zone ' . ($cmd->zone?->code ?? '—'),
+                        'total_applications' => $totalApps,
+                        'awaiting_vetting' => $awaitingVetting,
+                        'awaiting_approval' => $awaitingApproval,
+                        'awaiting_issuance' => $awaitingIssuance,
+                        'cards_issued' => $cardsIssued,
+                        'view_url' => "/staff?command_id={$cmd->id}",
+                    ];
+                })
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard getCommandsPreview failed: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**

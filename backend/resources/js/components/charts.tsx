@@ -31,13 +31,15 @@ const MUTED = "#64748b";
 
 const compact = (n: number) => new Intl.NumberFormat("en-NG", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
-/** Round the axis maximum up to a clean number and give 4 ticks. */
-function niceTicks(max: number): number[] {
+/** Round the axis maximum up to a clean integer number and give whole integer ticks. */
+export function niceTicks(max: number): number[] {
   if (max <= 0) return [0, 1];
-  const rough = max / 4;
-  const pow = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= rough) ?? rough;
-  return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => Math.round(i * step * 100) / 100);
+  const rough = Math.max(1, Math.ceil(max / 4));
+  const pow = 10 ** Math.max(0, Math.floor(Math.log10(rough)));
+  const step = [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= rough) ?? rough;
+  const safeStep = Math.max(1, Math.ceil(step));
+  const count = Math.ceil(max / safeStep);
+  return Array.from({ length: Math.max(2, count + 1) }, (_, i) => i * safeStep);
 }
 
 export function ChartCard({
@@ -824,7 +826,7 @@ export function StateHorizontalBarChart({
   );
 }
 
-/** Top 5 States ranking chart with rank badges (1-5), progress bars, and tooltips. */
+/** Top 5 States horizontal bar chart ranking highest volume states with tooltips and percentages. */
 export function Top5StatesChart({
   items,
   data,
@@ -850,63 +852,71 @@ export function Top5StatesChart({
     return <p className="py-8 text-center text-sm text-slate-500">No state ranking data available yet.</p>;
   }
 
-  const badgeColors: Record<number, { bg: string; text: string; bar: string }> = {
-    1: { bg: "bg-amber-100 text-amber-800 border-amber-300", text: "text-amber-900", bar: "bg-[#2b892b]" },
-    2: { bg: "bg-slate-100 text-slate-700 border-slate-300", text: "text-slate-800", bar: "bg-[#349734]" },
-    3: { bg: "bg-orange-100 text-orange-800 border-orange-300", text: "text-orange-900", bar: "bg-[#3da53d]" },
-    4: { bg: "bg-slate-50 text-slate-600 border-slate-200", text: "text-slate-700", bar: "bg-[#48b348]" },
-    5: { bg: "bg-slate-50 text-slate-600 border-slate-200", text: "text-slate-700", bar: "bg-[#54c054]" },
-  };
-
   return (
-    <div className="space-y-4 py-1">
+    <div className="space-y-3 py-1">
       {list.map((item) => {
-        const badge = badgeColors[item.rank] || badgeColors[5];
+        const isLeader = item.rank === 1;
         const widthPct = Math.max(item.total ? 4 : 0, (item.total / max) * 100);
         const isHovered = hoveredRank === item.rank;
 
         return (
           <div
             key={`${item.rank}-${item.state}`}
-            className="group relative"
+            className={`group relative rounded-xl border p-2.5 transition-all ${
+              isLeader
+                ? "border-emerald-300 bg-emerald-50/40 shadow-xs"
+                : isHovered
+                ? "border-slate-300 bg-slate-50/80 shadow-xs"
+                : "border-slate-200/80 bg-white"
+            }`}
             onMouseEnter={() => setHoveredRank(item.rank)}
             onMouseLeave={() => setHoveredRank(null)}
           >
             <div className="mb-1.5 flex items-center justify-between gap-2 text-xs sm:text-sm">
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
-                  className={`inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full border text-[11px] sm:text-xs font-bold ${badge.bg}`}
+                  className={`inline-flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold ${
+                    isLeader
+                      ? "bg-emerald-700 text-white shadow-xs"
+                      : "bg-slate-200 text-slate-700"
+                  }`}
                 >
                   {item.rank}
                 </span>
-                <span className="truncate font-medium text-slate-800 text-sm">
+                <span className={`truncate text-sm ${isLeader ? "font-bold text-emerald-950" : "font-medium text-slate-800"}`}>
                   {item.state}
                 </span>
+                {isLeader && (
+                  <span className="hidden sm:inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-800">
+                    Leading State
+                  </span>
+                )}
               </div>
               <div className="flex items-baseline gap-1.5 shrink-0">
-                <span className="font-semibold tabular-nums text-slate-900 text-sm">
+                <span className="font-bold tabular-nums text-slate-900 text-sm">
                   {format(item.total)}
                 </span>
                 {item.percentage !== null && (
-                  <span className="text-xs text-slate-500 tabular-nums font-normal">
-                    ({item.percentage}%)
+                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 tabular-nums">
+                    {item.percentage}%
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="relative h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+            {/* Horizontal Bar */}
+            <div className="relative h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-300 ${badge.bar} ${
-                  isHovered ? "brightness-110" : ""
-                }`}
+                className={`h-full rounded-full transition-all duration-500 ease-out ${
+                  isLeader ? "bg-emerald-600" : "bg-emerald-700/80"
+                } ${isHovered ? "brightness-110" : ""}`}
                 style={{ width: `${widthPct}%` }}
               />
             </div>
 
             {isHovered && (
-              <div className="pointer-events-none absolute -top-7 right-0 z-20 rounded bg-slate-900 px-2 py-0.5 text-xs font-medium text-white shadow-md whitespace-nowrap">
-                Rank #{item.rank}: {item.state} ({format(item.total)} apps{item.percentage !== null ? ` · ${item.percentage}% of national` : ""})
+              <div className="pointer-events-none absolute -top-8 right-2 z-20 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white shadow-lg whitespace-nowrap">
+                Rank #{item.rank}: {item.state} — {format(item.total)} applications {item.percentage !== null ? `(${item.percentage}% nationwide)` : ""}
               </div>
             )}
           </div>
@@ -926,7 +936,12 @@ export type ProcessingStageItem = {
   description?: string;
 };
 
-/** Structured breakdown for Application Processing Overview reflecting all 8 approved operational stages */
+/**
+ * Professional horizontal grouped bar chart for Application Processing Overview across 8 operational stages.
+ * Y-axis = 8 stages.
+ * For each stage: 2 grouped horizontal bars (Green for New, Blue for Renewal).
+ * X-axis = application counts with integer ticks.
+ */
 export function ProcessingOverviewChart({
   stages,
   data,
@@ -945,93 +960,229 @@ export function ProcessingOverviewChart({
 }) {
   const tr = typeof t === "function" ? t : (k: string) => k;
   const [hoveredStage, setHoveredStage] = useState<number | null>(null);
+  const [ref, W] = useWidth(700);
+  const id = useId();
 
-  // If the 8 operational stages are supplied, render the complete nationwide workflow
+  // If the 8 operational stages are supplied, render the horizontal grouped bar chart
   if (stages && stages.length > 0) {
-    const max = Math.max(1, ...stages.map((s) => s.total));
+    const maxVal = Math.max(1, ...stages.flatMap((s) => [s.new, s.renewal]));
+    const ticks = niceTicks(maxVal);
+    const top = ticks[ticks.length - 1] || 1;
+
+    const numStages = stages.length;
+    const bandHeight = 44;
+    const pad = {
+      top: 16,
+      right: 32,
+      bottom: 32,
+      left: Math.min(220, Math.max(150, Math.round(W * 0.3))),
+    };
+    const chartHeight = pad.top + numStages * bandHeight + pad.bottom;
+    const iw = Math.max(100, W - pad.left - pad.right);
+    const ih = numStages * bandHeight;
+    const barHeight = 9;
+
+    const c1 = "#166534"; // Green for New Applications
+    const c2 = "#1e40af"; // Blue for Renewal Applications
 
     return (
-      <div className="space-y-3.5 py-1 text-xs">
-        {stages.map((stage) => {
-          const widthPct = Math.max(stage.total ? 4 : 0, Math.min(100, (stage.total / max) * 100));
-          const newPct = stage.total > 0 ? (stage.new / stage.total) * 100 : 0;
-          const renewalPct = stage.total > 0 ? (stage.renewal / stage.total) * 100 : 0;
-          const isHovered = hoveredStage === stage.stage_number;
-
-          return (
-            <div
-              key={stage.key}
-              className={`rounded-xl border p-3 transition-all ${
-                isHovered
-                  ? "border-emerald-300 bg-emerald-50/40 shadow-sm"
-                  : "border-slate-200/80 bg-slate-50/30 hover:bg-slate-50/60"
-              }`}
-              onMouseEnter={() => setHoveredStage(stage.stage_number)}
-              onMouseLeave={() => setHoveredStage(null)}
-            >
-              {/* Header: Stage Number, Label, and Total Count */}
-              <div className="flex items-center justify-between text-slate-700 mb-1.5 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
-                    {stage.stage_number}
-                  </span>
-                  <span className="font-semibold text-slate-900 text-xs sm:text-sm truncate">
-                    {tr(stage.label)}
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2 shrink-0">
-                  <span className="font-bold tabular-nums text-slate-900 text-sm sm:text-base">
-                    {stage.total.toLocaleString()}
-                  </span>
-                  <span className="text-[11px] text-slate-500 hidden sm:inline">
-                    {tr("apps")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Progress Bar (Stacked: New in Green, Renewal in Navy) */}
-              <div className="relative h-2.5 w-full rounded-full bg-slate-200/70 overflow-hidden flex">
-                <div
-                  className="h-full bg-[#2b892b] transition-all duration-500 ease-out"
-                  style={{ width: `${(widthPct * newPct) / 100}%` }}
-                  title={`${tr("New")}: ${stage.new.toLocaleString()}`}
+      <div ref={ref} className="relative select-none">
+        <svg
+          viewBox={`0 0 ${W} ${chartHeight}`}
+          className="h-auto w-full select-none"
+          role="img"
+          aria-label="Application Processing Overview"
+        >
+          {/* Vertical Gridlines & X-axis integer ticks */}
+          {ticks.map((tVal) => {
+            const x = pad.left + (tVal / top) * iw;
+            return (
+              <g key={`x-tick-${tVal}`}>
+                <line
+                  x1={x}
+                  x2={x}
+                  y1={pad.top}
+                  y2={pad.top + ih}
+                  stroke={tVal === 0 ? AXIS : GRID}
+                  strokeWidth={1}
+                  strokeDasharray={tVal === 0 ? undefined : "3 3"}
                 />
-                <div
-                  className="h-full bg-[#1e40af] transition-all duration-500 ease-out"
-                  style={{ width: `${(widthPct * renewalPct) / 100}%` }}
-                  title={`${tr("Renewal")}: ${stage.renewal.toLocaleString()}`}
-                />
-              </div>
+                <text
+                  x={x}
+                  y={pad.top + ih + 18}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fill={MUTED}
+                  className="tabular-nums font-mono"
+                >
+                  {tVal}
+                </text>
+              </g>
+            );
+          })}
 
-              {/* Breakdown Details & Subtitle */}
-              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
-                <span className="truncate max-w-[280px] sm:max-w-none text-slate-600">
-                  {stage.description ? tr(stage.description) : ""}
-                </span>
-                <div className="flex items-center gap-3 shrink-0 font-medium">
-                  <span className="text-[#2b892b] flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#2b892b]" />
-                    {stage.new.toLocaleString()} {tr("New")}
-                  </span>
-                  <span className="text-[#1e40af] flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#1e40af]" />
-                    {stage.renewal.toLocaleString()} {tr("Renewal")}
-                  </span>
+          {/* 8 Stages Rows */}
+          {stages.map((stage, i) => {
+            const by = pad.top + i * bandHeight;
+            const w1 = top > 0 ? (stage.new / top) * iw : 0;
+            const w2 = top > 0 ? (stage.renewal / top) * iw : 0;
+            const isHovered = hoveredStage === stage.stage_number;
+
+            const y1 = by + bandHeight / 2 - barHeight - 1.5;
+            const y2 = by + bandHeight / 2 + 1.5;
+
+            return (
+              <g
+                key={stage.key}
+                onPointerEnter={() => setHoveredStage(stage.stage_number)}
+                onPointerLeave={() => setHoveredStage(null)}
+                className="cursor-pointer outline-none"
+                tabIndex={0}
+              >
+                {/* Background band highlight on hover */}
+                {isHovered && (
+                  <rect
+                    x={0}
+                    y={by}
+                    width={W}
+                    height={bandHeight}
+                    fill="#f0fdf4"
+                    opacity={0.8}
+                    rx={6}
+                  />
+                )}
+
+                {/* Stage Label on Y-axis */}
+                <text
+                  x={pad.left - 10}
+                  y={by + bandHeight / 2 + 4}
+                  textAnchor="end"
+                  fontSize={12}
+                  fontWeight={isHovered ? 700 : 500}
+                  fill={isHovered ? "#0f172a" : "#334155"}
+                >
+                  {`${stage.stage_number}. ${tr(stage.label)}`}
+                </text>
+
+                {/* Series 1 Horizontal Bar (New - Green) */}
+                {stage.new > 0 ? (
+                  <rect
+                    x={pad.left}
+                    y={y1}
+                    width={Math.max(3, w1)}
+                    height={barHeight}
+                    rx={3}
+                    fill={c1}
+                    opacity={hoveredStage === null || isHovered ? 1 : 0.6}
+                    className="transition-all duration-300"
+                  />
+                ) : (
+                  <line
+                    x1={pad.left}
+                    x2={pad.left + 2}
+                    y1={y1}
+                    y2={y1 + barHeight}
+                    stroke={c1}
+                    strokeWidth={2}
+                    opacity={0.3}
+                  />
+                )}
+                {stage.new > 0 && (
+                  <text
+                    x={pad.left + w1 + 6}
+                    y={y1 + barHeight - 1}
+                    fontSize={10}
+                    fontWeight={600}
+                    fill="#166534"
+                    className="tabular-nums font-mono"
+                  >
+                    {stage.new}
+                  </text>
+                )}
+
+                {/* Series 2 Horizontal Bar (Renewal - Blue) */}
+                {stage.renewal > 0 ? (
+                  <rect
+                    x={pad.left}
+                    y={y2}
+                    width={Math.max(3, w2)}
+                    height={barHeight}
+                    rx={3}
+                    fill={c2}
+                    opacity={hoveredStage === null || isHovered ? 1 : 0.6}
+                    className="transition-all duration-300"
+                  />
+                ) : (
+                  <line
+                    x1={pad.left}
+                    x2={pad.left + 2}
+                    y1={y2}
+                    y2={y2 + barHeight}
+                    stroke={c2}
+                    strokeWidth={2}
+                    opacity={0.3}
+                  />
+                )}
+                {stage.renewal > 0 && (
+                  <text
+                    x={pad.left + w2 + 6}
+                    y={y2 + barHeight - 1}
+                    fontSize={10}
+                    fontWeight={600}
+                    fill="#1e40af"
+                    className="tabular-nums font-mono"
+                  >
+                    {stage.renewal}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Floating Tooltip */}
+        {hoveredStage !== null && (
+          (() => {
+            const stage = stages.find((s) => s.stage_number === hoveredStage);
+            if (!stage) return null;
+            const stageIdx = stages.findIndex((s) => s.stage_number === hoveredStage);
+            const tooltipY = pad.top + stageIdx * bandHeight;
+            return (
+              <Tooltip x={pad.left + iw * 0.45} y={tooltipY} width={W}>
+                <div className="mb-1 font-bold text-slate-900 text-xs sm:text-sm">
+                  {`Stage ${stage.stage_number}: ${tr(stage.label)}`}
                 </div>
-              </div>
-            </div>
-          );
-        })}
+                {stage.description && (
+                  <p className="mb-2 text-[11px] text-slate-500 max-w-xs">{tr(stage.description)}</p>
+                )}
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c1 }} />
+                  <span className="text-slate-600">{tr("New Applications")}:</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{stage.new.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs mt-0.5">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: c2 }} />
+                  <span className="text-slate-600">{tr("Renewal Applications")}:</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{stage.renewal.toLocaleString()}</span>
+                </div>
+                <div className="mt-1.5 pt-1 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-900">
+                  <span>{tr("Stage Total")}:</span>
+                  <span className="tabular-nums">{stage.total.toLocaleString()}</span>
+                </div>
+              </Tooltip>
+            );
+          })()
+        )}
 
-        {/* Legend */}
-        <div className="flex items-center justify-end gap-4 pt-1 text-[11px] text-slate-500">
+        {/* Compact Legend */}
+        <div className="mt-3 flex items-center justify-end gap-5 text-xs text-slate-600 border-t border-slate-100 pt-2.5">
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#2b892b]" />
-            <span>{tr("New Applications")}</span>
+            <span className="h-2.5 w-2.5 rounded-xs" style={{ background: c1 }} />
+            <span className="font-medium text-slate-700">{tr("New Applications")}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#1e40af]" />
-            <span>{tr("Renewal Applications")}</span>
+            <span className="h-2.5 w-2.5 rounded-xs" style={{ background: c2 }} />
+            <span className="font-medium text-slate-700">{tr("Renewal Applications")}</span>
           </div>
         </div>
       </div>

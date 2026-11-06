@@ -108,6 +108,30 @@ type Analytics = {
   mix: { type: Record<string, number>; channel: Record<string, number>; sex: Record<string, number> };
   appointments: { date: string; total: number }[];
   recent_activity?: RecentActivityItem[];
+  available_years?: string[];
+  selected_year?: string;
+};
+
+type BacklogSummaryItem = {
+  stage: string;
+  pending_count: number;
+  oldest_age: string;
+  command: string;
+  view_url: string;
+};
+
+type CommandPreviewItem = {
+  sn: number;
+  id: number;
+  name: string;
+  state: string;
+  zone: string;
+  total_applications: number;
+  awaiting_vetting: number;
+  awaiting_approval: number;
+  awaiting_issuance: number;
+  cards_issued: number;
+  view_url: string;
 };
 
 type RoleData = {
@@ -244,6 +268,8 @@ type Summary = {
   top5_states?: TopStateItem[];
   processing_overview?: ProcessingOverview;
   processing_stages?: ProcessingStageItem[];
+  backlog_summary?: BacklogSummaryItem[];
+  commands_preview?: CommandPreviewItem[];
   todays_appointments: number;
   sla: { target_working_days: number; overdue: number; assigned_to_me: number };
   card_stock: { remaining: number; low: boolean };
@@ -302,12 +328,15 @@ export default function StaffDashboard() {
   const [s, setS] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string>("latest_12");
 
-  const fetchDashboardData = (isRefresh = false) => {
+  const fetchDashboardData = (isRefresh = false, year?: string) => {
     setLoading(true);
     setError(null);
+    const yr = year !== undefined ? year : selectedYear;
     const params = new URLSearchParams();
     if (isRefresh) params.set("refresh", "1");
+    if (yr && yr !== "latest_12") params.set("year", yr);
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
       const cmdId = sp.get("command_id");
@@ -326,6 +355,11 @@ export default function StaffDashboard() {
       .finally(() => {
         setLoading(false);
       });
+  };
+
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year);
+    fetchDashboardData(true, year);
   };
 
   useEffect(() => {
@@ -370,7 +404,7 @@ export default function StaffDashboard() {
   const isAuditor = role === "ReportingAuditOfficer" || role === "Auditor";
 
   // Dedicated role-specific view dispatch
-  if (isCommandAdmin) return renderCommandAdminDashboard(s, user, t, loading, fetchDashboardData);
+  if (isCommandAdmin) return renderCommandAdminDashboard(s, user, t, loading, fetchDashboardData, selectedYear, handleYearChange);
   if (isVetting) return renderVettingOfficerDashboard(s, user, t, loading, fetchDashboardData);
   if (isApprover) return renderApprovingOfficerDashboard(s, user, t, loading, fetchDashboardData);
   if (isBiometrics) return renderBiometricsOfficerDashboard(s, user, t, loading, fetchDashboardData);
@@ -382,7 +416,7 @@ export default function StaffDashboard() {
   if (isAuditor) return renderAuditOfficerDashboard(s, user, t, loading, fetchDashboardData);
 
   // Default: General Admin Dashboard (Preserved for Super Administrator, HQ Administrator & Admin)
-  return renderGeneralAdminDashboard(s, user, t, loading, fetchDashboardData, error);
+  return renderGeneralAdminDashboard(s, user, t, loading, fetchDashboardData, error, selectedYear, handleYearChange);
 }
 
 // ==========================================
@@ -1353,7 +1387,15 @@ function renderZonalAdminDashboard(s: Summary, user: StaffUser, t: (k: string) =
 // ==========================================
 // 9. COMMAND ADMINISTRATOR DASHBOARD
 // ==========================================
-function renderCommandAdminDashboard(s: Summary, user: StaffUser, t: (k: string) => string, loading: boolean, refresh: (b: boolean) => void) {
+function renderCommandAdminDashboard(
+  s: Summary,
+  user: StaffUser,
+  t: (k: string) => string,
+  loading: boolean,
+  refresh: (b: boolean, year?: string) => void,
+  selectedYear: string = "latest_12",
+  onYearChange?: (year: string) => void
+) {
   const stats = s.role_data?.stats || {};
   const recentApps = s.role_data?.recent_applications || [];
   const a = s.analytics || ({} as Analytics);
@@ -1538,13 +1580,30 @@ function renderCommandAdminDashboard(s: Summary, user: StaffUser, t: (k: string)
       <ChartCard
         title={t("Applications Submitted Per Month")}
         subtitle={t("12-month historical intake for this Command (New vs Renewal)")}
-        footer={
-          <Legend
-            items={[
-              { label: t("New Applications"), color: SERIES.primary },
-              { label: t("Renewal Applications"), color: SERIES.navy },
-            ]}
-          />
+        legend={
+          <div className="flex flex-wrap items-center gap-3">
+            {Array.isArray(a.available_years) && a.available_years.length > 0 && onYearChange && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="font-medium text-slate-700">{t("Year")}:</span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => onYearChange(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs focus:border-nis-primary focus:outline-hidden"
+                >
+                  <option value="latest_12">{t("Last 12 Months")}</option>
+                  {a.available_years.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Legend
+              items={[
+                { label: t("New Applications"), color: SERIES.primary },
+                { label: t("Renewal Applications"), color: SERIES.navy },
+              ]}
+            />
+          </div>
         }
       >
         <div className="py-2">
@@ -1646,6 +1705,68 @@ function renderCommandAdminDashboard(s: Summary, user: StaffUser, t: (k: string)
           />
         </div>
       </ChartCard>
+
+      {/* Processing Backlog Summary for Command */}
+      {Array.isArray(s.backlog_summary) && s.backlog_summary.length > 0 && (
+        <Panel
+          title={t("Processing Backlog Summary")}
+          action={
+            <span className="text-xs font-normal text-slate-500">
+              {t("Pending operational work at {command}", { command: commandName })}
+            </span>
+          }
+        >
+          <div className="overflow-x-auto -mx-5 -my-4">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="pl-5 py-3">{t("Operational Stage")}</th>
+                  <th className="px-4 py-3 text-center">{t("Pending Applications")}</th>
+                  <th className="px-4 py-3">{t("Oldest Pending Age")}</th>
+                  <th className="px-4 py-3">{t("Processing Unit")}</th>
+                  <th className="pr-5 py-3 text-right">{t("Action")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {s.backlog_summary.map((row) => (
+                  <tr key={row.stage} className="hover:bg-slate-50/70 transition">
+                    <td className="pl-5 py-3 font-medium text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${row.pending_count > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                        <span>{t(row.stage)}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${
+                        row.pending_count > 0 ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {row.pending_count.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                      {row.pending_count > 0 ? row.oldest_age : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      {row.command}
+                    </td>
+                    <td className="pr-5 py-3 text-right">
+                      <Link
+                        href={row.view_url}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary hover:text-nis-primary-dark hover:underline"
+                      >
+                        {t("View Queue")}
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
 
       {/* Recent Applications Originating from Command */}
       <Panel title={t("Recent Applications Originating from Command")}>
@@ -1822,8 +1943,10 @@ function renderGeneralAdminDashboard(
   user: StaffUser,
   t: (k: string) => string,
   loading: boolean,
-  fetchDashboardData: (b: boolean) => void,
-  error: string | null
+  fetchDashboardData: (b: boolean, year?: string) => void,
+  error: string | null,
+  selectedYear: string = "latest_12",
+  onYearChange?: (year: string) => void
 ) {
   const a = s.analytics;
   const totals = a.totals ?? {
@@ -2018,13 +2141,30 @@ function renderGeneralAdminDashboard(
       <ChartCard
         title={t("Applications Submitted Per Month")}
         subtitle={t("12-month historical intake across online and assisted enrollment channels")}
-        footer={
-          <Legend
-            items={[
-              { label: t("New Applications"), color: SERIES.primary },
-              { label: t("Renewal Applications"), color: SERIES.navy },
-            ]}
-          />
+        legend={
+          <div className="flex flex-wrap items-center gap-3">
+            {Array.isArray(a.available_years) && a.available_years.length > 0 && onYearChange && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="font-medium text-slate-700">{t("Year")}:</span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => onYearChange(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-2xs focus:border-nis-primary focus:outline-hidden"
+                >
+                  <option value="latest_12">{t("Last 12 Months")}</option>
+                  {a.available_years.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Legend
+              items={[
+                { label: t("New Applications"), color: SERIES.primary },
+                { label: t("Renewal Applications"), color: SERIES.navy },
+              ]}
+            />
+          </div>
         }
       >
         <div className="py-2">
@@ -2108,6 +2248,126 @@ function renderGeneralAdminDashboard(
           </div>
         </ChartCard>
       </div>
+
+      {/* Feature C: Processing Backlog Summary */}
+      {Array.isArray(s.backlog_summary) && s.backlog_summary.length > 0 && (
+        <Panel
+          title={t("Processing Backlog Summary")}
+          action={
+            <span className="text-xs font-normal text-slate-500">
+              {t("Real-time operational aging and command bottlenecks")}
+            </span>
+          }
+        >
+          <div className="overflow-x-auto -mx-5 -my-4">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="pl-5 py-3">{t("Operational Stage")}</th>
+                  <th className="px-4 py-3 text-center">{t("Pending Applications")}</th>
+                  <th className="px-4 py-3">{t("Oldest Pending Age")}</th>
+                  <th className="px-4 py-3">{t("Command with Pending Work")}</th>
+                  <th className="pr-5 py-3 text-right">{t("Action")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {s.backlog_summary.map((row) => (
+                  <tr key={row.stage} className="hover:bg-slate-50/70 transition">
+                    <td className="pl-5 py-3 font-medium text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${row.pending_count > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                        <span>{t(row.stage)}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${
+                        row.pending_count > 0 ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {row.pending_count.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                      {row.pending_count > 0 ? row.oldest_age : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      {row.command}
+                    </td>
+                    <td className="pr-5 py-3 text-right">
+                      <Link
+                        href={row.view_url}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-nis-primary hover:text-nis-primary-dark hover:underline"
+                      >
+                        {t("View Queue")}
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
+
+      {/* Feature D: Command Performance Overview (Preview for Super Admin & HQ Admin with Drilldown & View All) */}
+      {(isSuperAdmin || isHqAdmin) && Array.isArray(s.commands_preview) && s.commands_preview.length > 0 && (
+        <Panel
+          title={t("Command Performance Overview")}
+          action={
+            <Link
+              href="/staff/commands"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+            >
+              <span>{t("View All Commands")}</span>
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </Link>
+          }
+        >
+          <div className="overflow-x-auto -mx-5 -my-4">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="pl-5 py-3 w-10">S/N</th>
+                  <th className="px-3 py-3">{t("Zone")}</th>
+                  <th className="px-3 py-3">{t("Command")}</th>
+                  <th className="px-3 py-3 text-center">{t("Total Apps")}</th>
+                  <th className="px-3 py-3 text-center">{t("Awaiting Vetting")}</th>
+                  <th className="px-3 py-3 text-center">{t("Awaiting Approval")}</th>
+                  <th className="px-3 py-3 text-center">{t("Awaiting Issuance")}</th>
+                  <th className="px-3 py-3 text-center">{t("Cards Issued")}</th>
+                  <th className="pr-5 py-3 text-right">{t("Action")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {s.commands_preview.map((cmd) => (
+                  <tr key={cmd.id} className="hover:bg-slate-50/70 transition">
+                    <td className="pl-5 py-3 font-mono text-slate-400">{cmd.sn}</td>
+                    <td className="px-3 py-3 text-slate-600">{cmd.zone}</td>
+                    <td className="px-3 py-3 font-semibold text-slate-900">{cmd.name}</td>
+                    <td className="px-3 py-3 text-center font-bold tabular-nums text-slate-900">{cmd.total_applications}</td>
+                    <td className="px-3 py-3 text-center tabular-nums text-slate-700">{cmd.awaiting_vetting}</td>
+                    <td className="px-3 py-3 text-center tabular-nums text-slate-700">{cmd.awaiting_approval}</td>
+                    <td className="px-3 py-3 text-center tabular-nums text-slate-700">{cmd.awaiting_issuance}</td>
+                    <td className="px-3 py-3 text-center tabular-nums font-semibold text-emerald-800">{cmd.cards_issued}</td>
+                    <td className="pr-5 py-3 text-right">
+                      <Link
+                        href={cmd.view_url}
+                        className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
+                      >
+                        {t("View Details")}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
 
       {/* Feature E: Recent Operational Activity */}
       {Array.isArray(a.recent_activity) && a.recent_activity.length > 0 && (
